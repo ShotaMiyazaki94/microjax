@@ -1,10 +1,8 @@
 import jax.numpy as jnp
-from . import fftlog_jax
-from microjax.fastlens.gamma_jax import gamma_jax as gamma
-#from jax.scipy.special import gamma
-from .special import j0, j1, jn
-from .special import ellipk, ellipe
-from jax import jit
+from microjax.fastlens.fftlog_jax import fftlog, hankel
+from microjax.fastlens.special import gamma, j0, j1, j2, j1p5
+from microjax.fastlens.special import ellipk, ellipe
+from jax import jit, lax, vmap
 
 
 def A_point(u):
@@ -44,7 +42,7 @@ class magnification:
         """
         u = jnp.logspace(self.fft_logumin, self.fft_logumax, self.N_fft)
         u2Au = ((u**2 + 2.0) / (u**2 + 4.0)**0.5 / u - 1) * u**2
-        h = fftlog_jax.hankel(u, u2Au, nu=1.5, N_extrap_high=512, N_extrap_low=512)
+        h = hankel(u, u2Au, nu=1.5, N_extrap_high=512, N_extrap_low=512)
         self.k, apk = h.hankel(0)
         self.apk = apk * 2 * jnp.pi
 
@@ -55,7 +53,7 @@ class magnification:
         x = jnp.logspace(-5, 5, 1024)
         dump = jnp.exp(-(x / 100)**2)
         fx = x * self.sk(x, 1) * dump
-        h = fftlog_jax.hankel(x, fx, nu=1.5, N_pad=1024)
+        h = hankel(x, fx, nu=1.5, N_pad=1024)
         u, aext0 = h.hankel(0)
         self.Aext0 = lambda x: jnp.interp(x, u, aext0)
 
@@ -101,7 +99,7 @@ class magnification:
         # Fourier counter part of extended-source magnification
         cj = self.apk * self.k**2 * self.sk(self.k, rho) * dump
         # Hankel back the extended-source magnification
-        h = fftlog_jax.hankel(self.k, cj, nu=1.5, N_pad=512)
+        h = hankel(self.k, cj, nu=1.5, N_pad=512)
         u_fft, a_fft = h.hankel(0)
         a_fft = a_fft / 2 / jnp.pi
         a_fft = a_fft + 1
@@ -154,7 +152,9 @@ class magnification_limb(magnification):
         nu = 1 + self.n_limb / 2
         a = jnp.ones(x.shape) * 1.0 / (self.n_limb + 2)
         idx = x > 0
+
         a = a.at[idx].set(2**nu * gamma(nu) * jn(nu, x[idx]) / x[idx]**nu * nu)
+        #a = a.at[idx].set(2**nu * gamma(nu) * jn(nu, x[idx]) / x[idx]**nu * nu)
         return a
 
     def A0(self, rho):
