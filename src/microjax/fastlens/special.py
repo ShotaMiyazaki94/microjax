@@ -3,7 +3,7 @@ from jax import jit , lax, vmap
 from functools import partial
 #from microjax.fastlens.gamma_jax import gamma_jax as gamma
 
-__all__ = ["gamma","ellipk","ellipe","j0","j1"]
+__all__ = ["gamma","ellipk","ellipe","j0","j1","j2","j1p5"]
 
 def gamma_(z):
     """
