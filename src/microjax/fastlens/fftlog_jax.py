@@ -1,8 +1,7 @@
 import jax.numpy as jnp
 from jax.numpy.fft import rfft, irfft
 from jax import jit
-#from jax.scipy.special import gamma
-from microjax.fastlens.gamma_jax import gamma_jax as gamma
+from microjax.fastlens.special import gamma
 
 class fftlog(object):
     def __init__(self, x, fx, nu=1.1, N_extrap_low=0, N_extrap_high=0, c_window_width=0.25, N_pad=0):
