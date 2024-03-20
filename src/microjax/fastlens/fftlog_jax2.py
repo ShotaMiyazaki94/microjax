@@ -6,7 +6,7 @@ from jax import jit, vmap, lax
 from functools import partial
 
 ### Utility functions ####################
-@partial(jit, static_argnums=(1,2))
+#@partial(jit, static_argnums=(1,2))
 def log_extrap(x, N_extrap_low, N_extrap_high):
     if x.size < 2:
         raise ValueError("x must have at least 2 elements")
@@ -22,7 +22,7 @@ def log_extrap(x, N_extrap_low, N_extrap_high):
     x_extrap = jnp.concatenate((low_x, x, high_x))
     return x_extrap
 
-@partial(jit, static_argnums=(1,))
+#@partial(jit, static_argnums=(1,))
 def c_window(n, n_cut):
     n_right = n[-1] - n_cut
     n_r = n[n > n_right]
