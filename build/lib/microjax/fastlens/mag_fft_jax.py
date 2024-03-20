@@ -76,12 +76,11 @@ class magnification:
         # Assign approximated solution: Eq. (13)
         a = jnp.ones(u.shape)
         idx = u < self.u_switch * rho
-        x = u[idx] / rho
-        val = self.Aext0(x) / rho + 1
-        a = a.at[idx].set(val)
+        x = jnp.where(idx, u / rho, jnp.ones_like(u))
+        val = jnp.where(idx, self.Aext0(x) / rho + 1, jnp.ones_like(u))
         # Assign approximated solution: point-source magnification
-        idx = u >= self.u_switch * rho
-        a = a.at[idx].set(A_point(u[idx]))
+        a = jnp.where(idx, val, a)
+        a = jnp.where(~idx, A_point(u), a)
         return a
 
     def _A_for_large_rho(self, u, rho):
@@ -104,14 +103,18 @@ class magnification:
         a_fft = a_fft / 2 / jnp.pi
         a_fft = a_fft + 1
         # Truncate the result u>100 and append A(u=100)=1
-        idx = u_fft < 100
-        u_fft = jnp.hstack([u_fft[idx], 100])
-        a_fft = jnp.hstack([a_fft[idx], 1])
+        max_u_fft = 100
+        idx = u_fft < max_u_fft
+        u_fft_truncated = jnp.where(idx, u_fft, max_u_fft)
+        a_fft_truncated = jnp.where(idx, a_fft, 1)
+        #u_fft = jnp.hstack([u_fft[idx], 100])
+        #a_fft = jnp.hstack([a_fft[idx], 1])
         a = jnp.ones(u.shape) * self.A0(rho)
         idx = u > 0
 
         # Assign values
-        a = a.at[idx].set(jnp.interp(jnp.log10(u[idx]), jnp.log10(u_fft), a_fft, right=1))
+        a = a.at[idx].set(jnp.interp(jnp.log10(u[idx]), jnp.log10(u_fft_truncated), a_fft_truncated, right=1))
+        #a = a.at[idx].set(jnp.interp(jnp.log10(u[idx]), jnp.log10(u_fft), a_fft, right=1))
         return a
 
     def A(self, u, rho):
@@ -124,12 +127,33 @@ class magnification:
             a   (float): magnification for extended-source profile.
         """
         u = jnp.atleast_1d(jnp.abs(u))
+
+        def small():
+            return self._A_for_small_rho(u, rho)
+        def large():
+           return self._A_for_large_rho(u, rho) 
+        return lax.cond(rho < self.rho_switch, 
+                        small,
+                        large) 
+        """
         if rho < self.rho_switch:
             return self._A_for_small_rho(u, rho)
         else:
             return self._A_for_large_rho(u, rho)
+        """
 
 class magnification_disk(magnification):
+    def sk(self, k, rho):
+        k = jnp.atleast_1d(k)
+        x = k * rho
+        idx = x > 0
+        a = jnp.where(idx, 2 * j1(x) / x, jnp.ones_like(x))
+        return a
+
+    def A0(self, rho):
+        return (rho**2 + 4)**0.5 / rho
+
+class _magnification_disk(magnification):
     def sk(self, k, rho):
         k = jnp.atleast_1d(k)
         x = k * rho

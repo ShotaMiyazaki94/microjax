@@ -9,6 +9,7 @@ src/microjax.egg-info/top_level.txt
 src/microjax/fastlens/__init__.py
 src/microjax/fastlens/fftlog.py
 src/microjax/fastlens/fftlog_jax.py
+src/microjax/fastlens/fftlog_jax2.py
 src/microjax/fastlens/mag_fft.py
 src/microjax/fastlens/mag_fft_jax.py
 src/microjax/fastlens/special.py

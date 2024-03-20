@@ -136,10 +136,15 @@ def c_window(n,n_cut):
     Adapted from Eq.(C1) in McEwen et al. (2016), arXiv:1603.04826
     """
     n_right = n[-1] - n_cut
-    n_r=n[ n[:]  > n_right ] 
-    theta_right=(n[-1]-n_r)/float(n[-1]-n_right-1) 
-    W=jnp.ones(n.size)
-    W=W.at[n[:] > n_right].set(theta_right - 1/(2*jnp.pi)*jnp.sin(2*jnp.pi*theta_right))
+    idx = n > n_right
+    theta_right = (n[-1] - n) / (n[-1] - n_right - 1).astype(float)
+    #theta_right = (n[-1] - n) / float(n[-1] - n_right - 1)
+    W = jnp.where(idx, theta_right - 1 / (2 * jnp.pi) * jnp.sin(2 * jnp.pi * theta_right), jnp.ones_like(n))
+    #n_right = n[-1] - n_cut
+    #n_r=n[ n[:]  > n_right ] 
+    #theta_right=(n[-1]-n_r)/float(n[-1]-n_right-1) 
+    #W=jnp.ones(n.size)
+    #W=W.at[n[:] > n_right].set(theta_right - 1/(2*jnp.pi)*jnp.sin(2*jnp.pi*theta_right))
     return W
 
 def g_m_vals(mu, q):
@@ -152,8 +157,8 @@ def g_m_vals(mu, q):
     q = (alpha+) - (alpha-)
     switching to asymptotic form when |Im(q)| + |mu| > cut = 200
     '''
-    if mu + 1 + q.real[0] == 0:
-        raise ValueError("gamma(0) encountered. Please change another nu value! Try nu=1.1.")
+    #if mu + 1 + q.real[0] == 0:
+    #    raise ValueError("gamma(0) encountered. Please change another nu value! Try nu=1.1.")
     imag_q = jnp.imag(q)
     g_m = jnp.zeros(q.size, dtype=complex)
     cut = 200 
@@ -163,18 +168,19 @@ def g_m_vals(mu, q):
     q_good = q[(jnp.abs(imag_q) + jnp.abs(mu) <= cut) & (q != mu + 1 + 0.0j)]
     alpha_plus = (mu + 1 + q_good) / 2.
     alpha_minus = (mu + 1 - q_good) / 2.
-    idx = (jnp.abs(imag_q) + jnp.abs(mu) <= cut) & (q != mu + 1 + 0.0j)
-
-    g_m = g_m.at[idx].set(gamma(alpha_plus) / gamma(alpha_minus))
+    g_m_good = gamma(alpha_plus) / gamma(alpha_minus)
+    #idx = (jnp.abs(imag_q) + jnp.abs(mu) <= cut) & (q != mu + 1 + 0.0j)
+    #g_m = g_m.at[idx].set(gamma(alpha_plus) / gamma(alpha_minus))
 
     # Asymptotic form
-    idx = jnp.where(jnp.abs(imag_q) + jnp.abs(mu) > cut)
+    #idx = jnp.where(jnp.abs(imag_q) + jnp.abs(mu) > cut)
     exp_term1 = (asym_plus - 0.5) * jnp.log(asym_plus) - (asym_minus - 0.5) * jnp.log(asym_minus) - asym_q
     exp_term2 = 1. / 12 * (1. / asym_plus - 1. / asym_minus)
     exp_term3 = 1. / 360 * (1. / asym_minus ** 3 - 1. / asym_plus ** 3)
     exp_term4 = 1. / 1260 * (1. / asym_plus ** 5 - 1. / asym_minus ** 5)
-    g_m = g_m.at[idx].set(jnp.exp(exp_term1 + exp_term2 + exp_term3 + exp_term4))
-    g_m = g_m.at[q == mu + 1 + 0.0j].set(0. + 0.0j)
+    g_m_asym = jnp.exp(exp_term1 + exp_term2 + exp_term3 + exp_term4)
+    g_m = jnp.where(jnp.abs(imag_q) + jnp.abs(mu) <= cut,
+                    jnp.where(q != mu + 1 + 0.0j, g_m_good, 0.0), g_m_asym)
     return g_m
 
 def g_m_ratio(a):
