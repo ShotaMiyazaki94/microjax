@@ -1,7 +1,7 @@
 import numpy as np
 import jax.numpy as jnp
 from microjax.fastlens.fftlog import fftlog as fftlog_np, hankel as hankel_np, log_extrap as log_extrap_np, c_window as c_window_np, g_m_vals as g_m_vals_np, g_m_ratio as g_m_ratio_np, g_l as g_l_np, g_l_1 as g_l_1_np, g_l_2 as g_l_2_np, h_l as h_l_np
-from microjax.fastlens.fftlog_jax import fftlog as fftlog_jax, hankel as hankel_jax, log_extrap as log_extrap_jax, c_window as c_window_jax, g_m_vals as g_m_vals_jax, g_m_ratio as g_m_ratio_jax, g_l as g_l_jax, g_l_1 as g_l_1_jax, g_l_2 as g_l_2_jax, h_l as h_l_jax
+from microjax.fastlens.fftlog_jax2 import fftlog as fftlog_jax, hankel as hankel_jax, log_extrap as log_extrap_jax, c_window as c_window_jax, g_m_vals as g_m_vals_jax, g_m_ratio as g_m_ratio_jax, g_l as g_l_jax, g_l_1 as g_l_1_jax, g_l_2 as g_l_2_jax, h_l as h_l_jax
 import jax
 jax.config.update("jax_enable_x64", True)
 
@@ -70,7 +70,7 @@ h_l_np_result = h_l_np(ell, z_array)
 h_l_jax_result = h_l_jax(ell, z_array_jax)
 
 # Print results
-atol = 1e-12
+atol = 1e-14
 print("log_extrap results are close:", np.allclose(log_extrap_np_result, log_extrap_jax_result, atol=atol))
 print("c_window results are close:", np.allclose(c_window_np_result, c_window_jax_result, atol=atol))
 print("g_m_vals results are close:", np.allclose(g_m_vals_np_result, g_m_vals_jax_result, atol=atol))

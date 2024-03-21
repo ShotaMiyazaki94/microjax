@@ -9,7 +9,7 @@ src/microjax.egg-info/top_level.txt
 src/microjax/fastlens/__init__.py
 src/microjax/fastlens/fftlog.py
 src/microjax/fastlens/fftlog_jax.py
-src/microjax/fastlens/fftlog_jax2.py
+src/microjax/fastlens/fftlog_jax_old.py
 src/microjax/fastlens/mag_fft.py
 src/microjax/fastlens/mag_fft_jax.py
 src/microjax/fastlens/special.py
@@ -20,7 +20,9 @@ src/microjax/fastlens/__pycache__/special.cpython-310.pyc
 tests/Pk_test
 tests/test_fftlog.py
 tests/test_fftlog_jax.py
+tests/test_fftlog_jax2.py
 tests/test_magfft.py
+tests/test_magfft_jax.py
 tests/test_special.py
 tests/tmp.py
 tests/__pycache__/test_fastlens.cpython-310-pytest-7.4.3.pyc
