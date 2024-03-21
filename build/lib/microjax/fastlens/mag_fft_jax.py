@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 from microjax.fastlens.fftlog_jax import fftlog, hankel
 from microjax.fastlens.special import gamma, j0, j1, j2, j1p5
-from microjax.fastlens.special import ellipk, ellipe
+from microjax.fastlens.special import ellipk, ellipe, ellipk_, ellipe_
 from jax import jit, lax, vmap
 
 
@@ -143,29 +143,25 @@ class magnification_disk(magnification):
     def A0(self, rho):
         return (rho**2 + 4)**0.5 / rho
 
-class magnification_limb(magnification):
-    def __init__(self, n_limb, **kwargs):
-        self.n_limb = n_limb
+class magnification_limb1(magnification):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def sk(self, k, rho):
         k = jnp.atleast_1d(k)
         x = k * rho
-        nu = 1 + self.n_limb / 2
-        a = jnp.ones(x.shape) * 1.0 / (self.n_limb + 2)
-        idx = x > 0 
-
-        a = a.at[idx].set(2**nu * gamma(nu) * jn(nu, x[idx]) / x[idx]**nu * nu)
-        #a = a.at[idx].set(2**nu * gamma(nu) * jn(nu, x[idx]) / x[idx]**nu * nu)
+        nu = 1.5
+        a_base = jnp.ones(x.shape)*1.0 / (1 + 2)
+        a = jnp.where(x > 0, 2**nu * gamma(nu) * j1p5(x) / x**nu * nu, a_base)
         return a
 
     def A0(self, rho):
-        def case1(_):
-            return (2 + 1) * (2 * (rho**2 + 2) * ellipe(-rho**2 / 4) - (rho**2 + 4) * ellipk(-rho**2 / 4)) / 3.0 / rho**3
-        def case2(_):
-            return (2 + 2) * (rho * (2 + rho**2) * (4 + rho**2)**0.5 - 8 * jnp.arcsinh(rho / 2)) / 4 / rho**4
-        return lax.cond(self.n_limb == 1, case1, case2, None)
-
+        a1 = ellipe(-rho**2 / 4)
+        print("ellipe:",a1)
+        a1 = ellipk(-rho**2 / 4)
+        print("ellipk:",a1)
+        #a1 = (2 + 1) * (2 * (rho**2 + 2) * ellipe(-rho**2 / 4) - (rho**2 + 4) * ellipk(-rho**2 / 4)) / 3.0 / rho**3
+        return a1
 
 class magnification_log(magnification):
     def su(self, u, rho):

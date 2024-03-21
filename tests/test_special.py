@@ -12,7 +12,7 @@ random_complex = np.random.uniform(low=-100, high=100, size=1000) + 1.0j * np.ra
 gamma_jax = gamma(random_complex)
 gamma_scipy = gamma_s(random_complex)
 
-random_m_values = np.random.uniform(low=0, high=1, size=1000)
+random_m_values = np.random.uniform(low=-1, high=1, size=1000)
 random_m_values_jax = jnp.array(random_m_values)
 
 ellipk_jax   = ellipk(random_m_values_jax)

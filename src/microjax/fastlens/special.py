@@ -88,8 +88,21 @@ def ellipe_(m, num_iter=5):
     a, s_sum = agm2(a0, b0, s_sum0, num_iter=num_iter)
     return jnp.pi / (2 * a) * (1 - s_sum)
 
-ellipk = jit(vmap(ellipk_, in_axes=(0,)))
-ellipe = jit(vmap(ellipe_, in_axes=(0,)))
+#@jit
+def ellipk(m):
+    return lax.cond(m > 0, 
+                    lambda _: ellipk_(m), 
+                    lambda _: 1.0 / jnp.sqrt(jnp.abs(m) + 1.0) * ellipk_(jnp.abs(m) / (jnp.abs(m) + 1.0)), 
+                    None)
+#@jit
+def ellipe(m):
+    return lax.cond(m > 0, 
+                    lambda _: ellipe_(m), 
+                    lambda _: jnp.sqrt(jnp.abs(m) + 1.0) * ellipe_(jnp.abs(m) / (jnp.abs(m) + 1.0)), 
+                    None)
+
+ellipk = jit(vmap(ellipk, in_axes=(0,)))
+ellipe = jit(vmap(ellipe, in_axes=(0,)))
 
 
 # I imported the code from https://github.com/google/jax/pull/17038/files
