@@ -48,7 +48,6 @@ class fftlog(object):
         c_window_width: the fraction of c_m elements that are smoothed,
         e.g. c_window_width=0.25 means smoothing the last 1/4 of c_m elements using "c_window".
         """
-
         f_b=self.fx * self.x**(-self.nu)
         c_m=rfft(f_b)
         m=jnp.arange(0,self.N//2+1) 
