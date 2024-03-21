@@ -101,8 +101,8 @@ def ellipe(m):
                     lambda _: jnp.sqrt(jnp.abs(m) + 1.0) * ellipe_(jnp.abs(m) / (jnp.abs(m) + 1.0)), 
                     None)
 
-ellipk = jit(vmap(ellipk, in_axes=(0,)))
-ellipe = jit(vmap(ellipe, in_axes=(0,)))
+#ellipk = jit(vmap(ellipk, in_axes=(0,)))
+#ellipe = jit(vmap(ellipe, in_axes=(0,)))
 
 
 # I imported the code from https://github.com/google/jax/pull/17038/files

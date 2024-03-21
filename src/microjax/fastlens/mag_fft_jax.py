@@ -156,12 +156,22 @@ class magnification_limb1(magnification):
         return a
 
     def A0(self, rho):
-        a1 = ellipe(-rho**2 / 4)
-        print("ellipe:",a1)
-        a1 = ellipk(-rho**2 / 4)
-        print("ellipk:",a1)
-        #a1 = (2 + 1) * (2 * (rho**2 + 2) * ellipe(-rho**2 / 4) - (rho**2 + 4) * ellipk(-rho**2 / 4)) / 3.0 / rho**3
-        return a1
+        return (2 + 1) * (2 * (rho**2 + 2) * ellipe(-rho**2 / 4) - (rho**2 + 4) * ellipk(-rho**2 / 4)) / 3.0 / rho**3
+
+class magnification_limb2(magnification):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def sk(self, k, rho):
+        k = jnp.atleast_1d(k)
+        x = k * rho
+        nu = 2
+        a_base = jnp.ones(x.shape)*1.0 / (2 + 2)
+        a = jnp.where(x > 0, 2**nu * gamma(nu) * j2(x) / x**nu * nu, a_base)
+        return a
+
+    def A0(self, rho):
+        return (2 + 2) * (rho * (rho**2 + 2) * (rho**2 + 4)**0.5 - 8*jnp.arcsinh(rho/2)) / 4/rho**4
 
 class magnification_log(magnification):
     def su(self, u, rho):
