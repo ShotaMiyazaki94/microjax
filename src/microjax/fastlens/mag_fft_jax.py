@@ -1,5 +1,6 @@
+import jax
 import jax.numpy as jnp
-from microjax.fastlens.fftlog_jax_old import fftlog, hankel
+from microjax.fastlens.fftlog_jax import fftlog, hankel
 from microjax.fastlens.special import gamma, j0, j1, j2, j1p5
 from microjax.fastlens.special import ellipk, ellipe
 from jax import jit, lax, vmap
@@ -91,6 +92,7 @@ class magnification:
             rho (float)
         """
         u = jnp.atleast_1d(jnp.abs(u))
+        a_base = jnp.ones(u.shape) * self.A0(rho)
         # typical scale of source profile
         k_rho = 2 * jnp.pi / rho
         # dumping factor to avoid noisy result
@@ -104,17 +106,13 @@ class magnification:
         a_fft = a_fft + 1
         # Truncate the result u>100 and append A(u=100)=1
         max_u_fft = 100
-        idx = u_fft < max_u_fft
-        u_fft_truncated = jnp.where(idx, u_fft, max_u_fft)
-        a_fft_truncated = jnp.where(idx, a_fft, 1)
-        #u_fft = jnp.hstack([u_fft[idx], 100])
-        #a_fft = jnp.hstack([a_fft[idx], 1])
-        a = jnp.ones(u.shape) * self.A0(rho)
-        idx = u > 0
+        u_fft_truncated = jnp.where(u_fft < max_u_fft, u_fft, max_u_fft)
+        a_fft_truncated = jnp.where(u_fft < max_u_fft, a_fft, 1)
+        log_u = jnp.log10(u)
+        log_u_fft_truncated = jnp.log10(u_fft_truncated)
+        interp_values = jnp.interp(log_u, log_u_fft_truncated, a_fft_truncated, right=1)
+        a = jnp.where(u > 0, interp_values, a_base)
 
-        # Assign values
-        a = a.at[idx].set(jnp.interp(jnp.log10(u[idx]), jnp.log10(u_fft_truncated), a_fft_truncated, right=1))
-        #a = a.at[idx].set(jnp.interp(jnp.log10(u[idx]), jnp.log10(u_fft), a_fft, right=1))
         return a
 
     def A(self, u, rho):
@@ -127,20 +125,12 @@ class magnification:
             a   (float): magnification for extended-source profile.
         """
         u = jnp.atleast_1d(jnp.abs(u))
-
-        def small():
+        def small(_):
             return self._A_for_small_rho(u, rho)
-        def large():
+        def large(_):
            return self._A_for_large_rho(u, rho) 
-        return lax.cond(rho < self.rho_switch, 
-                        small,
-                        large) 
-        """
-        if rho < self.rho_switch:
-            return self._A_for_small_rho(u, rho)
-        else:
-            return self._A_for_large_rho(u, rho)
-        """
+        
+        return lax.cond(rho < self.rho_switch, small, large, None) 
 
 class magnification_disk(magnification):
     def sk(self, k, rho):
@@ -148,18 +138,6 @@ class magnification_disk(magnification):
         x = k * rho
         idx = x > 0
         a = jnp.where(idx, 2 * j1(x) / x, jnp.ones_like(x))
-        return a
-
-    def A0(self, rho):
-        return (rho**2 + 4)**0.5 / rho
-
-class _magnification_disk(magnification):
-    def sk(self, k, rho):
-        k = jnp.atleast_1d(k)
-        x = k * rho
-        a = jnp.ones(x.shape)
-        idx = x > 0
-        a = a.at[idx].set(2 * j1(x[idx]) / x[idx])
         return a
 
     def A0(self, rho):
@@ -175,19 +153,19 @@ class magnification_limb(magnification):
         x = k * rho
         nu = 1 + self.n_limb / 2
         a = jnp.ones(x.shape) * 1.0 / (self.n_limb + 2)
-        idx = x > 0
+        idx = x > 0 
 
         a = a.at[idx].set(2**nu * gamma(nu) * jn(nu, x[idx]) / x[idx]**nu * nu)
         #a = a.at[idx].set(2**nu * gamma(nu) * jn(nu, x[idx]) / x[idx]**nu * nu)
         return a
 
     def A0(self, rho):
-        if self.n_limb == 1:
+        def case1(_):
             return (2 + 1) * (2 * (rho**2 + 2) * ellipe(-rho**2 / 4) - (rho**2 + 4) * ellipk(-rho**2 / 4)) / 3.0 / rho**3
-        elif self.n_limb == 2:
+        def case2(_):
             return (2 + 2) * (rho * (2 + rho**2) * (4 + rho**2)**0.5 - 8 * jnp.arcsinh(rho / 2)) / 4 / rho**4
-        elif self.n_limb >= 3:
-            raise NotImplementedError
+        return lax.cond(self.n_limb == 1, case1, case2, None)
+
 
 class magnification_log(magnification):
     def su(self, u, rho):

@@ -19,8 +19,6 @@ src/microjax/fastlens/__pycache__/mag_fft.cpython-310.pyc
 src/microjax/fastlens/__pycache__/special.cpython-310.pyc
 tests/Pk_test
 tests/test_fftlog.py
-tests/test_fftlog_jax.py
-tests/test_fftlog_jax2.py
 tests/test_magfft.py
 tests/test_magfft_jax.py
 tests/test_special.py
@@ -28,3 +26,5 @@ tests/tmp.py
 tests/__pycache__/test_fastlens.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_fftlog_jax.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_special.cpython-39-pytest-7.4.0.pyc
+tests/olds/test_fftlog_jax.py
+tests/olds/test_fftlog_jax2.py

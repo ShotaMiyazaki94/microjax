@@ -1,13 +1,16 @@
 import numpy as np
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import jax
 from microjax.fastlens.mag_fft_jax import magnification_disk, magnification_limb
+jax.config.update("jax_enable_x64", True)
 
 mag_disk = magnification_disk()
 #mag_limb1= magnification_limb(1)
 #mag_limb2= magnification_limb(2)
 
-rho = 2
-u = np.linspace(0.0, 5.0 ,1000)
+rho = 1
+u = jnp.linspace(0.0, 5.0 ,1000)
 a_disk = mag_disk.A(u, rho)
 #a_limb1 = mag_limb1.A(u, rho)
 #a_limb2 = mag_limb2.A(u, rho)
