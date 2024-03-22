@@ -114,7 +114,7 @@ class magnification:
         a = jnp.where(u > 0, interp_values, a_base)
 
         return a
-
+    
     def A(self, u, rho):
         """
         Returns the extended-source magnification of microlensing light-curve.

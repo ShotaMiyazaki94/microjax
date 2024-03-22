@@ -1,10 +1,14 @@
 import jax.numpy as jnp
 from jax import jit , lax, vmap
 from functools import partial
+from jax import custom_jvp
+#from jax.scipy.special import digamma
+#from jax.lax import digamma
 #from microjax.fastlens.gamma_jax import gamma_jax as gamma
 
 __all__ = ["gamma","ellipk","ellipe","j0","j1","j2","j1p5"]
 
+@custom_jvp
 def gamma_(z):
     """
     Custom gamma function with JAX similar to scipy.special.gamma.
@@ -55,6 +59,64 @@ def gamma_(z):
     
     return g.reshape(original_shape)
 
+def digamma_(z):
+    """
+    custom digamma function with JAX, implemented from the Julia algorithm
+    Args:
+        z (complex): Input value(s).
+    Returns:
+        complex: Digamma of z.
+    """
+    # constants 
+    X = 8
+    coeffs = jnp.array([0.08333333333333333, -0.008333333333333333, 0.003968253968253968,
+                        -0.004166666666666667, 0.007575757575757576, -0.021092796092796094,
+                        0.08333333333333333, -0.4432598039215686], dtype=jnp.float64)
+    z = jnp.atleast_1d(z)
+    original_shape = z.shape
+    z = z.ravel()
+    negative_real_mask = jnp.real(z) <= 0
+    not_special_case = ~negative_real_mask
+
+    def compute_case(z_val):
+        psi_val = jnp.zeros_like(z_val)
+        shift_cond = jnp.real(z_val) < X
+
+        n = X * jnp.ones(z_val.shape) - jnp.floor(jnp.real(z_val))
+        psi_val_negative = jnp.zeros_like(z_val)
+        for nu in range(X):
+            psi_val_negative = psi_val_negative - 1.0 / (z_val + nu)
+        psi_val_negative -= jnp.ones(z_val.shape) / z_val
+
+        psi_val   = jnp.where(shift_cond, psi_val_negative, psi_val)        
+        z_val_new = jnp.where(shift_cond, z_val, z_val + n)
+
+        t = 1 / z_val_new
+        psi_val = psi_val + jnp.log(z_val_new) - 0.5 * t
+        t *= t # 1/z^2
+        psi_val -= t * jnp.polyval(coeffs[::-1], t)
+        return psi_val
+
+    def compute_reflection(z_val):
+        psi_reflected = compute_case(1 - z_val)
+        return jnp.pi / jnp.tan(jnp.pi * (1 - z_val)) + psi_reflected
+
+    # Compute results for all elements
+    positive_results = compute_case(z)
+    negative_results = compute_reflection(z)
+    # Select the appropriate results based on the masks
+    psi = jnp.where(not_special_case, positive_results, negative_results)
+
+    return psi.reshape(original_shape)
+
+@gamma_.defjvp
+def gamma_jvp(primals, tangents):
+    x, = primals
+    x_dot, = tangents
+    primal_out = gamma_(x)
+    tangent_out = primal_out * digamma_(x) * x_dot
+    return primal_out, tangent_out
+
 gamma = jit(gamma_)
 
 def agm(a, b, num_iter=5):
@@ -64,10 +126,21 @@ def agm(a, b, num_iter=5):
     (a, b), _ = lax.scan(agm_step, (a, b), None, length=num_iter)
     return a
 
-def ellipk_(m, num_iter=5):
+@custom_jvp
+def ellipk_(m):
+    num_iter=5
     a, b = 1.0, jnp.sqrt(1 - m)
     c = agm(a, b, num_iter=num_iter)
     return jnp.pi / (2 * c)
+
+@ellipk_.defjvp
+def ellipk_jvp(primals, tangents):
+    m, = primals
+    m_dot, = tangents
+    k_val = ellipk_(m,)
+    # Derivative of the complete elliptic integral of the first kind with respect to m
+    dk_dm = (ellipe_(m) - (1 - m) * k_val) / (2 * m * (1 - m))
+    return k_val, m_dot * dk_dm
 
 def agm2(a0, b0, s_sum0, num_iter=5):
     def agm_step2(carry, _):
@@ -81,12 +154,24 @@ def agm2(a0, b0, s_sum0, num_iter=5):
     (a, b, s_sum, n), _ = lax.scan(agm_step2, (a0, b0, s_sum0, n), None, length=num_iter)
     return a, s_sum
 
-def ellipe_(m, num_iter=5):
+@custom_jvp
+def ellipe_(m):
+    num_iter=5
     a0, b0 = 1.0, jnp.sqrt(1 - m)
     c0     = jnp.sqrt(a0**2 - b0**2)
     s_sum0 = 0.5 * c0**2
     a, s_sum = agm2(a0, b0, s_sum0, num_iter=num_iter)
     return jnp.pi / (2 * a) * (1 - s_sum)
+
+@ellipe_.defjvp
+def ellipe_jvp(primals, tangents):
+    m, = primals
+    m_dot, = tangents
+    e_val = ellipe_(m)
+    k_val = ellipk_(m)
+    # Derivative of the complete elliptic integral of the second kind with respect to m
+    de_dm = (e_val - k_val) / (2 * m)
+    return e_val, m_dot * de_dm
 
 #@jit
 def ellipk(m):

@@ -1,5 +1,6 @@
 
 import jax.numpy as jnp
+#from jax.scipy.special import gamma
 from microjax.fastlens.special import gamma
 from jax.numpy.fft import rfft, irfft
 from jax import jit, vmap, lax
