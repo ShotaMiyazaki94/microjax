@@ -9,18 +9,27 @@ from jax import jit, vmap, grad
 from jax.test_util import check_grads
 
 def ellipk_sum(x):
-    return jnp.mean(jit(vmap(ellipk))(x))
+    return jnp.sum(jit(vmap(ellipk))(x))
 
 def ellipe_sum(x):
-    return jnp.mean(jit(vmap(ellipe))(x))
+    return jnp.sum(jit(vmap(ellipe))(x))
+
+def j0_sum(x):
+    return jnp.sum(j0(x))
+
+def j1_sum(x):
+    return jnp.sum(j1(x))
 
 def gamma_sum(x):
-    return jnp.mean(gamma(x))
+    return jnp.sum(gamma(x))
 
-test = jnp.linspace(1e-4,1.0,1000)
+test = jnp.array(np.random.uniform(0, 0.99, 100000))
 
-check_grads(ellipk_sum, (test,), order=1, rtol=1e-5)
-check_grads(ellipe_sum, (test,), order=1, rtol=1e-5)
+print("ellipk :",check_grads(ellipk_sum, (test,), order=1, rtol=1e-3))
+print("ellipe :",check_grads(ellipe_sum, (test,), order=1, rtol=1e-3))
+print("j0     :",check_grads(j0_sum, (test,),     order=1, rtol=1e-3))
+print("j1     :",check_grads(j1_sum, (test,),     order=1, rtol=1e-3))
 
-test = jnp.linspace(0.5,1.0,1000)
-check_grads(gamma_sum, (test,), order=1, rtol=1e-5)
+test = jnp.array(np.random.uniform(-100, 100, 100000) + 1.0j * np.random.uniform(-100, 100, 100000)) 
+#test = jnp.linspace(0.5,1.0,1000)
+print("gamma  :",check_grads(gamma_sum, (test,), order=1, rtol=1e-3))

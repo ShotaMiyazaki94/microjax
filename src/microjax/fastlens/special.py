@@ -61,51 +61,39 @@ def gamma_(z):
 
 def digamma_(z):
     """
-    custom digamma function with JAX, implemented from the Julia algorithm
+    Custom digamma function with JAX, implemented from the Julia algorithm
     Args:
         z (complex): Input value(s).
     Returns:
         complex: Digamma of z.
     """
-    # constants 
-    X = 8
+    # constants
     coeffs = jnp.array([0.08333333333333333, -0.008333333333333333, 0.003968253968253968,
                         -0.004166666666666667, 0.007575757575757576, -0.021092796092796094,
                         0.08333333333333333, -0.4432598039215686], dtype=jnp.float64)
     z = jnp.atleast_1d(z)
     original_shape = z.shape
     z = z.ravel()
-    negative_real_mask = jnp.real(z) <= 0
-    not_special_case = ~negative_real_mask
 
-    def compute_case(z_val):
-        psi_val = jnp.zeros_like(z_val)
-        shift_cond = jnp.real(z_val) < X
+    # Reflection for negative real part
+    negative_real_mask = jnp.real(z) < 0
+    reflection = jnp.pi / jnp.tan(jnp.pi * z)
+    z = jnp.where(negative_real_mask, 1.0 - z, z)
+    psi = jnp.where(negative_real_mask, -reflection, 0.0 + 0.0j)
 
-        n = X * jnp.ones(z_val.shape) - jnp.floor(jnp.real(z_val))
-        psi_val_negative = jnp.zeros_like(z_val)
-        for nu in range(X):
-            psi_val_negative = psi_val_negative - 1.0 / (z_val + nu)
-        psi_val_negative -= jnp.ones(z_val.shape) / z_val
-
-        psi_val   = jnp.where(shift_cond, psi_val_negative, psi_val)        
-        z_val_new = jnp.where(shift_cond, z_val, z_val + n)
-
-        t = 1 / z_val_new
-        psi_val = psi_val + jnp.log(z_val_new) - 0.5 * t
-        t *= t # 1/z^2
-        psi_val -= t * jnp.polyval(coeffs[::-1], t)
-        return psi_val
-
-    def compute_reflection(z_val):
-        psi_reflected = compute_case(1 - z_val)
-        return jnp.pi / jnp.tan(jnp.pi * (1 - z_val)) + psi_reflected
-
-    # Compute results for all elements
-    positive_results = compute_case(z)
-    negative_results = compute_reflection(z)
-    # Select the appropriate results based on the masks
-    psi = jnp.where(not_special_case, positive_results, negative_results)
+    # Adjustment for x < X
+    X = 8.0
+    x = jnp.real(z)
+    small_mask = x < X
+    n_add = jnp.sum(1.0 / (z[:, None] + jnp.arange(X)),axis=-1)
+    z   = jnp.where(small_mask, z + X, z)
+    psi = jnp.where(small_mask, psi - n_add, psi)
+    
+    # Asymptotic expansion
+    t = 1 / z
+    psi += jnp.log(z) - 0.5 * t
+    t *= t  # 1/z^2
+    psi -= t * jnp.polyval(coeffs[::-1], t)
 
     return psi.reshape(original_shape)
 
@@ -326,6 +314,7 @@ def j0_large(x):
     p = p * jnp.cos(xn) - w * q * jnp.sin(xn)
     return p * SQ2OPI / jnp.sqrt(x)
 
+@custom_jvp
 def j0_(z):
     """
     Bessel function of the first kind of order zero and a real argument 
@@ -339,11 +328,15 @@ def j0_(z):
         An array of shape `x.shape` containing the values of the Bessel function
     """
     z = jnp.array(z)
-    #z, = promote_dtypes_inexact(z)
-    #z_dtype = lax.dtype(z)
-    #if dtypes.issubdtype(z_dtype, complex):
-    #  raise ValueError("complex input not supported.")
     return jnp.where(jnp.abs(z) < 5.0, j0_small(jnp.abs(z)),j0_large(jnp.abs(z)))
+
+@j0_.defjvp
+def j0_jvp(primals, tangents):
+    m, = primals
+    m_dot, = tangents
+    # Derivative of the complete elliptic integral of the first kind with respect to m
+    return j0_(m), -1.0 * m_dot * j1_(m) 
+
 
 def j1_small(x):
     '''
@@ -366,6 +359,7 @@ def j1_large(x):
     p = p * jnp.cos(xn) - w * q * jnp.sin(xn)
     return p * SQ2OPI / jnp.sqrt(x)
 
+@custom_jvp
 def j1_(z):
     """
     Bessel function of the first kind of order one and a real argument 
@@ -378,15 +372,18 @@ def j1_(z):
     Returns:
         An array of shape `x.shape` containing the values of the Bessel function
     """
-
     z = jnp.array(z)
-    #z, = promote_dtypes_inexact(z)
-    #z_dtype = lax.dtype(z)
-
-    #if dtypes.issubdtype(z_dtype, complex):
-    #  raise ValueError("complex input not supported.")
-
+    
     return jnp.sign(z)*jnp.where(jnp.abs(z) < 5.0, j1_small(jnp.abs(z)),j1_large(jnp.abs(z)))
+
+@j1_.defjvp
+def j1_jvp(primals, tangents):
+    m, = primals
+    m_dot, = tangents
+    primal_out = j1_(m)
+    tangent_out = j0_(m) * m_dot - j1_(m) * m_dot / m
+    #tangent_out = lax.cond(m == 0, lambda _: 0.0, lambda _: tangent_out - j1(m) * m_dot / m, operand=None)
+    return primal_out, tangent_out 
 
 j0 =  jit(vmap(j0_, in_axes=(0,)))
 j1 =  jit(vmap(j1_, in_axes=(0,)))

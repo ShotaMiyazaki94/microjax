@@ -14,11 +14,16 @@ mag_disk_o= magnification_disk_org()
 
 mag_limb1  = magnification_limb1()
 mag_limb1_o= magnification_limb_org(1)
+mag_limb2_o= magnification_limb_org(2)
+
+mag_limb2  = magnification_limb2()
 
 u_rho = np.logspace(-2,2,1000)
-rho = np.array([1e-4,1e-3,0.01,0.1,1,10])
+rho = np.array([1.0,1e-6,1e-5,1e-4,1e-3,0.01,0.1,1,10])
 
 mag = jit(mag_disk.A)
+mag_d = jit(mag_limb1.A)
+mag_d2 = jit(mag_limb2.A)
 
 for r in rho:
     u = u_rho * r
@@ -26,8 +31,19 @@ for r in rho:
     result1 = timeit.timeit(lambda: mag_disk_o.A(u,r),number=100)  
     print("------------------------")
     print("rho    :", r)
-    print("JAX (s):", result0/100.0)
-    print("JAX/ORG:", result0/result1)
+    print("disk")
+    print("JAX (s): %.2e"%(result0/100.0))
+    print("JAX/ORG: %.2f"%(result0/result1))
+    result0 = timeit.timeit(lambda: mag_d(u,r),number=100)  
+    result1 = timeit.timeit(lambda: mag_limb1_o.A(u,r),number=100)  
+    print("limb linear")
+    print("JAX (s): %.2e"%(result0/100.0))
+    print("JAX/ORG: %.2f"%(result0/result1))
+    result0 = timeit.timeit(lambda: mag_d2(u,r),number=100)  
+    result1 = timeit.timeit(lambda: mag_limb2_o.A(u,r),number=100)  
+    print("limb quad")
+    print("JAX (s): %.2e"%(result0/100.0))
+    print("JAX/ORG: %.2f"%(result0/result1))
 
 exit(0)
 fig, ax = plt.subplots(2,6, figsize=(24, 8),sharex=True,sharey=True)

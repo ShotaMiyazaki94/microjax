@@ -10,7 +10,7 @@ from jax import jit, vmap
 import matplotlib.pyplot as plt
 
 #random_complex = np.random.uniform(low=-100, high=100, size=1000) + 1.0j * np.random.uniform(low=-100, high=100, size=1000) 
-random_complex = np.random.uniform(low=-10, high=10, size=1000) + 1.0j * np.random.uniform(low=-10, high=10, size=1000) 
+random_complex = np.random.uniform(low=-100, high=100, size=1000) + 1.0j * np.random.uniform(low=-100, high=100, size=1000) 
 random_complex_jax = jnp.array(random_complex)  
 
 gamma_jax = gamma(random_complex_jax)
@@ -25,7 +25,7 @@ plt.plot(jnp.real(random_complex),jnp.abs(digamma_jax - digamma_scipy),".")
 plt.xlabel("real part of input")
 plt.ylabel("difference between custom and scipy functions")
 plt.yscale("log")
-plt.xticks(np.arange(0,11,1))
+#plt.xticks(np.arange(-15,16,1))
 plt.grid()
 plt.show()
 plt.figure()
@@ -33,7 +33,7 @@ plt.plot(jnp.imag(random_complex),jnp.abs(digamma_jax - digamma_scipy),".")
 plt.xlabel("imaginary part of input")
 plt.ylabel("difference between custom and scipy functions")
 plt.grid()
-plt.xticks(np.arange(0,11,1))
+#plt.xticks(np.arange(-15,16,1))
 plt.yscale("log")
 plt.show()
 
