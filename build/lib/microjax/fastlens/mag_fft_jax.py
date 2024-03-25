@@ -5,7 +5,6 @@ from microjax.fastlens.special import gamma, j0, j1, j2, j1p5
 from microjax.fastlens.special import ellipk, ellipe, ellipk_, ellipe_
 from jax import jit, lax, vmap
 
-
 def A_point(u):
     return (u**2 + 2) / jnp.abs(u) / (u**2 + 4)**0.5
 
@@ -53,8 +52,11 @@ class magnification:
         """
         x = jnp.logspace(-5, 5, 1024)
         dump = jnp.exp(-(x / 100)**2)
+        #min_value = 1e-12
+        #dump = jnp.where(dump < min_value, min_value, dump)
         fx = x * self.sk(x, 1) * dump
-        h = hankel(x, fx, nu=1.5, N_pad=1024)
+        #print("init_Aext0:", x, fx, self.sk(x, 1), dump)
+        h = hankel(x, fx, nu=1.5, N_pad=1024,)
         u, aext0 = h.hankel(0)
         self.Aext0 = lambda x: jnp.interp(x, u, aext0)
 
@@ -125,12 +127,16 @@ class magnification:
             a   (float): magnification for extended-source profile.
         """
         u = jnp.atleast_1d(jnp.abs(u))
+        """
         def small(_):
             return self._A_for_small_rho(u, rho)
         def large(_):
            return self._A_for_large_rho(u, rho) 
-        
         return lax.cond(rho < self.rho_switch, small, large, None) 
+        """
+        small_rho = self._A_for_small_rho(u, rho) 
+        large_rho = self._A_for_large_rho(u, rho) 
+        return jnp.where(rho < self.rho_switch, small_rho, large_rho) 
 
 class magnification_disk(magnification):
     def sk(self, k, rho):

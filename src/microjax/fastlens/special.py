@@ -146,7 +146,8 @@ def agm2(a0, b0, s_sum0, num_iter=5):
 def ellipe_(m):
     num_iter=5
     a0, b0 = 1.0, jnp.sqrt(1 - m)
-    c0     = jnp.sqrt(a0**2 - b0**2)
+    c0     = jnp.sqrt(jnp.abs(a0**2 - b0**2))
+    #c0     = jnp.sqrt(a0**2 - b0**2)
     s_sum0 = 0.5 * c0**2
     a, s_sum = agm2(a0, b0, s_sum0, num_iter=num_iter)
     return jnp.pi / (2 * a) * (1 - s_sum)
@@ -162,6 +163,7 @@ def ellipe_jvp(primals, tangents):
     return e_val, m_dot * de_dm
 
 #@jit
+"""
 def ellipk(m):
     return lax.cond(m > 0, 
                     lambda _: ellipk_(m), 
@@ -173,6 +175,18 @@ def ellipe(m):
                     lambda _: ellipe_(m), 
                     lambda _: jnp.sqrt(jnp.abs(m) + 1.0) * ellipe_(jnp.abs(m) / (jnp.abs(m) + 1.0)), 
                     None)
+"""
+def ellipk(m):
+    result = jnp.where(m > 0,
+                       ellipk_(m),
+                       1.0 / jnp.sqrt(jnp.abs(m) + 1.0) * ellipk_(jnp.abs(m) / (jnp.abs(m) + 1.0)))
+    return result
+
+def ellipe(m):
+    result = jnp.where(m > 0,
+                    ellipe_(m),
+                    jnp.sqrt(jnp.abs(m) + 1.0) * ellipe_(jnp.abs(m) / (jnp.abs(m) + 1.0)))
+    return result
 
 #ellipk = jit(vmap(ellipk, in_axes=(0,)))
 #ellipe = jit(vmap(ellipe, in_axes=(0,)))

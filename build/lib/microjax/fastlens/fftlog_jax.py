@@ -112,6 +112,7 @@ class fftlog(object):
 class hankel(object):
     def __init__(self, x, fx, nu, N_extrap_low=0, N_extrap_high=0, c_window_width=0.25, N_pad=0):
         #print('nu is required to be between (0.5-n) and 2.')
+        #print("HANKEL!!!",x)
         self.myfftlog = fftlog(x, jnp.sqrt(x)*fx, nu, N_extrap_low, N_extrap_high, c_window_width, N_pad)
     
     def hankel(self, n):
@@ -122,19 +123,43 @@ class hankel(object):
 ### Utility functions ####################
 @partial(jit, static_argnums=(1,2))
 def log_extrap(x, N_extrap_low, N_extrap_high):
-    if x.size < 2:
-        raise ValueError("x must have at least 2 elements")
+    if N_extrap_low > 0:
+        dlnx_low = jnp.log(x[1] / x[0])
+        low_x = x[0] * jnp.exp(dlnx_low * jnp.arange(-N_extrap_low, 0))
+    else:
+        low_x = jnp.array([])
 
-    dlnx_low = jnp.log(x[1] / x[0])
-    low_x = x[0] * jnp.exp(dlnx_low * jnp.arange(-N_extrap_low, 0))
-    low_x = lax.cond(N_extrap_low > 0, lambda: low_x, lambda: jnp.zeros_like(low_x))
-
-    dlnx_high = jnp.log(x[-1] / x[-2])
-    high_x = x[-1] * jnp.exp(dlnx_high * jnp.arange(1, N_extrap_high + 1))
-    high_x = lax.cond(N_extrap_high > 0, lambda: high_x, lambda: jnp.zeros_like(high_x))
+    if N_extrap_high > 0:
+        dlnx_high = jnp.log(x[-1] / x[-2])
+        high_x = x[-1] * jnp.exp(dlnx_high * jnp.arange(1, N_extrap_high + 1))
+    else:
+        high_x = jnp.array([])
 
     x_extrap = jnp.concatenate((low_x, x, high_x))
-    return x_extrap
+    return x_extrap    
+"""
+def log_extrap_(x, N_extrap_low, N_extrap_high):
+    if x.size < 2:
+         raise ValueError("x must have at least 2 elements")
+    if x[0] == 0:
+         raise ValueError("x[0] must be non-zero")
+    if x[-2] == 0:
+         raise ValueError("x[-2] must be non-zero")
+
+    def compute(_):
+        dlnx_low = jnp.log(x[1] / x[0])
+        low_x = x[0] * jnp.exp(dlnx_low * jnp.arange(-N_extrap_low, 0))
+        low_x = lax.cond(N_extrap_low > 0, lambda: low_x, lambda: jnp.zeros_like(low_x))
+        dlnx_high = jnp.log(x[-1] / x[-2])
+        high_x = x[-1] * jnp.exp(dlnx_high * jnp.arange(1, N_extrap_high + 1))
+        high_x = lax.cond(N_extrap_high > 0, lambda: high_x, lambda: jnp.zeros_like(high_x))
+        x_extrap = jnp.concatenate((low_x, x, high_x))
+        return x_extrap
+    def non_compute(_):
+        return x
+    return lax.cond((N_extrap_low > 0) | (N_extrap_high > 0), compute, non_compute, None)
+    #return lax.cond(~jnp.logical_and(N_extrap_low==0, N_extrap_high==0), compute, non_compute, None)
+"""
 
 @partial(jit, static_argnums=(1,))
 def c_window(n, n_cut):
