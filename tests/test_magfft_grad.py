@@ -26,7 +26,7 @@ def mag_scaler(u,rho):
 mag_grad = jit(vmap(grad(mag_scaler,argnums=(0,1))))
 tmp = jit(grad(mag_scaler,argnums=(0,1)))
 #print(mag(1e-3,1e-3))
-print(tmp(1e-3,1e-5))
+#print(tmp(1e-1,1e-5))
 
 u_grid = jnp.logspace(-6,0,50)
 r_grid = jnp.logspace(-5,1,50)
