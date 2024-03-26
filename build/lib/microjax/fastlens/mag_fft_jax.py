@@ -150,7 +150,8 @@ class magnification_disk(magnification):
         return (rho**2 + 4)**0.5 / rho
 
 class magnification_limb1(magnification):
-    def __init__(self, **kwargs):
+    def __init__(self, a1=0.1, **kwargs):
+        self.a1 = a1 #limb-darkening coeff
         super().__init__(**kwargs)
 
     def sk(self, k, rho):
@@ -158,10 +159,13 @@ class magnification_limb1(magnification):
         x = k * rho
         nu = 1.5
         a_base = jnp.ones(x.shape)*1.0 / (1 + 2)
-        a = jnp.where(x > 0, 2**nu * gamma(nu) * j1p5(x) / x**nu * nu, a_base)
-        return a
+        norm = 1.0 - self.a1
+        sk_disk  = 2 * j1(x) / x 
+        sk_term1 = nu * 2**nu * gamma(nu) * j1p5(x) / x**nu 
+        sk = jnp.where(x > 0, (sk_disk - self.a1*(sk_term1/sk_term1[0])) / norm, a_base)
+        return sk
 
-    def A0(self, rho):
+    def A0(self, rho): 
         return (2 + 1) * (2 * (rho**2 + 2) * ellipe(-rho**2 / 4) - (rho**2 + 4) * ellipk(-rho**2 / 4)) / 3.0 / rho**3
 
 class magnification_limb2(magnification):
