@@ -82,8 +82,8 @@ class magnification:
         x = jnp.where(idx, u / rho, jnp.ones_like(u))
         val = jnp.where(idx, self.Aext0(x) / rho + 1, jnp.ones_like(u))
         # Assign approximated solution: point-source magnification
-        a = jnp.where(idx, val, a)
-        a = jnp.where(~idx, A_point(u), a)
+        a = jnp.where(idx, val, A_point(u))
+        #a = jnp.where(~idx, A_point(u), a)
         return a
 
     def _A_for_large_rho(self, u, rho):
@@ -149,12 +149,26 @@ class magnification_disk(magnification):
     def A0(self, rho):
         return (rho**2 + 4)**0.5 / rho
 
-class magnification_limb1(magnification):
-    def __init__(self, a1=0.7, **kwargs):
+class mag_limb1(magnification):
+    def __init__(self, a1=0.5, **kwargs):
         self.a1 = a1 #limb-darkening coeff
         super().__init__(**kwargs)
 
+    def su(self, u, rho):
+        su = jnp.zeros(u.size)
+        su = jnp.where(u < rho, 1.0 - self.a1 * (1.0 - jnp.sqrt(jnp.abs(1.0 - u**2 / rho**2))), su)
+        su = su/su[0] 
+        return su
+
     def sk(self, k, rho):
+        u = jnp.logspace(self.fft_logumin, self.fft_logumax, self.N_fft)
+        u2su = u**2 * self.su(u, rho)
+        h = hankel(u, u2su, nu=1.5)
+        k, sk = h.hankel(0)
+        sk = sk/sk[0]
+        return sk
+
+    def sk_(self, k, rho):
         k = jnp.atleast_1d(k)
         x = k * rho
         nu = 1.5
@@ -162,7 +176,26 @@ class magnification_limb1(magnification):
         norm = 1.0 - self.a1
         sk_disk  = 2 * j1(x) / x 
         sk_term1 = nu * 2**nu * gamma(nu) * j1p5(x) / x**nu 
-        sk = jnp.where(x > 0, (sk_disk - self.a1*(sk_term1/sk_term1[0])) / norm, a_base)
+        sk = jnp.where(x > 0, (sk_disk - self.a1*sk_term1) / norm, a_base)
+        return sk
+
+    def A0(self, rho):
+        A0_disk  = (rho**2 + 4)**0.5 / rho 
+        A0_term1 = (2 + 1) * (2 * (rho**2 + 2) * ellipe(-rho**2 / 4) - (rho**2 + 4) * ellipk(-rho**2 / 4)) / 3.0 / rho**3 
+        norm = 1.0 - self.a1
+        return (A0_disk - self.a1 * A0_term1) / norm 
+
+
+class magnification_limb1(magnification):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def sk(self, k, rho):
+        k = jnp.atleast_1d(k)
+        x = k * rho
+        nu = 1.5
+        a_base = jnp.ones(x.shape)*1.0 / (1 + 2)
+        sk = jnp.where(x > 0, nu * 2**nu * gamma(nu) * j1p5(x) / x**nu, a_base)
         return sk
 
     def A0(self, rho): 

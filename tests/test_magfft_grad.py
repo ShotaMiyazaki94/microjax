@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import jax
 import numpy as np
-from microjax.fastlens.mag_fft_jax import magnification_disk, magnification_limb1,magnification_limb2
+from microjax.fastlens.mag_fft_jax import magnification_disk, magnification_limb1, mag_limb1 as mag_limb1_custom
 jax.config.update("jax_enable_x64", True)
 from microjax.fastlens.mag_fft import magnification_disk as magnification_disk_org 
 from microjax.fastlens.mag_fft import magnification_limb as magnification_limb_org 
@@ -14,9 +14,11 @@ mag_disk  = magnification_disk(rho_switch=1e-5)
 #mag_disk_o= magnification_disk_org()
 
 mag_limb1  = magnification_limb1(rho_switch=1e-5)
+mag_limb1_c = mag_limb1_custom(rho_switch=1e-5, a1=0.0)
+mag_limb1_c2 = mag_limb1_custom(rho_switch=1e-5, a1=0.6)
 #mag_limb1_o= magnification_limb_org(1)
 
-mag = mag_limb1.A
+mag = mag_disk.A
 #mag = mag_disk.A
 
 def mag_scaler(u,rho):
@@ -25,8 +27,59 @@ def mag_scaler(u,rho):
 
 mag_grad = jit(vmap(grad(mag_scaler,argnums=(0,1))))
 tmp = jit(grad(mag_scaler,argnums=(0,1)))
-#print(mag(1e-3,1e-3))
-#print(tmp(1e-1,1e-5))
+
+mosaic="""
+AAAAAA
+AAAAAA
+AAAAAA
+BBBBBB
+CCCCCC
+"""
+
+rho_value = 1.0
+u   = jnp.linspace(-3,3,1000)
+rho = jnp.ones(1000) * rho_value
+mag_plot1 = vmap(mag)(u,rho)
+mag_grad_plot1 = mag_grad(u,rho)
+
+mag_plot1_c = vmap(mag_limb1_c.A)(u,rho) 
+mag_plot1_c2 = vmap(mag_limb1_c2.A)(u,rho) 
+
+rho_value = 0.75
+u   = jnp.linspace(-3,3,1000)
+rho = jnp.ones(1000) * rho_value
+mag_plot75 = vmap(mag)(u,rho)
+mag_grad_plot75 = mag_grad(u,rho)
+
+
+rho_value = 0.5
+u   = jnp.linspace(-3,3,1000)
+rho = jnp.ones(1000) * rho_value
+mag_plot05 = vmap(mag)(u,rho)
+mag_grad_plot05 = mag_grad(u,rho)
+
+plt.plot(jnp.ravel(mag_plot1) - jnp.ravel(mag_plot1_c))
+
+
+fig,ax = plt.subplot_mosaic(figsize=(7,5),mosaic=mosaic)
+fig.subplots_adjust(hspace=0)
+ax["A"].plot(u,jnp.ravel(mag_plot1),label="rho=1.0")
+ax["A"].plot(u,jnp.ravel(mag_plot1_c),label="rho=1.0, custom a1=0.5")
+ax["A"].plot(u,jnp.ravel(mag_plot1_c2),label="rho=1.0, custom a1=0.3")
+ax["B"].plot(u,mag_grad_plot1[0].ravel(),"-")
+ax["C"].plot(u,mag_grad_plot1[1].ravel(),"-")
+ax["A"].plot(u,jnp.ravel(mag_plot75),label="rho=0.75")
+ax["B"].plot(u,mag_grad_plot75[0].ravel(),"-")
+ax["C"].plot(u,mag_grad_plot75[1].ravel(),"-")
+ax["A"].plot(u,jnp.ravel(mag_plot05),label="rho=0.5")
+ax["B"].plot(u,mag_grad_plot05[0].ravel(),"-")
+ax["C"].plot(u,mag_grad_plot05[1].ravel(),"-")
+ax["A"].set_ylabel("magnification")
+ax["B"].set_ylabel("dA/du")
+ax["C"].set_ylabel("dA/drho")
+ax["C"].set_xlabel("u")
+ax["A"].legend()
+plt.show()
 
 u_grid = jnp.logspace(-6,0,50)
 r_grid = jnp.logspace(-5,1,50)
@@ -55,29 +108,4 @@ ax[0].set_ylabel("rho")
 ax[1].set_xlabel("u")
 ax[1].set_ylabel("rho")
 #plt.savefig("./a.png",dpi=200)
-plt.show()
-
-mosaic="""
-AAAAAA
-AAAAAA
-AAAAAA
-BBBBBB
-CCCCCC
-"""
-
-u   = jnp.linspace(1e-5,5,1000)
-rho = jnp.ones(1000) * 1
-
-mag_plot = vmap(mag)(u,rho)
-mag_grad_plot = mag_grad(u,rho)
-
-fig,ax = plt.subplot_mosaic(figsize=(6,5),mosaic=mosaic)
-fig.subplots_adjust(hspace=0)
-ax["A"].plot(u,jnp.ravel(mag_plot))
-ax["B"].plot(u,mag_grad_plot[0].ravel(),"-")
-ax["C"].plot(u,mag_grad_plot[1].ravel(),"-")
-ax["A"].set_ylabel("magnification")
-ax["B"].set_ylabel("dA/du")
-ax["C"].set_ylabel("dA/drho")
-ax["C"].set_xlabel("u")
 plt.show()

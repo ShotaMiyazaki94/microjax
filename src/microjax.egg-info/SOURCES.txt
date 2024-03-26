@@ -1,6 +1,8 @@
 README.md
 setup.py
 dist/microjax-0.0.1-py3.10.egg
+notebook/Untitled.ipynb
+notebook/.ipynb_checkpoints/Untitled-checkpoint.ipynb
 src/microjax/__init__.py
 src/microjax.egg-info/PKG-INFO
 src/microjax.egg-info/SOURCES.txt
