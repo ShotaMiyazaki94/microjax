@@ -10,7 +10,7 @@ def A_point(u):
 
 # FFT based magnification
 class magnification:
-    def __init__(self, fft_logumin=-6, fft_logumax=3, N_fft=1024, normalize_sk=True, rho_switch=1e-4, u_switch=10):
+    def __init__(self, fft_logumin=-6, fft_logumax=2, N_fft=2048, normalize_sk=True, rho_switch=1e-4, u_switch=10):
         """
         Args:
             fft_logumin      (int): minimum of FFT bin in u space (default=-6)
@@ -42,7 +42,8 @@ class magnification:
         """
         u = jnp.logspace(self.fft_logumin, self.fft_logumax, self.N_fft)
         u2Au = ((u**2 + 2.0) / (u**2 + 4.0)**0.5 / u - 1) * u**2
-        h = hankel(u, u2Au, nu=1.5, N_extrap_high=512, N_extrap_low=512)
+        h = hankel(u, u2Au, nu=1.5)
+        #h = hankel(u, u2Au, nu=1.5, N_extrap_high=512, N_extrap_low=512)
         self.k, apk = h.hankel(0)
         self.apk = apk * 2 * jnp.pi
 
@@ -50,13 +51,15 @@ class magnification:
         """
         Implementation of A_ext0 in Eq. (13)
         """
-        x = jnp.logspace(-5, 5, 1024)
+        x = jnp.logspace(self.fft_logumin, self.fft_logumax, self.N_fft)
+        #x = jnp.logspace(-5, 5, 1024)
         dump = jnp.exp(-(x / 100)**2)
         #min_value = 1e-12
         #dump = jnp.where(dump < min_value, min_value, dump)
         fx = x * self.sk(x, 1) * dump
         #print("init_Aext0:", x, fx, self.sk(x, 1), dump)
-        h = hankel(x, fx, nu=1.5, N_pad=1024,)
+        h = hankel(x, fx, nu=1.5, N_pad=self.N_fft)
+        #h = hankel(x, fx, nu=1.5, N_pad=1024,)
         u, aext0 = h.hankel(0)
         self.Aext0 = lambda x: jnp.interp(x, u, aext0)
 
@@ -168,15 +171,26 @@ class mag_limb1(magnification):
         sk = sk/sk[0]
         return sk
 
+    def sk__(self, k, rho):
+        k = jnp.atleast_1d(k)
+        x = k * rho
+        sk_disk  = 2.0 * j1(x) / x
+        sk_term1 = 3.0 * (jnp.sin(x) - x * jnp.cos(x)) / x**3
+        norm = 1.0 - self.a1
+        sk = jnp.where(x > 0, (sk_disk - self.a1 * sk_term1) / norm, jnp.ones_like(x))
+        return sk 
+
+
     def sk_(self, k, rho):
         k = jnp.atleast_1d(k)
         x = k * rho
         nu = 1.5
-        a_base = jnp.ones(x.shape)*1.0 / (1 + 2)
+        a_base = jnp.ones(x.shape) * 1.0 / (1 + 2)
         norm = 1.0 - self.a1
         sk_disk  = 2 * j1(x) / x 
         sk_term1 = nu * 2**nu * gamma(nu) * j1p5(x) / x**nu 
-        sk = jnp.where(x > 0, (sk_disk - self.a1*sk_term1) / norm, a_base)
+        sk = jnp.where(x > 0, (sk_disk - self.a1 * sk_term1) / norm, a_base)
+        #sk = sk / sk[0]
         return sk
 
     def A0(self, rho):

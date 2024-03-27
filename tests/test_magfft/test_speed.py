@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import jax
 import numpy as np
-from microjax.fastlens.mag_fft_jax import magnification_disk, magnification_limb1,magnification_limb2
+from microjax.fastlens.mag_fft_jax import magnification_disk, mag_limb1, magnification_limb1,magnification_limb2
 jax.config.update("jax_enable_x64", True)
 from microjax.fastlens.mag_fft import magnification_disk as magnification_disk_org 
 from microjax.fastlens.mag_fft import magnification_limb as magnification_limb_org 
@@ -12,7 +12,7 @@ import timeit
 mag_disk  = magnification_disk()
 mag_disk_o= magnification_disk_org()
 
-mag_limb1  = magnification_limb1()
+mag_limb1  = mag_limb1()
 mag_limb1_o= magnification_limb_org(1)
 mag_limb2_o= magnification_limb_org(2)
 
