@@ -18,8 +18,8 @@ mag_limb2_o= magnification_limb_org(2)
 
 mag_limb2  = magnification_limb2()
 
-u_rho = np.logspace(-2,2,1000)
-rho = np.array([1.0,1e-6,1e-5,1e-4,1e-3,0.01,0.1,1,10])
+u_rho = np.logspace(-2.5,2.5,10000)
+rho = np.array([1.0,1e-5,1e-4,1e-3,0.01,0.1,1,10])
 
 mag = jit(mag_disk.A)
 mag_d = jit(mag_limb1.A)

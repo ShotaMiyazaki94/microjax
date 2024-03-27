@@ -8,9 +8,111 @@ from jax import jit, lax, vmap
 def A_point(u):
     return (u**2 + 2) / jnp.abs(u) / (u**2 + 4)**0.5
 
+class mag_:
+    def __init__(self, fft_logumin=-6, fft_logumax=3, N_fft=1024, normalize_sk=True, rho_switch=1e-4, u_switch=10):
+        """
+        Args:
+            fft_logumin      (int): minimum of FFT bin in u space (default=-6)
+            fft_logumax      (int): maximum of FFT bin in u space (default=3)
+            N_fft            (int): number of FFT bin in u space  (default=1024)
+            normalize_sk    (bool): flag to normalize source profile in fourier space
+        """
+        self.fft_logumin = fft_logumin
+        self.fft_logumax = fft_logumax
+        self.N_fft = N_fft
+        self.init_Apk()
+
+    def init_Apk(self):
+        """
+        Initializing the FFT counter part of point-source magnification
+        """
+        u = jnp.logspace(self.fft_logumin, self.fft_logumax, self.N_fft)
+        u2Au = ((u**2 + 2.0) / (u**2 + 4.0)**0.5 / u - 1) * u**2
+        h = hankel(u, u2Au, nu=1.5)
+        #h = hankel(u, u2Au, nu=1.5, N_extrap_high=512, N_extrap_low=512)
+        self.k, apk = h.hankel(0)
+        self.apk = apk * 2 * jnp.pi
+    
+    def sk(self, k, rho, a1):
+        # Implement Fourier counter part of source profile.
+        pass
+
+    def A0(self, rho, a1):
+        # Implement A(0, rho).
+        pass
+
+    def A(self, u, rho, a1=0.0):
+        """
+        Evaluates the extended-source magnification for rho large enough
+        Aargs:
+            u   (array)
+            rho (float)
+            a1  (float): limb darkening coefficient
+        """
+        u = jnp.atleast_1d(jnp.abs(u))
+        a_base = jnp.ones(u.shape) * self.A0(rho, a1)
+        # typical scale of source profile
+        k_rho = 2 * jnp.pi / rho
+        # dumping factor to avoid noisy result
+        dump = jnp.exp(-(self.k / k_rho / 20)**2)
+        # Fourier counter part of extended-source magnification
+        cj = self.apk * self.k**2 * self.sk(self.k, rho, a1) * dump
+        # Hankel back the extended-source magnification
+        h = hankel(self.k, cj, nu=1.5, N_pad=512)
+        u_fft, a_fft = h.hankel(0)
+        a_fft = a_fft / 2.0 / jnp.pi
+        a_fft = a_fft + 1.0
+        # Truncate the result u>100 and append A(u=100)=1
+        max_u_fft = 100
+        u_fft_truncated = jnp.where(u_fft < max_u_fft, u_fft, max_u_fft)
+        a_fft_truncated = jnp.where(u_fft < max_u_fft, a_fft, 1)
+        log_u = jnp.log10(u)
+        log_u_fft_truncated = jnp.log10(u_fft_truncated)
+        interp_values = jnp.interp(log_u, log_u_fft_truncated, a_fft_truncated, right=1)
+        a = jnp.where(u > 0, interp_values, a_base)
+
+        return a 
+
+class mag_disk(mag_):
+    def sk(self, k, rho, a1):
+        k = jnp.atleast_1d(k)
+        x = k * rho
+        idx = x > 0
+        a = jnp.where(idx, 2 * j1(x) / x, jnp.ones_like(x))
+        return a
+
+    def A0(self, rho, a1):
+        return (rho**2 + 4)**0.5 / rho
+
+class mag_limb(mag_):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def su(self, u, rho, a1):
+        su = jnp.zeros(u.size)
+        u_rho = jnp.where(u < rho, u / rho, 1.0)
+        #norm = (1.0 - a1) * jnp.pi * rho**2
+        su = jnp.where(u < rho, 1.0 - a1 * (1.0 - jnp.sqrt(1.0 - u_rho**2)), su)
+        #su = su / norm
+        return su
+
+    def sk(self, k, rho, a1):
+        u = jnp.logspace(self.fft_logumin, self.fft_logumax, self.N_fft)
+        u2su = u**2 * self.su(u, rho, a1)
+        h = hankel(u, u2su, nu=1.5)
+        k, sk = h.hankel(0)
+        sk = sk/sk[0]
+        return sk
+
+    def A0(self, rho, a1):
+        A0_disk  = (rho**2 + 4)**0.5 / rho 
+        A0_term1 = (2 + 1) * (2 * (rho**2 + 2) * ellipe(-rho**2 / 4) - (rho**2 + 4) * ellipk(-rho**2 / 4)) / 3.0 / rho**3 
+        norm = 1.0 - a1
+        return (A0_disk - a1 * A0_term1) / norm 
+
 # FFT based magnification
 class magnification:
-    def __init__(self, fft_logumin=-6, fft_logumax=2, N_fft=2048, normalize_sk=True, rho_switch=1e-4, u_switch=10):
+    def __init__(self, fft_logumin=-6, fft_logumax=3, N_fft=1024, normalize_sk=True, rho_switch=1e-4, u_switch=10):
         """
         Args:
             fft_logumin      (int): minimum of FFT bin in u space (default=-6)
@@ -157,7 +259,7 @@ class mag_limb1(magnification):
         self.a1 = a1 #limb-darkening coeff
         super().__init__(**kwargs)
 
-    def su(self, u, rho):
+    def su(self, u, rho, a1=None):
         su = jnp.zeros(u.size)
         su = jnp.where(u < rho, 1.0 - self.a1 * (1.0 - jnp.sqrt(jnp.abs(1.0 - u**2 / rho**2))), su)
         su = su/su[0] 
@@ -167,6 +269,7 @@ class mag_limb1(magnification):
         u = jnp.logspace(self.fft_logumin, self.fft_logumax, self.N_fft)
         u2su = u**2 * self.su(u, rho)
         h = hankel(u, u2su, nu=1.5)
+        #h = hankel(u, u2su, nu=1.5)
         k, sk = h.hankel(0)
         sk = sk/sk[0]
         return sk

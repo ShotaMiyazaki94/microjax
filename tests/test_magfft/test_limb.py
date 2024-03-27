@@ -12,7 +12,7 @@ import seaborn as sns
 sns.set_theme(font="serif",font_scale=1.,style="ticks",)
 
 VBBL = VBBinaryLensing.VBBinaryLensing()
-VBBL.LoadESPLTable("/Users/shotamiyazaki/Analysis/work/work2/Event/ESPL.tbl")
+VBBL.LoadESPLTable("tests/ESPL.tbl")
 
 mag_disk = mag_disk()
 
