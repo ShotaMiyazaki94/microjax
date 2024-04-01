@@ -28,9 +28,9 @@ def magd_scaler(u,rho,a1):
 magl_grad = jit(vmap(grad(magl_scaler,argnums=(0,1,2))))
 magd_grad = jit(vmap(grad(magd_scaler,argnums=(0,1,2))))
 
-rho_value = 1.0
+rho_value = 5.0
 a1=0.5
-u   = jnp.linspace(1e-3,5,1000)
+u   = jnp.linspace(1e-3,30,1000)
 rho = jnp.ones(1000) * rho_value
 a1  = jnp.ones(1000) * a1
 magd_plot = jit(vmap(magd))(u,rho,a1) 

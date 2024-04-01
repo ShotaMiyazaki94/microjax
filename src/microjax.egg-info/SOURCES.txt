@@ -1,9 +1,9 @@
 README.md
 setup.py
 dist/microjax-0.0.1-py3.10.egg
-notebook/Untitled.ipynb
-notebook/.ipynb_checkpoints/Untitled-checkpoint.ipynb
 src/microjax/__init__.py
+src/microjax/point_source.py
+src/microjax/poly_solver.py
 src/microjax.egg-info/PKG-INFO
 src/microjax.egg-info/SOURCES.txt
 src/microjax.egg-info/dependency_links.txt
@@ -18,6 +18,7 @@ src/microjax/fastlens/__pycache__/__init__.cpython-310.pyc
 src/microjax/fastlens/__pycache__/fftlog.cpython-310.pyc
 src/microjax/fastlens/__pycache__/mag_fft.cpython-310.pyc
 src/microjax/fastlens/__pycache__/special.cpython-310.pyc
+tests/ESPL.tbl
 tests/Pk_test
 tests/__pycache__/test_fastlens.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_fftlog_jax.cpython-310-pytest-7.4.3.pyc
@@ -25,11 +26,3 @@ tests/__pycache__/test_special.cpython-39-pytest-7.4.0.pyc
 tests/olds/test_fftlog_jax2.py
 tests/olds/test_magfft.py
 tests/olds/tmp.py
-tests/test_fftlog/test_fftlog.py
-tests/test_fftlog/test_fftlog_jax.py
-tests/test_magfft/test_grad.py
-tests/test_magfft/test_limb.py
-tests/test_magfft/test_speed.py
-tests/test_magfft/test_usage.py
-tests/test_special/test_special.py
-tests/test_special/test_special_grad.py

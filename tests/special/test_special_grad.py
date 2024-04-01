@@ -25,11 +25,12 @@ def gamma_sum(x):
 
 test = jnp.array(np.random.uniform(0, 0.99, 100000))
 
-print("ellipk :",check_grads(ellipk_sum, (test,), order=1, rtol=1e-3))
-print("ellipe :",check_grads(ellipe_sum, (test,), order=1, rtol=1e-3))
-print("j0     :",check_grads(j0_sum, (test,),     order=1, rtol=1e-3))
-print("j1     :",check_grads(j1_sum, (test,),     order=1, rtol=1e-3))
+rtol = 1e-4
+print("ellipk :",check_grads(ellipk_sum, (test,), order=1, rtol=rtol))
+print("ellipe :",check_grads(ellipe_sum, (test,), order=1, rtol=rtol))
+print("j0     :",check_grads(j0_sum, (test,),     order=1, rtol=rtol))
+print("j1     :",check_grads(j1_sum, (test,),     order=1, rtol=rtol))
 
 test = jnp.array(np.random.uniform(-100, 100, 100000) + 1.0j * np.random.uniform(-100, 100, 100000)) 
 #test = jnp.linspace(0.5,1.0,1000)
-print("gamma  :",check_grads(gamma_sum, (test,), order=1, rtol=1e-3))
+print("gamma  :",check_grads(gamma_sum, (test,), order=1, rtol=rtol))
