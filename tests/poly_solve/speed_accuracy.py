@@ -8,7 +8,7 @@ from microjax.poly_solver import poly_roots_EA
 import timeit
 import time
 
-def test(func,iteration=10000,test_deg=6):
+def test(func,iteration=5000,test_deg=6):
     time_np = []
     time_EA = []
     sol_ac_EA=[]

@@ -4,6 +4,7 @@ dist/microjax-0.0.1-py3.10.egg
 src/microjax/__init__.py
 src/microjax/point_source.py
 src/microjax/poly_solver.py
+src/microjax/utils.py
 src/microjax.egg-info/PKG-INFO
 src/microjax.egg-info/SOURCES.txt
 src/microjax.egg-info/dependency_links.txt
@@ -23,6 +24,16 @@ tests/Pk_test
 tests/__pycache__/test_fastlens.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_fftlog_jax.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_special.cpython-39-pytest-7.4.0.pyc
+tests/fftlog/test_fftlog.py
+tests/fftlog/test_fftlog_jax.py
+tests/magfft/test_grad.py
+tests/magfft/test_grad2.py
+tests/magfft/test_limb.py
+tests/magfft/test_speed.py
+tests/magfft/test_usage.py
 tests/olds/test_fftlog_jax2.py
 tests/olds/test_magfft.py
 tests/olds/tmp.py
+tests/poly_solve/speed_accuracy.py
+tests/special/test_special.py
+tests/special/test_special_grad.py

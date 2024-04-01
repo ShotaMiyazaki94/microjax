@@ -11,8 +11,9 @@ import numpy as np
 import jax.numpy as jnp
 from jax import jit, lax
 
+from microjax.poly_solver import poly_roots_EA as poly_roots
 #from .ehrlich_aberth_primitive import poly_roots
-#from .utils import match_points
+from .utils import match_points
 
 def _poly_coeffs_binary(w, a, e1):
     """
@@ -1700,16 +1701,16 @@ def _images_point_source(
     if custom_init:
         z = poly_roots(
             coeffs,
-            itmax=roots_itmax,
-            compensated=roots_compensated,
-            custom_init=True,
-            roots_init=z_init,
+            #itmax=roots_itmax,
+            #compensated=roots_compensated,
+            #custom_init=True,
+            #roots_init=z_init,
         )
     else:
         z = poly_roots(
             coeffs,
-            itmax=roots_itmax,
-            compensated=roots_compensated,
+            #itmax=roots_itmax,
+            #compensated=roots_compensated,
         )
     z = jnp.moveaxis(z, -1, 0)
 
