@@ -2,6 +2,7 @@ README.md
 setup.py
 dist/microjax-0.0.1-py3.10.egg
 src/microjax/__init__.py
+src/microjax/coeffs.py
 src/microjax/point_source.py
 src/microjax/poly_solver.py
 src/microjax/utils.py
@@ -34,6 +35,8 @@ tests/magfft/test_usage.py
 tests/olds/test_fftlog_jax2.py
 tests/olds/test_magfft.py
 tests/olds/tmp.py
+tests/point_source/compare_vbb.py
 tests/poly_solve/speed_accuracy.py
+tests/poly_solve/test_multi_accuracy.py
 tests/special/test_special.py
 tests/special/test_special_grad.py

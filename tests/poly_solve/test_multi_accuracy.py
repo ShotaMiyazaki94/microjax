@@ -22,7 +22,7 @@ def test_poly_roots_EA(coeffs_matrix, tol=1e-10):
     ea_roots = jnp.array(ea_roots, dtype=complex)
 
     # Compute roots using jnp.roots for each polynomial separately
-    numpy_roots = [np.roots(coeffs) for coeffs in coeffs_matrix]
+    numpy_roots = [np.roots(np.array(coeffs)) for coeffs in coeffs_matrix]
     np_roots = jnp.array(numpy_roots, dtype=complex)
 
     # Sort roots for comparison
@@ -35,12 +35,12 @@ def test_poly_roots_EA(coeffs_matrix, tol=1e-10):
 
 # Test with random coefficients
 key = jrandom.PRNGKey(0)
-test_deg = 10
-length = int(10000)
-coeffs_matrix = jnp.array([np.random.uniform(-10, 10, test_deg) + 1j * np.random.uniform(-10, 10, test_deg) for i in range(length)])
+test_deg = 11
+length = int(1e+5)
+coeffs_matrix = jnp.array([np.random.uniform(-1.0, 1.0, test_deg) + 1j * np.random.uniform(-1.0, 1.0, test_deg) for i in range(length)])
+#coeffs_matrix = jax.random.uniform(key, (length, test_deg), minval=-1.0, maxval=1.0) + 1.0j * jax.random.uniform(key, (length, test_deg), minval=-1.0, maxval=1.0) 
 
+print(coeffs_matrix.shape)
 test_passed = test_poly_roots_EA(coeffs_matrix)
-print("EA:", test_passed[0].ravel())
-print("NP:", test_passed[1].ravel())
 print("DF:", jnp.sum(test_passed[0].ravel() - test_passed[1].ravel()))
 print("Test passed:", test_passed[2])

@@ -20,15 +20,14 @@ def poly_roots_EA_multi(coeffs_matrix, max_iter=25):
         n = len(coeffs) - 1
         max_coeffs = jnp.max(jnp.abs(coeffs))
         initial_roots = (max_coeffs + 1.) * jnp.exp(2j * jnp.pi * jnp.arange(n) / n)
-
         roots, _ = lax.scan(lambda roots, _: EA_step(roots, coeffs), initial_roots, jnp.arange(max_iter))
         return roots
 
     # Apply the single polynomial root finding function to each row of the input matrix
     roots_matrix = jax.vmap(single_poly_roots, in_axes=(0, None,))(coeffs_matrix, max_iter)
     
-    return roots_matrix
-    #return roots_matrix.reshape(output_shape)
+    #return roots_matrix
+    return roots_matrix.reshape(output_shape)
 
 @partial(jit, static_argnums=(1,))
 def poly_roots_EA(coeffs, max_iter=25, init_roots=None):

@@ -3,29 +3,8 @@ import jax.numpy as jnp
 from jax import lax, jit
 from functools import partial
 
-def poly_roots_EA_multi(coeffs_matrix, max_iter=25):
-    ncoeffs = coeffs_matrix.shape[-1]
-    output_shape = coeffs_matrix.shape[:-1] + (ncoeffs - 1,)
-
-    def single_poly_roots(coeffs, max_iter, offset):
-        n = len(coeffs) - 1
-        max_coeffs = jnp.max(jnp.abs(coeffs))
-        initial_roots = (max_coeffs + 1.) * jnp.exp(2j * jnp.pi * (jnp.arange(n) + offset) / n)
-
-        roots, _ = lax.scan(lambda roots, _: EA_step(roots, coeffs), initial_roots, jnp.arange(max_iter))
-        return roots
-
-    # Create an offset for each polynomial based on its position in the matrix
-    offsets = jnp.linspace(0, 1, coeffs_matrix.shape[0], endpoint=False)
-
-    # Apply the single polynomial root finding function to each row of the input matrix
-    roots_matrix = jax.vmap(single_poly_roots, in_axes=(0, None, 0))(coeffs_matrix, max_iter, offsets)
-    
-    return roots_matrix
-
-
 @partial(jit, static_argnums=(1,))
-def _poly_roots_EA_multi(coeffs_matrix, max_iter=25):
+def poly_roots_EA_multi(coeffs_matrix, max_iter=25):
     """
     Ehrlich-Aberth method using JAX for finding all roots of multiple complex polynomials.
 
@@ -41,22 +20,21 @@ def _poly_roots_EA_multi(coeffs_matrix, max_iter=25):
         n = len(coeffs) - 1
         max_coeffs = jnp.max(jnp.abs(coeffs))
         initial_roots = (max_coeffs + 1.) * jnp.exp(2j * jnp.pi * jnp.arange(n) / n)
-
         roots, _ = lax.scan(lambda roots, _: EA_step(roots, coeffs), initial_roots, jnp.arange(max_iter))
         return roots
 
     # Apply the single polynomial root finding function to each row of the input matrix
     roots_matrix = jax.vmap(single_poly_roots, in_axes=(0, None,))(coeffs_matrix, max_iter)
     
-    return roots_matrix
-    #return roots_matrix.reshape(output_shape)
+    #return roots_matrix
+    return roots_matrix.reshape(output_shape)
 
 @partial(jit, static_argnums=(1,))
 def poly_roots_EA(coeffs, max_iter=25, init_roots=None):
     """
     Ehrlich-Aberth method using JAX for finding all roots of a complex polynomial.
 
-    :param coeffs: Coefficients of the polynomial, highest order first.
+    :param coeffs: Coefficients of the polynomial, highest order first. coeffs should be -10<Re(z)<10, -10<Im(z)<10,  
     :param max_iter:    Maximum number of iterations. 
                         This should be conservative to be 20 for n_coeffs=6 and 30 for n_coeffs=11
     :return: Approximation of all roots of the polynomial.

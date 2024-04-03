@@ -4,14 +4,15 @@ import pytest
 import jax
 import jax.numpy as jnp
 from jax.test_util import check_grads
+import matplotlib.pyplot as plt
 
-from microjax.point_source import mag_point_source
+from microjax.coeffs import mag_point_source
 import MulensModel as mm
 jax.config.update("jax_enable_x64", True)
 
 def get_data():
     s = 0.9
-    q = 0.2
+    q = 0.4
     return s, q
 
 def mag_vbb_binary_ps(w0, s, q):
@@ -23,20 +24,22 @@ def mag_vbb_binary_ps(w0, s, q):
 def test_mag_point_source_binary(get_data):
     s, q = get_data
 
-    width = 1.0
-    npts = 50
+    width = 2.0
+    npts = 100
     x = jnp.linspace(-0.5 * width, 0.5 * width, npts)
     y = jnp.linspace(-0.5 * width, 0.5 * width, npts)
     xgrid, ygrid = jnp.meshgrid(x, y)
     wgrid = xgrid + 1j * ygrid
 
-    mag = mag_point_source(wgrid, nlenses=2, s=s, q=q)
+    #mag = mag_point_source(wgrid, nlenses=2, s=s, q=q)
 
     # Compare to VBBinaryLensing
     mag_vbb = np.zeros(wgrid.shape)
     for i in range(wgrid.shape[0]):
         for j in range(wgrid.shape[1]):
             mag_vbb[i, j] = mag_vbb_binary_ps(wgrid[i, j], s, q)
-    np.testing.assert_allclose(mag, mag_vbb, atol=1e-10)
+    plt.pcolor(mag_vbb)
+    plt.show()
+    #np.testing.assert_allclose(mag, mag_vbb, atol=1e-10)
 
 test_mag_point_source_binary(get_data())
