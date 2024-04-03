@@ -26,8 +26,8 @@ def poly_roots_EA_multi(coeffs_matrix, max_iter=25):
     # Apply the single polynomial root finding function to each row of the input matrix
     roots_matrix = jax.vmap(single_poly_roots, in_axes=(0, None,))(coeffs_matrix, max_iter)
     
-    #return roots_matrix
-    return roots_matrix.reshape(output_shape)
+    return roots_matrix
+    #return roots_matrix.reshape(output_shape)
 
 @partial(jit, static_argnums=(1,))
 def poly_roots_EA(coeffs, max_iter=25, init_roots=None):

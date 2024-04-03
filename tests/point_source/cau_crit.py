@@ -9,17 +9,19 @@ from microjax.point_source import critical_and_caustic_curves
 import MulensModel as mm
 jax.config.update("jax_enable_x64", True)
 
-q  = 1e+0
+q  = 1e-3
 s  = 1.0
 q3 = 1e-2
-r3 = 1.0
+r3 = 0.3
 psi = np.deg2rad(45)
 
 
 crit, cau = critical_and_caustic_curves(npts=1000, nlenses=3, q=q, s=s, q3=q3, r3=r3, psi=psi)
+print(crit.shape, cau.shape)
 
 import matplotlib.pyplot as plt
 
 plt.scatter(cau.ravel().real, cau.ravel().imag,   marker=".", color="r", s=1)
 plt.scatter(crit.ravel().real, crit.ravel().imag, marker=".", color="k", s=1)
+plt.axis("equal")
 plt.show()
