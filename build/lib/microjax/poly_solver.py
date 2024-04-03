@@ -2,8 +2,10 @@ import jax
 import jax.numpy as jnp
 from jax import lax, jit
 from functools import partial
+from jax import custom_jvp
 
 @partial(jit, static_argnums=(1,))
+@custom_jvp
 def poly_roots_EA_multi(coeffs_matrix, max_iter=50):
     """
     Ehrlich-Aberth method using JAX for finding all roots of multiple complex polynomials.
@@ -30,7 +32,7 @@ def poly_roots_EA_multi(coeffs_matrix, max_iter=50):
     #return roots_matrix.reshape(output_shape)
 
 @partial(jit, static_argnums=(1,))
-def poly_roots_EA(coeffs, max_iter=25, init_roots=None):
+def poly_roots_EA(coeffs, max_iter=50):
     """
     Ehrlich-Aberth method using JAX for finding all roots of a complex polynomial.
 
@@ -43,10 +45,7 @@ def poly_roots_EA(coeffs, max_iter=25, init_roots=None):
     n = len(coeffs) - 1
     max_coeffs = jnp.max(jnp.abs(coeffs))
     
-    if init_roots is not None and len(init_roots)==n:
-        initial_roots = init_roots
-    else:
-        initial_roots = (max_coeffs+1.)*jnp.exp(2j * jnp.pi * jnp.arange(n) / n)    
+    initial_roots = (max_coeffs+1.)*jnp.exp(2j * jnp.pi * jnp.arange(n) / n)    
     
     roots, _ = lax.scan(lambda roots, _: EA_step(roots, coeffs), initial_roots, jnp.arange(max_iter))
     return roots
@@ -72,3 +71,26 @@ def EA_step(roots, coeffs):
     # Calculate updates for each root
     updates = poly_vals / (dpoly_vals - poly_vals * sum_inv_diffs)
     return roots - updates, None
+
+def single_poly_roots_jvp(coeffs, dp, max_iter):
+    n = len(coeffs) - 1
+    roots = poly_roots_EA(coeffs, max_iter)
+
+    coeffs_deriv = jnp.polyder(coeffs[::-1])
+    df_dz = jnp.polyval(coeffs_deriv, roots)
+
+    df_dp = jnp.vander(roots, n + 1, increasing=True)
+    dz = jnp.sum(df_dp * dp[:, None], axis=0) / (-df_dz)
+
+    return roots, dz
+
+@poly_roots_EA_multi.defjvp
+def poly_roots_EA_multi_jvp(primals, tangents):
+    coeffs_matrix, max_iter = primals
+    dp_matrix, _ = tangents
+
+    roots_matrix, dz_matrix = jax.vmap(single_poly_roots_jvp, in_axes=(0, 0, None))(
+        coeffs_matrix, dp_matrix, max_iter
+    )
+
+    return roots_matrix, dz_matrix
