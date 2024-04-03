@@ -4,7 +4,7 @@ from jax import lax, jit
 from functools import partial
 
 @partial(jit, static_argnums=(1,))
-def poly_roots_EA_multi(coeffs_matrix, max_iter=25):
+def poly_roots_EA_multi(coeffs_matrix, max_iter=50):
     """
     Ehrlich-Aberth method using JAX for finding all roots of multiple complex polynomials.
 

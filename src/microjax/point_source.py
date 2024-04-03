@@ -122,7 +122,7 @@ def critical_and_caustic_curves(npts=200, nlenses=2, **params):
     z_ca = lens_eq(z_cr, nlenses=nlenses, **_params)
 
     # Shift by the centre of mass
-    x_cm = 0.5*s*(1-q)/(1 + q)
+    x_cm = 0.5*s*(1 - q)/(1 + q)
     z_cr, z_ca = z_cr + x_cm, z_ca + x_cm #miyazaki
     #z_cr, z_ca = z_cr - x_cm, z_ca - x_cm
 
