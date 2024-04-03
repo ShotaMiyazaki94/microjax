@@ -130,15 +130,11 @@ def critical_and_caustic_curves(npts=200, nlenses=2, **params):
 
 
 @partial(
-    jit, static_argnames=("nlenses", "roots_itmax", "roots_compensated", "custom_init")
+    jit, static_argnames=("nlenses",)
 )
 def _images_point_source(
     w,
     nlenses=2,
-    roots_itmax=2500,
-    roots_compensated=False,
-    custom_init=False,
-    z_init=None,
     **params
 ):
     """
@@ -173,20 +169,7 @@ def _images_point_source(
         raise ValueError("`nlenses` has to be set to be <= 3.")
 
     # Compute roots
-    if custom_init:
-        z = poly_roots(
-            coeffs,
-            #itmax=roots_itmax,
-            #compensated=roots_compensated,
-            #custom_init=True,
-            #roots_init=z_init,
-        )
-    else:
-        z = poly_roots(
-            coeffs,
-            #itmax=roots_itmax,
-            #compensated=roots_compensated,
-        )
+    z = poly_roots(coeffs)
     z = jnp.moveaxis(z, -1, 0)
 
     # Evaluate the lens equation at the roots
@@ -197,13 +180,7 @@ def _images_point_source(
 
     return z, z_mask 
 
-def _images_point_source_sequential(
-    w,  
-    nlenses=2,
-    roots_itmax=2500,
-    roots_compensated=False,
-    **params,
-):
+def _images_point_source_sequential(w, nlenses=2, **params,):
     """
     Same as `images_point_source` except w is a 1D arrray and the images 
     are computed sequentially using `lax.scan` such that the first set 
@@ -211,31 +188,14 @@ def _images_point_source_sequential(
     subsequent images are initialized using the previous images as a starting
     point.
     """
-    def fn(w, z_init=None, custom_init=False):
-        if custom_init:
-            z, z_mask = _images_point_source(
-                w,
-                nlenses=nlenses,
-                roots_itmax=roots_itmax,
-                roots_compensated=roots_compensated,
-                z_init=z_init,
-                custom_init=True,
-                **params,
-            )
-        else:
-            z, z_mask = _images_point_source(
-                w,
-                nlenses=nlenses,
-                roots_itmax=roots_itmax,
-                roots_compensated=roots_compensated,
-                **params,
-            )
+    def fn(w):
+        z, z_mask = _images_point_source(w, nlenses=nlenses, **params,)
         return z, z_mask
-
+    
     z_first, z_mask_first = fn(w[0])
 
     def body_fn(z_prev, w):
-        z, z_mask = fn(w, z_init=z_prev, custom_init=True)
+        z, z_mask = fn(w)
         return z, (z, z_mask)
 
     _, xs = lax.scan(body_fn, z_first, w[1:])
@@ -248,8 +208,8 @@ def _images_point_source_sequential(
     return z.T, z_mask.T  
 
 
-@partial(jit, static_argnames=("nlenses", "roots_itmax", "roots_compensated"))
-def mag_point_source(w, nlenses=2, roots_itmax=2500, roots_compensated=False, **params):
+@partial(jit, static_argnames=("nlenses"))
+def mag_point_source(w, nlenses=2, **params):
     """
     Compute the magnification of a point source for a system with `nlenses`
     lenses. If `nlenses` is 2 (binary lens) or 3 (triple lens), the coordinate
@@ -312,13 +272,7 @@ def mag_point_source(w, nlenses=2, roots_itmax=2500, roots_compensated=False, **
     else:
         raise ValueError("`nlenses` has to be set to be <= 3.")
 
-    z, z_mask = _images_point_source(
-        w,
-        nlenses=nlenses,
-        roots_itmax=roots_itmax,
-        roots_compensated=roots_compensated,
-        **_params
-    )
+    z, z_mask = _images_point_source(w, nlenses=nlenses, **_params)
     det = lens_eq_det_jac(z, nlenses=nlenses, **_params)
     mag = (1.0 / jnp.abs(det)) * z_mask 
     return mag.sum(axis=0).reshape(w.shape)
