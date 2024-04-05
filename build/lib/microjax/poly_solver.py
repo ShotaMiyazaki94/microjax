@@ -1,54 +1,10 @@
 import jax
 import jax.numpy as jnp
-from jax import lax, jit
+from jax import lax, jit, vmap
 from functools import partial
 from jax import custom_jvp
 
-@partial(jit, static_argnums=(1,))
-@custom_jvp
-def poly_roots_EA_multi(coeffs_matrix, max_iter=50):
-    """
-    Ehrlich-Aberth method using JAX for finding all roots of multiple complex polynomials.
-
-    :param coeffs_matrix: Matrix of coefficients of the polynomials, highest order first.
-                          Each row represents a different polynomial.
-    :param max_iter: Maximum number of iterations.
-    :return: Approximation of all roots of the polynomials.
-    """
-    ncoeffs = coeffs_matrix.shape[-1]
-    output_shape = coeffs_matrix.shape[:-1] + (ncoeffs - 1,)
-
-    def single_poly_roots(coeffs, max_iter):
-        n = len(coeffs) - 1
-        max_coeffs = jnp.max(jnp.abs(coeffs))
-        initial_roots = (max_coeffs + 1.) * jnp.exp(2j * jnp.pi * jnp.arange(n) / n)
-        roots, _ = lax.scan(lambda roots, _: EA_step(roots, coeffs), initial_roots, jnp.arange(max_iter))
-        return roots
-
-    # Apply the single polynomial root finding function to each row of the input matrix
-    roots_matrix = jax.vmap(single_poly_roots, in_axes=(0, None,))(coeffs_matrix, max_iter)
-    
-    return roots_matrix
-    #return roots_matrix.reshape(output_shape)
-
-@partial(jit, static_argnums=(1,))
-def poly_roots_EA(coeffs, max_iter=50):
-    """
-    Ehrlich-Aberth method using JAX for finding all roots of a complex polynomial.
-
-    :param coeffs: Coefficients of the polynomial, highest order first. coeffs should be -10<Re(z)<10, -10<Im(z)<10,  
-    :param max_iter:    Maximum number of iterations. 
-                        This should be conservative to be 20 for n_coeffs=6 and 30 for n_coeffs=11
-    :return: Approximation of all roots of the polynomial.
-    """
-
-    n = len(coeffs) - 1
-    max_coeffs = jnp.max(jnp.abs(coeffs))
-    
-    initial_roots = (max_coeffs+1.)*jnp.exp(2j * jnp.pi * jnp.arange(n) / n)    
-    
-    roots, _ = lax.scan(lambda roots, _: EA_step(roots, coeffs), initial_roots, jnp.arange(max_iter))
-    return roots
+max_iter=50
 
 def EA_step(roots, coeffs):
     """
@@ -57,7 +13,7 @@ def EA_step(roots, coeffs):
     :param roots: Current roots estimates.
     :param coeffs: Coefficients of the polynomial.
     :return: Updated roots.
-    """
+    """ 
     poly_vals = jnp.polyval(coeffs, roots)
     dpoly_vals = jnp.polyval(jnp.polyder(coeffs), roots)
 
@@ -72,25 +28,76 @@ def EA_step(roots, coeffs):
     updates = poly_vals / (dpoly_vals - poly_vals * sum_inv_diffs)
     return roots - updates, None
 
-def single_poly_roots_jvp(coeffs, dp, max_iter):
+@custom_jvp
+def poly_roots_EA(coeffs):
+    """
+    Ehrlich-Aberth method using JAX for finding all roots of a complex polynomial.
+
+    :param coeffs: Coefficients of the polynomial, highest order first. coeffs should be -10<Re(z)<10, -10<Im(z)<10,  
+    :param max_iter:    Maximum number of iterations. 
+                        This should be conservative to be 20 for n_coeffs=6 and 30 for n_coeffs=11
+    :return: Approximation of all roots of the polynomial.
+    """
     n = len(coeffs) - 1
-    roots = poly_roots_EA(coeffs, max_iter)
+    max_coeffs = jnp.max(jnp.abs(coeffs))
+    initial_roots = (max_coeffs+1.)*jnp.exp(2j * jnp.pi * jnp.arange(n) / n)    
+    
+    roots, _ = lax.scan(lambda roots, _: EA_step(roots, coeffs), initial_roots, jnp.arange(max_iter))
+    return roots
 
+@poly_roots_EA.defjvp
+def poly_roots_EA_jvp(primals, tangents):
+    """
+    Args:
+        args (tuple): The arguments to the function.
+        tangents (tuple): Small perturbation to the arguments.
+
+    Returns:
+        tuple: (z, dz) where z are the roots and dz is JVP.
+    """
+    coeffs, = primals
+    #coeffs, max_iter = primals
+    dcoeffs, = tangents
+    #deg = len(coeffs) - 1  
+
+    # Compute the roots using poly_roots_EA
+    roots = poly_roots_EA(coeffs)
+    #roots = poly_roots_EA(coeffs, max_iter)
+
+    # Compute the derivative of the polynomial at the roots
     coeffs_deriv = jnp.polyder(coeffs[::-1])
-    df_dz = jnp.polyval(coeffs_deriv, roots)
+    df_dz        = jnp.polyval(coeffs_deriv, roots)
 
-    df_dp = jnp.vander(roots, n + 1, increasing=True)
-    dz = jnp.sum(df_dp * dp[:, None], axis=0) / (-df_dz)
+    # Compute the Jacobian of the roots with respect to the coefficients
+    # The shape of Jacobian matrix should be (deg, deg + 1)
+    df_dp = jnp.vander(roots, len(coeffs), increasing=True)
+
+    # Compute the tangent (derivative of the roots with respect to the coefficients)
+    dz = jnp.dot(df_dp , dcoeffs) / (-df_dz)
+    #dz = jnp.sum(df_dp * dcoeffs[:, None], axis=0) / (-df_dz)
 
     return roots, dz
 
-@poly_roots_EA_multi.defjvp
-def poly_roots_EA_multi_jvp(primals, tangents):
-    coeffs_matrix, max_iter = primals
-    dp_matrix, _ = tangents
+# Register the JVP rule with the function
+#poly_roots_EA.defjvp(poly_roots_EA_jvp)
 
-    roots_matrix, dz_matrix = jax.vmap(single_poly_roots_jvp, in_axes=(0, 0, None))(
-        coeffs_matrix, dp_matrix, max_iter
-    )
+#@partial(jit, static_argnums=(1,))
+@jit
+def poly_roots_EA_multi(coeffs_matrix):
+    """
+    Ehrlich-Aberth method using JAX for finding all roots of multiple complex polynomials.
 
-    return roots_matrix, dz_matrix
+    :param coeffs_matrix: Matrix of coefficients of the polynomials, highest order first.
+                          Each row represents a different polynomial.
+    :param max_iter: Maximum number of iterations.
+    :return: Approximation of all roots of the polynomials.
+    """
+    ncoeffs = coeffs_matrix.shape[-1]
+    #output_shape = coeffs_matrix.shape[:-1] + (ncoeffs - 1,)
+    
+    # Apply the single polynomial root finding function to each row of the input matrix
+    roots_matrix = jax.vmap(poly_roots_EA, in_axes=(0,))(coeffs_matrix)
+    #roots_matrix = jax.vmap(poly_roots_EA, in_axes=(0, None,))(coeffs_matrix, max_iter)
+    
+    #return roots_matrix.reshape(output_shape)
+    return roots_matrix
