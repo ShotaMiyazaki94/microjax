@@ -6,7 +6,7 @@ import jax.numpy as jnp
 from jax.test_util import check_grads
 import matplotlib.pyplot as plt
 
-from microjax.coeffs import mag_point_source
+from microjax.point_source import mag_point_source
 import MulensModel as mm
 jax.config.update("jax_enable_x64", True)
 

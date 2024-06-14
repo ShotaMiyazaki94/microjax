@@ -11,7 +11,6 @@ jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
 
 
-t  =  np.linspace(-10, 10, 500)
 
 s  = 1.1  # separation between the two lenses in units of total ang. Einstein radii
 q  = 0.1  # mass ratio: mass of the lens on the right divided by mass of the lens on the left
@@ -24,6 +23,7 @@ alpha = np.deg2rad(40) # angle between lens axis and source trajectory
 tE = 10 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
 u0 = 0.2 # impact parameter
+t  =  np.linspace(-tE, tE, 500)
 
 # Position of the center of the source with respect to the center of mass.
 tau = (t - t0)/tE

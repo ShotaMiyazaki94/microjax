@@ -4,6 +4,7 @@ from jax import lax, jit, vmap
 from functools import partial
 from jax import custom_jvp
 
+# This structure should be modified...
 max_iter=50
 
 def EA_step(roots, coeffs):
@@ -74,7 +75,6 @@ def poly_roots_EA_jvp(primals, tangents):
 
     # Compute the tangent (derivative of the roots with respect to the coefficients)
     dz = jnp.dot(df_dp , dcoeffs) / (-df_dz)
-    #dz = jnp.sum(df_dp * dcoeffs[:, None], axis=0) / (-df_dz)
 
     return roots, dz
 

@@ -156,11 +156,23 @@ def _images_point_source(
         return z, jnp.ones(z.shape).astype(jnp.bool_)
 
     elif nlenses == 2:
+        #s, q = params["s"], params["q"]
+        #a = 0.5*s
+        #e1 = q/(1 + q) #miyazaki
+        #_params = {"a": a, "e1": e1}
         a, e1 = params["a"], params["e1"]
         # Compute complex polynomial coefficients for each element of w
         coeffs = _poly_coeffs_binary(w, a, e1)
 
     elif nlenses == 3:
+        #, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
+        #a = 0.5*s
+        #e1 = q/(1 + q + q3)  #miyazaki
+        #e1 = q/(1 + q + q3)
+        #e2 = 1/(1 + q + q3) #miyazaki
+        #e2 = q*e1
+        #r3 = r3*jnp.exp(1j*psi)
+        #_params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
         a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
         # Compute complex polynomial coefficients for each element of w
         coeffs = _poly_coeffs_triple(w, a, r3, e1, e2)
