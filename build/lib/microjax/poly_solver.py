@@ -57,30 +57,24 @@ def poly_roots_EA_jvp(primals, tangents):
         tuple: (z, dz) where z are the roots and dz is JVP.
     """
     coeffs, = primals
-    #coeffs, max_iter = primals
     dcoeffs, = tangents
-    #deg = len(coeffs) - 1  
-
+    
     # Compute the roots using poly_roots_EA
     roots = poly_roots_EA(coeffs)
-    #roots = poly_roots_EA(coeffs, max_iter)
 
     # Compute the derivative of the polynomial at the roots
-    coeffs_deriv = jnp.polyder(coeffs[::-1])
-    df_dz        = jnp.polyval(coeffs_deriv, roots)
+    df_dz = jnp.polyval(jnp.polyder(coeffs), roots)
 
     # Compute the Jacobian of the roots with respect to the coefficients
     # The shape of Jacobian matrix should be (deg, deg + 1)
-    df_dp = jnp.vander(roots, len(coeffs), increasing=True)
+    df_da = jnp.vstack([roots**i for i in range(coeffs.size-1, -1, -1)]).T
+    #df_dp = jnp.vander(roots, len(coeffs), increasing=True)
 
     # Compute the tangent (derivative of the roots with respect to the coefficients)
-    dz = jnp.dot(df_dp , dcoeffs) / (-df_dz)
-
+    dz = - (df_da @ dcoeffs) / df_dz
     return roots, dz
 
 # Register the JVP rule with the function
-#poly_roots_EA.defjvp(poly_roots_EA_jvp)
-
 #@partial(jit, static_argnums=(1,))
 @jit
 def poly_roots_EA_multi(coeffs_matrix):

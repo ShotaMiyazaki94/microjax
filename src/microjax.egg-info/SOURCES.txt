@@ -36,6 +36,7 @@ tests/olds/test_fftlog_jax2.py
 tests/olds/test_magfft.py
 tests/olds/tmp.py
 tests/point_source/compare_vbb.py
+tests/point_source/mag_point_source_grad.py
 tests/poly_solve/check_grad.py
 tests/poly_solve/speed_accuracy.py
 tests/poly_solve/test_multi_accuracy.py
