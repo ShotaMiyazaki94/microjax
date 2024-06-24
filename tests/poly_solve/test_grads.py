@@ -20,11 +20,10 @@ def numerical_derivative(f, coeffs, h=1e-6):
 
 def test_polynomial(coeffs):
     roots = poly_roots_EA(coeffs)
-    return jnp.mean(roots)  # 全ての根を返す
+    return jnp.sum(roots)  # 全ての根を返す
 
-# 多項式の係数
-degree = 3  # 多項式の次数
-length = 1  # 生成する多項式の数
+degree = 10  # number of polynomials 
+length = 1   # number of equations
 
 def generate_coeffs(key, num_coeffs, num_eqs, dtype=jnp.complex128):
     real_part = random.uniform(key, (num_eqs, num_coeffs), dtype=jnp.float64, minval=-1, maxval=1)
@@ -36,7 +35,6 @@ coeffs = generate_coeffs(key, degree, length)
 coeffs = coeffs.ravel()
 #coeffs = jnp.array([1, 0.1 + 0.3j, 0.8+0.2j], dtype=complex)
 
-# 自動微分と数値微分を使用して根の統計を計算
 auto_stats = vmap(grad(test_polynomial, holomorphic=True))(coeffs.reshape(1, -1))
 num_stats = vmap(numerical_derivative, in_axes=(None, 0))(test_polynomial, coeffs.reshape(1, -1))
 

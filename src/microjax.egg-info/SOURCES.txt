@@ -27,6 +27,8 @@ tests/__pycache__/test_fftlog_jax.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_special.cpython-39-pytest-7.4.0.pyc
 tests/fftlog/test_fftlog.py
 tests/fftlog/test_fftlog_jax.py
+tests/figs/accuracy.png
+tests/figs/speed.png
 tests/magfft/test_grad.py
 tests/magfft/test_grad2.py
 tests/magfft/test_limb.py
@@ -37,7 +39,6 @@ tests/olds/test_magfft.py
 tests/olds/tmp.py
 tests/point_source/compare_vbb.py
 tests/point_source/mag_point_source_grad.py
-tests/poly_solve/check_grad.py
 tests/poly_solve/speed_accuracy.py
 tests/poly_solve/test_multi_accuracy.py
 tests/poly_solve/test_multi_speed.py
