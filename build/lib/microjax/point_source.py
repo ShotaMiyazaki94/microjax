@@ -12,10 +12,43 @@ def _lens_eq_single(z):
     return z - 1 / zbar
 
 def _lens_eq_binary(z, a, e1):
+    """
+    compute source position given image position with binary-lens
+
+    Args:
+        z (array_like): 
+            Image position in the complex plane.
+        a (float):
+            Half of separation between the two lenses.
+        e1 (float):
+            mass fraction for second mass, e1 = m2 / (m1 + m2)
+    Return:
+        array_like: 
+            The point source magnification evaluated at w. 
+    """
+
     zbar = jnp.conjugate(z)
     return z - e1 / (zbar - a) - (1.0 - e1) / (zbar + a)
 
 def _lens_eq_triple(z, a, r3, e1, e2):
+    """
+    compute source position given image position with triple-lens
+
+    Args:
+        z (array_like): 
+            Image position in the complex plane.
+        a (float):
+            Half of separation between primary and secondary lenses.
+        r3 (complex):
+            The coordinate of the third mass from the mid-point.
+        e1 (float):
+            mass fraction for second mass, e1 = m2 / (m1 + m2 + m3)
+        e2 (float):
+            mass fraction for first mass, e2 = m1 / (m1 + m2 + m3)
+    Return:
+        array_like: 
+            The point source magnification evaluated at w. 
+    """
     zbar = jnp.conjugate(z)
     return (
         z - e1 / (zbar - a)
