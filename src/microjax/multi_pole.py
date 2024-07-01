@@ -204,6 +204,39 @@ def _mag_hexadecapole_cassan(W, rho, u1=0.0):
     
     return mu_ps, delta_mu_quad, delta_mu_hex
 
+def mag_hex_single(z, z_mask, q, s, rho, u1=0.0):
+    """
+    compute approximate magnification with single-lens
+
+    Args:
+        z (array_like): 
+            Image position in the complex plane.
+        z_mask (array_like):
+            bool array that indicates whether the image meets the lens equation.
+        rho (float):
+            Normalized source radius in the unit of Einstein radius.
+        u1 (float):
+            Linear limb-darkening coefficient.
+    Return:
+        array_like: 
+            The approximate magnification evaluated at z. 
+    """
+    # Wk from Cassan et. al. 2017
+    factorial = lambda n: jnp.exp(gammaln(n + 1))
+    W = lambda k: (-1) ** (k - 1) * factorial(k - 1) * 1.0 / z**k
+    Ws = vmap(W)(jnp.arange(2, 7))
+    # Multipole terms per image, signed
+    mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
+    # Sum over images
+    mu_multi = jnp.sum(z_mask*(jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex)), axis=0).reshape(z.shape)
+    # Get magnitude of the quadrupole and hexadecapole terms in units of point
+    # source magnification
+    mu_quad_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_quad)), axis=0).reshape(z.shape)
+    mu_hex_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_hex)), axis=0).reshape(z.shape)
+
+    return mu_multi, mu_quad_abs + mu_hex_abs
+
+
 def mag_hex_binary(z, z_mask, q, s, rho, u1=0.0):
     """
     compute approximate magnification with binary-lens
@@ -289,44 +322,5 @@ def mag_hex_triple(z, z_mask, q, s, q3, r3, psi, rho, u1=0.0):
     # source magnification
     mu_quad_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_quad)), axis=0).reshape(z.shape) 
     mu_hex_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_hex)), axis=0).reshape(z.shape) 
-
-    return mu_multi, mu_quad_abs + mu_hex_abs
-
-
-def _mag_hexadecapole(z, z_mask, rho, u1=0.0, nlenses=2, **params):
-    # Wk from Cassan et. al. 2017
-    factorial = lambda n: jnp.exp(gammaln(n + 1))
-
-    if nlenses == 1:
-        W = lambda k: (-1) ** (k - 1) * factorial(k - 1) * 1.0 / z**k
-    elif nlenses == 2:
-        a, e1 = params["a"], params["e1"]
-        W = (
-            lambda k: (-1) ** (k - 1)
-            * factorial(k - 1)
-            * (e1 / (z - a) ** k + (1.0 - e1) / (z + a) ** k)
-        )
-    elif nlenses == 3:
-        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
-        W = (
-            lambda k: (-1) ** (k - 1)
-            * factorial(k - 1)
-            * (e1 / (z - a) ** k + e2 / (z + a) ** k + (1.0 - e1 - e2) / (z - r3) ** k)
-        )
-    else:
-        raise ValueError("`nlenses` has to be set to be <= 3.")
-
-    Ws = vmap(W)(jnp.arange(2, 7))
-
-    # Multipole terms per image, signed
-    mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
-
-    # Sum over images
-    mu_multi = jnp.sum(z_mask*(jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex)), axis=0)
-
-    # Get magnitude of the quadrupole and hexadecapole terms in units of point
-    # source magnification
-    mu_quad_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_quad)), axis=0) 
-    mu_hex_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_hex)), axis=0) 
 
     return mu_multi, mu_quad_abs + mu_hex_abs
