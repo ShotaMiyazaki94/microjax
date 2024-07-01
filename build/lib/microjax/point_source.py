@@ -85,6 +85,21 @@ def _images_point_source_single(w):
 
 @jit
 def _images_point_source_binary(w, a, e1):
+    """
+    compute image positions with binary-lens
+
+    Args:
+        w (array_like): 
+            Source position in the complex plane of the mid-point coordinates.
+        a (float): 
+            Half of separation between the two lenses.
+        e1 (float): 
+            Mass fraction defined as $e1 = m2/(m1+m2)$.
+    Return:
+        Tuple (z: array_like, z_mask: array_like): 
+            z (array_like): The image position evaluated by w.
+            z_mask (array_like): The bool whether the image position meets the lens equation.
+    """
     coeffs = _poly_coeffs_binary(w, a, e1)
     z = poly_roots(coeffs)
     z = jnp.moveaxis(z, -1, 0)

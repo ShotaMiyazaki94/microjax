@@ -5,7 +5,7 @@ from functools import partial
 from jax import custom_jvp
 
 # This structure should be modified...
-max_iter=50
+max_iter=100
 
 def EA_step(roots, coeffs):
     """
