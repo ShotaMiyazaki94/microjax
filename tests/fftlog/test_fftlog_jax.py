@@ -43,15 +43,15 @@ subfig2.set_xlabel('y')
 subfig2.set_ylabel('F(y)')
 subfig2.plot(r, Fr, label='fftlog')
 subfig2.plot(r_j, Fr_j, label='fftlog_jax',ls="--")
-
+plt.legend()
+plt.tight_layout()
+plt.savefig("tests/fftlog/test_fftlog_jax_1.png",dpi=200)
+plt.close()
 # r_c, Fr_c = np.loadtxt('../cfftlog/test_output.txt', usecols=(0,1), unpack=True)
 # subfig2.plot(r_c, Fr_c, label='(bad) brute-force')
 
 # r_bf, Fr_bf = np.loadtxt('test_bruteforce.txt', usecols=(0,1), unpack=True)
 # subfig2.plot(r_bf, Fr_bf)
-plt.legend()
-plt.tight_layout()
-plt.show()
 
 ################# Test j' ##############
 print('Testing 1st & 2nd-derivative')
@@ -85,7 +85,8 @@ subfig2.plot(r2_j, abs(Fr2_j), ':', label='2nd-derivative jax',c="cyan")
 # subfig2.plot(r_bf, Fr_bf)
 plt.legend()
 plt.tight_layout()
-plt.show()
+plt.savefig("tests/fftlog/test_fftlog_jax_2.png",dpi=200)
+plt.close()
 
 ################# Test j squared ##############
 print('Testing squared j')
@@ -116,7 +117,8 @@ plt.legend()
 # subfig2.plot(r_bf, Fr_bf)
 # plt.legend()
 plt.tight_layout()
-plt.show()
+plt.savefig("tests/fftlog/test_fftlog_jax_3.png",dpi=200)
+plt.close()
 
 ################# Test Hankel ##############
 print('Testing hankel')
@@ -149,7 +151,8 @@ subfig2.plot(r, Fr)
 subfig2.plot(r_j, Fr_j,"--",label="jax")
 plt.legend()
 plt.tight_layout()
-plt.show()
+plt.savefig("tests/fftlog/test_fftlog_jax_4.png",dpi=200)
+plt.close()
 
 
 #from microjax.fastlens import mag_fft

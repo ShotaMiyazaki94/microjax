@@ -8,7 +8,7 @@ from microjax.fastlens.mag_fft import magnification_disk as magnification_disk_o
 from microjax.fastlens.mag_fft import magnification_limb as magnification_limb_org 
 from jax import jit, grad, vmap
 import timeit
-jax.config.update("jax_debug_nans", True) 
+#jax.config.update("jax_debug_nans", True) 
 import seaborn as sns
 sns.set_theme(font="serif",font_scale=1.,style="ticks",)
 
@@ -59,10 +59,11 @@ ax["C"].plot(u,magl_plot_grad[1].ravel(),"-")
 ax["B"].set_ylabel("dA/du")
 ax["C"].set_ylabel("dA/drho")
 ax["C"].set_xlabel("u")
-plt.show()
+plt.savefig("tests/magfft/test_grad_1.png",dpi=200,bbox_inches="tight")
+plt.close()
 
 u_grid = jnp.logspace(-5,0,50)
-r_grid = jnp.logspace(-5,1,50)
+r_grid = jnp.logspace(-4,1,50)
 u_grid, r_grid = jnp.meshgrid(u_grid,r_grid)
 u_grid = u_grid.ravel()
 r_grid = r_grid.ravel()
@@ -85,7 +86,8 @@ ax[0].set_xlabel("u")
 ax[0].set_ylabel("rho")
 ax[1].set_xlabel("u")
 ax[1].set_ylabel("rho")
-plt.show()
+plt.savefig("tests/magfft/test_grad_2.png",dpi=200,bbox_inches="tight")
+plt.close()
 
 
 exit(0)

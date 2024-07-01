@@ -28,7 +28,7 @@ def measure_time(degree, lengths):
         times.append(end - start)
     return times
 
-lengths = 10**np.arange(4, 7.5, 0.5)
+lengths = 10**np.arange(3, 7.25, 0.25)
 
 time6 = measure_time(6, lengths)
 time11 = measure_time(11, lengths)
@@ -42,7 +42,7 @@ plt.legend(["5 deg (binary-lens)","10 deg (triple-lens)"])
 plt.grid(ls=":")
 plt.xlabel("number of equations")
 plt.ylabel("time (sec.)")
-plt.savefig("tests/figs/speed.png", dpi=200, bbox_inches="tight")
+plt.savefig("tests/poly_solve/test_multi_speed.png", dpi=200, bbox_inches="tight")
 plt.close()
 
 

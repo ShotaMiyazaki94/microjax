@@ -7,9 +7,59 @@ from jax import jit, lax
 
 #from microjax.poly_solver import poly_roots_EA_multi as poly_roots
 #from .ehrlich_aberth_primitive import poly_roots
-from .utils import match_points
+#from .utils import match_points
 
 def _poly_coeffs_binary(w, a, e1):
+    """
+    Compute the coefficients of the complex polynomial equation corresponding
+    to the binary lens equation. The function returns a vector of coefficients
+    starting with the highest order term.
+
+    Args:
+        w (array_like): Source plane positions in the complex plane.
+        a (float): Half the separation between the two lenses. We use the
+            convention where both lenses are located on the real line with
+            r1 = a and r2 = -a.
+        e1 (array_like): Mass fraction of the first lens e1 = m1/(m1+m2). It
+            follows that e2 = 1 - e1.
+
+    Returns:
+        array_like: Polynomial coefficients, same shape as w with an added
+            dimension for the polynomial coefficients.
+    """
+    wbar = jnp.conjugate(w)
+    a2 = a**2
+    a3 = a**3
+    a4 = a**4
+    a5 = a**5
+    a6 = a**6
+
+    p_0 = -(a2) + wbar**2
+    p_1 = a2 * w - 2 * a * e1 + a - w * wbar**2 + wbar
+    p_2 = 2 * a4 - 2 * a2 * wbar**2 + 4 * a * wbar * e1 - 2 * a * wbar - 2 * w * wbar
+    p_3 = -2 * a4 * w + 4 * a3 * e1 - 2 * a3 + 2 * a2 * w * wbar**2 - 4 * a * w * wbar * e1 + 2 * a * w * wbar + 2 * a * e1 - a - w
+    p_4 = -(a6) + a4 * wbar**2 - 4 * a3 * wbar * e1 + 2 * a3 * wbar + 2 * a2 * w * wbar + 4 * a2 * e1**2 - 4 * a2 * e1 + 2 * a2 - 4 * a * w * e1 + 2 * a * w
+    p_5 = a6 * w - 2 * a5 * e1 + a5 - a4 * w * wbar**2 - a4 * wbar + 4 * a3 * w * wbar * e1 - 2 * a3 * w * wbar + 2 * a3 * e1 - a3 - 4 * a2 * w * e1**2 + 4 * a2 * w * e1 - a2 * w
+
+    p = jnp.stack([p_0, p_1, p_2, p_3, p_4, p_5])
+    return jnp.moveaxis(p, 0, -1)
+
+def _poly_coeffs_critical_binary(phi, a, e1):
+    """
+    Compute the coefficients of 2*Nth order polynomial which defines the critical
+    curves for the binary lens case (N = 2).
+    """
+    p_0 = jnp.exp(-1j * phi)
+    p_1 = jnp.zeros_like(phi)
+    p_2 = -2 * a**2 * jnp.exp(-1j * phi) - 1.0
+    p_3 = (-4 * a * e1 + 2 * a) * jnp.ones_like(phi)
+    p_4 = a**4 * jnp.exp(-1j * phi) - a**2
+
+    p = jnp.stack([p_0, p_1, p_2, p_3, p_4])
+
+    return p
+
+def _poly_coeffs_binary_(w, a, e1):
     """
     Compute the coefficients of the complex polynomial equation corresponding
     to the binary lens equation. The function returns a vector of coefficients
@@ -79,7 +129,6 @@ def _poly_coeffs_binary(w, a, e1):
     p = jnp.stack([p_0, p_1, p_2, p_3, p_4, p_5])
 
     return jnp.moveaxis(p, 0, -1)
-
 
 def _poly_coeffs_triple(w, a, r3, e1, e2):
     """
@@ -1472,23 +1521,6 @@ def _poly_coeffs_triple(w, a, r3, e1, e2):
     p = jnp.stack([p_0, p_1, p_2, p_3, p_4, p_5, p_6, p_7, p_8, p_9, p_10])
 
     return jnp.moveaxis(p, 0, -1)
-
-
-def _poly_coeffs_critical_binary(phi, a, e1):
-    """
-    Compute the coefficients of 2*Nth order polynomial which defines the critical
-    curves for the binary lens case (N = 2).
-    """
-    p_0 = jnp.exp(-1j * phi)
-    p_1 = jnp.zeros_like(phi)
-    p_2 = -2 * a**2 * jnp.exp(-1j * phi) - 1.0
-    p_3 = (-4 * a * e1 + 2 * a) * jnp.ones_like(phi)
-    p_4 = a**4 * jnp.exp(-1j * phi) - a**2
-
-    p = jnp.stack([p_0, p_1, p_2, p_3, p_4])
-
-    return p
-
 
 def _poly_coeffs_critical_triple(phi, a, r3, e1, e2):
     x = jnp.exp(-1j * phi)

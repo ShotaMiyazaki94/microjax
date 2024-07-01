@@ -41,3 +41,4 @@ num_stats = vmap(numerical_derivative, in_axes=(None, 0))(test_polynomial, coeff
 # 出力フォーマットを改善
 print("auto:",auto_stats)
 print("num: ",num_stats)
+print("diff_sum: ",jnp.sum(jnp.abs(auto_stats - num_stats)))

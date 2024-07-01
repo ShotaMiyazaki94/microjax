@@ -37,7 +37,7 @@ fig.subplots_adjust(hspace=0.0)
 ax["A"].plot(u, a_disk,label="uniform (jax)")
 ax["A"].plot(u, a_disk_org,"--",label="uniform (org)")
 ax["A"].plot(u, a_limb1,label="limb 1st order (jax)")
-ax["A"].plot(u, a_limb1_org,"--",label="limb 1st orde (org)")
+ax["A"].plot(u, a_limb1_org,"--",label="limb 1st order (org)")
 ax["A"].plot(u, a_limb2,label="limb 2nd order (jax)")
 ax["A"].plot(u, a_limb2_org,"--",label="limb 2nd order (org)")
 ax["B"].plot(u, a_disk-a_disk_org,label="uniform (diff)")
@@ -48,7 +48,8 @@ ax["B"].set_xlabel(r'$u$')
 ax["B"].set_ylabel(r'$A(u)$')
 ax["A"].legend()
 ax["B"].legend()
-plt.show()
+plt.savefig("tests/magfft/test_usage.png",dpi=200,bbox_inches="tight")
+plt.close()
 
 """
 k = mag_disk.k
