@@ -24,7 +24,7 @@ def _lens_eq_binary(z, a, e1):
             mass fraction for second mass, e1 = m2 / (m1 + m2)
     Return:
         array_like: 
-            The point source magnification evaluated at w. 
+            The source position evaluated at z. 
     """
 
     zbar = jnp.conjugate(z)
@@ -47,7 +47,7 @@ def _lens_eq_triple(z, a, r3, e1, e2):
             mass fraction for first mass, e2 = m1 / (m1 + m2 + m3)
     Return:
         array_like: 
-            The point source magnification evaluated at w. 
+            The source position evaluated at z.  
     """
     zbar = jnp.conjugate(z)
     return (
@@ -109,6 +109,25 @@ def _images_point_source_binary(w, a, e1):
 
 @jit
 def _images_point_source_triple(w, a, r3, e1, e2):
+    """
+    compute image positions with triple-lens
+
+    Args:
+        w (array_like): 
+            Source position in the complex plane of the mid-point coordinates.
+        a (float): 
+            Half of separation between the two lenses.
+        r3 (complex): 
+            Complex position of the third lens from the mid-point.
+        e1 (float): 
+            Mass fraction defined as $e1 = m2 / (m1+m2+m3)$.
+        e2 (float): 
+            Mass fraction defined as $e2 = m1 / (m1+m2+m3)$.
+    Return:
+        Tuple (z: array_like, z_mask: array_like): 
+            z (array_like): The image position evaluated by w.
+            z_mask (array_like): The bool whether the image position meets the lens equation.
+    """
     coeffs = _poly_coeffs_triple(w, a, r3, e1, e2)
     z = poly_roots(coeffs)
     z = jnp.moveaxis(z, -1, 0)
