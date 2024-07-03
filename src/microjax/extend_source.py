@@ -12,15 +12,49 @@ def source_profile_limb1(dz, u1=0.0):
     mu = jnp.sqrt(1.0 - dz*dz)
     return 1 - u1 * (1.0 - mu)
 
-def imagearea_binary(w_center, z_inits, q, s, rho, NBIN=20):
-    
+def image_area_binary(w_center, z_inits, q, s, rho, NBIN=20, max_iter=100000):
+
+    # used arrays
+    indx   = jnp.zeros((max_iter * 2, 4), dtype=int)
+    Nindx  = jnp.zeros((max_iter * 2,),   dtype=int)
+    xmax   = jnp.zeros((max_iter * 4,))
+    xmin   = jnp.zeros((max_iter * 4,))
+    area_x = jnp.zeros((max_iter * 4,))
+    y      = jnp.zeros((max_iter * 4,))
+    dys    = jnp.zeros((max_iter * 4,))
+
     nimage  = len(z_inits)
     overlap = jnp.zeros(6) # binary-lens
     incr    = rho / NBIN  
-    incr2   = 0.5 * incr   
+    incr2   = 0.5 * incr 
+    incr2margin = incr2 * 1.01  
+    area_i  = jnp.zeros(6)
+    
+    if rho <= 0:
+        return 0.0
+    
+    for i in range(1, nimage+1):
+        if overlap[i] == 1:
+            continue
+        # search image toward +y
+        yi = 0
+        dy = incr
+        z_init = z_inits[i]
+        xmin = xmin.at[0].set(z_init[i].real)
+        xmax = xmax.at[0].set(z_init[i].real)
+        area_i, yi = image_area0_binary(w_center, z_init, q, s, dy, indx, Nindx, 
+                                        xmax, xmin, area_x, y, dys, max_iter)
+        # search image toward -y
+        dy       = -incr
+        z_init   = jnp.complex128(xmax[0], z_inits[i].imag + dy)
+        xmin = xmin.at[yi].set(xmin[0])
+        xmax = xmax.at[yi].set(xmax[0])
+        y    = y.at[yi].set(y[0])
 
 
-def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
+
+
+def image_area0_binary(w_center, z_init, q, s, rho, dy, indx, Nindx, xmax, xmin, area_x, y, dys, max_iter):
     """
     calculate an image area with binary-lens by inverse-ray shooting.
 
@@ -50,16 +84,8 @@ def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
     count_x   = 0.0
     count_all = 0.0
     rho2      = rho * rho
-    # used arrays
-    indx   = jnp.zeros((max_iter * 2, 4), dtype=int)
-    Nindx  = jnp.zeros((max_iter * 2,),   dtype=int)
-    xmax   = jnp.zeros((max_iter * 4,))
-    xmin   = jnp.zeros((max_iter * 4,))
-    area_x = jnp.zeros((max_iter * 4,))
-    y      = jnp.zeros((max_iter * 4,))
-    dys    = jnp.zeros((max_iter * 4,))
+    
     yi = 0
-
     while True:
         zis = _lens_eq_binary(z_current, a=a, e1=e1) # inversed point from image into source
         dz2_last = dz2
@@ -78,7 +104,7 @@ def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
                 dx = -incr 
                 z_current = jnp.complex128(x0 + z_current.imag)
                 xmin = xmin.at[yi].set(z_current.real + dx) # set xmin in positive run
-            else: # negative run
+            else: # negative run with outside of the source 
                 if dz2_last <= rho2: # if previous ray is inside
                     xmin = xmin.at[yi].set(z_current.real) # set xmin in negative run 
                 if z_current.real >= xmin[yi-1] - dx and yi!=0 and count_x==0: # nothing in negative run
@@ -95,7 +121,8 @@ def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
                 # check if this y is already counted
                 y_index = int(z_current.imag * incr_inv + max_iter) #the index based on the current y coordinate (+offset)
                 for j in range(Nindx[y_index]):
-                    ind = indx[y_index][j+1]
+                    ind = indx[y_index][j]
+                    #ind = indx[y_index][j+1]
                     if xmin[yi] + incr < xmax[ind] and xmax[yi] - incr > xmin[ind]: # already counted.
                         return count_all - count_x 
                 # save index yi if counted
@@ -109,149 +136,6 @@ def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
                 count_x = 0.0
         # update the z value 
         z_current = z_current + dx
-    return count_all
-
-
-
-
-
-def body_fun(carry):
-    (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, 
-     yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0) = carry
-
-    zis = _lens_eq_binary(z, a=a, e1=e1)
-    dz2_last = dz2
-    dz = jnp.abs(w - zis)
-    dz2 = dz**2
-
-    def in_radius(carry):
-        (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, 
-         yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0) = carry
-
-        xmax = lax.cond(
-            (dx == -incr) & (count_x == 0.0),
-            lambda xmax: xmax.at[yi].set(z.real - dx),
-            lambda xmax: xmax,
-            xmax
-        )
-        Ar = source_profile_limb1(dz)
-        count_x += Ar
-        count_all += Ar
-        return (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, 
-                yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0)
     
-    def out_radius(carry):
-        (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, 
-         yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0) = carry
-        
-        def reverse_direction(carry):
-            (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, 
-             yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0) = carry
-            # update the xmax value 
-            xmax = lax.cond(
-                dz2_last <= rr,
-                lambda xmax: xmax.at[yi].set(z.real),
-                lambda xmax: xmax,
-                xmax
-            )
-            dx = -incr
-            z = jnp.complex128(x0 + 1j * z.imag)
-            xmin = xmin.at[yi].set(z.real + dx)
-            return (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, 
-                    yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0)
-        def settle_row(carry):
-            (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, 
-             yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0) = carry
+    return count_all, yi
 
-            xmin = lax.cond(
-                dz2_last <= rr,
-                lambda xmin: xmin.at[yi].set(z.real),
-                lambda xmin: xmin,
-                xmin
-            )
-            skip = (z.real >= xmin[yi-1] - dx) & (yi != 0) & (count_x == 0.0)
-
-            Ax = Ax.at[yi].set(count_x)
-            y = y.at[yi].set(z.imag)
-            dys = dys.at[yi].set(dy)
-            dys = lax.cond(
-                count_x == 0.0,
-                lambda dys: dys.at[yi].set(-dy),
-                lambda dys: dys,
-                dys
-            )
-            yii = jnp.array(z.imag * incr_inv + INDX0)
-            is_counted = lax.fori_loop(
-                0,
-                Nindx[yii],
-                lambda j, is_counted: is_counted | ((xmin[yi] + incr < xmax[indx[yii][j]]) & (xmax[yi] - incr > xmin[indx[yii][j]])),
-                False
-            )
-
-            def return_count(carry):
-                (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0) = carry
-                return (z, dz2, dx, 0.0, count_all - count_x, xmax, xmin, Ax, y, dys, yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0), False
-
-            def save_index(carry):
-                (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0) = carry
-
-                indx = indx.at[yii, Nindx[yii]].set(yi)
-                Nindx = Nindx.at[yii].add(1.0)
-                yi += 1
-                dx = incr
-                x0 = xmax[yi-1]
-                z = z - dx + 1j * dy
-                return (z, dz2, dx, 0.0, count_all, xmax, xmin, Ax, y, dys, yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0), True
-
-            return lax.cond(
-                is_counted,
-                return_count,
-                save_index,
-                (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0)
-            )
-
-        return lax.cond(
-            dx == incr,
-            reverse_direction,
-            settle_row,
-            (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0)
-        )
-
-    return lax.cond(
-        dz2 <= rr,
-        in_radius,
-        out_radius,
-        (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0)
-    ), True
-
-def cond_fun(carry):
-    (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0) = carry
-    return count_x != 0.0
-
-def image_area0_binary(w, z_init, q, s, rho, dy=1e-4, INDX0=2000000):
-    indx  = jnp.zeros((INDX0 * 2, 4), dtype=int)
-    Nindx = jnp.zeros((INDX0 * 2,), dtype=int)
-    xmax  = jnp.zeros((INDX0 * 4,))
-    xmin  = jnp.zeros((INDX0 * 4,))
-    Ax    = jnp.zeros((INDX0 * 4,))
-    y     = jnp.zeros((INDX0 * 4,))
-    dys   = jnp.zeros((INDX0 * 4,))
-
-    z    = z_init
-    x0   = z.real
-    a    = 0.5 * s
-    e1   = q / (1.0 + q) 
-    dz2  = 99999999.9
-    incr      = jnp.abs(dy)
-    incr_inv  = 1.0 / incr
-    yi        = 0
-    dx        = incr 
-    count_x   = 0.0
-    count_all = 0.0
-    rr        = rho * rho
-
-    carry = (z, dz2, dx, count_x, count_all, xmax, xmin, Ax, y, dys, yi, indx, Nindx, rr, incr, incr_inv, w, rho, a, e1, x0, INDX0)
-    carry, _ = lax.while_loop(cond_fun, body_fun, carry)
-    _, _, _, _, count_all, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = carry
-
-    return count_all
