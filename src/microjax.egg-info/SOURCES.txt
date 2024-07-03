@@ -27,6 +27,7 @@ tests/Pk_test
 tests/__pycache__/test_fastlens.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_fftlog_jax.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_special.cpython-39-pytest-7.4.0.pyc
+tests/extended_source/test.ipynb
 tests/fftlog/test_fftlog.py
 tests/fftlog/test_fftlog_jax.py
 tests/fftlog/test_fftlog_jax_1.png
@@ -49,6 +50,10 @@ tests/olds/mag_point_source_grad.py
 tests/olds/test_fftlog_jax2.py
 tests/olds/test_magfft.py
 tests/olds/tmp.py
+tests/point_source/animation_binary.mp4
+tests/point_source/animation_triple.mp4
+tests/point_source/make_animation_binary.py
+tests/point_source/make_animation_triple.py
 tests/point_source/test_image_speed.py
 tests/point_source/test_mag_point_source_binary.png
 tests/point_source/test_mag_point_source_binary.py

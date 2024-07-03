@@ -12,9 +12,30 @@ def source_profile_limb1(dz, u1=0.0):
     mu = jnp.sqrt(1.0 - dz*dz)
     return 1 - u1 * (1.0 - mu)
 
+def imagearea_binary(w_center, z_inits, q, s, rho, NBIN=20):
+    
+    nimage  = len(z_inits)
+    overlap = jnp.zeros(6) # binary-lens
+    incr    = rho / NBIN  
+    incr2   = 0.5 * incr   
+
+
 def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
     """
     calculate an image area with binary-lens by inverse-ray shooting.
+
+    Args:
+        w_center (complex) : The complex position of the source.
+        z_init (complex)   : Initial position of the image point.
+        q (float)          : Mass ratio of the binary lens.
+        s (float)          : Separation between the two lenses.
+        rho (float)        : Radius of the source.
+        dy (float,opt)     : Step size in the y-direction, default is 1e-4.
+        max_iter (int, opt): Maximum number of iterations, default is 10000.
+
+    Returns:
+        float: Total brightness of the image area, 
+                proportional to its physical area and adjusted for limb darkening.
     """
 
     z_current = z_init
@@ -29,11 +50,14 @@ def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
     count_x   = 0.0
     count_all = 0.0
     rho2      = rho * rho
-    xmin   = jnp.full(max_iter, jnp.inf)
-    xmax   = jnp.full(max_iter, -jnp.inf)
-    area_x = jnp.zeros(max_iter, dtype=jnp.float64)
-    y      = jnp.zeros(max_iter, dtype=jnp.complex128)
-    dys    = jnp.zeros(max_iter, dtype=jnp.float64)
+    # used arrays
+    indx   = jnp.zeros((max_iter * 2, 4), dtype=int)
+    Nindx  = jnp.zeros((max_iter * 2,),   dtype=int)
+    xmax   = jnp.zeros((max_iter * 4,))
+    xmin   = jnp.zeros((max_iter * 4,))
+    area_x = jnp.zeros((max_iter * 4,))
+    y      = jnp.zeros((max_iter * 4,))
+    dys    = jnp.zeros((max_iter * 4,))
     yi = 0
 
     while True:
@@ -46,7 +70,6 @@ def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
                 xmax = xmax.at[yi].set(z_current.real - dx)
             Ar = source_profile_limb1(dz) # brightness with limb-darkening
             count_x   += Ar
-            count_all += Ar
         else: # outside of the source
             if dx == incr: # if dx is positive
                 if dz2_last <= rho2: # if previous ray is inside
@@ -62,6 +85,7 @@ def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
                     z_current.real += dx
                     continue
                 # collect numbers in the current y coordinate
+                count_all += count_x
                 area_x = area_x.at[yi].set(count_x)
                 y      = y.at[yi].set(z_current.imag)
                 dys    = dys.at[yi].set(dy)
@@ -69,15 +93,23 @@ def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
                     dys = dys.at[yi].set(-dy)
                     break
                 # check if this y is already counted
-                y_index = int(z_current.imag * incr_inv + max_iter) #the index based on the current y coordinate
-                for j in range(Nindx[y_index]):
-                    ind = indx[y_index][j]
+                y_index = int(z_current.imag * incr_inv + max_iter) #the index based on the current y coordinate (+offset)
+                for j in range(Nindx[y_index]-1):
+                    ind = indx[y_index][j+1]
                     if xmin[yi] + incr < xmax[ind] and xmax[yi] - incr > xmin[ind]: # already counted.
                         return count_all - count_x 
                 # save index yi if counted
                 indx = indx.at[[y_index][Nindx[y_index]]].set(yi)
-                Nindx = Nindx.at[y_index].add(1.0)
-
+                Nindx = Nindx.at[y_index].add(1)
+                # move next y-row 
+                yi += 1
+                dx        = incr               # switch to positive run
+                x0        = xmax[yi-1]         # starting x in next negative run.  
+                z_current = x0 - dx + 1j * dy  # starting point in next positive run.
+                count_x = 0.0
+        # update the z value 
+        z_current = z_current + dx
+    return count_all
 
 
 
@@ -223,89 +255,3 @@ def image_area0_binary(w, z_init, q, s, rho, dy=1e-4, INDX0=2000000):
     _, _, _, _, count_all, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _ = carry
 
     return count_all
-
-
-def image_area0_binary(w, z_init, q, s, rho, dy=1e-4, INDX0=2000000):
-    """
-    Compute an image area by the inverse-ray shooting.
-    """
-    indx  = jnp.zeros((INDX0 * 2, 4), dtype=int)
-    Nindx = jnp.zeros((INDX0 * 2,), dtype=int)
-    xmax  = jnp.zeros((INDX0 * 4,))
-    xmin  = jnp.zeros((INDX0 * 4,))
-    Ax    = jnp.zeros((INDX0 * 4,))
-    y     = jnp.zeros((INDX0 * 4,))
-    dys   = jnp.zeros((INDX0 * 4,))
-
-    z    = z_init
-    x0   = z.real # starting point in x
-    a    = 0.5 * s
-    e1   = q / (1.0 + q) 
-    dz2  = 99999999.9
-    incr      = jnp.abs(dy) # positive
-    incr_inv  = 1.0 / incr
-    yi        = 0
-    dx        = incr 
-    count_x   = 0.0
-    count_all = 0.0
-    rr        = rho * rho
-
-
-
-    while True:
-        zis = _lens_eq_binary(z, a=a, e1=e1) # inversed point from image into source
-        dz2_last = dz2
-        dz  = jnp.abs(w - zis)
-        dz2 = dz**2
-        # point is within radius
-        if dz2 <= rho:
-            # update xmax value if negative run starts
-            if dx == -incr and count_x == 0.0:
-                xmax = xmax.at[yi].set(z.real - dx)
-            Ar = limb_lin(dz)
-            count_x += Ar
-            count_all += Ar
-        # inverse-ray outside of radius
-        else:
-            # reverse x direction if x-direction is positive
-            if dx == incr:
-                if dz2_last <= rr:
-                    xmax = xmax.at[yi].set(z.real)
-                dx = -incr
-                z = jnp.complex128(x0 + 1j * z.imag)
-                xmin = xmin.at[yi].set(z.real + dx)
-            # settle the x-row if x-direction is negative
-            else:
-                if dz2_last <= rr:
-                    xmin = xmin.at[yi].set(z.real)
-                if z.real >= xmin[yi-1] - dx and yi != 0 and count_x == 0.0:
-                    z = z + dx 
-                    continue
-                Ax  = Ax.at[yi].set(count_x)
-                y   = y.at[yi].set(z.imag)
-                dys = dys.at[yi].set(dy)
-                if count_x == 0.0:
-                    dys = dys.at[yi].set(-dy)
-                    break
-                
-                # check if this y is already counted
-                yii = jnp.array(z.imag * incr_inv + INDX0)
-                for j in range(Nindx[yii]):
-                    ind = indx[yii][j]
-                    # already counted
-                    if xmin[yi]+incr<xmax[ind] and xmax[yi]-incr>xmin[ind]:
-                        return count_all - count_x
-                    
-                # save index yi if counted 
-                indx = indx.at[yii, Nindx[yii]].set(yi)
-                Nindx = Nindx.at[yii].add(1.0)
-                # move next x-row 
-                yi += 1
-                dx = incr
-                x0 = xmax[yi-1]
-                z = z - dx + 1j * dy
-                count_x = 0.0
-        # update the z value 
-        z = z + dx
-    return count_all
-
