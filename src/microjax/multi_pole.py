@@ -5,6 +5,128 @@ import jax.numpy as jnp
 from jax import vmap
 from jax.scipy.special import gammaln
 
+def mag_hex_single(z, z_mask, q, s, rho, u1=0.0):
+    """
+    compute approximate magnification with single-lens
+
+    Args:
+        z (array_like): 
+            Image position in the complex plane.
+        z_mask (array_like):
+            bool array that indicates whether the image meets the lens equation.
+        rho (float):
+            Normalized source radius in the unit of Einstein radius.
+        u1 (float):
+            Linear limb-darkening coefficient.
+    Return:
+        array_like: 
+            The approximate magnification evaluated at z. 
+    """
+    # Wk from Cassan et. al. 2017
+    factorial = lambda n: jnp.exp(gammaln(n + 1))
+    W = lambda k: (-1) ** (k - 1) * factorial(k - 1) * 1.0 / z**k
+    Ws = vmap(W)(jnp.arange(2, 7))
+    # Multipole terms per image, signed
+    mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
+    # Sum over images
+    mu_multi = jnp.sum(z_mask*(jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex)), axis=0).reshape(z.shape)
+    # Get magnitude of the quadrupole and hexadecapole terms in units of point
+    # source magnification
+    mu_quad_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_quad)), axis=0).reshape(z.shape)
+    mu_hex_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_hex)), axis=0).reshape(z.shape)
+
+    return mu_multi, mu_quad_abs + mu_hex_abs
+
+
+def mag_hex_binary(z, z_mask, q, s, rho, u1=0.0):
+    """
+    compute approximate magnification with binary-lens
+
+    Args:
+        z (array_like): 
+            Image position in the complex plane.
+        z_mask (array_like):
+            bool array that indicates whether the image meets the lens equation.
+        s (float):
+            Separation between the two lenses. The first lens is located 
+            at $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$ on the real line.
+        q (float): 
+            Mass ratio defined as $m_2/m_1$.
+        rho (float):
+            Normalized source radius in the unit of Einstein radius.
+        u1 (float):
+            Linear limb-darkening coefficient.
+    Return:
+        array_like: 
+            The approximate magnification evaluated at z. 
+    """
+    # Wk from Cassan et. al. 2017
+    factorial = lambda n: jnp.exp(gammaln(n + 1))
+    a  = 0.5 * s
+    e1 = q / (1.0 + q)
+    W = (lambda k: (-1) ** (k - 1)* factorial(k - 1) * (e1 / (z - a) ** k + (1.0 - e1) / (z + a) ** k))
+    Ws = vmap(W)(jnp.arange(2, 7))
+    # Multipole terms per image, signed
+    mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
+    # Sum over images
+    mu_multi = jnp.sum(z_mask*(jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex)), axis=0).reshape(z.shape)
+    # Get magnitude of the quadrupole and hexadecapole terms in units of point
+    # source magnification
+    mu_quad_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_quad)), axis=0).reshape(z.shape)
+    mu_hex_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_hex)), axis=0).reshape(z.shape)
+
+    return mu_multi, mu_quad_abs + mu_hex_abs
+
+def mag_hex_triple(z, z_mask, q, s, q3, r3, psi, rho, u1=0.0):
+    """
+    compute approximate magnification with triple-lens
+
+    Args:
+        z (array_like): 
+            Image position in the complex plane.
+        z_mask (array_like):
+            bool array that indicates whether the image meets the lens equation.
+        s (float):
+            Separation between the two lenses. The first lens is located 
+            at $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$ on the real line.
+        q (float): 
+            Mass ratio defined as $m_2/m_1$.
+        q3 (float): 
+            Mass ratio defined as $m_3/m_1$.
+        r3 (float): 
+            Magnitude of the complex position of the third lens.
+        psi (float): 
+            Phase angle of the complex position of the third lens.
+        rho (float):
+            Normalized source radius in the unit of Einstein radius.
+        u1 (float, default 0.0):
+            Linear limb-darkening coefficient.
+    Return:
+        array_like: 
+            The approximate magnification evaluated at z. 
+    """
+    # Wk from Cassan et. al. 2017
+    factorial = lambda n: jnp.exp(gammaln(n + 1))
+    a  = 0.5 * s
+    e1 = q / (1.0 + q + q3)
+    e2 = 1.0 / (1.0 + q + q3)
+    r3 = r3*jnp.exp(1j * psi)
+    W = (lambda k: (-1) ** (k - 1) * factorial(k - 1) 
+         * (e1 / (z - a) ** k + e2 / (z + a) ** k + (1.0 - e1 - e2) / (z - r3) ** k)
+         )
+    Ws = vmap(W)(jnp.arange(2, 7))
+    # Multipole terms per image, signed
+    mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
+    # Sum over images
+    mu_multi = jnp.sum(z_mask*(jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex)), axis=0).reshape(z.shape)
+    # Get magnitude of the quadrupole and hexadecapole terms in units of point
+    # source magnification
+    mu_quad_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_quad)), axis=0).reshape(z.shape) 
+    mu_hex_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_hex)), axis=0).reshape(z.shape) 
+
+    return mu_multi, mu_quad_abs + mu_hex_abs
+
+
 def _mag_hexadecapole_cassan(W, rho, u1=0.0):
     """
     Adapted from
@@ -203,124 +325,3 @@ def _mag_hexadecapole_cassan(W, rho, u1=0.0):
     delta_mu_hex = 1.0 / 24.0 * mu4 * (1.0 - 11.0 / 35.0 * Gamma) * rho**4
     
     return mu_ps, delta_mu_quad, delta_mu_hex
-
-def mag_hex_single(z, z_mask, q, s, rho, u1=0.0):
-    """
-    compute approximate magnification with single-lens
-
-    Args:
-        z (array_like): 
-            Image position in the complex plane.
-        z_mask (array_like):
-            bool array that indicates whether the image meets the lens equation.
-        rho (float):
-            Normalized source radius in the unit of Einstein radius.
-        u1 (float):
-            Linear limb-darkening coefficient.
-    Return:
-        array_like: 
-            The approximate magnification evaluated at z. 
-    """
-    # Wk from Cassan et. al. 2017
-    factorial = lambda n: jnp.exp(gammaln(n + 1))
-    W = lambda k: (-1) ** (k - 1) * factorial(k - 1) * 1.0 / z**k
-    Ws = vmap(W)(jnp.arange(2, 7))
-    # Multipole terms per image, signed
-    mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
-    # Sum over images
-    mu_multi = jnp.sum(z_mask*(jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex)), axis=0).reshape(z.shape)
-    # Get magnitude of the quadrupole and hexadecapole terms in units of point
-    # source magnification
-    mu_quad_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_quad)), axis=0).reshape(z.shape)
-    mu_hex_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_hex)), axis=0).reshape(z.shape)
-
-    return mu_multi, mu_quad_abs + mu_hex_abs
-
-
-def mag_hex_binary(z, z_mask, q, s, rho, u1=0.0):
-    """
-    compute approximate magnification with binary-lens
-
-    Args:
-        z (array_like): 
-            Image position in the complex plane.
-        z_mask (array_like):
-            bool array that indicates whether the image meets the lens equation.
-        s (float):
-            Separation between the two lenses. The first lens is located 
-            at $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$ on the real line.
-        q (float): 
-            Mass ratio defined as $m_2/m_1$.
-        rho (float):
-            Normalized source radius in the unit of Einstein radius.
-        u1 (float):
-            Linear limb-darkening coefficient.
-    Return:
-        array_like: 
-            The approximate magnification evaluated at z. 
-    """
-    # Wk from Cassan et. al. 2017
-    factorial = lambda n: jnp.exp(gammaln(n + 1))
-    a  = 0.5 * s
-    e1 = q / (1.0 + q)
-    W = (lambda k: (-1) ** (k - 1)* factorial(k - 1) * (e1 / (z - a) ** k + (1.0 - e1) / (z + a) ** k))
-    Ws = vmap(W)(jnp.arange(2, 7))
-    # Multipole terms per image, signed
-    mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
-    # Sum over images
-    mu_multi = jnp.sum(z_mask*(jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex)), axis=0).reshape(z.shape)
-    # Get magnitude of the quadrupole and hexadecapole terms in units of point
-    # source magnification
-    mu_quad_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_quad)), axis=0).reshape(z.shape)
-    mu_hex_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_hex)), axis=0).reshape(z.shape)
-
-    return mu_multi, mu_quad_abs + mu_hex_abs
-
-def mag_hex_triple(z, z_mask, q, s, q3, r3, psi, rho, u1=0.0):
-    """
-    compute approximate magnification with triple-lens
-
-    Args:
-        z (array_like): 
-            Image position in the complex plane.
-        z_mask (array_like):
-            bool array that indicates whether the image meets the lens equation.
-        s (float):
-            Separation between the two lenses. The first lens is located 
-            at $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$ on the real line.
-        q (float): 
-            Mass ratio defined as $m_2/m_1$.
-        q3 (float): 
-            Mass ratio defined as $m_3/m_1$.
-        r3 (float): 
-            Magnitude of the complex position of the third lens.
-        psi (float): 
-            Phase angle of the complex position of the third lens.
-        rho (float):
-            Normalized source radius in the unit of Einstein radius.
-        u1 (float, default 0.0):
-            Linear limb-darkening coefficient.
-    Return:
-        array_like: 
-            The approximate magnification evaluated at z. 
-    """
-    # Wk from Cassan et. al. 2017
-    factorial = lambda n: jnp.exp(gammaln(n + 1))
-    a  = 0.5 * s
-    e1 = q / (1.0 + q + q3)
-    e2 = 1.0 / (1.0 + q + q3)
-    r3 = r3*jnp.exp(1j*psi)
-    W = (lambda k: (-1) ** (k - 1) * factorial(k - 1) 
-         * (e1 / (z - a) ** k + e2 / (z + a) ** k + (1.0 - e1 - e2) / (z - r3) ** k)
-         )
-    Ws = vmap(W)(jnp.arange(2, 7))
-    # Multipole terms per image, signed
-    mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
-    # Sum over images
-    mu_multi = jnp.sum(z_mask*(jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex)), axis=0).reshape(z.shape)
-    # Get magnitude of the quadrupole and hexadecapole terms in units of point
-    # source magnification
-    mu_quad_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_quad)), axis=0).reshape(z.shape) 
-    mu_hex_abs = jnp.sum(z_mask*(jnp.abs(delta_mu_hex)), axis=0).reshape(z.shape) 
-
-    return mu_multi, mu_quad_abs + mu_hex_abs
