@@ -94,7 +94,7 @@ def imagearea0_binary(w_center, z_init, q, s, rho, dy=1e-4, max_iter=10000):
                     break
                 # check if this y is already counted
                 y_index = int(z_current.imag * incr_inv + max_iter) #the index based on the current y coordinate (+offset)
-                for j in range(Nindx[y_index]-1):
+                for j in range(Nindx[y_index]):
                     ind = indx[y_index][j+1]
                     if xmin[yi] + incr < xmax[ind] and xmax[yi] - incr > xmin[ind]: # already counted.
                         return count_all - count_x 
