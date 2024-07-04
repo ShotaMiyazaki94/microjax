@@ -42,35 +42,66 @@ def image_area_binary(w_center, z_inits, q, s, rho, NBIN=20, max_iter=100000):
         z_init = z_inits[i]
         xmin = xmin.at[0].set(z_init[i].real)
         xmax = xmax.at[0].set(z_init[i].real)
-        area_i, yi = image_area0_binary(w_center, z_init, q, s, dy, indx, Nindx, 
-                                        xmax, xmin, area_x, y, dys, max_iter)
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys) 
+        area_y_plus, carry = image_area0_binary(w_center, z_init, q, s, dy, carry)
+        
         # search image toward -y
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry  
         dy       = -incr
         z_init   = jnp.complex128(xmax[0], z_inits[i].imag + dy)
         xmin = xmin.at[yi].set(xmin[0])
         xmax = xmax.at[yi].set(xmax[0])
         y    = y.at[yi].set(y[0])
+        dys  = dys.at[yi].set(dy) # remember new direction
+        yi  += 1
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+        area_y_minus, carry = image_area0_binary(w_center, z_init, q, s, dy, carry)
+
+        # search extra image beyond the boundary
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry  
+        nyi = yi
+        area_bound = 0.0
+        for j in range(nyi):
+            dxmax = xmax[j + 1] - xmax[j]
+            dxmin = xmin[j + 1] - xmin[j]
+            if dxmax > 1.1 * incr:
+                z = jnp.complex128(xmax[j + 1] + 1j *  y[j])
+                xmin = xmin.set[yi].set(xmax[j])
+                xmax = xmax.set[yi].set(xmax[j + 1])
+                dy   = -dy
+                yi  += 1
 
 
 
 
-def image_area0_binary(w_center, z_init, q, s, rho, dy, indx, Nindx, xmax, xmin, area_x, y, dys, max_iter):
+
+
+def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
     """
     calculate an image area with binary-lens by inverse-ray shooting.
 
     Args:
-        w_center (complex) : The complex position of the source.
-        z_init (complex)   : Initial position of the image point.
-        q (float)          : Mass ratio of the binary lens.
-        s (float)          : Separation between the two lenses.
-        rho (float)        : Radius of the source.
-        dy (float,opt)     : Step size in the y-direction, default is 1e-4.
-        max_iter (int, opt): Maximum number of iterations, default is 10000.
-
+        w_center (complex)  : The complex position of the source.
+        z_init (complex)    : Initial position of the image point.
+        q (float)           : Mass ratio of the binary lens.
+        s (float)           : Separation between the two lenses.
+        rho (float)         : Radius of the source.
+        dy (float,opt)      : Step size in the y-direction, default is 1e-4.
+        carry (taple)       :
+            indx (array_like)   : index for x
+            Nindx (array_like)  : 
+            xmin (array_like)   :
+            xmax (array_like)   :
+            area_x (array_like) :
+            y (array_like)      :
+            dys (array_like)    :
     Returns:
         float: Total brightness of the image area, 
                 proportional to its physical area and adjusted for limb darkening.
+        taple: Arrays for calculating the overlaping or etc...
     """
+    indx, Nindx, xmax, xmin, area_x, y, dys = carry 
+    max_iter = int(len(dys) / 4.0)
 
     z_current = z_init
     x0   = z_init.real
@@ -137,5 +168,6 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, indx, Nindx, xmax, xmin,
         # update the z value 
         z_current = z_current + dx
     
-    return count_all, yi
+    carry = (dy, indx, Nindx, xmax, xmin, area_x, y, dys)
+    return count_all, carry
 
