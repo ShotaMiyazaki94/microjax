@@ -151,6 +151,7 @@ def mag_point_source_single(w):
     mag = (1.0 / jnp.abs(det)) * z_mask
     return mag.sum(axis=0).reshape(w.shape)
 
+@jit
 def mag_point_source_binary(w, s, q):
     """
     compute point-source magnification with binary-lens

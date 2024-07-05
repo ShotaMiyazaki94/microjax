@@ -1,16 +1,110 @@
-from functools import partial
-import numpy as np
 import jax.numpy as jnp
-from jax import jit, lax
 from microjax.poly_solver import poly_roots_EA_multi as poly_roots
-from microjax.coeffs import _poly_coeffs_binary, _poly_coeffs_triple 
-from microjax.coeffs import _poly_coeffs_critical_triple, _poly_coeffs_critical_binary
-from microjax.point_source import _lens_eq_binary, _lens_eq_triple
-from microjax.point_source import mag_point_source_binary, mag_point_source_triple
+from microjax.point_source import _lens_eq_binary
 
 def source_profile_limb1(dz, u1=0.0):
     mu = jnp.sqrt(1.0 - dz*dz)
     return 1 - u1 * (1.0 - mu)
+
+def image_area0_binary(w_center, z_init, q, s, rho, dy, carry): 
+    """ 
+    Auxiliary function to calculate area of an image for binary lens system by inverse-ray shooting.
+
+    Args:
+        w_center (complex): Position of the source in the complex plane, center-of mass coordinate.
+        z_init (complex): Initial position of the image point, center-of mass coordinate. 
+        q (float): Mass ratio of the binary lens.
+        s (float): Separation between the two lenses.
+        rho (float): Radius of the source.
+        dy (float): Step size in the y-direction.
+        carry (tuple): Tuple containing arrays and indices for ongoing calculations.
+
+    Returns:
+        float: Total brightness of the image area, adjusted for limb darkening.
+        tuple: Updated carry containing intermediate results for continued calculations.
+    """
+    yi, indx, Nindx, xmax, xmin, area_x, y, dys = carry 
+    max_iter = int(len(dys) / 4.0)
+    CM2MD = - 0.5*s*(1 - q)/(1 + q) 
+    z_current = z_init
+    x0   = z_init.real
+    a    = 0.5 * s
+    e1   = q / (1.0 + q) 
+    dz2  = jnp.inf
+    incr      = jnp.abs(dy)
+    incr_inv  = 1.0 / incr
+    dx        = incr 
+    count_x   = 0.0
+    count_all = 0.0
+    rho2      = rho * rho
+    
+    while True:
+        z_current_mid = z_current + CM2MD
+        zis_mid = _lens_eq_binary(z_current_mid, a=a, e1=e1) # inversed point from image into source, mid-point coordinate
+        zis = zis_mid - CM2MD
+        dz2_last = dz2
+        dz  = jnp.abs(w_center - zis)
+        dz2 = dz**2
+        if dz2 <= rho2: # inside of the source
+            if dx == -incr and count_x == 0.0: # update xmax value if negative run
+                xmax = xmax.at[yi].set(z_current.real - dx)
+            count_eff = source_profile_limb1(dz) # brightness with limb-darkening
+            count_x   += float(count_eff)
+        else: 
+            if dx == incr: # positive run outside of the source
+                if dz2_last <= rho2: 
+                    xmax = xmax.at[yi].set(z_current.real) # store the previous ray as xmax
+                # update to negative
+                dx = -incr 
+                z_current = jnp.complex128(x0 + 1j * z_current.imag)
+                xmin = xmin.at[yi].set(z_current.real + dx) # set xmin in positive run
+            else: # negative run with outside of the source 
+                if dz2_last <= rho2: # if previous ray is inside
+                    xmin = xmin.at[yi].set(z_current.real) # set xmin in negative run 
+                if z_current.real >= xmin[yi-1] - dx and yi!=0 and count_x==0: # nothing in negative run
+                    z_current = z_current + dx
+                    continue
+                # collect numbers in the current y coordinate
+                count_all += count_x
+                area_x = area_x.at[yi].set(count_x)
+                y      = y.at[yi].set(z_current.imag)
+                dys    = dys.at[yi].set(dy)
+                if count_x == 0.0: # This means top in y
+                    dys = dys.at[yi].set(-dy)
+                    print("finish (find top): yi=%d dx=%.1e xmin=%.2f xmax=%.2f y=%.2f dys=%.2f count_x=%d count_all=%d"%
+                    (yi, dx, xmin[yi], xmax[yi], y[yi], dys[yi], count_x, count_all))
+                    break
+                # check if this y is already counted
+                y_index = int(z_current.imag * incr_inv + max_iter) #the index based on the current y coordinate
+                #y_index = int(z_current.imag * incr_inv) #the index based on the current y coordinate
+                #y_index = int((z_current.imag - y.min()) * incr_inv)
+                for j in range(Nindx[y_index]):
+                    ind = indx[y_index][j]
+                    #ind = indx[y_index][j+1]
+                    if xmin[yi] + incr < xmax[ind] and xmax[yi] - incr > xmin[ind]: # already counted.
+                        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+                        print("finish (already counted): yi=%d dx=%.1e xmin=%.2f xmax=%.2f y=%.2f dys=%.2f count_x=%d count_all=%d"%
+                        (yi, dx, xmin[yi], xmax[yi], y[yi-1], dys[yi-1], count_x, count_all))
+                        return count_all - count_x, carry 
+                # save index yi if counted
+                indx = indx.at[y_index, Nindx[y_index]].set(yi)
+                Nindx = Nindx.at[y_index].add(1)
+                # move next y-row 
+                yi += 1
+                dx        = incr               # switch to positive run
+                x0        = xmax[yi-1]         # starting x in next negative run.  
+                print(z_current)
+                z_current += 1j * dy  # starting point in next positive run.
+                print(z_current)
+                count_x = 0.0
+                print("new yi: yi=%d dx=%.1e xmin=%.2f xmax=%.2f y=%.1e dys=%.1e count_x=%d count_all=%d z.i=%.1e"
+                      %(yi, dx, xmin[yi], xmax[yi], y[yi-1], dys[yi-1], count_x, count_all, z_current.imag))
+        # update the z value 
+        z_current = z_current + dx
+    
+    carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+    return count_all, carry
+
 
 def image_area_binary(w_center, z_inits, q, s, rho, NBIN=10, max_iter=100000):
     """ 
@@ -22,8 +116,11 @@ def image_area_binary(w_center, z_inits, q, s, rho, NBIN=10, max_iter=100000):
         q (float): Mass ratio of the binary lens components.
         s (float): Separation between the two lenses.
         rho (float): Radius of the source.
-        NBIN (int, optional): Number of bins used for discretization in y-direction. Defaults to 20.
-        max_iter (int, optional): Maximum number of iterations for the algorithm. Defaults to 100000.
+        NBIN (int, optional): 
+            Number of bins defined by rho/BIN, resolution of inverse-ray shooting in rho.
+        max_iter (int, optional): 
+            Maximum number of iterations for the algorithm.
+            (Resolution in RE) = 1 / incr = NBIN / rho
 
     Returns:
         float: Total area of all images produced by the lens system.
@@ -154,92 +251,3 @@ def image_area_binary(w_center, z_inits, q, s, rho, NBIN=10, max_iter=100000):
             Nindx = Nindx.at(index).set(0)
     
     return area
-
-def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
-    """ 
-    Auxiliary function to calculate area of an image for binary lens system by inverse-ray shooting.
-
-    Args:
-        w_center (complex): Position of the source in the complex plane.
-        z_init (complex): Initial position of the image point.
-        q (float): Mass ratio of the binary lens.
-        s (float): Separation between the two lenses.
-        rho (float): Radius of the source.
-        dy (float): Step size in the y-direction.
-        carry (tuple): Tuple containing arrays and indices for ongoing calculations.
-
-    Returns:
-        float: Total brightness of the image area, adjusted for limb darkening.
-        tuple: Updated carry containing intermediate results for continued calculations.
-    """
-    indx, Nindx, xmax, xmin, area_x, y, dys = carry 
-    max_iter = int(len(dys) / 4.0)
-
-    z_current = z_init
-    x0   = z_init.real
-    a    = 0.5 * s
-    e1   = q / (1.0 + q) 
-    dz2  = jnp.inf
-    incr      = jnp.abs(dy)
-    incr_inv  = 1.0 / incr
-    yi        = 0
-    dx        = incr 
-    count_x   = 0.0
-    count_all = 0.0
-    rho2      = rho * rho
-    
-    yi = 0
-    while True:
-        zis = _lens_eq_binary(z_current, a=a, e1=e1) # inversed point from image into source
-        dz2_last = dz2
-        dz  = jnp.abs(w_center - zis)
-        dz2 = dz**2
-        if dz2 <= rho2: # inside of the source
-            if dx == -incr and count_x == 0.0: # update xmax value if negative run
-                xmax = xmax.at[yi].set(z_current.real - dx)
-            Ar = source_profile_limb1(dz) # brightness with limb-darkening
-            count_x   += Ar
-        else: # outside of the source
-            if dx == incr: # if dx is positive
-                if dz2_last <= rho2: # if previous ray is inside
-                    xmax = xmax.at[yi].set(z_current.real) # store the previous ray as xmax
-                # parepare negative run
-                dx = -incr 
-                z_current = jnp.complex128(x0 + z_current.imag)
-                xmin = xmin.at[yi].set(z_current.real + dx) # set xmin in positive run
-            else: # negative run with outside of the source 
-                if dz2_last <= rho2: # if previous ray is inside
-                    xmin = xmin.at[yi].set(z_current.real) # set xmin in negative run 
-                if z_current.real >= xmin[yi-1] - dx and yi!=0 and count_x==0: # nothing in negative run
-                    z_current.real += dx
-                    continue
-                # collect numbers in the current y coordinate
-                count_all += count_x
-                area_x = area_x.at[yi].set(count_x)
-                y      = y.at[yi].set(z_current.imag)
-                dys    = dys.at[yi].set(dy)
-                if count_x == 0.0: # This means top in y
-                    dys = dys.at[yi].set(-dy)
-                    break
-                # check if this y is already counted
-                y_index = int(z_current.imag * incr_inv + max_iter) #the index based on the current y coordinate (+offset)
-                for j in range(Nindx[y_index]):
-                    ind = indx[y_index][j]
-                    #ind = indx[y_index][j+1]
-                    if xmin[yi] + incr < xmax[ind] and xmax[yi] - incr > xmin[ind]: # already counted.
-                        return count_all - count_x 
-                # save index yi if counted
-                indx = indx.at[y_index, Nindx[y_index]].set(yi)
-                Nindx = Nindx.at[y_index].add(1)
-                # move next y-row 
-                yi += 1
-                dx        = incr               # switch to positive run
-                x0        = xmax[yi-1]         # starting x in next negative run.  
-                z_current = x0 - dx + 1j * dy  # starting point in next positive run.
-                count_x = 0.0
-        # update the z value 
-        z_current = z_current + dx
-    
-    carry = (dy, indx, Nindx, xmax, xmin, area_x, y, dys)
-    return count_all, carry
-
