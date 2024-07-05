@@ -28,6 +28,8 @@ tests/__pycache__/test_fastlens.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_fftlog_jax.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_special.cpython-39-pytest-7.4.0.pyc
 tests/extended_source/test.ipynb
+tests/extended_source/test_image_area0_binary.py
+tests/extended_source/__pycache__/test_image_area0_binary.cpython-39-pytest-7.4.0.pyc
 tests/fftlog/test_fftlog.py
 tests/fftlog/test_fftlog_jax.py
 tests/fftlog/test_fftlog_jax_1.png

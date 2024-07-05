@@ -6,6 +6,7 @@ def source_profile_limb1(dz, u1=0.0):
     mu = jnp.sqrt(1.0 - dz*dz)
     return 1 - u1 * (1.0 - mu)
 
+# very slow and cannot differentiable
 def image_area0_binary(w_center, z_init, q, s, rho, dy, carry): 
     """ 
     Auxiliary function to calculate area of an image for binary lens system by inverse-ray shooting.
@@ -24,16 +25,16 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
         tuple: Updated carry containing intermediate results for continued calculations.
     """
     yi, indx, Nindx, xmax, xmin, area_x, y, dys = carry 
-    max_iter = int(len(dys) / 4.0)
+    max_iter = int(len(dys) / 2.0)
     CM2MD = - 0.5*s*(1 - q)/(1 + q) 
     z_current = z_init
     x0   = z_init.real
     a    = 0.5 * s
     e1   = q / (1.0 + q) 
-    dz2  = jnp.inf
+    dz2  = 9999.9999
     incr      = jnp.abs(dy)
     incr_inv  = 1.0 / incr
-    dx        = incr # first, positive 
+    dx        = incr 
     count_x   = 0.0
     count_all = 0.0
     rho2      = rho * rho
@@ -56,7 +57,7 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
                     xmax = xmax.at[yi].set(z_current.real) # store the previous ray as xmax
                 # update to negative
                 dx = -incr 
-                z_current = jnp.complex128(x0 + 1j * z_current.imag)
+                z_current = jnp.complex128(x0 + 1.0j * z_current.imag)
                 xmin = xmin.at[yi].set(z_current.real + dx) # set xmin in positive run
             else: # negative run with outside of the source 
                 if dz2_last <= rho2: # if previous ray is inside
@@ -71,38 +72,36 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
                 dys    = dys.at[yi].set(dy)
                 if count_x == 0.0: # This means top in y
                     dys = dys.at[yi].set(-dy)
-                    print("finish (find top): yi=%d dx=%.1e xmin=%.2f xmax=%.2f y=%.2f dys=%.2f count_x=%d count_all=%d"%
-                    (yi, dx, xmin[yi], xmax[yi], y[yi], dys[yi], count_x, count_all))
                     break
                 # check if this y is already counted
-                y_index = int(z_current.imag * incr_inv + max_iter) #the index based on the current y coordinate
                 #y_index = int(z_current.imag * incr_inv) #the index based on the current y coordinate
-                #y_index = int((z_current.imag - y.min()) * incr_inv)
+                y_index = int(z_current.imag * incr_inv + max_iter) #the index based on the current y coordinate
                 for j in range(Nindx[y_index]):
                     ind = indx[y_index][j]
                     #ind = indx[y_index][j+1]
+                    """
                     if xmin[yi] + incr < xmax[ind] and xmax[yi] - incr > xmin[ind]: # already counted.
                         carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
-                        print("finish (already counted): yi=%d dx=%.1e xmin=%.2f xmax=%.2f y=%.2f dys=%.2f count_x=%d count_all=%d"%
-                        (yi, dx, xmin[yi], xmax[yi], y[yi-1], dys[yi-1], count_x, count_all))
-                        return count_all - count_x, carry 
+                        print("already counted...")
+                        return count_all - count_x, carry
+                    """
                 # save index yi if counted
                 indx = indx.at[y_index, Nindx[y_index]].set(yi)
                 Nindx = Nindx.at[y_index].add(1)
+                print("new yi: yi=%d dx=%.3f xmin=%.3f xmax=%.3f y=%.3f dys=%.3f count_x=%d count_all=%d z.i=%.3f"
+                      %(yi, dx, xmin[yi], xmax[yi], y[yi], dys[yi], count_x, count_all, z_current.imag))
                 # move next y-row 
-                yi += 1
+                yi       += 1
                 dx        = incr               # switch to positive run
                 x0        = xmax[yi-1]         # starting x in next negative run.  
-                print(z_current)
-                z_current += 1j * dy  # starting point in next positive run.
-                print(z_current)
+                z_current = jnp.complex128(x0 + dx + 1j * z_current.imag + 1.0j * dy)  # starting point in next positive run.
                 count_x = 0.0
-                print("new yi: yi=%d dx=%.1e xmin=%.2f xmax=%.2f y=%.1e dys=%.1e count_x=%d count_all=%d z.i=%.1e"
-                      %(yi, dx, xmin[yi], xmax[yi], y[yi-1], dys[yi-1], count_x, count_all, z_current.imag))
         # update the z value 
         z_current = z_current + dx
     
     carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+    print("last yi: yi=%d dx=%.3f xmin=%.3f xmax=%.3f y=%.3f dys=%.3f count_x=%d count_all=%d z.i=%.3f"
+          %(yi, dx, xmin[yi-1], xmax[yi-1], y[yi-1], dys[yi-1], count_x, count_all, z_current.imag))
     return count_all, carry
 
 
