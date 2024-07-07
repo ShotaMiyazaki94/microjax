@@ -72,6 +72,7 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
                 dys    = dys.at[yi].set(dy)
                 if count_x == 0.0: # This means top in y
                     dys = dys.at[yi].set(-dy)
+                    #print("top in y!")
                     break
                 # check if this y is already counted
                 #y_index = int(z_current.imag * incr_inv) #the index based on the current y coordinate
