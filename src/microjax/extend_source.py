@@ -25,7 +25,7 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
         tuple: Updated carry containing intermediate results for continued calculations.
     """
     yi, indx, Nindx, xmax, xmin, area_x, y, dys = carry 
-    max_iter = int(len(dys) / 2.0)
+    max_iter = len(dys) // 2
     CM2MD = - 0.5*s*(1 - q)/(1 + q) 
     z_current = z_init
     x0   = z_init.real
@@ -38,7 +38,7 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
     count_x   = 0.0
     count_all = 0.0
     rho2      = rho * rho
-    
+
     while True:
         z_current_mid = z_current + CM2MD
         zis_mid = _lens_eq_binary(z_current_mid, a=a, e1=e1) # inversed point from image into source, mid-point coordinate
@@ -61,7 +61,7 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
                 xmin = xmin.at[yi].set(z_current.real + dx) # set xmin in positive run
             else: # negative run with outside of the source 
                 if dz2_last <= rho2: # if previous ray is inside
-                    xmin = xmin.at[yi].set(z_current.real) # set xmin in negative run 
+                    xmin = xmin.at[yi].set(z_current.real) # update xmin as that of the last negative run 
                 if z_current.real >= xmin[yi-1] - dx and yi!=0 and count_x==0: # nothing in negative run
                     z_current = z_current + dx
                     continue
@@ -75,17 +75,16 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
                     #print("top in y!")
                     break
                 # check if this y is already counted
-                #y_index = int(z_current.imag * incr_inv) #the index based on the current y coordinate
                 y_index = int(z_current.imag * incr_inv + max_iter) #the index based on the current y coordinate
                 for j in range(Nindx[y_index]):
                     ind = indx[y_index][j]
                     #ind = indx[y_index][j+1]
-                    """
-                    if xmin[yi] + incr < xmax[ind] and xmax[yi] - incr > xmin[ind]: # already counted.
+                    if xmin[yi] < xmax[ind] and xmax[yi] > xmin[ind]: # already counted.
                         carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+                        print("last yi: yi=%d dx=%.3f xmin=%.3f xmax=%.3f y=%.3f dys=%.3f count_x=%d count_all=%d z.i=%.3f"
+                              %(yi, dx, xmin[yi], xmax[yi], y[yi], dys[yi], count_x, count_all, z_current.imag))
                         print("already counted...")
                         return count_all - count_x, carry
-                    """
                 # save index yi if counted
                 indx = indx.at[y_index, Nindx[y_index]].set(yi)
                 Nindx = Nindx.at[y_index].add(1)
@@ -94,7 +93,8 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
                 # move next y-row 
                 yi       += 1
                 dx        = incr               # switch to positive run
-                x0        = xmax[yi-1]         # starting x in next negative run.  
+                x0        = xmax[yi-1]         # positive run starts from xmax of previous row.  
+                #z_current = jnp.complex128(x0 + 1j * (z_current.imag + dy))  # starting point in next positive run.
                 z_current = jnp.complex128(x0 + dx + 1j * z_current.imag + 1.0j * dy)  # starting point in next positive run.
                 count_x = 0.0
         # update the z value 

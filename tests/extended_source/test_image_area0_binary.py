@@ -8,60 +8,117 @@ import jax
 jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
 
-def test():
+# so slow, but successful
+def test_image4():
     w_center = jnp.array([0.0 + 0.0j])
-    q = 0.3
+
+    q = 0.5
     s = 1.0
-    rho = 0.1
-    NBIN = 10
-    incr = jnp.abs(rho/NBIN)
+    rho = 0.2
+    NBIN = 20
+    incr  = jnp.abs(rho/NBIN)
+    incr2 = incr*0.5
+    incr2margin = incr2*1.01
+
     a  = 0.5 * s
     e1 = q / (1.0 + q) 
     w_center -= 0.5*s*(1 - q)/(1 + q) # mid-point
     z_inits, z_mask = _images_point_source_binary(w_center, a, e1) 
     w_center += 0.5*s*(1 - q)/(1 + q) # center of mass
     z_inits  += 0.5*s*(1 - q)/(1 + q) # center of mass
+
     max_iter = 10000000
-    indx  = jnp.zeros((max_iter * 2, 10), dtype=int)
-    Nindx = jnp.zeros((max_iter * 2), dtype=int)
+    indx  = jnp.zeros((max_iter * 2, 10), dtype=int) # index for checking the overlaps
+    Nindx = jnp.zeros((max_iter * 2), dtype=int)     # Number of images at y_index
     xmin  = jnp.zeros((max_iter * 2))
     xmax  = jnp.zeros((max_iter * 2)) 
     area_x= jnp.zeros((max_iter * 2)) 
     y     = jnp.zeros((max_iter * 2)) 
-    dys   = jnp.zeros((max_iter * 2)) 
-    count = 0.0
+    dys   = jnp.zeros((max_iter * 2))
+
     yi    = 0
+    area_all  = 0.0
+    area_image = jnp.zeros(6)
+    overlap    = jnp.zeros(6)
+    
     for i in range(len(z_inits[z_mask])):
+        area_i    = 0.0
         print("%d image positive"%(i))
-        xmin = xmin.at[yi].set(z_inits[z_mask][i].real) 
-        xmax = xmax.at[yi].set(z_inits[z_mask][i].real)
-        dy     = incr
         z_init = z_inits[z_mask][i] 
-        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys) 
+        xmin   = xmin.at[yi].set(z_init.real) 
+        xmax   = xmax.at[yi].set(z_init.real)
+        dy     = incr
+        carry  = (yi, indx, Nindx, xmax, xmin, area_x, y, dys) 
         area, carry = image_area0_binary(w_center, z_init, q, s, rho, dy, carry)
         (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
-        count += area
+        area_i += area 
+        
         print("%d image negative"%(i))
         dy     = -incr
         z_init = z_init + 1j * dy
-        #z_init = jnp.complex128(xmax[0] + 1j * z_inits[z_mask][i].imag + 1j * dy)
-        xmin = xmin.at[yi].set(0) 
-        xmax = xmax.at[yi].set(0)
-        #xmin = xmin.at[yi].set(xmin[yi - 1]) 
-        #xmax = xmax.at[yi].set(xmax[yi - 1]) 
-        #y    = y.at[yi].set(y[yi - 1]) 
-        #dys  = dys.at[yi].set(dy)
         yi  += 1 
         carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys) 
         area, carry = image_area0_binary(w_center, z_init, q, s, rho, dy, carry) 
         (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
-        count += area 
-        xmin = xmin.at[yi].set(0) 
-        xmax = xmax.at[yi].set(0)
-        yi  += 1 
-    print("count_all:", count)
-    print("dy       :", dy)
-    print("area*dy  :", count * dy)
+        area_i += area
+
+        # identify the protruding areas that are missed
+        xmin_diff = jnp.diff(xmin)
+        xmax_diff = jnp.diff(xmax)
+        upper_left  = jnp.logical_and(xmin_diff > 1.1 * incr, dys[1:] < 0.0)
+        lower_left  = jnp.logical_and(xmin_diff > 1.1 * incr, dys[1:] > 0.0)
+        upper_right = jnp.logical_and(xmax_diff > 1.1 * incr, dys[1:] < 0.0)
+        lower_right = jnp.logical_and(xmax_diff > 1.1 * incr, dys[1:] > 0.0)
+
+        for k in jnp.where(upper_left)[0]:
+            z_init = jnp.complex128(xmin[k + 1] + 1j * (y[k + 1] + incr))
+            print("%d image upper left (%d)"%(i, k), z_init)
+            yi += 1
+            carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+            area, carry = image_area0_binary(w_center, z_init, q, s, rho, incr, carry)
+            (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+            area_i += area
+            if area == 0:
+                yi -= 1
+        
+        for k in jnp.where(upper_right)[0]:
+            z_init = jnp.complex128(xmax[k + 1] + 1j * (y[k + 1] + incr))
+            print("%d image upper right (%d)"%(i, k), z_init)
+            yi += 1
+            carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+            area, carry = image_area0_binary(w_center, z_init, q, s, rho, incr, carry)
+            (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+            area_i += area
+            if area == 0:
+                yi -= 1
+        
+        for k in jnp.where(lower_left)[0]:
+            z_init = jnp.complex128(xmin[k + 1] + 1j * (y[k + 1] - incr))
+            print("%d image lower left (%d)"%(i, k), z_init)
+            yi += 1
+            carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+            area, carry = image_area0_binary(w_center, z_init, q, s, rho, incr, carry)
+            (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+            area_i += area
+            if area == 0:
+                yi -= 1
+        
+        for k in jnp.where(lower_right)[0]:
+            z_init = jnp.complex128(xmax[k + 1] + 1j * (y[k + 1] - incr))
+            print("%d image lower right (%d)"%(i, k), z_init)
+            yi += 1
+            carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+            area, carry = image_area0_binary(w_center, z_init, q, s, rho, incr, carry)
+            (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+            area_i += area
+            if area == 0:
+                yi -= 1
+
+        area_all += area_i
+        yi += 1 # for positive run in the next image
+
+
+    print("count_all:", area_all)
     (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
 
     N_limb = 5000
@@ -72,9 +129,13 @@ def test():
     
     fig = plt.figure()
     ax = plt.axes()
-    mask_x = jnp.bool_(xmin!=0)
+    mask_x = jnp.bool_(area_x!=0)
+    cmap = plt.get_cmap("tab10")
+    pos_neg = jnp.where(dys[mask_x] > 0, 1.0, 0.0)
     for i in range(len(xmin[mask_x])):
-        plt.hlines(y[mask_x][i],xmin[mask_x][i],xmax[mask_x][i])
+        plt.hlines(y[mask_x][i],xmin[mask_x][i],xmax[mask_x][i], color=cmap(pos_neg[i]))
+        plt.plot(xmin[mask_x][i], y[mask_x][i], ".", color="k")
+        plt.plot(xmax[mask_x][i], y[mask_x][i], ".", color="k")
     for i in range(len(z_inits[z_mask])):
         plt.scatter(z_inits[z_mask][i].real, z_inits[z_mask][i].imag, marker="*", zorder=2)
         plt.text(z_inits[z_mask][i].real, z_inits[z_mask][i].imag, s="%d"%(i), zorder=2)
@@ -90,4 +151,4 @@ def test():
     plt.show()    
 
 if __name__ == "__main__":
-    test()
+    test_image4()
