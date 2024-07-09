@@ -13,14 +13,10 @@ src/microjax.egg-info/SOURCES.txt
 src/microjax.egg-info/dependency_links.txt
 src/microjax.egg-info/top_level.txt
 src/microjax/caustics/__init__.py
-src/microjax/caustics/caustics_version.py
-src/microjax/caustics/ehrlich_aberth_primitive.py
 src/microjax/caustics/extended_source.py
 src/microjax/caustics/integrate.py
 src/microjax/caustics/lightcurve.py
 src/microjax/caustics/linalg.py
-src/microjax/caustics/multipole.py
-src/microjax/caustics/point_source.py
 src/microjax/caustics/trajectory.py
 src/microjax/caustics/utils.py
 src/microjax/fastlens/__init__.py
