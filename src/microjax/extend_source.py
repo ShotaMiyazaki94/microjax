@@ -96,11 +96,11 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
                 # move next y-row 
                 yi       += 1
                 dx        = incr               
-                x0        = xmax[yi-1]         # positive run starts from xmax of previous row.  
-                z_current = jnp.complex128(x0 + 1j * (z_current.imag + dy))  # x0 + dy
+                x0        = xmax[yi-1]         
+                z_current = jnp.complex128(x0 + 1j * (z_current.imag + dy))  # xmax[yi-1] + dy
                 count_x = 0.0
-        # update the z value 
-        z_current = z_current + dx
+        # update z to z+dx in y-row
+        z_current = z_current + dx 
     
     carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
     print("last yi: yi=%d dx=%.3f xmin=%.3f xmax=%.3f y=%.3f dys=%.3f count_x=%d count_all=%d z.i=%.3f"
