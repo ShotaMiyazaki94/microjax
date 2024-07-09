@@ -7,7 +7,7 @@ def source_profile_limb1(dz, u1=0.0):
     mu = jnp.sqrt(1.0 - dz*dz)
     return 1 - u1 * (1.0 - mu)
 
-# very slow and cannot differentiable
+# very slow and not differentiable
 def image_area0_binary(w_center, z_init, q, s, rho, dy, carry): 
     """ 
     Auxiliary function to calculate area of an image for binary lens system by inverse-ray shooting.
@@ -58,12 +58,12 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
                     xmax = xmax.at[yi].set(z_current.real) # update xmax
                 # switch to negative
                 dx = -incr 
-                z_current = jnp.complex128(x0 + 1.0j * z_current.imag)
+                z_current = jnp.complex128(x0 + 1j * z_current.imag)
                 xmin = xmin.at[yi].set(z_current.real + dx) # update xmin 
             else: # negative run outside of the source 
                 if dz2_last <= rho2: 
                     xmin = xmin.at[yi].set(z_current.real) # update xmin as that of the last negative run 
-                if z_current.real >= xmin[yi-1] - dx and yi!=0 and count_x==0: # nothing in negative run
+                if z_current.real >= xmin[yi-1] + incr and yi!=0 and count_x==0: # nothing in negative run
                     z_current = z_current + dx
                     continue
                 

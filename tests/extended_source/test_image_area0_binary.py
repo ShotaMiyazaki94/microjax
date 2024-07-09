@@ -11,11 +11,11 @@ import matplotlib.pyplot as plt
 # so slow, but successful
 def test_image4():
     w_center = jnp.array([-0.05 - 0.1j])
-
+    #w_center = jnp.array([0.0 + 0.0j])
     q = 0.5
     s = 1.0
     rho = 0.31
-    NBIN = 50
+    NBIN = 10
     incr  = jnp.abs(rho/NBIN)
     incr2 = incr*0.5
     incr2margin = incr2*1.01
@@ -75,8 +75,10 @@ def test_image4():
     upper_right = (xmax_diff > 1.1 * incr)  & (dys[1:] < 0.0)
     lower_right = (xmax_diff > 1.1 * incr)  & (dys[1:] > 0.0)
 
+    offset_factor = 3 # when horizontal-like boundary, start point is serious. 
+
     for k in jnp.where(upper_left)[0]:
-        z_init = jnp.complex128(xmin[k + 1] + incr + 1j * (y[k + 1] + incr))
+        z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] + incr))
         print("upper left (%d)"%(k), z_init)
         yi += 1
         carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
@@ -87,7 +89,7 @@ def test_image4():
             yi -= 1
     
     for k in jnp.where(upper_right)[0]:
-        z_init = jnp.complex128(xmax[k + 1] - incr + 1j * (y[k + 1] + incr))
+        z_init = jnp.complex128(xmax[k + 1] - offset_factor * incr + 1j * (y[k + 1] + incr))
         print("upper right (%d)"%(k), z_init)
         yi += 1
         carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
@@ -98,8 +100,10 @@ def test_image4():
             yi -= 1
     
     for k in jnp.where(lower_left)[0]:
-        z_init = jnp.complex128(xmin[k + 1] + incr + 1j * (y[k + 1] - incr))
+        z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] - incr))
         print("lower left (%d): %.3f %.3f"%(k, z_init.real, z_init.imag))
+        xmin = xmin.at[yi].set(xmin[k + 1])
+        xmax = xmax.at[yi].set(xmin[k])
         yi += 1
         carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
         area, carry = image_area0_binary(w_center, z_init, q, s, rho, -incr, carry)
@@ -109,7 +113,7 @@ def test_image4():
             yi -= 1
     
     for k in jnp.where(lower_right)[0]:
-        z_init = jnp.complex128(xmax[k + 1] + 1j * (y[k + 1] - incr))
+        z_init = jnp.complex128(xmax[k + 1] - offset_factor * incr + 1j * (y[k + 1] - incr))
         print("lower right (%d)"%(k), z_init)
         yi += 1
         carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
@@ -140,7 +144,7 @@ def test_image4():
         plt.plot(xmin[mask_x][i], y[mask_x][i], ".", color="k")
         plt.plot(xmax[mask_x][i], y[mask_x][i], ".", color="k")
     for i in range(len(z_inits[z_mask])):
-        plt.scatter(z_inits[z_mask][i].real, z_inits[z_mask][i].imag, marker="*", zorder=2)
+        plt.scatter(z_inits[z_mask][i].real, z_inits[z_mask][i].imag, marker="*", zorder=2, ec="k")
         plt.text(z_inits[z_mask][i].real, z_inits[z_mask][i].imag, s="%d"%(i), zorder=2)
     source = plt.Circle((w_center.real, w_center.imag), rho, color='b', fill=False)
     ax.add_patch(source)
