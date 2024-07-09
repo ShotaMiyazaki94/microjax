@@ -75,9 +75,8 @@ def test_image4():
     upper_right = (xmax_diff > 1.1 * incr)  & (dys[1:] < 0.0)
     lower_right = (xmax_diff > 1.1 * incr)  & (dys[1:] > 0.0)
 
-    offset_factor = 3 # when horizontal-like boundary, start point is serious. 
-
     for k in jnp.where(upper_left)[0]:
+        offset_factor = 3 * jnp.abs((xmin[k + 2] - xmin[k + 1]) / incr).astype(int)
         z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] + incr))
         print("upper left (%d)"%(k), z_init)
         yi += 1
@@ -89,6 +88,7 @@ def test_image4():
             yi -= 1
     
     for k in jnp.where(upper_right)[0]:
+        offset_factor = 3 * jnp.abs((xmax[k + 2] - xmax[k + 1]) / incr).astype(int)
         z_init = jnp.complex128(xmax[k + 1] - offset_factor * incr + 1j * (y[k + 1] + incr))
         print("upper right (%d)"%(k), z_init)
         yi += 1
@@ -100,6 +100,7 @@ def test_image4():
             yi -= 1
     
     for k in jnp.where(lower_left)[0]:
+        offset_factor = 3 * jnp.abs((xmin[k + 2] - xmin[k + 1]) / incr).astype(int)
         z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] - incr))
         print("lower left (%d): %.3f %.3f"%(k, z_init.real, z_init.imag))
         xmin = xmin.at[yi].set(xmin[k + 1])
@@ -113,6 +114,7 @@ def test_image4():
             yi -= 1
     
     for k in jnp.where(lower_right)[0]:
+        offset_factor = 3 * jnp.abs((xmax[k + 2] - xmax[k + 1]) / incr).astype(int)
         z_init = jnp.complex128(xmax[k + 1] - offset_factor * incr + 1j * (y[k + 1] - incr))
         print("lower right (%d)"%(k), z_init)
         yi += 1
