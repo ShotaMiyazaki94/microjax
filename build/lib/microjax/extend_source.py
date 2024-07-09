@@ -1,6 +1,7 @@
 import jax.numpy as jnp
-from microjax.poly_solver import poly_roots_EA_multi as poly_roots
-from microjax.point_source import _lens_eq_binary
+from .poly_solver import poly_roots_EA_multi as poly_roots
+from .point_source import _lens_eq_binary
+import jax
 
 def source_profile_limb1(dz, u1=0.0):
     mu = jnp.sqrt(1.0 - dz*dz)
@@ -78,8 +79,8 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
                 y_index = int(z_current.imag * incr_inv + max_iter) #the index based on the current y coordinate
                 for j in range(Nindx[y_index]):
                     ind = indx[y_index][j]
-                    #ind = indx[y_index][j+1]
                     if xmin[yi] < xmax[ind] and xmax[yi] > xmin[ind]: # already counted.
+                        area_x = area_x.at[yi].set(0.0) 
                         carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
                         print("last yi: yi=%d dx=%.3f xmin=%.3f xmax=%.3f y=%.3f dys=%.3f count_x=%d count_all=%d z.i=%.3f"
                               %(yi, dx, xmin[yi], xmax[yi], y[yi], dys[yi], count_x, count_all, z_current.imag))
@@ -94,8 +95,8 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
                 yi       += 1
                 dx        = incr               # switch to positive run
                 x0        = xmax[yi-1]         # positive run starts from xmax of previous row.  
-                #z_current = jnp.complex128(x0 + 1j * (z_current.imag + dy))  # starting point in next positive run.
-                z_current = jnp.complex128(x0 + dx + 1j * z_current.imag + 1.0j * dy)  # starting point in next positive run.
+                z_current = jnp.complex128(x0 + 1j * (z_current.imag + dy))  # starting point in next positive run.
+                #z_current = jnp.complex128(x0 + dx + 1j * z_current.imag + 1.0j * dy)  # starting point in next positive run.
                 count_x = 0.0
         # update the z value 
         z_current = z_current + dx

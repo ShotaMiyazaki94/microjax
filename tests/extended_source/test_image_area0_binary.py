@@ -10,12 +10,12 @@ import matplotlib.pyplot as plt
 
 # so slow, but successful
 def test_image4():
-    w_center = jnp.array([0.0 + 0.0j])
+    w_center = jnp.array([-0.05 - 0.1j])
 
     q = 0.5
     s = 1.0
-    rho = 0.2
-    NBIN = 20
+    rho = 0.31
+    NBIN = 50
     incr  = jnp.abs(rho/NBIN)
     incr2 = incr*0.5
     incr2margin = incr2*1.01
@@ -61,64 +61,67 @@ def test_image4():
         area, carry = image_area0_binary(w_center, z_init, q, s, rho, dy, carry) 
         (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
         area_i += area
-
-        # identify the protruding areas that are missed
-        xmin_diff = jnp.diff(xmin)
-        xmax_diff = jnp.diff(xmax)
-        upper_left  = jnp.logical_and(xmin_diff > 1.1 * incr, dys[1:] < 0.0)
-        lower_left  = jnp.logical_and(xmin_diff > 1.1 * incr, dys[1:] > 0.0)
-        upper_right = jnp.logical_and(xmax_diff > 1.1 * incr, dys[1:] < 0.0)
-        lower_right = jnp.logical_and(xmax_diff > 1.1 * incr, dys[1:] > 0.0)
-
-        for k in jnp.where(upper_left)[0]:
-            z_init = jnp.complex128(xmin[k + 1] + 1j * (y[k + 1] + incr))
-            print("%d image upper left (%d)"%(i, k), z_init)
-            yi += 1
-            carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
-            area, carry = image_area0_binary(w_center, z_init, q, s, rho, incr, carry)
-            (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
-            area_i += area
-            if area == 0:
-                yi -= 1
         
-        for k in jnp.where(upper_right)[0]:
-            z_init = jnp.complex128(xmax[k + 1] + 1j * (y[k + 1] + incr))
-            print("%d image upper right (%d)"%(i, k), z_init)
-            yi += 1
-            carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
-            area, carry = image_area0_binary(w_center, z_init, q, s, rho, incr, carry)
-            (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
-            area_i += area
-            if area == 0:
-                yi -= 1
-        
-        for k in jnp.where(lower_left)[0]:
-            z_init = jnp.complex128(xmin[k + 1] + 1j * (y[k + 1] - incr))
-            print("%d image lower left (%d)"%(i, k), z_init)
-            yi += 1
-            carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
-            area, carry = image_area0_binary(w_center, z_init, q, s, rho, incr, carry)
-            (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
-            area_i += area
-            if area == 0:
-                yi -= 1
-        
-        for k in jnp.where(lower_right)[0]:
-            z_init = jnp.complex128(xmax[k + 1] + 1j * (y[k + 1] - incr))
-            print("%d image lower right (%d)"%(i, k), z_init)
-            yi += 1
-            carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
-            area, carry = image_area0_binary(w_center, z_init, q, s, rho, incr, carry)
-            (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
-            area_i += area
-            if area == 0:
-                yi -= 1
-
         area_all += area_i
+        area_image = area_image.at[i].set(area_i)
         yi += 1 # for positive run in the next image
+    
+    print("identify the protruding areas that are missed!!")
+    # identify the protruding areas that are missed
+    xmin_diff = jnp.diff(xmin)
+    xmax_diff = jnp.diff(xmax)
+    upper_left  = (xmin_diff < -1.1 * incr) & (dys[1:] < 0.0)
+    lower_left  = (xmin_diff < -1.1 * incr) & (dys[1:] > 0.0)
+    upper_right = (xmax_diff > 1.1 * incr)  & (dys[1:] < 0.0)
+    lower_right = (xmax_diff > 1.1 * incr)  & (dys[1:] > 0.0)
+
+    for k in jnp.where(upper_left)[0]:
+        z_init = jnp.complex128(xmin[k + 1] + incr + 1j * (y[k + 1] + incr))
+        print("upper left (%d)"%(k), z_init)
+        yi += 1
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+        area, carry = image_area0_binary(w_center, z_init, q, s, rho, incr, carry)
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+        area_all += area
+        if area == 0:
+            yi -= 1
+    
+    for k in jnp.where(upper_right)[0]:
+        z_init = jnp.complex128(xmax[k + 1] - incr + 1j * (y[k + 1] + incr))
+        print("upper right (%d)"%(k), z_init)
+        yi += 1
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+        area, carry = image_area0_binary(w_center, z_init, q, s, rho, incr, carry)
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+        area_all += area
+        if area == 0:
+            yi -= 1
+    
+    for k in jnp.where(lower_left)[0]:
+        z_init = jnp.complex128(xmin[k + 1] + incr + 1j * (y[k + 1] - incr))
+        print("lower left (%d): %.3f %.3f"%(k, z_init.real, z_init.imag))
+        yi += 1
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+        area, carry = image_area0_binary(w_center, z_init, q, s, rho, -incr, carry)
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+        area_all += area
+        if area == 0:
+            yi -= 1
+    
+    for k in jnp.where(lower_right)[0]:
+        z_init = jnp.complex128(xmax[k + 1] + 1j * (y[k + 1] - incr))
+        print("lower right (%d)"%(k), z_init)
+        yi += 1
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+        area, carry = image_area0_binary(w_center, z_init, q, s, rho, -incr, carry)
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+        area_all += area
+        if area == 0:
+            yi -= 1
 
 
     print("count_all:", area_all)
+    print("magnification:", area_all / (jnp.pi * NBIN * NBIN) ) # pi*r^2/BINSIZE^2=pi*r^2/(r/NBIN)^2=pi*NBIN^2
     (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
 
     N_limb = 5000
@@ -148,6 +151,7 @@ def test_image4():
     plt.scatter(cau_tri.ravel().real, cau_tri.ravel().imag,   marker=".", color="red", s=1)
     plt.scatter(crit_tri.ravel().real, crit_tri.ravel().imag, marker=".", color="green", s=1) 
     plt.axis("equal")
+    plt.savefig("tests/extended_source/test_image_area0_binary.png",dpi=200, bbox_inches="tight")
     plt.show()    
 
 if __name__ == "__main__":
