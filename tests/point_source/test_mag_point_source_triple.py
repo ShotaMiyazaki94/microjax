@@ -79,4 +79,5 @@ ax["J"].scatter(cau_tri.ravel().real, cau_tri.ravel().imag,   marker=".", color=
 ax["J"].scatter(crit_tri.ravel().real, crit_tri.ravel().imag, marker=".", color="green", s=1)
 ax["J"].axis("equal")
 plt.savefig("tests/point_source/test_mag_point_source_triple.png",dpi=200,bbox_inches="tight")
+plt.show()
 plt.close()

@@ -214,10 +214,6 @@ def mag_point_source_triple(w, s, q, q3, r3, psi):
     mag = (1.0 / jnp.abs(det)) * z_mask
     return mag.sum(axis=0).reshape(w.shape)
 
-def apply_match_points(carry, z):
-    idcs = match_points(carry, z)
-    return z[idcs], z[idcs]
-
 @partial(jit, static_argnames=("npts"))
 def critical_and_caustic_curves_binary(npts=1000, s=1.0, q=1.0):
     """
@@ -237,6 +233,10 @@ def critical_and_caustic_curves_binary(npts=1000, s=1.0, q=1.0):
             arrays with shape (`npts`) containing continuous segments of 
             the critical curves and caustics.
     """
+    def apply_match_points(carry, z):
+        idcs = match_points(carry, z)
+        return z[idcs], z[idcs]
+
     phi = jnp.linspace(-np.pi, np.pi, npts)
     a = 0.5 * s
     e1 = q / (1.0 + q)
@@ -278,6 +278,9 @@ def critical_and_caustic_curves_triple(npts=1000, s=1.0, q=1.0, q3=1.0, r3=1.0, 
             arrays with shape (`npts`) containing continuous segments of 
             the critical curves and caustics.
     """
+    def apply_match_points(carry, z):
+        idcs = match_points(carry, z)
+        return z[idcs], z[idcs]
     phi = jnp.linspace(-np.pi, np.pi, npts)
     
     a = 0.5 * s
@@ -296,3 +299,40 @@ def critical_and_caustic_curves_triple(npts=1000, s=1.0, q=1.0, q3=1.0, r3=1.0, 
     x_cm = a * (1.0 - q) / (1.0 + q)
     z_cr, z_ca = z_cr + x_cm, z_ca + x_cm
     return z_cr, z_ca
+
+'''
+def _images_point_source_binary_sequential(w, s, q):
+    """
+    Same as `images_point_source` except w is a 1D arrray and the images 
+    are computed sequentially using `lax.scan` such that the first set 
+    of images is initialized using the default initialization and the 
+    subsequent images are initialized using the previous images as a starting
+    point.
+    """
+    def fn(w):
+        z, z_mask = _images_point_source_binary(w, s, q) 
+        else:
+            z, z_mask = _images_point_source_binary(
+                w,
+                nlenses=nlenses,
+                roots_itmax=roots_itmax,
+                roots_compensated=roots_compensated,
+                **params,
+            )
+        return z, z_mask
+
+    z_first, z_mask_first = fn(w[0])
+
+    def body_fn(z_prev, w):
+        z, z_mask = fn(w, z_init=z_prev, custom_init=True)
+        return z, (z, z_mask)
+
+    _, xs = lax.scan(body_fn, z_first, w[1:])
+    z, z_mask = xs
+
+    # Append to the initial point
+    z = jnp.concatenate([z_first[None, :], z])
+    z_mask = jnp.concatenate([z_mask_first[None, :], z_mask])
+
+    return z.T, z_mask.T  
+'''

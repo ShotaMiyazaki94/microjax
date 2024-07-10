@@ -4,6 +4,7 @@ import numpy as np
 import jax.numpy as jnp
 from jax import jit, lax
 from .poly_solver import poly_roots_EA_multi as poly_roots
+from .poly_solver import poly_roots_EA_multi_init as poly_roots_init
 from .utils import match_points
 from .coeffs import _poly_coeffs_binary, _poly_coeffs_triple, _poly_coeffs_critical_triple, _poly_coeffs_critical_binary
 
@@ -86,7 +87,7 @@ def _images_point_source_single(w):
 @jit
 def _images_point_source_binary(w, a, e1):
     """
-    compute image positions with binary-lens
+    compute image positions with binary-lens in the mid-point coordinates
 
     Args:
         w (array_like): 
@@ -214,10 +215,6 @@ def mag_point_source_triple(w, s, q, q3, r3, psi):
     mag = (1.0 / jnp.abs(det)) * z_mask
     return mag.sum(axis=0).reshape(w.shape)
 
-def apply_match_points(carry, z):
-    idcs = match_points(carry, z)
-    return z[idcs], z[idcs]
-
 @partial(jit, static_argnames=("npts"))
 def critical_and_caustic_curves_binary(npts=1000, s=1.0, q=1.0):
     """
@@ -237,6 +234,10 @@ def critical_and_caustic_curves_binary(npts=1000, s=1.0, q=1.0):
             arrays with shape (`npts`) containing continuous segments of 
             the critical curves and caustics.
     """
+    def apply_match_points(carry, z):
+        idcs = match_points(carry, z)
+        return z[idcs], z[idcs]
+
     phi = jnp.linspace(-np.pi, np.pi, npts)
     a = 0.5 * s
     e1 = q / (1.0 + q)
@@ -278,6 +279,9 @@ def critical_and_caustic_curves_triple(npts=1000, s=1.0, q=1.0, q3=1.0, r3=1.0, 
             arrays with shape (`npts`) containing continuous segments of 
             the critical curves and caustics.
     """
+    def apply_match_points(carry, z):
+        idcs = match_points(carry, z)
+        return z[idcs], z[idcs]
     phi = jnp.linspace(-np.pi, np.pi, npts)
     
     a = 0.5 * s
@@ -296,3 +300,62 @@ def critical_and_caustic_curves_triple(npts=1000, s=1.0, q=1.0, q3=1.0, r3=1.0, 
     x_cm = a * (1.0 - q) / (1.0 + q)
     z_cr, z_ca = z_cr + x_cm, z_ca + x_cm
     return z_cr, z_ca
+
+########################################################
+@jit
+def _images_point_source_binary_init(w, a, e1, z_init):
+    coeffs = _poly_coeffs_binary(w, a, e1)
+    z = poly_roots_init(coeffs, z_init)
+    z = jnp.moveaxis(z, -1, 0)
+    lens_eq_eval = _lens_eq_binary(z, a, e1) - w
+    z_mask = jnp.abs(lens_eq_eval) < 1e-6
+    return z, z_mask
+
+def _images_point_source_binary_sequential(w, a, e1):
+    def fn(w): 
+        z, z_mask = _images_point_source_binary(w, a, e1)
+    def fn_init(w, z_init):
+        z, z_mask = _images_point_source_binary_init(w, a, e1, z_init)
+    
+    z_first, z_mask_first = fn(w[0])
+    def body_fn(z_prev, w):
+        z, z_mask = fn_init(w, z_init=z_prev)
+        return z, (z, z_mask)
+    
+    _, xs = lax.scan(body_fn, z_first, w[1:])
+    z, z_mask = xs
+
+    # Append to the initial point
+    z = jnp.concatenate([z_first[None, :], z])
+    z_mask = jnp.concatenate([z_mask_first[None, :], z_mask])
+
+    return z.T, z_mask.T
+
+@jit
+def _images_point_source_triple_init(w, a, r3, e1, e2, z_init):
+    coeffs = _poly_coeffs_triple(w, a, r3, e1, e2)
+    z = poly_roots_init(coeffs, z_init)
+    z = jnp.moveaxis(z, -1, 0)
+    lens_eq_eval = _lens_eq_triple(z, a, e1) - w
+    z_mask = jnp.abs(lens_eq_eval) < 1e-6
+    return z, z_mask
+
+def _images_point_source_triple_sequential(w, a, r3, e1, e2):
+    def fn(w): 
+        z, z_mask = _images_point_source_triple(w, a, r3, e1, e2)
+    def fn_init(w, z_init):
+        z, z_mask = _images_point_source_binary_init(w, a, r3, e1, e2, z_init)
+    
+    z_first, z_mask_first = fn(w[0])
+    def body_fn(z_prev, w):
+        z, z_mask = fn_init(w, z_init=z_prev)
+        return z, (z, z_mask)
+    
+    _, xs = lax.scan(body_fn, z_first, w[1:])
+    z, z_mask = xs
+
+    # Append to the initial point
+    z = jnp.concatenate([z_first[None, :], z])
+    z_mask = jnp.concatenate([z_mask_first[None, :], z_mask])
+
+    return z.T, z_mask.T  

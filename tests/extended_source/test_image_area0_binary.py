@@ -15,10 +15,9 @@ def test_image4():
     q = 0.5
     s = 1.0
     rho = 0.31
-    NBIN = 10
+    NBIN = 20
     incr  = jnp.abs(rho/NBIN)
     incr2 = incr*0.5
-    incr2margin = incr2*1.01
 
     a  = 0.5 * s
     e1 = q / (1.0 + q) 
@@ -143,8 +142,8 @@ def test_image4():
     pos_neg = jnp.where(dys[mask_x] > 0, 1.0, 0.0)
     for i in range(len(xmin[mask_x])):
         plt.hlines(y[mask_x][i],xmin[mask_x][i],xmax[mask_x][i], color=cmap(pos_neg[i]))
-        plt.plot(xmin[mask_x][i], y[mask_x][i], ".", color="k")
-        plt.plot(xmax[mask_x][i], y[mask_x][i], ".", color="k")
+        plt.plot(xmin[mask_x][i], y[mask_x][i], ".", color="None", mec="k")
+        plt.plot(xmax[mask_x][i], y[mask_x][i], ".", color="None", mec="k")
     for i in range(len(z_inits[z_mask])):
         plt.scatter(z_inits[z_mask][i].real, z_inits[z_mask][i].imag, marker="*", zorder=2, ec="k")
         plt.text(z_inits[z_mask][i].real, z_inits[z_mask][i].imag, s="%d"%(i), zorder=2)

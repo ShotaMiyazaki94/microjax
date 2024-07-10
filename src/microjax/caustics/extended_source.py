@@ -24,10 +24,12 @@ from .utils import (
     sparse_argsort,
 )
 
-from .point_source import (
+from ..point_source import (
     lens_eq_det_jac,
-    _images_point_source,
-    _images_point_source_sequential,
+    _images_point_source_binary,
+    _images_point_source_triple,
+    _images_point_source_binary_sequential,
+    _images_point_source_triple_sequential,
 )
 
 

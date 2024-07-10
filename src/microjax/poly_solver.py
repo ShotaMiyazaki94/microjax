@@ -33,16 +33,12 @@ def EA_step(roots, coeffs):
 def poly_roots_EA(coeffs):
     """
     Ehrlich-Aberth method using JAX for finding all roots of a complex polynomial.
-
     :param coeffs: Coefficients of the polynomial, highest order first. coeffs should be -10<Re(z)<10, -10<Im(z)<10,  
-    :param max_iter:    Maximum number of iterations. 
-                        This should be conservative to be 20 for n_coeffs=6 and 30 for n_coeffs=11
     :return: Approximation of all roots of the polynomial.
     """
     n = len(coeffs) - 1
     max_coeffs = jnp.max(jnp.abs(coeffs))
-    initial_roots = (max_coeffs+1.)*jnp.exp(2j * jnp.pi * jnp.arange(n) / n)    
-    
+    initial_roots = (max_coeffs+1.)*jnp.exp(2j * jnp.pi * jnp.arange(n) / n)
     roots, _ = lax.scan(lambda roots, _: EA_step(roots, coeffs), initial_roots, jnp.arange(max_iter))
     return roots
 
@@ -59,21 +55,13 @@ def poly_roots_EA_jvp(primals, tangents):
     coeffs, = primals
     dcoeffs, = tangents
     
-    # Compute the roots using poly_roots_EA
     roots = poly_roots_EA(coeffs)
-
-    # Compute the derivative of the polynomial at the roots
     df_dz = jnp.polyval(jnp.polyder(coeffs), roots)
-
-    # Compute the Jacobian of the roots with respect to the coefficients
     df_da = jnp.vstack([roots**i for i in range(coeffs.size-1, -1, -1)]).T 
-
-    # Compute the tangent (derivative of the roots with respect to the coefficients)
-    dz = - jnp.dot(df_da, dcoeffs) / df_dz
+    dz    = - jnp.dot(df_da, dcoeffs) / df_dz
     return roots, dz
 
 # Register the JVP rule with the function
-#@partial(jit, static_argnums=(1,))
 @jit
 def poly_roots_EA_multi(coeffs_matrix):
     """
@@ -81,15 +69,33 @@ def poly_roots_EA_multi(coeffs_matrix):
 
     :param coeffs_matrix: Matrix of coefficients of the polynomials, highest order first.
                           Each row represents a different polynomial.
-    :param max_iter: Maximum number of iterations.
     :return: Approximation of all roots of the polynomials.
     """
     ncoeffs = coeffs_matrix.shape[-1]
-    #output_shape = coeffs_matrix.shape[:-1] + (ncoeffs - 1,)
-    
-    # Apply the single polynomial root finding function to each row of the input matrix
+    output_shape = coeffs_matrix.shape[:-1] + (ncoeffs - 1,)
     roots_matrix = jax.vmap(poly_roots_EA, in_axes=(0,))(coeffs_matrix)
     #roots_matrix = jax.vmap(poly_roots_EA, in_axes=(0, None,))(coeffs_matrix, max_iter)
+    return roots_matrix.reshape(output_shape)
+
+@custom_jvp
+def poly_roots_EA_init(coeffs, initial_roots):
+    roots, _ = lax.scan(lambda roots, _: EA_step(roots, coeffs), initial_roots, jnp.arange(max_iter))
+    return roots
+
+@poly_roots_EA_init.defjvp
+def poly_roots_EA_init_jvp(primals, tangents):
+    coeffs, = primals
+    dcoeffs, = tangents
     
-    #return roots_matrix.reshape(output_shape)
-    return roots_matrix
+    roots = poly_roots_EA(coeffs)
+    df_dz = jnp.polyval(jnp.polyder(coeffs), roots)
+    df_da = jnp.vstack([roots**i for i in range(coeffs.size - 1, -1, -1)]).T
+    dz = -jnp.dot(df_da, dcoeffs) / df_dz
+    return roots, dz
+
+@jit
+def poly_roots_EA_multi_init(coeffs_matrix, initial_roots_matrix):
+    ncoeffs = coeffs_matrix.shape[-1]
+    output_shape = coeffs_matrix.shape[:-1] + (ncoeffs - 1,)
+    roots_matrix = jax.vmap(poly_roots_EA, in_axes=(0, 0))(coeffs_matrix, initial_roots_matrix)
+    return roots_matrix.reshape(output_shape)

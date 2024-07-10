@@ -42,7 +42,7 @@ def test_poly_roots_EA(coeffs_matrix, tol=1e-10):
 length = int(1e+3)
 diff_max = []
 diff_mean = []
-test_degs = np.arange(5,21,1, dtype=int)
+test_degs = np.arange(5,42,2, dtype=int)
 print(test_degs)
 for test_deg in test_degs:
     key = jrandom.PRNGKey(0)
@@ -69,6 +69,7 @@ plt.legend()
 plt.xlabel("number of polynomial")
 plt.ylabel("difference in 1000 equations")
 plt.savefig("tests/poly_solve/test_multi_accuracy.png", dpi=200, bbox_inches="tight")
+plt.show()
 plt.close()
 
 #test_passed = test_poly_roots_EA(coeffs_matrix)
