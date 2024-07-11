@@ -1,10 +1,13 @@
 from functools import partial
 
+import jax
 import numpy as np
 import jax.numpy as jnp
 from jax import jit, lax
-from .poly_solver import poly_roots_EA_multi as poly_roots
-from .poly_solver import poly_roots_EA_multi_init as poly_roots_init
+from .poly_solver import poly_roots
+#from .poly_solver import poly_roots_EA_multi as poly_roots
+#from .poly_solver import poly_roots_EA_init as poly_roots_init_single
+#from .poly_solver import poly_roots_EA_multi_init as poly_roots_init
 from .utils import match_points
 from .coeffs import _poly_coeffs_binary, _poly_coeffs_triple, _poly_coeffs_critical_triple, _poly_coeffs_critical_binary
 
@@ -302,22 +305,104 @@ def critical_and_caustic_curves_triple(npts=1000, s=1.0, q=1.0, q3=1.0, r3=1.0, 
     return z_cr, z_ca
 
 ########################################################
+def _images_point_source(w, nlenses=2, custom_init=False, z_init=None, **params):
+    if nlenses == 2:
+        a, e1 = params["a"], params["e1"]
+        coeffs = _poly_coeffs_binary(w, a, e1)
+    elif nlenses == 3:
+        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
+        coeffs = _poly_coeffs_triple(w, a, r3, e1, e2)
+
+    if custom_init:
+        z = poly_roots(coeffs, custom_init=True, roots_init=z_init)
+    else:
+        z = poly_roots(coeffs)
+    z = jnp.moveaxis(z, -1, 0)
+
+    lens_eq_eval = lens_eq(z, nlenses=nlenses, **params) - w
+    z_mask = jnp.abs(lens_eq_eval) < 1e-6
+
+    return z, z_mask 
+
+def lens_eq(z, nlenses=2, **params):
+    
+    zbar = jnp.conjugate(z)
+    if nlenses == 1:
+        return z - 1 / zbar
+
+    elif nlenses == 2:
+        a, e1 = params["a"], params["e1"]
+        return z - e1 / (zbar - a) - (1.0 - e1) / (zbar + a)
+
+    elif nlenses == 3:
+        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
+        return (
+            z
+            - e1 / (zbar - a)
+            - e2 / (zbar + a)
+            - (1.0 - e1 - e2) / (zbar - jnp.conjugate(r3))
+        )
+
+    else:
+        raise ValueError("`nlenses` has to be set to be <= 3.") 
+
+def lens_eq_det_jac(z, nlenses=2, **params):
+    zbar = jnp.conjugate(z)
+
+    if nlenses == 1:
+        return 1.0 - 1.0 / jnp.abs(zbar**2)
+
+    elif nlenses == 2:
+        a, e1 = params["a"], params["e1"]
+        return 1.0 - jnp.abs(e1 / (zbar - a) ** 2 + (1.0 - e1) / (zbar + a) ** 2) ** 2
+
+    elif nlenses == 3:
+        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
+        return (
+            1.0
+            - jnp.abs(
+                e1 / (zbar - a) ** 2
+                + e2 / (zbar + a) ** 2
+                + (1.0 - e1 - e2) / (zbar - jnp.conjugate(r3)) ** 2
+            )
+            ** 2
+        )
+    else:
+        raise ValueError("`nlenses` has to be set to be <= 3.")
+
+
+
+
+'''
 @jit
 def _images_point_source_binary_init(w, a, e1, z_init):
     coeffs = _poly_coeffs_binary(w, a, e1)
-    z = poly_roots_init(coeffs, z_init)
+    #z_init = z_init.ravel()
+    z = poly_roots_init(coeffs[None, :], z_init.T)
+    #z = poly_roots_init(coeffs[None, :], z_init.T)
     z = jnp.moveaxis(z, -1, 0)
     lens_eq_eval = _lens_eq_binary(z, a, e1) - w
     z_mask = jnp.abs(lens_eq_eval) < 1e-6
     return z, z_mask
 
 def _images_point_source_binary_sequential(w, a, e1):
-    def fn(w): 
-        z, z_mask = _images_point_source_binary(w, a, e1)
+    """
+    Same as `images_point_source` except w is a 1D arrray and the images 
+    are computed sequentially using `lax.scan` such that the first set 
+    of images is initialized using the default initialization and the 
+    subsequent images are initialized using the previous images as a starting
+    point.
+    """
     def fn_init(w, z_init):
         z, z_mask = _images_point_source_binary_init(w, a, e1, z_init)
-    
-    z_first, z_mask_first = fn(w[0])
+        return z, z_mask
+    def fn(w):
+        z, z_mask = _images_point_source_binary(w, a, e1)
+        return z, z_mask
+
+    z_first, z_mask_first = _images_point_source_binary(jnp.array([w[0]]), a, e1)
+    print("first:", z_first.shape, z_mask_first.shape)
+
     def body_fn(z_prev, w):
         z, z_mask = fn_init(w, z_init=z_prev)
         return z, (z, z_mask)
@@ -330,32 +415,4 @@ def _images_point_source_binary_sequential(w, a, e1):
     z_mask = jnp.concatenate([z_mask_first[None, :], z_mask])
 
     return z.T, z_mask.T
-
-@jit
-def _images_point_source_triple_init(w, a, r3, e1, e2, z_init):
-    coeffs = _poly_coeffs_triple(w, a, r3, e1, e2)
-    z = poly_roots_init(coeffs, z_init)
-    z = jnp.moveaxis(z, -1, 0)
-    lens_eq_eval = _lens_eq_triple(z, a, e1) - w
-    z_mask = jnp.abs(lens_eq_eval) < 1e-6
-    return z, z_mask
-
-def _images_point_source_triple_sequential(w, a, r3, e1, e2):
-    def fn(w): 
-        z, z_mask = _images_point_source_triple(w, a, r3, e1, e2)
-    def fn_init(w, z_init):
-        z, z_mask = _images_point_source_binary_init(w, a, r3, e1, e2, z_init)
-    
-    z_first, z_mask_first = fn(w[0])
-    def body_fn(z_prev, w):
-        z, z_mask = fn_init(w, z_init=z_prev)
-        return z, (z, z_mask)
-    
-    _, xs = lax.scan(body_fn, z_first, w[1:])
-    z, z_mask = xs
-
-    # Append to the initial point
-    z = jnp.concatenate([z_first[None, :], z])
-    z_mask = jnp.concatenate([z_mask_first[None, :], z_mask])
-
-    return z.T, z_mask.T  
+'''

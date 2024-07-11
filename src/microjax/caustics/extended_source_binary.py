@@ -14,7 +14,7 @@ from jax import jit, vmap, lax, random
 
 from .integrate import (
     _integrate_unif,
-    _integrate_ld,
+    _integrate_ld_binary,
 )
 from .utils import (
     match_points,
@@ -25,11 +25,9 @@ from .utils import (
 )
 
 from ..point_source import (
-    lens_eq_det_jac,
-    _images_point_source_binary,
-    _images_point_source_triple,
+    _det_jac_binary,
+    _images_point_source_binary_init,
     _images_point_source_binary_sequential,
-    _images_point_source_triple_sequential,
 )
 
 
@@ -58,23 +56,11 @@ def _permute_images(z, z_mask, z_parity):
 @partial(
     jit,
     static_argnames=(
-        "nlenses",
         "npts",
         "niter",
-        "roots_itmax",
-        "roots_compensated",
     ),
 )
-def _images_of_source_limb(
-    w0,
-    rho,
-    nlenses=2,
-    npts=300,
-    niter=10,
-    roots_itmax=2500,
-    roots_compensated=False,
-    **params,
-):
+def _images_of_source_binary_limb(w0, a, e1, rho, npts=300, niter=10):
     key = random.PRNGKey(0)
     key1, key2 = random.split(key)
 
@@ -85,17 +71,9 @@ def _images_of_source_limb(
         u1 = random.uniform(key1, shape=z_init.shape, minval=-1e-6, maxval=1e-6)
         u2 = random.uniform(key2, shape=z_init.shape, minval=-1e-6, maxval=1e-6)
         z_init = z_init + u1 + u2 * 1j
-
-        z, z_mask = _images_point_source(
-            rho * jnp.exp(1j * theta) + w0,
-            nlenses=nlenses,
-            roots_itmax=roots_itmax,
-            roots_compensated=roots_compensated,
-            z_init=z_init.T,
-            custom_init=True,
-            **params,
-        )
-        det = lens_eq_det_jac(z, nlenses=nlenses, **params)
+        
+        z, z_mask = _images_point_source_binary_init(rho * jnp.exp(1j * theta) + w0, a, e1, z_init=z_init.T)
+        det = _det_jac_binary(z, a, e1)
         z_parity = jnp.sign(det)
         return z, z_mask, z_parity
 
@@ -103,10 +81,9 @@ def _images_of_source_limb(
     npts_init = int(0.5 * npts)
     theta = jnp.linspace(-np.pi, np.pi, npts_init - 1, endpoint=False)
     theta = jnp.pad(theta, (0, 1), constant_values=np.pi - 1e-8)
-    z, z_mask = _images_point_source_sequential(
-        rho * jnp.exp(1j * theta) + w0, nlenses=nlenses, roots_itmax=roots_itmax, **params
-    )
-    z_parity = jnp.sign(lens_eq_det_jac(z, nlenses=nlenses, **params))
+    w_sec = w0 + rho * jnp.exp(1j * theta) 
+    z, z_mask = _images_point_source_binary_sequential(w_sec, a, e1) #
+    z_parity = jnp.sign(_det_jac_binary(z=z, a=a, e1=e1))
 
     # Refine sampling by adding npts_init additional points a fraction
     # 1 / niter at a time
@@ -217,8 +194,6 @@ def _split_segment(segment, n_parts=5):
     segments_split = vmap(lambda mask: segment * mask)(masks)
     return segments_split
 
-
-
 def _process_segments(segments, nr_of_segments=20):
     """
     Process raw contour segments such that each segment is contiguous (meaning
@@ -248,7 +223,6 @@ def _process_segments(segments, nr_of_segments=20):
     )
 
     return segments
-
 
 def _get_segments(z, z_mask, z_parity, nlenses=2):
     """
@@ -733,26 +707,12 @@ def _contours_from_open_segments(
 @partial(
     jit,
     static_argnames=(
-        "nlenses",
         "npts_limb",
         "limb_darkening",
         "npts_ld",
-        "roots_itmax",
-        "roots_compensated",
     ),
 )
-def mag_extended_source(
-    w0,
-    rho,
-    nlenses=2,
-    npts_limb=150,
-    limb_darkening=False,
-    u1=0.0,
-    npts_ld=100,
-    roots_itmax=2500,
-    roots_compensated=False,
-    **params,
-):
+def mag_extended_source_binary(w0, s, q, rho, npts_limb=150, limb_darkening=False, u1=0.0, npts_ld=100):
     """
     Compute the magnification of an extended source with radius `rho` for a 
     system with `nlenses` lenses. If `nlenses` is 2 (binary lens) or 3 
@@ -807,106 +767,59 @@ def mag_extended_source(
     Returns:
         float: Total magnification at the source position `w0`.
     """
-    if nlenses == 1:
-        _params = {}
-    elif nlenses == 2:
-        s, q = params["s"], params["q"]
-        a = 0.5*s
-        e1 = q/(1 + q)
-        #e1 = 1/(1 + q)
-        _params = {"a": a, "e1": e1}
-
-        # Shift w by x_cm
-        x_cm = a*(1 - q)/(1 + q)
-        w0 -= x_cm #miyazaki
-        #w0 += x_cm
-    elif nlenses == 3:
-        s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
-        a = 0.5*s
-        e1 = q/(1 + q + q3)         #miyazaki
-        e2 = (1-q3)/(1 + q + q3)    #miyazaki
-        #e1 = q/(1 + q + q3)
-        #e2 = q*e1
-        r3 = r3*jnp.exp(1j*psi)
-        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
-
-        # Shift w by x_cm
-        x_cm = a*(1 - q)/(1 + q)
-        w0 -= x_cm #miyazaki
-        #w0 += x_cm
-    else:
-        raise ValueError("`nlenses` has to be set to be <= 3.")
+    a = 0.5 * s
+    e1 = q / (1 + q)
+    # center-of-mass -> midpoint
+    x_cm = a*(1 - q)/(1 + q)
+    w0  -= x_cm  
 
     # Get ordered point source images at the source limb
-    z, z_mask, z_parity = _images_of_source_limb(
-        w0,
-        rho,
-        nlenses=nlenses,
-        npts=npts_limb,
-        roots_itmax=roots_itmax,
-        roots_compensated=roots_compensated,
-        **_params,
-    )
+    z, z_mask, z_parity = _images_of_source_binary_limb(w0, a, e1, rho, npts=npts_limb)
 
     # Integration function depending on whether the source is limb-darkened
     if limb_darkening:
-        integrate = lambda contour, tidx: _integrate_ld(
+        integrate = lambda contour, tidx: _integrate_ld_binary(
             contour,
+            a,
+            e1,
             tidx,
             w0,
             rho,
             u1=u1,
-            nlenses=nlenses,
             npts=npts_ld,
-            **_params,
         )
 
     else:
         integrate = lambda contour, tidx: _integrate_unif(contour, tidx)
 
-    # For N = 1 the contours are trivially to obtain
-    if nlenses == 1:
-        contours, contours_p = _contours_from_closed_segments(
-            jnp.moveaxis(jnp.stack([z, z_parity]), 0, 1)
-        )
-        tail_idcs = jnp.array([z.shape[1] - 1, z.shape[1] - 1])
-        I = vmap(integrate)(contours, tail_idcs)
-        return jnp.abs(jnp.sum(I * contours_p)) / (np.pi * rho**2)
-
     # For N = 2 we first have to obtain segments and then convert those to
     # closed contours
-    elif (nlenses == 2) or (nlenses == 3):
-        max_nr_of_contours = 3
-        # Get segments. If `all_closed` is True there are no caustic crossings
-        # and everything is easy
-        segments_closed, segments_open, all_closed = _get_segments(
-            z, z_mask, z_parity, nlenses=nlenses
-        )
+    max_nr_of_contours = 3
+    # Get segments. If `all_closed` is True there are no caustic crossings
+    # and everything is easy
+    segments_closed, segments_open, all_closed = _get_segments(z, z_mask, z_parity, nlenses=2)
+    
+    # Get contours from closed segments
+    contours1, contours_p1 = _contours_from_closed_segments(segments_closed)
 
-        # Get contours from closed segments
-        contours1, contours_p1 = _contours_from_closed_segments(segments_closed)
+    # Integrate over contours obtained from closed segments
+    tail_idcs = jnp.repeat(contours1.shape[1] - 1, contours1.shape[0])
+    I1 = vmap(integrate)(contours1, tail_idcs)
+    mags1 = I1 * contours_p1
 
-        # Integrate over contours obtained from closed segments
-        tail_idcs = jnp.repeat(contours1.shape[1] - 1, contours1.shape[0])
-        I1 = vmap(integrate)(contours1, tail_idcs)
-        mags1 = I1 * contours_p1
+    # If there are caustic crossings things are a lot more complicated and
+    # we have to stitch together the open segments to form closed contours.
+    branch1 = lambda _: jnp.zeros(max_nr_of_contours)
 
-        # If there are caustic crossings things are a lot more complicated and
-        # we have to stitch together the open segments to form closed contours.
-        branch1 = lambda _: jnp.zeros(max_nr_of_contours)
-
-        def branch2(segments):
-            contours, contours_p = _contours_from_open_segments(
-                segments, max_nr_of_contours=max_nr_of_contours
+    def branch2(segments):
+        contours, contours_p = _contours_from_open_segments(
+            segments, max_nr_of_contours=max_nr_of_contours
             )
-            tail_idcs = vmap(last_nonzero)(contours.real)
-            I = vmap(integrate)(contours, tail_idcs)
-            return I * contours_p
+        tail_idcs = vmap(last_nonzero)(contours.real)
+        I = vmap(integrate)(contours, tail_idcs)
+        return I * contours_p
 
-        mags2 = lax.cond(all_closed, branch1, branch2, segments_open)
-        mag = jnp.abs(mags1.sum() + mags2.sum()) / (np.pi * rho**2)
+    mags2 = lax.cond(all_closed, branch1, branch2, segments_open)
+    mag = jnp.abs(mags1.sum() + mags2.sum()) / (np.pi * rho**2)
 
-        return mag
-
-    else:
-        raise ValueError("`nlenses` has to be set to be <= 3.")
+    return mag
