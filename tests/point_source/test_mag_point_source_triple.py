@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from jax.test_util import check_grads
 import matplotlib.pyplot as plt
 from jax import jit, vmap, grad, jacfwd
-from microjax.point_source import mag_point_source_triple, critical_and_caustic_curves_triple
+from microjax.point_source import mag_point_source, critical_and_caustic_curves
 import MulensModel as mm
 jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
@@ -26,8 +26,8 @@ y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
 y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
 
 w = jnp.array(y1 + 1j * y2, dtype=complex)
-mag_tri = mag_point_source_triple(w, q=q, s=s, q3=q3, r3=jnp.abs(r3), psi=psi)
-crit_tri, cau_tri = critical_and_caustic_curves_triple(npts=1000, q=q, s=s, q3=q3, r3=jnp.abs(r3), psi=psi)
+mag_tri = mag_point_source(w, q=q, s=s, q3=q3, r3=jnp.abs(r3), psi=psi, nlenses=3)
+crit_tri, cau_tri = critical_and_caustic_curves(npts=1000, q=q, s=s, q3=q3, r3=jnp.abs(r3), psi=psi, nlenses=3)
 
 def get_mag_triple(params):
     u0, t0, tE, s, q, alpha, q3, r3, psi = params    
@@ -35,7 +35,7 @@ def get_mag_triple(params):
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
     w_points = jnp.array(y1 + 1j * y2, dtype=complex)    
-    return w_points, mag_point_source_triple(w_points, q=q, s=s, q3=q3, r3=jnp.abs(r3), psi=psi) 
+    return w_points, mag_point_source(w_points, q=q, s=s, q3=q3, r3=jnp.abs(r3), psi=psi, nlenses=3) 
 
 params_triple = jnp.array([u0, t0, tE, s, q, alpha, q3, jnp.abs(r3), psi])
 mag_jac_tri = jit(jacfwd(lambda params: get_mag_triple(params)[1])) 

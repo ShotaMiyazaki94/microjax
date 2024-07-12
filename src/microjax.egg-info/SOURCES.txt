@@ -17,7 +17,6 @@ src/microjax/coeffs.py
 src/microjax/extend_source.py
 src/microjax/multi_pole.py
 src/microjax/point_source.py
-src/microjax/point_source_new.py
 src/microjax/poly_solver.py
 src/microjax/utils.py
 src/microjax.egg-info/PKG-INFO

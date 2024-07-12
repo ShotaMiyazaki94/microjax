@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
-from microjax.point_source import _images_point_source_binary, critical_and_caustic_curves_binary
+from microjax.point_source import _images_point_source, critical_and_caustic_curves
 
 N_limb = 5000
 
@@ -25,7 +25,7 @@ tau = (t - t0)/tE
 y1 = -u0*np.sin(alpha) + tau*np.cos(alpha)
 y2 = u0*np.cos(alpha) + tau*np.sin(alpha)
 
-crit, cau = critical_and_caustic_curves_binary(npts=1000, q=q, s=s)
+crit, cau = critical_and_caustic_curves(npts=1000, q=q, s=s)
 w = jnp.array(y1[:,None] + 1.0j * y2[:,None] 
               + rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
 
@@ -37,7 +37,7 @@ def plot(frame):
     plt.scatter(cau.ravel().real, cau.ravel().imag, s=1, color="red", label="caustic")
     w_limb       = w[frame,:]                         # center-of-mass coordinate
     w_limb_shift = w[frame,:] - 0.5*s*(1 - q)/(1 + q) # half-axis coordinate
-    image, mask = _images_point_source_binary(w_limb_shift, a=a, e1=e1) # half-axis coordinate
+    image, mask = _images_point_source(w_limb_shift, a=a, e1=e1) # half-axis coordinate
     image_shift = image + 0.5*s*(1 - q)/(1 + q)       # center-of-mass coordinate
     plt.scatter(w_limb.real, w_limb.imag, s=1, color="blue",label="source limb")
     plt.scatter(image_shift[mask].ravel().real, image_shift[mask].ravel().imag, s=1,color="purple",label="image limb")

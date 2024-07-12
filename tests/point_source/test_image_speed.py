@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from jax.test_util import check_grads
 import matplotlib.pyplot as plt
 from jax import jit, vmap, grad, jacfwd
-from microjax.point_source import _images_point_source_binary, _images_point_source_triple
+from microjax.point_source import _images_point_source
 import MulensModel as mm
 jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
@@ -34,13 +34,13 @@ r3 = r3*jnp.exp(1j*psi)
 _params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
 
 start = time.time()
-result = _images_point_source_binary(w, a=a, e1=e1)
+result = _images_point_source(w, a=a, e1=e1)
 jax.tree_util.tree_map(lambda x: x.block_until_ready(), result)
 end = time.time()
 print(f"nlenses=2: {end - start:.3f} sec")
 
 start = time.time()
-result = _images_point_source_triple(w, a=a, e1=e1, r3=r3, e2=e2)
+result = _images_point_source(w, a=a, e1=e1, r3=r3, e2=e2, nlenses=3)
 jax.tree_util.tree_map(lambda x: x.block_until_ready(), result)
 end = time.time()
 print(f"nlenses=3: {end - start:.3f} sec")
