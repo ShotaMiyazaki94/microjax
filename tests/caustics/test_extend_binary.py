@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
 import jax.numpy as jnp
-from microjax.caustics.extended_source_binary import mag_extended_source_binary
-from microjax.point_source import _images_point_source_binary_sequential
+from microjax.caustics.extended_source import mag_extended_source
+from microjax.point_source_new import _images_point_source_binary
 import jax
 jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
@@ -17,9 +17,9 @@ print("w_sec shape:",w_sec.shape)
 
 a  = 0.5 * s
 e1 = q / (1 + q) 
-z, z_mask = _images_point_source_binary_sequential(w_sec, a, e1)
+z, z_mask = _images_point_source_binary(w_sec, a, e1)
 print("z, z_mask",z.shape, z_mask.shape)
 
-w = jnp.array([0.0 + 0.0j]) 
-mag = jax.jit(mag_extended_source_binary)(w, s, q, rho)
+#w = jnp.array([0.0 + 0.0j]) 
+#mag = jax.jit(mag_extended_source)(w, s, q, rho)
 #print(mag)

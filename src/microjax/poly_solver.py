@@ -81,6 +81,7 @@ def poly_roots_EA_multi(coeffs_matrix):
 '''
 
 ##############################################################################################
+@partial(jit, static_argnames=("custom_init"))
 def poly_roots(coeffs, custom_init=False, roots_init=None):
     ncoeffs = coeffs.shape[-1]
     output_shape = coeffs.shape[:-1] + (ncoeffs - 1,)
@@ -94,7 +95,6 @@ def poly_roots(coeffs, custom_init=False, roots_init=None):
     
     return roots.reshape(output_shape) 
 
-@jit
 def EA_step(roots, coeffs):
     """
     Perform one step of the Ehrlich-Aberth iteration using JAX optimizations.
@@ -130,7 +130,6 @@ def poly_roots_EA_jvp(primals, tangents):
     dz = - jnp.dot(df_da, dcoeffs) / df_dz
     return roots, dz
 
-@jit
 def poly_roots_EA_multi(coeffs_matrix, custom_init=False, initial_roots_matrix=None):
     """
     Process multiple sets of coefficients for root finding with optional initial roots.

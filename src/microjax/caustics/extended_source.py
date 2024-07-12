@@ -16,7 +16,7 @@ from .integrate import (
     _integrate_unif,
     _integrate_ld,
 )
-from .utils import (
+from ..utils import (
     match_points,
     first_nonzero,
     first_zero,
@@ -24,7 +24,7 @@ from .utils import (
     sparse_argsort,
 )
 
-from .point_source_org import (
+from ..point_source_new import (
     lens_eq_det_jac,
     _images_point_source,
     _images_point_source_sequential,
@@ -59,8 +59,6 @@ def _permute_images(z, z_mask, z_parity):
         "nlenses",
         "npts",
         "niter",
-        "roots_itmax",
-        "roots_compensated",
     ),
 )
 def _images_of_source_limb(
@@ -69,8 +67,6 @@ def _images_of_source_limb(
     nlenses=2,
     npts=300,
     niter=10,
-    roots_itmax=2500,
-    roots_compensated=False,
     **params,
 ):
     key = random.PRNGKey(0)
@@ -87,8 +83,6 @@ def _images_of_source_limb(
         z, z_mask = _images_point_source(
             rho * jnp.exp(1j * theta) + w0,
             nlenses=nlenses,
-            roots_itmax=roots_itmax,
-            roots_compensated=roots_compensated,
             z_init=z_init.T,
             custom_init=True,
             **params,
@@ -102,7 +96,7 @@ def _images_of_source_limb(
     theta = jnp.linspace(-np.pi, np.pi, npts_init - 1, endpoint=False)
     theta = jnp.pad(theta, (0, 1), constant_values=np.pi - 1e-8)
     z, z_mask = _images_point_source_sequential(
-        rho * jnp.exp(1j * theta) + w0, nlenses=nlenses, roots_itmax=roots_itmax, **params
+        rho * jnp.exp(1j * theta) + w0, nlenses=nlenses, **params
     )
     z_parity = jnp.sign(lens_eq_det_jac(z, nlenses=nlenses, **params))
 
@@ -747,8 +741,6 @@ def mag_extended_source(
     limb_darkening=False,
     u1=0.0,
     npts_ld=100,
-    roots_itmax=2500,
-    roots_compensated=False,
     **params,
 ):
     """
@@ -811,7 +803,6 @@ def mag_extended_source(
         s, q = params["s"], params["q"]
         a = 0.5*s
         e1 = q/(1 + q)
-        #e1 = 1/(1 + q)
         _params = {"a": a, "e1": e1}
 
         # Shift w by x_cm
@@ -841,8 +832,6 @@ def mag_extended_source(
         rho,
         nlenses=nlenses,
         npts=npts_limb,
-        roots_itmax=roots_itmax,
-        roots_compensated=roots_compensated,
         **_params,
     )
 

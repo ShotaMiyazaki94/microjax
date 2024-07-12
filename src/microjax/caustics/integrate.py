@@ -11,14 +11,14 @@ from jax import jit
 
 from .utils import *
 
-from ..point_source import _lens_eq_binary, _lens_eq_triple
+from .point_source import lens_eq
 from .utils import trapz_zero_avoiding
 
 
-def _integrate_gauss_legendre(f, a_, b_, n=100):
+def _integrate_gauss_legendre(f, a, b, n=100):
     pts, weights = np.polynomial.legendre.leggauss(n)
-    pts_rescaled = 0.5 * (b_ - a_) * pts[:, None] + 0.5 * (b_ + a_)
-    return jnp.sum(0.5 * (b_ - a_) * f(pts_rescaled) * weights[:, None], axis=0)
+    pts_rescaled = 0.5 * (b - a) * pts[:, None] + 0.5 * (b + a)
+    return jnp.sum(0.5 * (b - a) * f(pts_rescaled) * weights[:, None], axis=0)
 
 def _integrate_unif(z, tidx):
     # Trapezoidal rule
@@ -26,8 +26,8 @@ def _integrate_unif(z, tidx):
     I2 = trapz_zero_avoiding(-0.5 * z.imag, z.real, tidx)
     return I1 + I2
 
-def _brightness_profile_binary(z, a, e1, rho, w0, u1=0.0):
-    w = _lens_eq_binary(z, a, e1)
+def _brightness_profile(z, rho, w0, u1=0.0, nlenses=2, **params):
+    w = lens_eq(z, nlenses=nlenses, **params)
     r = jnp.abs(w - w0) / rho
 
     def safe_for_grad_sqrt(x):
@@ -44,62 +44,66 @@ def _brightness_profile_binary(z, a, e1, rho, w0, u1=0.0):
     return I
 
 
-@partial(jit, static_argnames=("npts"))
-def _integrate_ld_binary(z, a, e1, tidx, w0, rho, u1=0.0, npts=100):
+@partial(jit, static_argnames=("nlenses", "npts"))
+def _integrate_ld(z, tidx, w0, rho, u1=0.0, nlenses=2, npts=100, **params):
     def P(_, y0, xl, yl):
         # Construct grid in z2 and evaluate the brightness profile at each point
-        a_, b_ = y0 * jnp.ones_like(xl), yl  # lower and upper limits
-        abs_delta = jnp.abs(b_ - a_)
+        a, b = y0 * jnp.ones_like(xl), yl  # lower and upper limits
+        abs_delta = jnp.abs(b - a)
 
         # Split each integral into two intervals with the same number of points
         # and integrate each using Gauss Legendre quadrature
-        mask = b_ > a_
+        mask = b > a
         split_points = jnp.where(
             mask,
-            b_ - 2 * rho,
-            b_ + 2 * rho,
+            b - 2 * rho,
+            b + 2 * rho,
         )
         split_points = jnp.where(
-            0.5 * abs_delta <= 2 * rho, a_ + 0.5 * abs_delta, split_points
+            0.5 * abs_delta <= 2 * rho, a + 0.5 * abs_delta, split_points
         )
 
         # First interval
-        f = lambda y: _brightness_profile_binary(xl + 1j * y, a, e1, rho, w0, u1=u1)
+        f = lambda y: _brightness_profile(
+            xl + 1j * y, rho, w0, u1=u1, nlenses=nlenses, **params
+        )
         npts1 = int(npts / 2)
         npts2 = npts - npts1
-        I1 = _integrate_gauss_legendre(f, a_, split_points, n=npts1)
+        I1 = _integrate_gauss_legendre(f, a, split_points, n=npts1)
 
         # Second interval
-        I2 = _integrate_gauss_legendre(f, split_points, b_, n=npts2)
+        I2 = _integrate_gauss_legendre(f, split_points, b, n=npts2)
         I = I1 + I2
 
         return -0.5 * I
 
     def Q(x0, _, xl, yl):
         # Construct grid in z1 and evaluate the brightness profile at each point
-        a_, b_ = x0 * jnp.ones_like(yl), xl
-        abs_delta = jnp.abs(b_ - a_)
+        a, b = x0 * jnp.ones_like(yl), xl
+        abs_delta = jnp.abs(b - a)
 
         # Split each integral into two intervals with the same number of points
         # and integrate each using Gauss Legendre quadrature
-        mask = b_ > a_
+        mask = b > a
         split_points = jnp.where(
             mask,
-            b_ - 2 * rho,
-            b_ + 2 * rho,
+            b - 2 * rho,
+            b + 2 * rho,
         )
         split_points = jnp.where(
-            0.5 * abs_delta <= 2 * rho, a_ + 0.5 * abs_delta, split_points
+            0.5 * abs_delta <= 2 * rho, a + 0.5 * abs_delta, split_points
         )
 
         # First interval
-        f = lambda x: _brightness_profile_binary(x + 1j * yl, a, e1, rho, w0, u1=u1)
+        f = lambda x: _brightness_profile(
+            x + 1j * yl, rho, w0, u1=u1, nlenses=nlenses, **params
+        )
         npts1 = int(npts / 2)
         npts2 = npts - npts1
-        I1 = _integrate_gauss_legendre(f, a_, split_points, n=npts1)
+        I1 = _integrate_gauss_legendre(f, a, split_points, n=npts1)
 
         # Second interval
-        I2 = _integrate_gauss_legendre(f, split_points, b_, n=npts2)
+        I2 = _integrate_gauss_legendre(f, split_points, b, n=npts2)
         I = I1 + I2
 
         return 0.5 * I

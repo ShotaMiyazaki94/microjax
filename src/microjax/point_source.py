@@ -5,9 +5,6 @@ import numpy as np
 import jax.numpy as jnp
 from jax import jit, lax
 from .poly_solver import poly_roots
-#from .poly_solver import poly_roots_EA_multi as poly_roots
-#from .poly_solver import poly_roots_EA_init as poly_roots_init_single
-#from .poly_solver import poly_roots_EA_multi_init as poly_roots_init
 from .utils import match_points
 from .coeffs import _poly_coeffs_binary, _poly_coeffs_triple, _poly_coeffs_critical_triple, _poly_coeffs_critical_binary
 
