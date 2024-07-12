@@ -1,6 +1,17 @@
 README.md
 setup.py
 dist/microjax-0.0.1-py3.10.egg
+dusts/caustics/__init__.py
+dusts/caustics/extended_source_binary.py
+dusts/caustics/extended_source_org.py
+dusts/caustics/integrate.py
+dusts/caustics/integrate_org.py
+dusts/caustics/lightcurve.py
+dusts/caustics/linalg.py
+dusts/caustics/multipole.py
+dusts/caustics/point_source_org.py
+dusts/caustics/trajectory.py
+dusts/caustics/utils.py
 src/microjax/__init__.py
 src/microjax/coeffs.py
 src/microjax/extend_source.py
@@ -13,6 +24,8 @@ src/microjax.egg-info/PKG-INFO
 src/microjax.egg-info/SOURCES.txt
 src/microjax.egg-info/dependency_links.txt
 src/microjax.egg-info/top_level.txt
+src/microjax/caustics/__init__.py
+src/microjax/caustics/extended_source.py
 src/microjax/caustics/integrate.py
 src/microjax/fastlens/__init__.py
 src/microjax/fastlens/fftlog.py

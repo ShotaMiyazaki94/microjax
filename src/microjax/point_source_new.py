@@ -102,7 +102,33 @@ def critical_and_caustic_curves(npts=200, nlenses=2, **params):
 
 @partial(jit, static_argnames=("nlenses", "custom_init"))
 def _images_point_source(w, nlenses=2, custom_init=False, z_init=None, **params):
-    
+    """
+    Computes the image positions for a point source under the influence of multiple lenses
+    in the mid-point coordinate system. Handles configurations with one, two, or three lenses.
+
+    Args:
+        w (complex or array_like of complex):
+            Source position(s) in the complex plane, representing the coordinates in the mid-point system.
+        nlenses (int, optional):
+            Number of lenses affecting the source light. Valid values are 1, 2, or 3. Defaults to 2.
+        custom_init (bool, optional):
+            Flag to indicate whether a custom initial guess for the root finding should be used.
+            Defaults to False.
+        z_init (array_like, optional):
+            Initial guess for the root positions if custom_init is True.
+        **params:
+            Additional parameters specific to the lens configuration, such as:
+            - a (float): Separation between primary and secondary lens (used when nlenses > 1).
+            - e1, e2 (floats): Mass ratios or other relevant parameters.
+            - r3 (float): Position or relevant parameter for the third lens (used when nlenses == 3).
+
+    Returns:
+        Tuple (z, z_mask):
+            z (array_like):
+                The calculated image positions in the complex plane.
+            z_mask (array_like):
+                Boolean array indicating whether each position satisfies the lens equation to within a tolerance.
+    """
     if nlenses == 1:
         w_abs_sq = w.real**2 + w.imag**2
         #  Compute the image locations using the quadratic formula

@@ -4,7 +4,9 @@ from jax.test_util import check_grads
 import matplotlib.pyplot as plt
 from jax import jit, vmap, grad, jacfwd
 from microjax.point_source import critical_and_caustic_curves_binary
+from microjax.point_source_new import critical_and_caustic_curves
 from microjax.point_source import mag_point_source_binary
+from microjax.point_source_new import mag_point_source
 import MulensModel as mm
 jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
@@ -28,8 +30,11 @@ y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
 
 w = jnp.array(y1 + 1j * y2, dtype=complex)
 
-mag_binary = mag_point_source_binary(w, s=s, q=q) 
-crit_bin, cau_bin = critical_and_caustic_curves_binary(npts=1000, q=q, s=s)
+_params = {"q": q, "s": s}
+mag_binary = mag_point_source(w, nlenses=2, **_params) 
+#mag_binary = mag_point_source_binary(w, s=s, q=q) 
+crit_bin, cau_bin = critical_and_caustic_curves(npts=1000, nlenses=2, **_params)
+#crit_bin, cau_bin = critical_and_caustic_curves_binary(npts=1000,)
 
 def get_mag_binary(params):
     u0, t0, tE, s, q, alpha = params
@@ -37,7 +42,9 @@ def get_mag_binary(params):
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
     w_points = jnp.array(y1 + 1j * y2, dtype=complex)
-    return w_points, mag_point_source_binary(w_points, s=s, q=q) 
+    _params = {"q": q, "s": s} 
+    return w_points, mag_point_source(w_points, nlenses=2, **_params) 
+    #return w_points, mag_point_source_binary(w_points, s=s, q=q) 
 
 params_binary = jnp.array([u0, t0, tE, s, q, alpha])
 mag_jac_bin = jit(jacfwd(lambda params: get_mag_binary(params)[1]))
