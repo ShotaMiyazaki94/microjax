@@ -4,7 +4,7 @@ import numpy as np
 from jax import lax, jit, vmap
 from functools import partial
 jax.config.update("jax_enable_x64", True)
-from microjax.poly_solver import poly_roots_EA, poly_roots_EA_multi
+from microjax.poly_solver import poly_roots_EA_multi
 import timeit
 import time
 import matplotlib.pyplot as plt

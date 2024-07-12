@@ -1,6 +1,7 @@
 README.md
 setup.py
 dist/microjax-0.0.1-py3.10.egg
+dusts/point_source.py
 dusts/caustics/__init__.py
 dusts/caustics/extended_source_binary.py
 dusts/caustics/extended_source_org.py
@@ -26,6 +27,7 @@ src/microjax.egg-info/top_level.txt
 src/microjax/caustics/__init__.py
 src/microjax/caustics/extended_source.py
 src/microjax/caustics/integrate.py
+src/microjax/caustics/lightcurve.py
 src/microjax/fastlens/__init__.py
 src/microjax/fastlens/fftlog.py
 src/microjax/fastlens/fftlog_jax.py
@@ -79,7 +81,6 @@ tests/point_source/test_mag_point_source_triple.png
 tests/point_source/test_mag_point_source_triple.py
 tests/poly_solve/speed_accuracy.py
 tests/poly_solve/test_grads.py
-tests/poly_solve/test_inits.py
 tests/poly_solve/test_multi_accuracy.png
 tests/poly_solve/test_multi_accuracy.py
 tests/poly_solve/test_multi_speed.png

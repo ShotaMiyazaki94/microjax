@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import jax.numpy as jnp
 from microjax.caustics.extended_source import mag_extended_source
-from microjax.point_source_new import _images_point_source
+from microjax.point_source import _images_point_source
 import jax
 from jax import lax, jit
 jax.config.update("jax_enable_x64", True)
