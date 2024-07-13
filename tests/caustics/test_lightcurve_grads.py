@@ -18,7 +18,7 @@ alpha = jnp.deg2rad(65) # angle between lens axis and source trajectory
 tE = 10 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
 u0 = 0.0 # impact parameter
-rho = 0.01
+rho = 0.1
 
 a  = 0.5 * s
 e1 = q / (1.0 + q)
@@ -36,13 +36,16 @@ def get_mag(params):
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
     return w_points, magnifications(w_points, rho, nlenses=2, q=q, s=s)
+    #return w_points, magnifications(w_points, rho, nlenses=2, q=q, s=s, limb_darkening=True, u1=0.5)
 
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
 w_points, A = get_mag(params)
+print("mag finish")
 
 # Evaluate the Jacobian at every point
 mag_jac = jit(jacfwd(lambda params: get_mag(params)[1]))
 jac_eval = mag_jac(params)
+print("jac finish")
 
 fig, ax = plt.subplots(
     8, 1,

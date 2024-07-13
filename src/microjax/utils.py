@@ -11,6 +11,7 @@ __all__ = [
 ]
 import jax.numpy as jnp
 from jax import lax
+import jax
 
 def match_points(a, b):
     """
@@ -90,7 +91,8 @@ def trapz_zero_avoiding(y, x, tail_idx):
     """
     Same as jnp.trapz(y[:tail_idx + 1] x=x[:tail_idx + 1], axis=0).
     """
-    I = jnp.trapz(y, x=x)
+    I = jax.scipy.integrate.trapezoid(y, x=x)
+    #I = jnp.trapz(y, x=x)
     xt, yt = x[tail_idx], y[tail_idx]
     xtp1, ytp1 = x[tail_idx + 1], y[tail_idx + 1]
     return lax.cond(

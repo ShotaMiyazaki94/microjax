@@ -11,7 +11,7 @@ from functools import partial
 
 q = 0.5
 s = 1.0
-rho = 3e-3
+rho = 0.1
 theta = jnp.linspace(-np.pi, np.pi, 100 - 1, endpoint=False)
 theta = jnp.pad(theta, (0, 1), constant_values=np.pi - 1e-8)
 w_sec = rho * jnp.exp(1j * theta) 

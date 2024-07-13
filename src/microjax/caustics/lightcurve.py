@@ -4,7 +4,7 @@ Computing the magnification of an extended source at an arbitrary
 set of points in the source plane.
 """
 __all__ = [
-    "mag",
+    "magnifications",
 ]
 
 from functools import partial
@@ -15,7 +15,7 @@ from jax import jit, lax
 from .extended_source import mag_extended_source
 from ..point_source import _images_point_source
 
-from caustics.multipole import _mag_hexadecapole
+from ..multipole import _mag_hexadecapole
 
 from ..utils import *
 
@@ -77,8 +77,8 @@ def _caustics_proximity_test(
 
 def _planetary_caustic_test(w, rho, c_p=2., **params):
     e1, a = params["e1"], params["a"]
-    s = 2*a
-    q = e1/(1-e1)
+    s = 2 * a
+    q = e1 / (1.0 - e1)
     x_cm = (2*e1 - 1)*a
     w_pc = -1/s 
     delta_pc = 3*jnp.sqrt(q)/s
@@ -92,8 +92,6 @@ def _planetary_caustic_test(w, rho, c_p=2., **params):
         "npts_limb",
         "limb_darkening",
         "npts_ld",
-        "roots_itmax",
-        "roots_compensated",
     ),
 )
 def magnifications(
