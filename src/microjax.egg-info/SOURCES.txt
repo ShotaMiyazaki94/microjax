@@ -1,6 +1,7 @@
 README.md
 setup.py
 dist/microjax-0.0.1-py3.10.egg
+dusts/multi_pole.py
 dusts/point_source.py
 dusts/caustics/__init__.py
 dusts/caustics/extended_source_binary.py
@@ -67,6 +68,7 @@ tests/magfft/test_speed.py
 tests/magfft/test_speed2.py
 tests/magfft/test_usage.png
 tests/magfft/test_usage.py
+tests/multipole/test_multipole.py
 tests/olds/compare_vbb.py
 tests/olds/mag_point_source_grad.py
 tests/olds/test_fftlog_jax2.py
