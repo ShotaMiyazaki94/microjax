@@ -20,8 +20,8 @@ def mag_vbb_binary(w0, rho, a, e1, u1=0., accuracy=5e-05):
     bl = mm.BinaryLens(e2, e1, s)
     return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
 
-rho = 0.01
-a   = 0.7
+rho = 0.02
+a   = 0.8
 e1  = 0.05
 e2  = 1.0 - e1
 q   = e1 / (1.0 - e1)
@@ -47,7 +47,7 @@ z, z_mask = _images_point_source(wgrid - x_cm, nlenses=2, a=a, e1=e1)
 mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=2, a=a,e1=e1)
 err_hex = jnp.abs(mu_multi - mags_ref) / mags_ref
 test = _caustics_proximity_test(wgrid - x_cm, z, z_mask, rho, delta_mu_multi, 
-                                nlenses=2,  a=a, e1=e1, c_f=2.0 )
+                                nlenses=2,  a=a, e1=e1)
 
 fig, ax = plt.subplots(figsize=(14, 10))
 

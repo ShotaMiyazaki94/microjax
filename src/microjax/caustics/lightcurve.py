@@ -26,15 +26,16 @@ def _caustics_proximity_test(
 ):
     if nlenses == 2:
         a, e1 = params["a"], params["e1"]
+        e2 = 1.0 - e1
         # Derivatives
-        f = lambda z: -e1 / (z - a) - (1 - e1) / (z + a)
-        f_p = lambda z: e1 / (z - a) ** 2 + (1 - e1) / (z + a) ** 2
-        f_pp = lambda z: 2 * (e1 / (a - z) ** 3 - (1 - e1) / (a + z) ** 3)
+        f = lambda z: - e1 / (z - a) - e2 / (z + a)
+        f_p = lambda z: e1 / (z - a) ** 2 + e2 / (z + a) ** 2
+        f_pp = lambda z: 2 * (e1 / (a - z) ** 3 - e2 / (a + z) ** 3)
 
     elif nlenses == 3:
         a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
         # Derivatives
-        f = lambda z: -e1 / (z - a) - e2 / (z + a) - (1 - e1 - e2) / (z + r3)
+        f = lambda z: - e1 / (z - a) - e2 / (z + a) - (1 - e1 - e2) / (z + r3)
         f_p = (
             lambda z: e1 / (z - a) ** 2
             + e2 / (z + a) ** 2
@@ -48,12 +49,12 @@ def _caustics_proximity_test(
     zhat = jnp.conjugate(w) - f(z)
 
     # Derivatives
-    fp_z = f_p(z)
-    fpp_z = f_pp(z)
-    fp_zbar = f_p(zbar)
-    fp_zhat = f_p(zhat)
+    fp_z     = f_p(z)
+    fpp_z    = f_pp(z)
+    fp_zbar  = f_p(zbar)
+    fp_zhat  = f_p(zhat)
     fpp_zbar = f_pp(zbar)
-    J = 1.0 - jnp.abs(fp_z * fp_zbar)
+    J        = 1.0 - jnp.abs(fp_z * fp_zbar)
 
     # Multipole test and cusp test
     mu_cusp = 6 * jnp.imag(3 * fp_zbar**3.0 * fpp_z**2.0) / J**5 * (rho + rho_min)**2
