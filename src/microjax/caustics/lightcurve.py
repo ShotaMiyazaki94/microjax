@@ -22,7 +22,7 @@ from ..utils import *
 
 @partial(jit, static_argnames=("nlenses"))
 def _caustics_proximity_test(
-    w, z, z_mask, rho, delta_mu_multi, nlenses=2, c_m=1e-02, gamma=0.02, c_f=4., rho_min=1e-03, **params
+    w, z, z_mask, rho, delta_mu_multi, nlenses=2, c_m=1e-02, gamma=0.02, c_f=2., rho_min=1e-03, **params
 ):
     if nlenses == 2:
         a, e1 = params["a"], params["e1"]
@@ -59,20 +59,18 @@ def _caustics_proximity_test(
     # Multipole test and cusp test
     mu_cusp = 6 * jnp.imag(3 * fp_zbar**3.0 * fpp_z**2.0) / J**5 * (rho + rho_min)**2
     mu_cusp = jnp.sum(jnp.abs(mu_cusp) * z_mask, axis=0)
-    test_multipole_and_cusp = gamma*mu_cusp + delta_mu_multi < c_m
+    test_multipole_and_cusp = gamma * mu_cusp + delta_mu_multi < c_m
 
     # False images test
-    Jhat = 1 - jnp.abs(fp_z*fp_zhat)
-    factor = jnp.abs(
-        J*Jhat**2/(Jhat*fpp_zbar*fp_z - jnp.conjugate(Jhat)*fpp_z*fp_zbar*fp_zhat)
-    )
-    test_false_images = 0.5*(~z_mask*factor).sum(axis=0) > c_f*(rho + rho_min)
-    test_false_images = jnp.where(
-        (~z_mask).sum(axis=0)==0, 
-        jnp.ones_like(test_false_images, dtype=jnp.bool_), 
-        test_false_images
-    )
-
+    Jhat = 1 - jnp.abs(fp_z * fp_zhat)
+    factor = jnp.abs(J * Jhat**2 / 
+                     (Jhat*fpp_zbar*fp_z - jnp.conjugate(Jhat)  * fpp_z * fp_zbar * fp_zhat)
+                     )
+    test_false_images = 0.5 * (~z_mask * factor).sum(axis=0) > c_f * (rho + rho_min)
+    test_false_images = jnp.where((~z_mask).sum(axis=0)==0, 
+                                  jnp.ones_like(test_false_images, dtype=jnp.bool_), 
+                                  test_false_images
+                                  )
     return test_false_images & test_multipole_and_cusp
 
 

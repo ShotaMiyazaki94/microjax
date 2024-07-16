@@ -88,7 +88,7 @@ alpha = jnp.deg2rad(65)
 tE = 20 
 t0 = 0.0 
 u0 = 0.1 
-rho = 5e-3
+rho = 1e-3
 
 t  =  jnp.linspace(-15, 12.5, 1000)
 tau = (t - t0)/tE
@@ -113,10 +113,23 @@ mag_points = mag_point_source(w_points, nlenses=2, **_params)
 mag_full = lambda w: mag_extended_source(w, rho, nlenses=2, **_params)
 mag_ext  = jax.jit(jax.vmap(mag_full))(w_points)
 
-fig,ax = plt.subplots()
-ax.plot(t, mag_ext, ".")
-ax.plot(t[test1], mag_ext[test1], ".")
-ax.plot(t, mu_multi, c="red", alpha=0.5)
-ax.plot(t, mag_points, "--", c="k", alpha=1.0)
-ax.set_yscale("log")
+fig, ax = plt.subplots(
+    2, 1,
+    figsize=(6, 6),
+    gridspec_kw={'height_ratios': [4, 1], 'wspace':0.3},
+    sharex=True,
+)
+
+ax[0].plot(t, mag_ext, ".")
+ax[0].plot(t[test1], mag_ext[test1], ".")
+ax[0].plot(t, mu_multi, c="red", alpha=0.5)
+ax[0].plot(t, mag_points, "--", c="k", alpha=1.0)
+ax[0].legend(["extended-source (needed)", "extended-source", "hexadecapole", "point-source"])
+ax[0].set_yscale("log")
+ax[1].plot(t, jnp.abs(mu_multi - mag_ext) / mag_ext, c="red", alpha=0.5)
+ax[1].plot(t, jnp.abs(mag_points - mag_ext) / mag_ext, "--", c="k", alpha=1.0)
+ax[1].set_yscale("log")
+ax[1].set(ylim=(1e-4,1e-2))
+ax[1].grid(ls="--")
+fig.savefig("tests/caustics/lightcurve_cond.pdf", bbox_inches="tight")
 plt.show()
