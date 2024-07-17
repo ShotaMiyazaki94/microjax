@@ -64,6 +64,7 @@ tests/fftlog/test_fftlog_jax_1.png
 tests/fftlog/test_fftlog_jax_2.png
 tests/fftlog/test_fftlog_jax_3.png
 tests/fftlog/test_fftlog_jax_4.png
+tests/inverse_ray/speed_lens_eq.py
 tests/magfft/test_grad.py
 tests/magfft/test_grad2.py
 tests/magfft/test_grad2_1.png
