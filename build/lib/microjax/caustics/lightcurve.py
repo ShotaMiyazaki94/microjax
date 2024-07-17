@@ -22,7 +22,7 @@ from ..utils import *
 
 @partial(jit, static_argnames=("nlenses"))
 def _caustics_proximity_test(
-    w, z, z_mask, rho, delta_mu_multi, nlenses=2, c_m=1e-02, gamma=0.02, c_f=2., rho_min=1e-03, **params
+    w, z, z_mask, rho, delta_mu_multi, nlenses=2, c_m=1e-02, gamma=0.02, c_f=4., rho_min=1e-03, **params
 ):
     if nlenses == 2:
         a, e1 = params["a"], params["e1"]

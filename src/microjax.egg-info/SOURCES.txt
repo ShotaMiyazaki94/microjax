@@ -17,6 +17,7 @@ dusts/caustics/utils.py
 src/microjax/__init__.py
 src/microjax/coeffs.py
 src/microjax/extend_source.py
+src/microjax/inverse_ray.py
 src/microjax/multipole.py
 src/microjax/point_source.py
 src/microjax/poly_solver.py
@@ -44,7 +45,12 @@ tests/Pk_test
 tests/__pycache__/test_fastlens.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_fftlog_jax.cpython-310-pytest-7.4.3.pyc
 tests/__pycache__/test_special.cpython-39-pytest-7.4.0.pyc
+tests/caustics/check_cond.pdf
+tests/caustics/check_cond.py
+tests/caustics/lightcurve_cond.pdf
+tests/caustics/lightcurve_cond.py
 tests/caustics/lightcurve_grads.pdf
+tests/caustics/lightcurve_grads.py
 tests/caustics/performance.pdf
 tests/caustics/performance.py
 tests/caustics/test_extend_binary.py

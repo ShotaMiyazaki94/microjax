@@ -53,20 +53,20 @@ fig, ax = plt.subplots(figsize=(14, 10))
 
 cmap1 = colors.ListedColormap(['grey', 'white'])
 cmap2 = colors.ListedColormap(['white', 'red'])
-cmap3 = colors.ListedColormap(['white', 'g'])
+cmap3 = colors.ListedColormap(['white', 'green'])
 
-im = ax.pcolormesh(xgrid, ygrid, test, cmap=cmap1, alpha=0.9, zorder=-1)
-im = ax.pcolormesh(xgrid, ygrid, err_hex > 1e-04, cmap=cmap2, alpha=0.7, zorder=-1)
-im = ax.pcolormesh(xgrid, ygrid, err_hex > 1e-03, cmap=cmap3, alpha=0.5, zorder=-1)
+im = ax.pcolormesh(xgrid, ygrid, test, cmap=cmap1, alpha=1.0, zorder=-1)
+im = ax.pcolormesh(xgrid, ygrid, err_hex > 1e-03, cmap=cmap2, alpha=0.7, zorder=-1)
+#im = ax.pcolormesh(xgrid, ygrid, err_hex > 1e-03, cmap=cmap3, alpha=0.3, zorder=-1)
 
 for cc in caustic_curves:
     ax.plot(cc.real, cc.imag, color="black", lw=0.7)
 
 from matplotlib.patches import Patch
 legend_elements = [
-    Patch(facecolor='grey', label=r'Tests evaluate to "False"', alpha=0.8),
-    Patch(facecolor='red', label=r'$\epsilon_\mathrm{rel}>10^{-4}$', alpha=0.6),
-    Patch(facecolor='g', label=r'$\epsilon_\mathrm{rel}>10^{-3}$', alpha=0.6)
+    Patch(facecolor='grey', label=r'Tests evaluate to "False"', alpha=1.0),
+    Patch(facecolor='red', label=r'$\epsilon_\mathrm{rel}>10^{-3}$', alpha=0.7),
+    #Patch(facecolor='green', label=r'$\epsilon_\mathrm{rel}>10^{-3}$', alpha=0.7)
 ]
 ax.legend(handles=legend_elements, fontsize=14)
 c = plt.Circle((0, 0), radius=rho, fill=False, facecolor=None, zorder=-1)

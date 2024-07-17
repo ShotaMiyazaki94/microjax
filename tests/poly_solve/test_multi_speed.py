@@ -5,6 +5,7 @@ from jax import lax, jit, vmap
 from functools import partial
 jax.config.update("jax_enable_x64", True)
 from microjax.poly_solver import poly_roots_EA_multi
+from microjax.poly_solver import poly_roots
 import timeit
 import time
 import matplotlib.pyplot as plt
@@ -21,7 +22,8 @@ def measure_time(degree, lengths):
         key, subkey = jax.random.split(key)
         coeffs_multi = generate_coeffs(subkey, degree, int(l))
         start = time.time()
-        roots = poly_roots_EA_multi(coeffs_multi)
+        roots = poly_roots(coeffs_multi)
+        #roots = poly_roots_EA_multi(coeffs_multi)
         jax.device_get(roots)
         end = time.time()
         print(f"{degree} degree, {l:.1e} equations: {end - start:.3f} sec")
@@ -30,9 +32,9 @@ def measure_time(degree, lengths):
 
 lengths = 10**np.arange(3, 7.25, 0.25)
 
+#polyjit(poly_roots_EA_multi)
 time6 = measure_time(6, lengths)
 time11 = measure_time(11, lengths)
-
 plt.figure()
 plt.title("test_multi_speed.py")
 plt.plot(lengths, time6)
