@@ -8,6 +8,8 @@ def source_profile_limb1(dz, u1=0.0):
     return 1 - u1 * (1.0 - mu)
 
 def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
+    """
+    """
     q, s = _params["q"], _params["s"]
     yi, indx, Nindx, xmax, xmin, area_x, y, dys = carry 
     max_iter = len(dys) // 2
