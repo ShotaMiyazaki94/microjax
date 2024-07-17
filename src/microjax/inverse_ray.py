@@ -37,8 +37,8 @@ def cond_fn(carry):
     return (yi < len(xmin)) & (z_current.imag <= (max_iter / incr_inv))
 
 def update_fn(carry):
-    yi, z_current, dx, count_x, count_all, xmax, xmin, area_x, y, dys,
-    indx, Nindx, x0, w_center, rho2, CM2MD, a, e1, incr, incr_inv, max_iter, dz2_last = carry
+    yi, z_current, dx, count_x, count_all, xmax, xmin, area_x, y, dys,\
+        indx, Nindx, x0, w_center, rho2, CM2MD, a, e1, incr, incr_inv, max_iter, dz2_last = carry
     
     z_current_mid = z_current + CM2MD
     zis_mid = lens_eq(z_current_mid, a=a, e1=e1)
@@ -50,7 +50,8 @@ def update_fn(carry):
         dz2 <= rho2,
         _update_inside_source,
         _update_outside_source,
-        (yi, z_current, dx, count_x, count_all, xmax, xmin, area_x, y, dys, indx, Nindx, x0, incr, dz2_last, rho2, incr_inv, max_iter, dz)
+        (yi, z_current, dx, count_x, count_all, xmax, xmin, area_x, y, dys, \
+         indx, Nindx, x0, incr, dz2_last, rho2, incr_inv, max_iter, dz)
     )
     
     z_current += dx
