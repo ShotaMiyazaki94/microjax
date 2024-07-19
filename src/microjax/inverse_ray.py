@@ -76,7 +76,8 @@ def update_outside_source(carry):
     def positive_run_fn(carry):
         carry.xmax = lax.cond(carry.dz2_last <= carry.rho2,
                               lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real),
-                              lambda _: carry.xmax)
+                              lambda _: carry.xmax,
+                              None)
         carry.dx = -carry.incr
         carry.z_current = jnp.complex128(carry.x0 + 1j * carry.z_current.imag)
         carry.xmin = carry.xmin.at[carry.yi].set(carry.z_current.real + carry.dx)
