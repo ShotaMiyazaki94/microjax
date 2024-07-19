@@ -39,9 +39,6 @@ src/microjax/fastlens/__pycache__/__init__.cpython-310.pyc
 src/microjax/fastlens/__pycache__/fftlog.cpython-310.pyc
 src/microjax/fastlens/__pycache__/mag_fft.cpython-310.pyc
 src/microjax/fastlens/__pycache__/special.cpython-310.pyc
-tests/__pycache__/test_fastlens.cpython-310-pytest-7.4.3.pyc
-tests/__pycache__/test_fftlog_jax.cpython-310-pytest-7.4.3.pyc
-tests/__pycache__/test_special.cpython-39-pytest-7.4.0.pyc
 tests/integrate/ESPL.tbl
 tests/integrate/Pk_test
 tests/integrate/caustics/check_cond.pdf
@@ -56,7 +53,6 @@ tests/integrate/caustics/test_extend_binary.py
 tests/integrate/extended_source/test_image_area0_binary.png
 tests/integrate/extended_source/test_image_area0_binary.py
 tests/integrate/extended_source/tmp.py
-tests/integrate/extended_source/__pycache__/test_image_area0_binary.cpython-39-pytest-7.4.0.pyc
 tests/integrate/fftlog/test_fftlog.py
 tests/integrate/fftlog/test_fftlog_jax.py
 tests/integrate/fftlog/test_fftlog_jax_1.png

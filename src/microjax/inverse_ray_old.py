@@ -47,8 +47,6 @@ class CarryData:
     def tree_unflatten(cls, aux_data, children):
         return cls(*children)
 
-
-
 def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
     """
     """
