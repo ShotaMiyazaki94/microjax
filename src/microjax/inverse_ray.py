@@ -25,11 +25,12 @@ def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
     count_x = 0.0
     count_all = 0.0
     rho2 = rho * rho
+    finish = jnp.bool_(False)
 
     carry_area0 = CarryData(yi=yi, indx=indx, Nindx=Nindx, xmin=xmin, 
                             xmax=xmax, area_x=area_x, y=y, dys=dys,
                             z_current=z_current, x0=x0, count_x=count_x, 
-                            count_all=count_all, dz2=dz2, dz2_last=dz2, dx=dx,
+                            count_all=count_all, dz2=dz2, dz2_last=dz2, dx=dx, finish=finish,
                             w_center=w_center, rho2=rho2, a=a, e1=e1, CM2MD=CM2MD, 
                             incr=incr, incr_inv=incr_inv, max_iter=max_iter, nlenses=nlenses)   
     
@@ -41,8 +42,7 @@ def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
     return result.count_all, carry_return  
 
 def finish_area0(carry):
-
-    return 
+    return carry.finish
 
 def update_dy(carry):
     z_current_mid = carry.z_current + carry.CM2MD
@@ -57,7 +57,10 @@ def update_dy(carry):
                          update_outside_source,
                          carry)
     
-    carry.z_current += carry.dx
+    carry.z_current = lax.cond(carry.finish,
+                               lambda _: carry.z_current,
+                               lambda _: carry.z_current + carry.dx,
+                               None)
     return carry
 
 def update_inside_source(carry):
@@ -82,21 +85,65 @@ def update_outside_source(carry):
     def negative_run_fn(carry):
         carry.xmin = lax.cond(carry.dz2_last <= carry.rho2,
                               lambda _: carry.xmin.at[carry.yi].set(carry.z_current.real),
-                              lambda _: carry.xmin)
+                              lambda _: carry.xmin,
+                              None)
         
-        def inner_cond(carry):
-            cond1 = (carry.z_current.real >= carry.xmin[carry.yi - 1] + carry.incr) 
-            cond2 = (carry.yi != 0) & (carry.count_x == 0)
-            return cond1 & cond2
+        def inner_cond(carry): # nothing in negative run and current x is larger than previous xmin
+            x_larger_than_previous_xmin = (carry.z_current.real >= carry.xmin[carry.yi - 1] + carry.incr) 
+            nothing_negative_run = (carry.yi != 0) & (carry.count_x == 0)
+            return nothing_negative_run & x_larger_than_previous_xmin & (~carry.finish) 
         
         def inner_true_fn(carry):
             carry.z_current += carry.dx
             return carry
-        
+
         carry = lax.cond(inner_cond, 
                          inner_true_fn,
                          lambda carry: carry,
                          carry)
+        
+        carry.count_all += carry.count_x
+        carry.area_x = carry.area_x.at[carry.yi].set(carry.count_x)
+        carry.y = carry.y.at[carry.yi].set(carry.z_current.imag)
+        carry.dys = carry.dys.at[carry.yi].set(carry.dy)
+        carry.dys = lax.cond(carry.count_x == 0.0, # top in y, should be finished
+                             lambda _: carry.dys.at[carry.yi].set(-carry.dy),
+                             lambda _: carry.dys,
+                             None)
+        carry.finish = lax.cond(carry.count_x == 0.0, 
+                                lambda _: jnp.bool_(True), 
+                                lambda _: jnp.bool_(False),
+                                None)
+        
+        def already_counted_fn(carry):
+            carry.area_x = carry.area_x.at[carry.yi].set(0.0)
+            return carry
+        def not_counted_fn_loop(carry, j):
+            y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
+            ind = carry.indx[y_index][j]
+            counted = (carry.xmin[carry.yi] < carry.xmax[ind]) & (carry.xmax[carry.yi] > carry.xmin[ind])
+            carry = lax.cond(counted,
+                             lambda carry: already_counted_fn(carry),
+                             lambda carry: carry,
+                             carry)
+            return carry, None
+        def not_counted_fn(carry):
+            y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
+            carry, _ = jax.lax.scan(not_counted_fn_loop, carry, jnp.arange(carry.Nindx[y_index]))
+            carry.indx  = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
+            carry.Nindx = carry.Nindx.at[y_index].add(1.0)
+            carry.yi += 1
+            carry.dx = carry.incr
+            carry.x0 = carry.xmax[carry.yi - 1]
+            carry.z_current = jnp.complex128(carry.x0 + 1j * (carry.z_current.imag + carry.dy))
+            carry.count_x = 0.0
+            return carry
+
+        carry = lax.cond(inner_cond,
+                         already_counted_fn,
+                         not_counted_fn, 
+                         carry)
+        return carry
 
     return lax.cond(carry.dx == carry.incr, 
                     positive_run_fn, 
@@ -105,13 +152,13 @@ def update_outside_source(carry):
 
 @register_pytree_node_class
 class CarryData:
-    def __init__(self, yi: jnp.int, indx: jnp.ndarray, Nindx: jnp.ndarray, xmin: jnp.ndarray, 
+    def __init__(self, yi: jnp.int32, indx: jnp.ndarray, Nindx: jnp.ndarray, xmin: jnp.ndarray, 
                  xmax: jnp.ndarray, area_x: jnp.ndarray, y: jnp.ndarray, dys: jnp.ndarray, 
                  z_current: jnp.complex128, x0: jnp.float, count_x: jnp.float, count_all: jnp.float, 
-                 dz2: jnp.float, dz2_last: jnp.float, dx: jnp.float,  
+                 dz2: jnp.float, dz2_last: jnp.float, dx: jnp.float, finish: jnp.bool_, 
                  w_center: jnp.complex128, rho2: jnp.float, a: jnp.float, e1: jnp.float,
-                 CM2MD: jnp.float, incr: jnp.float, incr_inv: jnp.float, max_iter: jnp.int, 
-                 nlenses: jnp.int
+                 CM2MD: jnp.float, incr: jnp.float, incr_inv: jnp.float, max_iter: jnp.int32, 
+                 nlenses: jnp.int32
                  ):
         # final carry
         self.yi = yi
@@ -130,6 +177,7 @@ class CarryData:
         self.dz2 = dz2
         self.dz2_last = dz2_last
         self.dx = dx
+        self.finish = finish
         # constants during functions
         self.w_center = w_center
         self.rho2 = rho2
@@ -144,7 +192,8 @@ class CarryData:
     def tree_flatten(self):
         children = (self.yi, self.indx, self.Nindx, self.xmin, self.xmax, self.area_x, self.y, 
                     self.dys, self.z_current, self.x0, self.count_x, self.count_all, self.dz2, 
-                    self.dx, self.w_center, self.rho2, self.a, self.e1, self.CM2MD, self.incr, 
+                    self.dz2_last, self.dx, self.finish, 
+                    self.w_center, self.rho2, self.a, self.e1, self.CM2MD, self.incr, 
                     self.incr_inv, self.max_iter, self.nlenses)
         return children, None
 
