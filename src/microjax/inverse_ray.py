@@ -2,17 +2,133 @@ import jax.numpy as jnp
 from jax import tree_util
 from jax.tree_util import register_pytree_node_class
 import jax
-from jax import lax
+from jax import lax, jit
+from functools import partial
 from .point_source import lens_eq, _images_point_source
+
+def image_area_all(w_center, rho, NBIN=20, nlenses=2, **_params):
+    
+    q, s  = _params["q"], _params["s"] 
+    incr  = jnp.abs(rho / NBIN)
+    incr2 = incr * 0.5
+
+    w_center_mid = w_center - 0.5 * s * (1 - q) / (1 + q) 
+    z_inits_mid, z_mask = _images_point_source(w_center_mid, nlenses=nlenses, **_params)
+    z_inits = z_inits_mid + 0.5 * s * (1 - q) / (1 + q)
+
+    yi         = 0
+    area_all   = 0.0
+    area_image = jnp.zeros(10)
+    max_iter   = int(1e+6)
+    indx       = jnp.zeros((max_iter * 2, 6), dtype=int) # index for checking the overlaps
+    Nindx      = jnp.zeros((max_iter * 2), dtype=int)     # Number of images at y_index
+    xmin       = jnp.zeros((max_iter * 2))
+    xmax       = jnp.zeros((max_iter * 2)) 
+    area_x     = jnp.zeros((max_iter * 2)) 
+    y          = jnp.zeros((max_iter * 2)) 
+    dys        = jnp.zeros((max_iter * 2))
+
+    # seach images from each start points
+    for i in jnp.arange(len(z_inits[z_mask])):
+        area_i = 0
+        z_init = z_inits[z_mask][i]
+        # positive dy search
+        dy     = incr
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys) 
+        area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+        area_i += area 
+        # negative dy search
+        dy     = -incr
+        z_init = z_init + 1j * dy
+        yi  += 1
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+        area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params) 
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+        area_i += area 
+
+        area_all += area_i
+        area_image = area_image.at[i].set(area_i)
+        yi += 1 # for positive run in the next image
+
+    # identify the protruding areas that are missed
+    (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+    xmin_diff = jnp.diff(xmin)
+    xmax_diff = jnp.diff(xmax)
+    upper_left  = (xmin_diff < -1.1 * incr) & (dys[1:] < 0.0)
+    lower_left  = (xmin_diff < -1.1 * incr) & (dys[1:] > 0.0)
+    upper_right = (xmax_diff > 1.1 * incr)  & (dys[1:] < 0.0)
+    lower_right = (xmax_diff > 1.1 * incr)  & (dys[1:] > 0.0)
+
+    fac = 3.0
+    for k in jnp.where(upper_left)[0]:
+        offset_factor = fac * jnp.abs((xmin[k + 2] - xmin[k + 1]) / incr).astype(int)
+        z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] + incr))
+        yi += 1
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+        area, carry = image_area0(w_center, rho, z_init, incr, carry, **_params) 
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+        area_all += area
+        yi = lax.cond(area == 0, 
+                      lambda _: yi - 1, 
+                      lambda _: yi, 
+                      None)
+    
+    for k in jnp.where(upper_right)[0]:
+        offset_factor = fac * jnp.abs((xmax[k + 2] - xmax[k + 1]) / incr).astype(int)
+        z_init = jnp.complex128(xmax[k + 1] - offset_factor * incr + 1j * (y[k + 1] + incr))
+        yi += 1
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+        area, carry = image_area0(w_center, rho, z_init, incr, carry, **_params) 
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+        area_all += area
+        yi = lax.cond(area == 0, 
+                      lambda _: yi - 1, 
+                      lambda _: yi, 
+                      None)
+
+    for k in jnp.where(lower_left)[0]:
+        offset_factor = fac * jnp.abs((xmin[k + 2] - xmin[k + 1]) / incr).astype(int)
+        z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] - incr))
+        xmin = xmin.at[yi].set(xmin[k + 1])
+        xmax = xmax.at[yi].set(xmin[k])
+        yi += 1
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+        area, carry = image_area0(w_center, rho, z_init, -incr, carry, **_params) 
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+        area_all += area
+        yi = lax.cond(area == 0, 
+                      lambda _: yi - 1, 
+                      lambda _: yi, 
+                      None)
+        
+    for k in jnp.where(lower_right)[0]:
+        offset_factor = fac * jnp.abs((xmax[k + 2] - xmax[k + 1]) / incr).astype(int)
+        z_init = jnp.complex128(xmax[k + 1] - offset_factor * incr + 1j * (y[k + 1] - incr))
+        yi += 1
+        carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+        area, carry = image_area0(w_center, rho, z_init, -incr, carry, **_params) 
+        (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+        area_all += area
+        yi = lax.cond(area == 0, 
+                      lambda _: yi - 1, 
+                      lambda _: yi, 
+                      None)
+
+    carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+    magnification = area_all / (jnp.pi * NBIN * NBIN) 
+    return area_all, magnification, carry
+
 
 def source_profile_limb1(dz2, u1=0.0):
     mu = jnp.sqrt(1.0 - dz2)
     return 1 - u1 * (1.0 - mu)
 
+@partial(jit, static_argnames=("nlenses"))
 def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
-    q, s = _params["q"], _params["s"]
     yi, indx, Nindx, xmax, xmin, area_x, y, dys = carry 
     max_iter = len(dys) // 2
+    q, s = _params["q"], _params["s"]
     CM2MD = -0.5 * s * (1 - q)/(1 + q) 
     z_current = z_init
     x0 = z_init.real
@@ -168,74 +284,6 @@ def update_outside_source(carry):
                      negative_run_fn,
                      carry)
     return carry
-
-"""
-        def inner_cond(carry): 
-            # nothing in negative run but should be extend  
-            x_larger_than_previous_xmin = (carry.z_current.real >= carry.xmin[carry.yi - 1] + carry.incr) 
-            nothing_negative_run = (carry.yi != 0) & (carry.count_x == 0)
-            return nothing_negative_run & x_larger_than_previous_xmin & (~carry.finish) 
-        
-        def inner_true_fn(carry):
-            carry.z_current += carry.dx
-            return carry
-
-        carry = lax.cond(inner_cond, 
-                         inner_true_fn,
-                         lambda carry: carry,
-                         carry)
-        
-        carry.count_all += carry.count_x
-        carry.area_x = carry.area_x.at[carry.yi].set(carry.count_x)
-        carry.y = carry.y.at[carry.yi].set(carry.z_current.imag)
-        carry.dys = carry.dys.at[carry.yi].set(carry.dy)
-
-        carry.dys = lax.cond(carry.count_x == 0.0, # top in y, should be finished
-                             lambda _: carry.dys.at[carry.yi].set(-carry.dy),
-                             lambda _: carry.dys,
-                             None)
-
-        carry.finish = lax.cond(carry.count_x == 0.0, 
-                                lambda _: jnp.bool_(True), 
-                                lambda _: jnp.bool_(False),
-                                None)
-        
-        def already_counted_fn(carry):
-            carry.area_x    = carry.area_x.at[carry.yi].set(0.0)
-            carry.count_all = carry.count_all - carry.count_x
-            carry.count_x   = 0.0 
-            return carry
-
-        def not_counted_fn(carry):
-            y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
-            for j in jnp.arange(carry.Nindx[y_index]):
-                ind = carry.indx[y_index][j]
-                counted = (carry.xmin[carry.yi] < carry.xmax[ind]) & (carry.xmax[carry.yi] > carry.xmin[ind])
-                carry = lax.cond(counted,
-                                 already_counted_fn, 
-                                 lambda carry: carry,
-                                 carry)
-            carry.indx  = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
-            carry.Nindx = carry.Nindx.at[y_index].add(1.0)
-            # prepare for the next row
-            carry.yi += 1
-            carry.dx = carry.incr
-            carry.x0 = carry.xmax[carry.yi - 1]
-            carry.z_current = jnp.complex128(carry.x0 + 1j * (carry.z_current.imag + carry.dy))
-            carry.count_x = 0.0
-            return carry
-
-        carry = lax.cond(inner_cond,
-                         already_counted_fn,
-                         not_counted_fn, 
-                         carry)
-        return carry
-
-    return lax.cond(carry.dx == carry.incr, 
-                    positive_run_fn, 
-                    negative_run_fn,
-                    carry) 
-"""
 
 @register_pytree_node_class
 class CarryData:

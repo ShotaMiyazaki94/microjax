@@ -156,7 +156,7 @@ def test_image4():
     plt.scatter(cau_tri.ravel().real, cau_tri.ravel().imag,   marker=".", color="red", s=1)
     plt.scatter(crit_tri.ravel().real, crit_tri.ravel().imag, marker=".", color="green", s=1) 
     plt.axis("equal")
-    plt.savefig("tests/extended_source/test_image_area0_binary.png",dpi=200, bbox_inches="tight")
+    plt.savefig("tests/integrate/extended_source/test_image_area0_binary.png",dpi=200, bbox_inches="tight")
     plt.show()    
 
 if __name__ == "__main__":
