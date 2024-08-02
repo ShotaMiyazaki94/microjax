@@ -56,10 +56,11 @@ def image_area_all(w_center, rho, NBIN=20, nlenses=2, **_params):
     (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
     xmin_diff = jnp.diff(xmin)
     xmax_diff = jnp.diff(xmax)
-    upper_left  = (xmin_diff < -1.1 * incr) & (dys[1:] < 0.0)
-    lower_left  = (xmin_diff < -1.1 * incr) & (dys[1:] > 0.0)
-    upper_right = (xmax_diff > 1.1 * incr)  & (dys[1:] < 0.0)
-    lower_right = (xmax_diff > 1.1 * incr)  & (dys[1:] > 0.0)
+    fac_marg = 1.1
+    upper_left  = (xmin_diff < -fac_marg * incr) & (dys[1:] < 0.0)
+    lower_left  = (xmin_diff < -fac_marg * incr) & (dys[1:] > 0.0)
+    upper_right = (xmax_diff > fac_marg * incr)  & (dys[1:] < 0.0)
+    lower_right = (xmax_diff > fac_marg * incr)  & (dys[1:] > 0.0)
 
     fac = 3.0
     for k in jnp.where(upper_left)[0]:
