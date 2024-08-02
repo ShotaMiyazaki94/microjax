@@ -6,6 +6,7 @@ from jax import lax, jit
 from functools import partial
 from .point_source import lens_eq, _images_point_source
 
+@partial(jit, static_argnames=("nlenses", "NBIN"))
 def image_area_all(w_center, rho, NBIN=20, nlenses=2, **_params):
     
     q, s  = _params["q"], _params["s"] 
