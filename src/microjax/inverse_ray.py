@@ -27,7 +27,7 @@ def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
     rho2 = rho * rho
     finish = jnp.bool_(False)
 
-    carry_area0 = CarryData(yi=yi, indx=indx, Nindx=Nindx, xmin=xmin, 
+    carry_init = CarryData(yi=yi, indx=indx, Nindx=Nindx, xmin=xmin, 
                             xmax=xmax, area_x=area_x, y=y, dys=dys,
                             z_current=z_current, x0=x0, count_x=count_x, 
                             count_all=count_all, dz2=dz2, dz2_last=dz2, dx=dx, finish=finish,
@@ -36,13 +36,15 @@ def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
     
     result = lax.while_loop(cond_fun = finish_area0, 
                             body_fun = update_dy, 
-                            init_val = carry_area0)
+                            init_val = carry_init)
+
     carry_return = (result.yi, result.indx, result.Nindx, result.xmin, 
                     result.xmax, result.area_x, result.y, result.dys)
+    
     return result.count_all, carry_return  
 
 def finish_area0(carry):
-    return carry.finish
+    return ~carry.finish
 
 def update_dy(carry):
     z_current_mid = carry.z_current + carry.CM2MD
@@ -52,7 +54,8 @@ def update_dy(carry):
     dz = jnp.abs(carry.w_center - zis)
     carry.dz2 = dz**2
 
-    carry = jax.lax.cond(carry.dz2 <= carry.rho2,
+    cond_inside = carry.dz2 <= carry.rho2 
+    carry = jax.lax.cond(cond_inside,
                          update_inside_source,
                          update_outside_source,
                          carry)
@@ -68,11 +71,12 @@ def update_inside_source(carry):
     carry.count_x += count_eff.astype(float)
     carry.xmax = lax.cond((carry.dx == -carry.incr) & (carry.count_x==0.0), 
                           lambda _: carry.xmax[carry.yi].set(carry.z_current.real - carry.dx),
-                          lambda _: carry.xmax)
+                          lambda _: carry.xmax,
+                          None)
     return carry
 
 def update_outside_source(carry):
-
+    
     def positive_run_fn(carry):
         carry.xmax = lax.cond(carry.dz2_last <= carry.rho2,
                               lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real),
@@ -84,12 +88,90 @@ def update_outside_source(carry):
         return carry
     
     def negative_run_fn(carry):
+        def update_fn(carry):
+            #carry.z_current += carry.dx
+            return carry 
+
+        def collect_fn(carry):
+            carry.count_all += carry.count_x
+            carry.area_x = carry.area_x.at[carry.yi].set(carry.count_x)
+            carry.y = carry.y.at[carry.yi].set(carry.z_current.imag)
+            carry.dys = carry.dys.at[carry.yi].set(carry.dy)
+            return carry
+
+        def break_fn(carry):
+            carry.dys = carry.dys.at[carry.yi].set(-carry.dy) 
+            carry.finish = jnp.bool_(True)
+            return carry
+        
+        def check_counted_or_not_fn(carry):
+            def counted_fn(carry):
+                carry.area_x    = carry.area_x.at[carry.yi].set(0.0)
+                carry.count_all = carry.count_all - carry.count_x
+                carry.count_x   = 0.0 
+                return carry
+            
+            y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
+            for j in jnp.arange(carry.Nindx[y_index]):
+                ind = carry.indx[y_index][j]
+                counted = (carry.xmin[carry.yi] < carry.xmax[ind]) & (carry.xmax[carry.yi] > carry.xmin[ind])
+                carry = lax.cond(counted,
+                                 counted_fn, 
+                                 lambda carry: carry,
+                                 carry)
+            return carry
+             
+        def save_index_and_move_next_yrow(carry):
+            y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
+            carry.indx  = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
+            carry.Nindx = carry.Nindx.at[y_index].add(1.0)
+            # prepare for the next row
+            carry.yi += 1
+            carry.dx = carry.incr
+            carry.x0 = carry.xmax[carry.yi - 1]
+            carry.z_current = jnp.complex128(carry.x0 + 1j * (carry.z_current.imag + carry.dy))
+            carry.count_x = 0.0
+            return carry
+
         carry.xmin = lax.cond(carry.dz2_last <= carry.rho2,
                               lambda _: carry.xmin.at[carry.yi].set(carry.z_current.real),
                               lambda _: carry.xmin,
                               None)
         
-        def inner_cond(carry): # nothing in negative run and current x is larger than previous xmin
+        x_larger_than_previous_xmin = (carry.z_current.real >= carry.xmin[carry.yi - 1] + carry.incr) 
+        nothing_negative_run = (carry.yi != 0) & (carry.count_x == 0)
+        cond_nothing_but_update = (x_larger_than_previous_xmin)&(nothing_negative_run)
+        carry = lax.cond(cond_nothing_but_update,
+                         update_fn,
+                         collect_fn,
+                         carry)
+        
+        carry = lax.cond((~cond_nothing_but_update)&(carry.count_x==0),
+                         break_fn,
+                         lambda carry: carry,
+                         carry)
+
+        carry = lax.cond((~cond_nothing_but_update)&(carry.count_x!=0),
+                         check_counted_or_not_fn,
+                         lambda carry: carry,
+                         carry)
+        
+        carry = lax.cond((~cond_nothing_but_update)&(carry.count_x!=0),
+                         save_index_and_move_next_yrow,
+                         lambda carry: carry,
+                         carry)
+        return carry
+    
+    cond_positive_run    = carry.dx == carry.incr
+    carry = lax.cond(cond_positive_run,
+                     positive_run_fn,
+                     negative_run_fn,
+                     carry)
+    return carry
+
+"""
+        def inner_cond(carry): 
+            # nothing in negative run but should be extend  
             x_larger_than_previous_xmin = (carry.z_current.real >= carry.xmin[carry.yi - 1] + carry.incr) 
             nothing_negative_run = (carry.yi != 0) & (carry.count_x == 0)
             return nothing_negative_run & x_larger_than_previous_xmin & (~carry.finish) 
@@ -107,32 +189,35 @@ def update_outside_source(carry):
         carry.area_x = carry.area_x.at[carry.yi].set(carry.count_x)
         carry.y = carry.y.at[carry.yi].set(carry.z_current.imag)
         carry.dys = carry.dys.at[carry.yi].set(carry.dy)
+
         carry.dys = lax.cond(carry.count_x == 0.0, # top in y, should be finished
                              lambda _: carry.dys.at[carry.yi].set(-carry.dy),
                              lambda _: carry.dys,
                              None)
+
         carry.finish = lax.cond(carry.count_x == 0.0, 
                                 lambda _: jnp.bool_(True), 
                                 lambda _: jnp.bool_(False),
                                 None)
         
         def already_counted_fn(carry):
-            carry.area_x = carry.area_x.at[carry.yi].set(0.0)
+            carry.area_x    = carry.area_x.at[carry.yi].set(0.0)
+            carry.count_all = carry.count_all - carry.count_x
+            carry.count_x   = 0.0 
             return carry
-        def not_counted_fn_loop(carry, j):
-            y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
-            ind = carry.indx[y_index][j]
-            counted = (carry.xmin[carry.yi] < carry.xmax[ind]) & (carry.xmax[carry.yi] > carry.xmin[ind])
-            carry = lax.cond(counted,
-                             lambda carry: already_counted_fn(carry),
-                             lambda carry: carry,
-                             carry)
-            return carry, None
+
         def not_counted_fn(carry):
             y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
-            carry, _ = jax.lax.scan(not_counted_fn_loop, carry, jnp.arange(carry.Nindx[y_index]))
+            for j in jnp.arange(carry.Nindx[y_index]):
+                ind = carry.indx[y_index][j]
+                counted = (carry.xmin[carry.yi] < carry.xmax[ind]) & (carry.xmax[carry.yi] > carry.xmin[ind])
+                carry = lax.cond(counted,
+                                 already_counted_fn, 
+                                 lambda carry: carry,
+                                 carry)
             carry.indx  = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
             carry.Nindx = carry.Nindx.at[y_index].add(1.0)
+            # prepare for the next row
             carry.yi += 1
             carry.dx = carry.incr
             carry.x0 = carry.xmax[carry.yi - 1]
@@ -150,6 +235,7 @@ def update_outside_source(carry):
                     positive_run_fn, 
                     negative_run_fn,
                     carry) 
+"""
 
 @register_pytree_node_class
 class CarryData:

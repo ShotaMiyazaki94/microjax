@@ -6,12 +6,12 @@ sys.path.append('/Users/shotamiyazaki/Analysis/ulens/microjax/src/microjax')
 import numpy as np
 import jax.numpy as jnp
 from jax import jit
-from microjax.inverse_ray import image_area0
+from microjax.inverse_ray_old import image_area0
 jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
 
 from microjax.point_source import _images_point_source
-from microjax.inverse_ray import image_area0, CarryData
+from microjax.inverse_ray_old import image_area0, CarryData
 
 q  = 0.1
 s  = 1.0

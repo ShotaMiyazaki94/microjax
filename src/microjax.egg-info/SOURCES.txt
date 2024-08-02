@@ -17,6 +17,7 @@ src/microjax/__init__.py
 src/microjax/coeffs.py
 src/microjax/extend_source.py
 src/microjax/inverse_ray.py
+src/microjax/inverse_ray_old.py
 src/microjax/multipole.py
 src/microjax/point_source.py
 src/microjax/poly_solver.py
@@ -25,6 +26,7 @@ src/microjax.egg-info/PKG-INFO
 src/microjax.egg-info/SOURCES.txt
 src/microjax.egg-info/dependency_links.txt
 src/microjax.egg-info/top_level.txt
+src/microjax/__pycache__/point_source.cpython-39.pyc
 src/microjax/caustics/__init__.py
 src/microjax/caustics/extended_source.py
 src/microjax/caustics/integrate.py
@@ -60,6 +62,7 @@ tests/integrate/fftlog/test_fftlog_jax_2.png
 tests/integrate/fftlog/test_fftlog_jax_3.png
 tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/speed_lens_eq.py
+tests/integrate/inverse_ray/test_image0.py
 tests/integrate/magfft/test_grad.py
 tests/integrate/magfft/test_grad2.py
 tests/integrate/magfft/test_grad2_1.png

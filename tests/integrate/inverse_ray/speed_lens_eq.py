@@ -9,8 +9,8 @@ from microjax.coeffs import _poly_coeffs_binary, _poly_coeffs_triple
 from microjax.coeffs import _poly_coeffs_critical_triple, _poly_coeffs_critical_binary
 from microjax.point_source import lens_eq, lens_eq_det_jac
 
-x_ = jnp.arange(-1, 1, 1e-2)
-y_ = jnp.arange(-1, 1, 1e-2)
+x_ = jnp.arange(-1, 1, 1e-3)
+y_ = jnp.arange(-1, 1, 1e-3)
 
 x_grid, y_grid = jnp.meshgrid(x_, y_)
 
