@@ -6,8 +6,21 @@ from jax import lax, jit
 from functools import partial
 from .point_source import lens_eq, _images_point_source
 
+#@partial(jit, static_argnames=("nlenses", "NBIN"))
 def image_area_all(w_center, rho, NBIN=20, nlenses=2, **_params):
-    
+    """
+    Calculate the total image area and magnification for a given source position and lens configuration.
+
+    Args:
+        w_center (complex): Complex coordinate of the source center.
+        rho (float): Radius of the source.
+        NBIN (int, optional): Number of bins for discretizing the source radius. Default is 20.
+        nlenses (int, optional): Number of lenses. Default is 2.
+        **_params: Additional parameters for the lens model, including mass ratio (q) and separation (s).
+
+    Returns:
+        tuple: Total image area, magnification, and carry data for further processing.
+    """
     q, s  = _params["q"], _params["s"] 
     incr  = jnp.abs(rho / NBIN)
     incr2 = incr * 0.5
@@ -29,7 +42,7 @@ def image_area_all(w_center, rho, NBIN=20, nlenses=2, **_params):
     dys        = jnp.zeros((max_iter * 2))
 
     # seach images from each start points
-    for i in jnp.arange(len(z_inits[z_mask])):
+    for i in range(len(z_inits[z_mask])):
         area_i = 0
         z_init = z_inits[z_mask][i]
         # positive dy search
@@ -55,10 +68,11 @@ def image_area_all(w_center, rho, NBIN=20, nlenses=2, **_params):
     (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
     xmin_diff = jnp.diff(xmin)
     xmax_diff = jnp.diff(xmax)
-    upper_left  = (xmin_diff < -1.1 * incr) & (dys[1:] < 0.0)
-    lower_left  = (xmin_diff < -1.1 * incr) & (dys[1:] > 0.0)
-    upper_right = (xmax_diff > 1.1 * incr)  & (dys[1:] < 0.0)
-    lower_right = (xmax_diff > 1.1 * incr)  & (dys[1:] > 0.0)
+    fac_marg = 1.1
+    upper_left  = (xmin_diff < -fac_marg * incr) & (dys[1:] < 0.0)
+    lower_left  = (xmin_diff < -fac_marg * incr) & (dys[1:] > 0.0)
+    upper_right = (xmax_diff > fac_marg * incr)  & (dys[1:] < 0.0)
+    lower_right = (xmax_diff > fac_marg * incr)  & (dys[1:] > 0.0)
 
     fac = 3.0
     for k in jnp.where(upper_left)[0]:
@@ -69,10 +83,7 @@ def image_area_all(w_center, rho, NBIN=20, nlenses=2, **_params):
         area, carry = image_area0(w_center, rho, z_init, incr, carry, **_params) 
         (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
         area_all += area
-        yi = lax.cond(area == 0, 
-                      lambda _: yi - 1, 
-                      lambda _: yi, 
-                      None)
+        yi = lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
     
     for k in jnp.where(upper_right)[0]:
         offset_factor = fac * jnp.abs((xmax[k + 2] - xmax[k + 1]) / incr).astype(int)
@@ -82,10 +93,7 @@ def image_area_all(w_center, rho, NBIN=20, nlenses=2, **_params):
         area, carry = image_area0(w_center, rho, z_init, incr, carry, **_params) 
         (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
         area_all += area
-        yi = lax.cond(area == 0, 
-                      lambda _: yi - 1, 
-                      lambda _: yi, 
-                      None)
+        yi = lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
 
     for k in jnp.where(lower_left)[0]:
         offset_factor = fac * jnp.abs((xmin[k + 2] - xmin[k + 1]) / incr).astype(int)
@@ -97,10 +105,7 @@ def image_area_all(w_center, rho, NBIN=20, nlenses=2, **_params):
         area, carry = image_area0(w_center, rho, z_init, -incr, carry, **_params) 
         (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
         area_all += area
-        yi = lax.cond(area == 0, 
-                      lambda _: yi - 1, 
-                      lambda _: yi, 
-                      None)
+        yi = lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
         
     for k in jnp.where(lower_right)[0]:
         offset_factor = fac * jnp.abs((xmax[k + 2] - xmax[k + 1]) / incr).astype(int)
@@ -110,10 +115,7 @@ def image_area_all(w_center, rho, NBIN=20, nlenses=2, **_params):
         area, carry = image_area0(w_center, rho, z_init, -incr, carry, **_params) 
         (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
         area_all += area
-        yi = lax.cond(area == 0, 
-                      lambda _: yi - 1, 
-                      lambda _: yi, 
-                      None)
+        yi = lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
 
     carry = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
     magnification = area_all / (jnp.pi * NBIN * NBIN) 
@@ -126,6 +128,21 @@ def source_profile_limb1(dz2, u1=0.0):
 
 @partial(jit, static_argnames=("nlenses"))
 def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
+    """
+    Calculate the image area for a given initial complex coordinate and step size in the y-direction.
+
+    Args:
+        w_center (complex): Complex coordinate of the source center.
+        rho (float): Radius of the source.
+        z_init (complex): Initial complex coordinate for the lens equation.
+        dy (float): Step size in the y-direction.
+        carry (tuple): Carry data containing intermediate results.
+        nlenses (int, optional): Number of lenses. Default is 2.
+        **_params: Additional parameters for the lens model, including mass ratio (q) and separation (s).
+
+    Returns:
+        tuple: Calculated area for the given parameters and updated carry data.
+    """
     yi, indx, Nindx, xmax, xmin, area_x, y, dys = carry 
     max_iter = len(dys) // 2
     q, s = _params["q"], _params["s"]
@@ -164,11 +181,19 @@ def finish_area0(carry):
 
 def update_dy(carry):
     z_current_mid = carry.z_current + carry.CM2MD
-    zis_mid = lens_eq(z_current_mid, a=carry.a, e1=carry.e1, nlenses=carry.nlenses)
+    zis_mid = lens_eq(z_current_mid, a=carry.a, e1=carry.e1)
+    #zis_mid = lens_eq(z_current_mid, a=carry.a, e1=carry.e1, nlenses=carry.nlenses)
     zis = zis_mid - carry.CM2MD
     carry.dz2_last = carry.dz2
     dz = jnp.abs(carry.w_center - zis)
+    print("w_center", carry.w_center.shape)
+    print("zis", zis.shape)
+    print("zis_mid", zis_mid.shape)
+    print("dz", dz.shape)
     carry.dz2 = dz**2
+    
+    print(f"carry.dz2 shape: {carry.dz2.shape}, type: {type(carry.dz2)}")
+    print(f"carry.rho2 shape: {carry.rho2.shape}, type: {type(carry.rho2)}")
 
     cond_inside = carry.dz2 <= carry.rho2 
     carry = jax.lax.cond(cond_inside,
@@ -184,23 +209,36 @@ def update_dy(carry):
 
 def update_inside_source(carry):
     count_eff = source_profile_limb1(carry.dz2)
-    carry.count_x += count_eff.astype(float)
-    carry.xmax = lax.cond((carry.dx == -carry.incr) & (carry.count_x==0.0), 
-                          lambda _: carry.xmax[carry.yi].set(carry.z_current.real - carry.dx),
-                          lambda _: carry.xmax,
-                          None)
+    carry.count_x += count_eff#.astype(float)
+
+    cond_update_xmax = (carry.dx == -carry.incr) & (carry.count_x == 0.0)
+    new_xmax = lax.cond(cond_update_xmax, 
+                       lambda _: carry.z_current.real - carry.dx, 
+                       lambda _: carry.xmax[carry.yi],
+                       None)
+    carry.xmax.at[carry.yi].set(new_xmax)
+    #carry.xmax = lax.cond((carry.dx == -carry.incr) & (carry.count_x==0.0), 
+    #                      lambda _: carry.xmax[carry.yi].set(carry.z_current.real - carry.dx),
+    #                      lambda _: carry.xmax,
+    #                      None)
     return carry
 
 def update_outside_source(carry):
     
     def positive_run_fn(carry):
-        carry.xmax = lax.cond(carry.dz2_last <= carry.rho2,
-                              lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real),
-                              lambda _: carry.xmax,
-                              None)
+        new_xmax = lax.cond(carry.dz2_last <= carry.rho2,
+                            lambda _: carry.z_current.real, 
+                            lambda _: carry.xmax[carry.yi],
+                            None)
+        carry.xmax.at[carry.yi].set(new_xmax)
+        #carry.xmax = lax.cond(carry.dz2_last <= carry.rho2,
+        #                      lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real),
+        #                      lambda _: carry.xmax,
+        #                      None)
         carry.dx = -carry.incr
         carry.z_current = jnp.complex128(carry.x0 + 1j * carry.z_current.imag)
-        carry.xmin = carry.xmin.at[carry.yi].set(carry.z_current.real + carry.dx)
+        carry.xmin.at[carry.yi].set(carry.z_current.real + carry.dx)
+        #carry.xmin = carry.xmin.at[carry.yi].set(carry.z_current.real + carry.dx)
         return carry
     
     def negative_run_fn(carry):
@@ -210,24 +248,30 @@ def update_outside_source(carry):
 
         def collect_fn(carry):
             carry.count_all += carry.count_x
-            carry.area_x = carry.area_x.at[carry.yi].set(carry.count_x)
-            carry.y = carry.y.at[carry.yi].set(carry.z_current.imag)
-            carry.dys = carry.dys.at[carry.yi].set(carry.dy)
+            carry.area_x.at[carry.yi].set(carry.count_x)
+            carry.y.at[carry.yi].set(carry.z_current.imag)
+            carry.dys.at[carry.yi].set(-carry.incr) 
+            #carry.area_x = carry.area_x.at[carry.yi].set(carry.count_x)
+            #carry.y = carry.y.at[carry.yi].set(carry.z_current.imag)
+            #carry.dys = carry.dys.at[carry.yi].set(carry.dy)
             return carry
 
         def break_fn(carry):
-            carry.dys = carry.dys.at[carry.yi].set(-carry.dy) 
+            carry.dys.at[carry.yi].set(carry.incr) 
+            #carry.dys = carry.dys.at[carry.yi].set(-carry.dy) 
             carry.finish = jnp.bool_(True)
             return carry
         
         def check_counted_or_not_fn(carry):
             def counted_fn(carry):
-                carry.area_x    = carry.area_x.at[carry.yi].set(0.0)
+                carry.area_x.at[carry.yi].set(0.0)
+                #carry.area_x    = carry.area_x.at[carry.yi].set(0.0)
                 carry.count_all = carry.count_all - carry.count_x
                 carry.count_x   = 0.0 
                 return carry
             
-            y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
+            y_index = (carry.z_current.imag * carry.incr_inv + carry.max_iter).astype(int)
+            #y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
             for j in jnp.arange(carry.Nindx[y_index]):
                 ind = carry.indx[y_index][j]
                 counted = (carry.xmin[carry.yi] < carry.xmax[ind]) & (carry.xmax[carry.yi] > carry.xmin[ind])
@@ -238,9 +282,12 @@ def update_outside_source(carry):
             return carry
              
         def save_index_and_move_next_yrow(carry):
-            y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
-            carry.indx  = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
-            carry.Nindx = carry.Nindx.at[y_index].add(1.0)
+            y_index = (carry.z_current.imag * carry.incr_inv + carry.max_iter).astype(int)
+            #y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
+            carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
+            carry.Nindx.at[y_index].add(1.0)
+            #carry.indx  = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
+            #carry.Nindx = carry.Nindx.at[y_index].add(1.0)
             # prepare for the next row
             carry.yi += 1
             carry.dx = carry.incr
@@ -289,10 +336,10 @@ def update_outside_source(carry):
 class CarryData:
     def __init__(self, yi: jnp.int32, indx: jnp.ndarray, Nindx: jnp.ndarray, xmin: jnp.ndarray, 
                  xmax: jnp.ndarray, area_x: jnp.ndarray, y: jnp.ndarray, dys: jnp.ndarray, 
-                 z_current: jnp.complex128, x0: jnp.float, count_x: jnp.float, count_all: jnp.float, 
-                 dz2: jnp.float, dz2_last: jnp.float, dx: jnp.float, finish: jnp.bool_, 
-                 w_center: jnp.complex128, rho2: jnp.float, a: jnp.float, e1: jnp.float,
-                 CM2MD: jnp.float, incr: jnp.float, incr_inv: jnp.float, max_iter: jnp.int32, 
+                 z_current: jnp.complex128, x0: jnp.float_, count_x: jnp.float_, count_all: jnp.float_, 
+                 dz2: jnp.float_, dz2_last: jnp.float_, dx: jnp.float_, finish: jnp.bool_, 
+                 w_center: jnp.complex128, rho2: jnp.float_, a: jnp.float_, e1: jnp.float_,
+                 CM2MD: jnp.float_, incr: jnp.float_, incr_inv: jnp.float_, max_iter: jnp.int32, 
                  nlenses: jnp.int32
                  ):
         # final carry
