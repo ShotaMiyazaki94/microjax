@@ -140,12 +140,8 @@ def update_outside_source(carry):
             indices = carry.indx[y_index]
             xmax_test = jnp.where(indices==0, -jnp.inf, carry.xmax[indices])
             xmin_test = jnp.where(indices==0, jnp.inf,  carry.xmin[indices])
-            #mask_   = indices != 0
-            #valid_indices = indices[mask_]
             #jax.debug.print('indices={} xmax={} xmax={}', indices, carry.xmax[carry.yi], carry.xmax[indices]) 
             counted_mask = (carry.xmin[carry.yi] - carry.incr < xmax_test) & (carry.xmax[carry.yi] + carry.incr > xmin_test)
-            #counted_mask = (carry.xmin[carry.yi] + carry.incr < xmax_test) & (carry.xmax[carry.yi] - carry.incr > xmin_test)
-            #counted_mask = (carry.xmin[carry.yi] < carry.xmax[indices]) & (carry.xmax[carry.yi] > carry.xmin[indices])[mask_]
             exist_overlap = carry.Nindx[y_index] > 0
             carry = lax.cond(jnp.any(counted_mask) & exist_overlap, 
                              counted_fn, 
@@ -189,7 +185,6 @@ def update_outside_source(carry):
                          carry)
 
         # check if the count is overlapped with previous ones.
-        #carry = lax.cond((carry.finish),
         carry = lax.cond((~cond_nothing_but_update)&(carry.finish),
                          check_counted_or_not_fn,
                          lambda carry: carry,
@@ -197,7 +192,6 @@ def update_outside_source(carry):
 
         # memorize this row and move to the next row
         carry = lax.cond((~cond_nothing_but_update)&(carry.finish),
-        #carry = lax.cond((~cond_nothing_but_update)&(carry.finish),
                          save_index_and_move_next_yrow,
                          lambda carry: carry,
                          carry)
