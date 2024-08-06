@@ -135,7 +135,7 @@ def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
         w_center (complex): Complex coordinate of the source center.
         rho (float): Radius of the source.
         z_init (complex): Initial complex coordinate for the lens equation.
-        dy (float): Step size in the y-direction.
+        dy (float): Step vector toward the y-direction.
         carry (tuple): Carry data containing intermediate results.
         nlenses (int, optional): Number of lenses. Default is 2.
         **_params: Additional parameters for the lens model, including mass ratio (q) and separation (s).
@@ -158,14 +158,15 @@ def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
     count_x = 0.0
     count_all = 0.0
     rho2 = rho * rho
-    finish = jnp.bool_(False)
+    finish = jnp.bool_(True)
 
     carry_init = CarryData(yi=yi, indx=indx, Nindx=Nindx, xmin=xmin, 
                             xmax=xmax, area_x=area_x, y=y, dys=dys,
                             z_current=z_current, x0=x0, count_x=count_x, 
                             count_all=count_all, dz2=dz2, dz2_last=dz2, dx=dx, finish=finish,
                             w_center=w_center, rho2=rho2, a=a, e1=e1, CM2MD=CM2MD, 
-                            incr=incr, incr_inv=incr_inv, max_iter=max_iter, nlenses=nlenses)   
+                            incr=incr, incr_inv=incr_inv, max_iter=max_iter, nlenses=nlenses, 
+                            dy=dy)   
     
     result = lax.while_loop(cond_fun = finish_area0, 
                             body_fun = update_dy, 
@@ -177,7 +178,7 @@ def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
     return result.count_all, carry_return  
 
 def finish_area0(carry):
-    return ~carry.finish
+    return carry.finish
 
 def update_dy(carry):
     z_current_mid = carry.z_current + carry.CM2MD
@@ -186,14 +187,7 @@ def update_dy(carry):
     zis = zis_mid - carry.CM2MD
     carry.dz2_last = carry.dz2
     dz = jnp.abs(carry.w_center - zis)
-    print("w_center", carry.w_center.shape)
-    print("zis", zis.shape)
-    print("zis_mid", zis_mid.shape)
-    print("dz", dz.shape)
     carry.dz2 = dz**2
-    
-    print(f"carry.dz2 shape: {carry.dz2.shape}, type: {type(carry.dz2)}")
-    print(f"carry.rho2 shape: {carry.rho2.shape}, type: {type(carry.rho2)}")
 
     cond_inside = carry.dz2 <= carry.rho2 
     carry = jax.lax.cond(cond_inside,
@@ -202,8 +196,8 @@ def update_dy(carry):
                          carry)
     
     carry.z_current = lax.cond(carry.finish,
-                               lambda _: carry.z_current,
                                lambda _: carry.z_current + carry.dx,
+                               lambda _: carry.z_current,
                                None)
     return carry
 
@@ -212,33 +206,22 @@ def update_inside_source(carry):
     carry.count_x += count_eff#.astype(float)
 
     cond_update_xmax = (carry.dx == -carry.incr) & (carry.count_x == 0.0)
-    new_xmax = lax.cond(cond_update_xmax, 
-                       lambda _: carry.z_current.real - carry.dx, 
-                       lambda _: carry.xmax[carry.yi],
-                       None)
-    carry.xmax.at[carry.yi].set(new_xmax)
-    #carry.xmax = lax.cond((carry.dx == -carry.incr) & (carry.count_x==0.0), 
-    #                      lambda _: carry.xmax[carry.yi].set(carry.z_current.real - carry.dx),
-    #                      lambda _: carry.xmax,
-    #                      None)
+    carry.xmax = lax.cond(cond_update_xmax,
+                          lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real - carry.dx),
+                          lambda _: carry.xmax,
+                          None)
     return carry
 
 def update_outside_source(carry):
     
     def positive_run_fn(carry):
-        new_xmax = lax.cond(carry.dz2_last <= carry.rho2,
-                            lambda _: carry.z_current.real, 
-                            lambda _: carry.xmax[carry.yi],
-                            None)
-        carry.xmax.at[carry.yi].set(new_xmax)
-        #carry.xmax = lax.cond(carry.dz2_last <= carry.rho2,
-        #                      lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real),
-        #                      lambda _: carry.xmax,
-        #                      None)
+        carry.xmax = lax.cond(carry.dz2_last <= carry.rho2,
+                              lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real),
+                              lambda _: carry.xmax,
+                              None) 
         carry.dx = -carry.incr
         carry.z_current = jnp.complex128(carry.x0 + 1j * carry.z_current.imag)
         carry.xmin.at[carry.yi].set(carry.z_current.real + carry.dx)
-        #carry.xmin = carry.xmin.at[carry.yi].set(carry.z_current.real + carry.dx)
         return carry
     
     def negative_run_fn(carry):
@@ -248,46 +231,55 @@ def update_outside_source(carry):
 
         def collect_fn(carry):
             carry.count_all += carry.count_x
-            carry.area_x.at[carry.yi].set(carry.count_x)
-            carry.y.at[carry.yi].set(carry.z_current.imag)
-            carry.dys.at[carry.yi].set(-carry.incr) 
-            #carry.area_x = carry.area_x.at[carry.yi].set(carry.count_x)
-            #carry.y = carry.y.at[carry.yi].set(carry.z_current.imag)
-            #carry.dys = carry.dys.at[carry.yi].set(carry.dy)
+            carry.area_x = carry.area_x.at[carry.yi].set(carry.count_x)
+            carry.y      = carry.y.at[carry.yi].set(carry.z_current.imag)
+            carry.dys    = carry.dys.at[carry.yi].set(carry.dy) 
             return carry
 
         def break_fn(carry):
-            carry.dys.at[carry.yi].set(carry.incr) 
-            #carry.dys = carry.dys.at[carry.yi].set(-carry.dy) 
-            carry.finish = jnp.bool_(True)
+            carry.dys = carry.dys.at[carry.yi].set(-carry.dy) 
+            carry.finish = jnp.bool_(False)
             return carry
         
         def check_counted_or_not_fn(carry):
             def counted_fn(carry):
-                carry.area_x.at[carry.yi].set(0.0)
-                #carry.area_x    = carry.area_x.at[carry.yi].set(0.0)
+                carry.area_x = carry.area_x.at[carry.yi].set(0.0)
                 carry.count_all = carry.count_all - carry.count_x
                 carry.count_x   = 0.0 
                 return carry
-            
+
             y_index = (carry.z_current.imag * carry.incr_inv + carry.max_iter).astype(int)
-            #y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
-            for j in jnp.arange(carry.Nindx[y_index]):
-                ind = carry.indx[y_index][j]
-                counted = (carry.xmin[carry.yi] < carry.xmax[ind]) & (carry.xmax[carry.yi] > carry.xmin[ind])
-                carry = lax.cond(counted,
-                                 counted_fn, 
-                                 lambda carry: carry,
-                                 carry)
+            indices = carry.indx[y_index]
+            counted_mask = (carry.xmin[carry.yi] < carry.xmax[indices]) & (carry.xmax[carry.yi] > carry.xmin[indices])
+            carry = lax.cond(jnp.any(counted_mask), counted_fn, lambda carry: carry, carry)
             return carry
+
+            #def loop_body(carry, j):
+            #    y_index = (carry.z_current.imag * carry.incr_inv + carry.max_iter).astype(int)
+            #    ind = carry.indx[y_index][j]
+            #    counted = (carry.xmin[carry.yi] < carry.xmax[ind]) & (carry.xmax[carry.yi] > carry.xmin[ind])
+            #    carry = lax.cond(counted,counted_fn, lambda carry: carry, carry)
+            #    return carry, None
+            
+            #y_index = (carry.z_current.imag * carry.incr_inv + carry.max_iter).astype(int)
+            #carry, _ = lax.scan(loop_body, carry, jnp.arange(carry.Nindx[y_index]))
+            #carry, _ = lax.scan(loop_body, carry, jnp.arange(carry.Nindx[y_index]))
+            #return carry
+            
+            #y_index = (carry.z_current.imag * carry.incr_inv + carry.max_iter).astype(int)
+            #for j in jnp.arange(carry.Nindx[y_index]):
+            #    ind = carry.indx[y_index][j]
+            #    counted = (carry.xmin[carry.yi] < carry.xmax[ind]) & (carry.xmax[carry.yi] > carry.xmin[ind])
+            #    carry = lax.cond(counted,
+            #                     counted_fn, 
+            #                     lambda carry: carry,
+            #                     carry)
+            #return carry
              
         def save_index_and_move_next_yrow(carry):
             y_index = (carry.z_current.imag * carry.incr_inv + carry.max_iter).astype(int)
-            #y_index = int(carry.z_current.imag * carry.incr_inv + carry.max_iter)
-            carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
-            carry.Nindx.at[y_index].add(1.0)
-            #carry.indx  = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
-            #carry.Nindx = carry.Nindx.at[y_index].add(1.0)
+            carry.indx = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
+            carry.Nindx = carry.Nindx.at[y_index].add(1.0)
             # prepare for the next row
             carry.yi += 1
             carry.dx = carry.incr
@@ -340,7 +332,7 @@ class CarryData:
                  dz2: jnp.float_, dz2_last: jnp.float_, dx: jnp.float_, finish: jnp.bool_, 
                  w_center: jnp.complex128, rho2: jnp.float_, a: jnp.float_, e1: jnp.float_,
                  CM2MD: jnp.float_, incr: jnp.float_, incr_inv: jnp.float_, max_iter: jnp.int32, 
-                 nlenses: jnp.int32
+                 nlenses: jnp.int32, dy: jnp.float_
                  ):
         # final carry
         self.yi = yi
@@ -370,13 +362,14 @@ class CarryData:
         self.incr_inv = incr_inv
         self.max_iter = max_iter
         self.nlenses = nlenses
+        self.dy = dy
 
     def tree_flatten(self):
         children = (self.yi, self.indx, self.Nindx, self.xmin, self.xmax, self.area_x, self.y, 
                     self.dys, self.z_current, self.x0, self.count_x, self.count_all, self.dz2, 
                     self.dz2_last, self.dx, self.finish, 
                     self.w_center, self.rho2, self.a, self.e1, self.CM2MD, self.incr, 
-                    self.incr_inv, self.max_iter, self.nlenses)
+                    self.incr_inv, self.max_iter, self.nlenses, self.dy)
         return children, None
 
     @classmethod
