@@ -6,16 +6,16 @@ import matplotlib.pyplot as plt
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
 from microjax.image_area0 import image_area0
 
-NBIN=100
+NBIN=20
 nlenses=2
 
-w_center = jnp.complex128(0.3 - 0.1j)
+w_center = jnp.complex128(0.0 - 0.1j)
 q  = 0.1
 s  = 1.0
 a  = 0.5 * s
 e1 = q / (1.0 + q) 
 _params = {"q": q, "s": s, "a": a, "e1": e1}
-rho = 0.18
+rho = 0.22
 
 incr  = jnp.abs(rho / NBIN)
 incr2 = incr * 0.5
@@ -28,9 +28,9 @@ z_inits = z_inits_mid + 0.5 * s * (1 - q) / (1 + q)
 yi         = 0
 area_all   = 0.0
 area_image = jnp.zeros(10)
-max_iter   = int(1e+6)
-indx       = jnp.zeros((max_iter * 2, 5), dtype=int) # index for checking the overlaps
-Nindx      = jnp.zeros((max_iter * 2), dtype=int)     # Number of images at y_index
+max_iter   = int(100 / incr)
+indx       = jnp.zeros((max_iter * 2, 5), dtype=jnp.int32) # index for checking the overlaps
+Nindx      = jnp.zeros((max_iter * 2), dtype=jnp.int32)     # Number of images at y_index
 xmin       = jnp.zeros((max_iter * 2))
 xmax       = jnp.zeros((max_iter * 2)) 
 area_x     = jnp.zeros((max_iter * 2)) 
@@ -46,32 +46,38 @@ finish = jnp.bool_(False)
 
 
 for i in range(len(z_inits[z_mask])):
+#for i in range(2):
     z_init = z_inits[z_mask][i]
     dy     = incr
     carry  = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
     area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
     (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
-    print(area)
+    #break
+    #print(area)
     dy     = -incr
+    z_init = z_inits[z_mask][i] + 1j * dy
     carry  = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
     area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
     (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
-    print(area)
+    ##print(area)
 
-N_limb = 1000
+N_limb = 5000
 w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
 w_limb_shift = w_limb - 0.5*s*(1 - q)/(1 + q) # half-axis coordinate
 image, mask = _images_point_source(w_limb_shift, a=a, e1=e1) # half-axis coordinate
 image_limb = image + 0.5*s*(1 - q)/(1 + q)       # center-of-mass coordinate
 crit_tri, cau_tri = critical_and_caustic_curves(npts=1000, q=q, s=s)
 
-fig = plt.figure()
+fig = plt.figure(figsize=(8,8))
 ax = plt.axes()
 
 mask_x = area_x>0
+cmap = plt.get_cmap("coolwarm")
+pos_neg = jnp.where(dys[mask_x] > 0, 1.0, 0.0)
+#pos_neg = jnp.where(dys[mask_x] > 0, 1.0, 0.0)
 for i in range(len(xmin[mask_x])):
-    plt.hlines(y[mask_x][i],xmin[mask_x][i],xmax[mask_x][i])
-    #plt.hlines(y[mask_x][i],xmin[mask_x][i],xmax[mask_x][i], color=cmap(pos_neg[i]))
+    #plt.hlines(y[mask_x][i],xmin[mask_x][i],xmax[mask_x][i])
+    plt.hlines(y[mask_x][i],xmin[mask_x][i],xmax[mask_x][i], color=cmap(pos_neg[i]))
     plt.plot(xmin[mask_x][i], y[mask_x][i], ".", color="None", mec="k")
     plt.plot(xmax[mask_x][i], y[mask_x][i], ".", color="None", mec="k")
 
