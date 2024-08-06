@@ -6,16 +6,16 @@ import matplotlib.pyplot as plt
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
 from microjax.image_area0 import image_area0
 
-NBIN=20
-nlenses=2
+NBIN = 10
+nlenses = 2
 
-w_center = jnp.complex128(0.0 - 0.1j)
+w_center = jnp.complex128(-0.04 - 0.03j)
 q  = 0.1
 s  = 1.0
 a  = 0.5 * s
 e1 = q / (1.0 + q) 
 _params = {"q": q, "s": s, "a": a, "e1": e1}
-rho = 0.22
+rho = 0.02
 
 incr  = jnp.abs(rho / NBIN)
 incr2 = incr * 0.5
@@ -28,8 +28,8 @@ z_inits = z_inits_mid + 0.5 * s * (1 - q) / (1 + q)
 yi         = 0
 area_all   = 0.0
 area_image = jnp.zeros(10)
-max_iter   = int(100 / incr)
-indx       = jnp.zeros((max_iter * 2, 5), dtype=jnp.int32) # index for checking the overlaps
+max_iter   = int(10 / incr)
+indx       = jnp.zeros((max_iter * 2, 10), dtype=jnp.int32) # index for checking the overlaps
 Nindx      = jnp.zeros((max_iter * 2), dtype=jnp.int32)     # Number of images at y_index
 xmin       = jnp.zeros((max_iter * 2))
 xmax       = jnp.zeros((max_iter * 2)) 
@@ -46,7 +46,7 @@ finish = jnp.bool_(False)
 
 
 for i in range(len(z_inits[z_mask])):
-#for i in range(2):
+    print('%d images'%i)
     z_init = z_inits[z_mask][i]
     dy     = incr
     carry  = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
