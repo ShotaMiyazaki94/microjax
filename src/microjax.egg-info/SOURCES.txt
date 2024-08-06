@@ -16,6 +16,7 @@ dusts/caustics/utils.py
 src/microjax/__init__.py
 src/microjax/coeffs.py
 src/microjax/extend_source.py
+src/microjax/image_area0.py
 src/microjax/inverse_ray.py
 src/microjax/inverse_ray_old.py
 src/microjax/multipole.py
@@ -64,7 +65,6 @@ tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/speed_lens_eq.py
 tests/integrate/inverse_ray/test_carry.py
 tests/integrate/inverse_ray/test_image0.py
-tests/integrate/inverse_ray/test_inverse.py
 tests/integrate/magfft/test_grad.py
 tests/integrate/magfft/test_grad2.py
 tests/integrate/magfft/test_grad2_1.png
