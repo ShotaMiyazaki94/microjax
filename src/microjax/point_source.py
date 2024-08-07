@@ -9,6 +9,7 @@ from .utils import match_points
 from .coeffs import _poly_coeffs_binary, _poly_coeffs_triple 
 from .coeffs import _poly_coeffs_critical_triple, _poly_coeffs_critical_binary
 
+#@partial(jit, static_argnames=("nlenses"))
 def lens_eq(z, nlenses=2, **params):
     zbar = jnp.conjugate(z)
 
@@ -31,6 +32,7 @@ def lens_eq(z, nlenses=2, **params):
     else:
         raise ValueError("`nlenses` has to be set to be <= 3.")
     
+#@partial(jit, static_argnames=("nlenses"))
 def lens_eq_det_jac(z, nlenses=2, **params):
     zbar = jnp.conjugate(z)
 
