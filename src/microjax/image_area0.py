@@ -146,8 +146,6 @@ def update_outside_source(carry):
             overlap_mask = \
                 (carry.xmin[carry.yi] - tuned_fac * carry.incr < xmaxs_same_row) \
                 & (carry.xmax[carry.yi] + tuned_fac * carry.incr > xmins_same_row)
-            #counted_mask = (carry.xmin[carry.yi] < xmax_row + 1.1*carry.incr) & (carry.xmax[carry.yi] > xmin_row - 1.1*carry.incr)
-            #exist_overlap = carry.Nindx[y_index] > 0
             carry = lax.cond(jnp.any(overlap_mask),
                              overlap_fn, 
                              lambda carry: carry, 
@@ -159,7 +157,6 @@ def update_outside_source(carry):
             y_index = jnp.int_(carry.z_current.imag * carry.incr_inv + carry.max_iter)
             carry.indx = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
             carry.Nindx = carry.Nindx.at[y_index].add(1.0)
-            #carry.Nindx = carry.Nindx.at[y_index].set(carry.Nindx[y_index] + 1.0)
             jax.debug.print('yi={} y={} y_index={} dys={} xmin={} xmax={}', 
                             carry.yi, carry.y[carry.yi], y_index, carry.dys[carry.yi], carry.xmin[carry.yi], carry.xmax[carry.yi]) 
             # prepare for the next row
