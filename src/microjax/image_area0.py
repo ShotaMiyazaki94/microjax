@@ -109,6 +109,10 @@ def update_outside_source(carry):
         return carry
     
     def negative_run_fn(carry):
+        carry.xmax = lax.cond(carry.dz2_last <= carry.rho2,
+                              lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real),
+                              lambda _: carry.xmax,
+                              None)
         def collect_fn(carry):
             carry.count_all += carry.count_x
             carry.area_x = carry.area_x.at[carry.yi].set(carry.count_x)
@@ -124,8 +128,12 @@ def update_outside_source(carry):
         def check_overlap_fn(carry):
             #jax.debug.print("check_counted_or_not_fn")
             def overlap_fn(carry):
-                y_index = jnp.int32(carry.z_current.imag * carry.incr_inv + carry.max_iter)
+                #y_index = jnp.int32(carry.z_current.imag * carry.incr_inv + carry.max_iter)
                 #jax.debug.print('overlap_fn yi={} y={} dys={} y_index={}', carry.yi, carry.y[carry.yi], carry.dys[carry.yi], y_index)
+                #jax.debug.print('           xmin={} xmax={}', carry.xmin[carry.yi], carry.xmax[carry.yi])
+                #jax.debug.print('           xmin_rows={}'   , xmins_same_row)
+                #jax.debug.print('           xmax_rows={}'   , xmaxs_same_row)
+                #jax.debug.print('           indices  ={}'   , indices)
                 carry.area_x = carry.area_x.at[carry.yi].set(0.0)
                 carry.count_all = carry.count_all - carry.count_x
                 carry.count_x   = 0.0 
@@ -145,7 +153,8 @@ def update_outside_source(carry):
             #jax.debug.print('indices={} xmax={} xmax={}', indices, xmax_row, xmin_row) 
             overlap_mask = \
                 (carry.xmin[carry.yi] - tuned_fac * carry.incr < xmaxs_same_row) \
-                & (carry.xmax[carry.yi] + tuned_fac * carry.incr > xmins_same_row)
+                & (carry.xmax[carry.yi] + tuned_fac * carry.incr > xmins_same_row)\
+                & jnp.all(indices != carry.yi - 1) # because the previous row can be wrongly added. I'm not sure why.
             carry = lax.cond(jnp.any(overlap_mask),
                              overlap_fn, 
                              lambda carry: carry, 
@@ -157,8 +166,8 @@ def update_outside_source(carry):
             y_index = jnp.int_(carry.z_current.imag * carry.incr_inv + carry.max_iter)
             carry.indx = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
             carry.Nindx = carry.Nindx.at[y_index].add(1.0)
-            jax.debug.print('yi={} y={} y_index={} dys={} xmin={} xmax={}', 
-                            carry.yi, carry.y[carry.yi], y_index, carry.dys[carry.yi], carry.xmin[carry.yi], carry.xmax[carry.yi]) 
+            #jax.debug.print('yi={} y={} y_index={} dys={} xmin={} xmax={}', 
+            #                carry.yi, carry.y[carry.yi], y_index, carry.dys[carry.yi], carry.xmin[carry.yi], carry.xmax[carry.yi]) 
             # prepare for the next row
             carry.yi += 1
             carry.dx  = carry.incr

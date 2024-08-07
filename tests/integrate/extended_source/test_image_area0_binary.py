@@ -3,7 +3,7 @@ import numpy as np
 import jax.numpy as jnp
 from jax import jit
 from microjax.extend_source import image_area0_binary
-from microjax.point_source import _images_point_source_binary, critical_and_caustic_curves_binary
+from microjax.point_source import _images_point_source, critical_and_caustic_curves
 import jax
 jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
@@ -22,7 +22,8 @@ def test_image4():
     a  = 0.5 * s
     e1 = q / (1.0 + q) 
     w_center -= 0.5*s*(1 - q)/(1 + q) # mid-point
-    z_inits, z_mask = _images_point_source_binary(w_center, a, e1) 
+    z_inits, z_mask = _images_point_source(w_center, a=a, e1=e1) 
+    #z_inits, z_mask = _images_point_source_binary(w_center, a, e1) 
     w_center += 0.5*s*(1 - q)/(1 + q) # center of mass
     z_inits  += 0.5*s*(1 - q)/(1 + q) # center of mass
 
@@ -132,7 +133,7 @@ def test_image4():
     N_limb = 5000
     w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
     w_limb_shift = w_limb - 0.5*s*(1 - q)/(1 + q) # half-axis coordinate
-    image, mask = _images_point_source_binary(w_limb_shift, a=a, e1=e1) # half-axis coordinate
+    image, mask = _images_point_source(w_limb_shift, s=s, q=q) # half-axis coordinate
     image_limb = image + 0.5*s*(1 - q)/(1 + q)       # center-of-mass coordinate
     
     fig = plt.figure()
