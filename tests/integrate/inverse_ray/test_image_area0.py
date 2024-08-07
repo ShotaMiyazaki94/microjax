@@ -6,16 +6,17 @@ import matplotlib.pyplot as plt
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
 from microjax.image_area0 import image_area0
 
-NBIN = 10
+NBIN = 30
 nlenses = 2
 
-w_center = jnp.complex128(-0.04 - 0.03j)
-q  = 0.1
+#w_center = jnp.complex128(-0.04 - 0.0j)
+w_center = jnp.complex128(-0.05 - 0.1j)
+q  = 0.5
 s  = 1.0
 a  = 0.5 * s
 e1 = q / (1.0 + q) 
 _params = {"q": q, "s": s, "a": a, "e1": e1}
-rho = 0.02
+rho = 0.28
 
 incr  = jnp.abs(rho / NBIN)
 incr2 = incr * 0.5
@@ -45,8 +46,8 @@ rho2 = rho * rho
 finish = jnp.bool_(False)
 
 
-for i in range(len(z_inits[z_mask])):
-    print('%d images'%i)
+for i in jnp.arange(len(z_inits[z_mask])):
+    print('%d images positive'%i)
     z_init = z_inits[z_mask][i]
     dy     = incr
     carry  = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
@@ -54,12 +55,17 @@ for i in range(len(z_inits[z_mask])):
     (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
     #break
     #print(area)
+    print('%d images negative'%i)
     dy     = -incr
     z_init = z_inits[z_mask][i] + 1j * dy
     carry  = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
     area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
     (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
     ##print(area)
+print("identify the protruding areas that are missed!!")
+
+
+
 
 N_limb = 5000
 w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
