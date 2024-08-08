@@ -27,7 +27,7 @@ def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
     Returns:
         tuple: Calculated area for the given parameters and updated carry data.
     """
-    yi, indx, Nindx, xmax, xmin, area_x, y, dys = carry 
+    yi, indx, Nindx, xmin, xmax, area_x, y, dys = carry 
     max_iter = len(dys) // 2
     q, s = _params["q"], _params["s"]
     CM2MD = -0.5 * s * (1 - q)/(1 + q) 
@@ -55,8 +55,8 @@ def image_area0(w_center, rho, z_init, dy, carry, nlenses=2, **_params):
     result = lax.while_loop(cond_fun = lambda carry: carry.finish, 
                             body_fun = update_dy, 
                             init_val = carry_init)
-
-    #jax.debug.print('{}', result.finish)
+    
+    #jax.debug.print('{}', result.dy)
     carry_return = (result.yi, result.indx, result.Nindx, result.xmin, 
                     result.xmax, result.area_x, result.y, result.dys)
 
@@ -103,6 +103,7 @@ def update_outside_source(carry):
                               lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real),
                               lambda _: carry.xmax,
                               None)
+        # switch to negative run
         carry.dx = -carry.incr
         carry.z_current = jnp.complex128(carry.x0 + 1j * carry.z_current.imag)
         carry.xmin = carry.xmin.at[carry.yi].set(carry.z_current.real + carry.dx)
@@ -162,14 +163,16 @@ def update_outside_source(carry):
             y_index = jnp.int_(carry.z_current.imag * carry.incr_inv + carry.max_iter)
             carry.indx = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
             carry.Nindx = carry.Nindx.at[y_index].add(1.0)
-            #jax.debug.print('yi={} y={} y_index={} dys={} xmin={} xmax={}', 
-            #                carry.yi, carry.y[carry.yi], y_index, carry.dys[carry.yi], carry.xmin[carry.yi], carry.xmax[carry.yi]) 
+            jax.debug.print('yi={} y={} y_index={} dys={} xmin={} xmax={}', 
+                            carry.yi, carry.y[carry.yi], y_index, carry.dys[carry.yi], carry.xmin[carry.yi], carry.xmax[carry.yi]) 
             # prepare for the next row
             carry.yi += 1
             carry.dx  = carry.incr
             carry.x0  = carry.xmax[carry.yi - 1]
             carry.z_current = jnp.complex128(carry.x0 - carry.dx + 1j * (carry.z_current.imag + carry.dy))
             carry.count_x = 0.0
+            #jax.debug.print('y={} xmin={} xmax{}', 
+            #                carry.y[carry.yi-1], carry.xmin[carry.yi-1], carry.xmax[carry.yi-1] ) 
             return carry
 
         # whether the previous z is inside or not

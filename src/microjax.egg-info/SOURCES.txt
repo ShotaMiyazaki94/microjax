@@ -17,7 +17,7 @@ src/microjax/__init__.py
 src/microjax/coeffs.py
 src/microjax/extend_source.py
 src/microjax/image_area0.py
-src/microjax/inverse_ray.py
+src/microjax/image_area_all.py
 src/microjax/inverse_ray_old.py
 src/microjax/multipole.py
 src/microjax/point_source.py
