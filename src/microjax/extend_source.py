@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from .poly_solver import poly_roots_EA_multi as poly_roots
-from .point_source import _lens_eq_binary
+from .point_source import _lens_eq
 import jax
 
 def source_profile_limb1(dz, u1=0.0):
@@ -42,7 +42,7 @@ def image_area0_binary(w_center, z_init, q, s, rho, dy, carry):
 
     while True:
         z_current_mid = z_current + CM2MD
-        zis_mid = _lens_eq_binary(z_current_mid, a=a, e1=e1) # inversed point from image into source, mid-point coordinate
+        zis_mid = _lens_eq(z_current_mid, a=a, e1=e1) # inversed point from image into source, mid-point coordinate
         zis = zis_mid - CM2MD
         dz2_last = dz2
         dz  = jnp.abs(w_center - zis)

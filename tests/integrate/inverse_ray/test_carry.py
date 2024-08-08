@@ -3,7 +3,7 @@ import jax.numpy as jnp
 jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
 
-from microjax.inverse_ray import image_area0, image_area_all, CarryData
+from microjax.image_area_all import image_area0, image_area_all, CarryData
 
 
 w_center = jnp.array([-0.05 - 0.1j])

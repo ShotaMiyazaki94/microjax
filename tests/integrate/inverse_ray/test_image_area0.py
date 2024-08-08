@@ -6,16 +6,18 @@ import matplotlib.pyplot as plt
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
 from microjax.image_area0 import image_area0
 
-NBIN = 30
+NBIN = 5
 nlenses = 2
 
-#w_center = jnp.complex128(-0.04 - 0.0j)
+#w_center = jnp.complex128(-0.0 - 0.0j)
 w_center = jnp.complex128(-0.05 - 0.1j)
+#q  = 1e-3
 q  = 0.5
 s  = 1.0
 a  = 0.5 * s
 e1 = q / (1.0 + q) 
 _params = {"q": q, "s": s, "a": a, "e1": e1}
+#rho = 1e-2
 rho = 0.28
 
 incr  = jnp.abs(rho / NBIN)
@@ -45,26 +47,89 @@ count_all = 0.0
 rho2 = rho * rho
 finish = jnp.bool_(False)
 
-
 for i in jnp.arange(len(z_inits[z_mask])):
     print('%d images positive'%i)
     z_init = z_inits[z_mask][i]
     dy     = incr
-    carry  = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+    carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
     area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
-    (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
     #break
     #print(area)
     print('%d images negative'%i)
     dy     = -incr
     z_init = z_inits[z_mask][i] + 1j * dy
-    carry  = (yi, indx, Nindx, xmax, xmin, area_x, y, dys)
+    carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
     area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
-    (yi, indx, Nindx, xmax, xmin, area_x, y, dys) = carry
+    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
     ##print(area)
+if(0):
+    plt.figure()
+    for i in range(len(z_inits[z_mask])):
+        plt.scatter(z_inits[z_mask][i].real, z_inits[z_mask][i].imag, marker="*", zorder=2, ec="k")
+        plt.text(z_inits[z_mask][i].real, z_inits[z_mask][i].imag, s="%d"%(i), zorder=2)
+    plt.plot(xmin[area_x>0], y[area_x>0], ".", color="k", label="xmin")
+    plt.plot(xmax[area_x>0], y[area_x>0], ".", color="red", label="xmax")
+    plt.legend()
+    plt.axis("equal")
+    plt.show()
+    plt.close()
+
 print("identify the protruding areas that are missed!!")
+(yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
+xmin_diff = jnp.where(jnp.diff(xmin)==0, jnp.inf, jnp.diff(xmin))
+xmax_diff = jnp.where(jnp.diff(xmax)==0,-jnp.inf, jnp.diff(xmax)) 
+fac_marg = 1.1
+upper_left  = (xmin_diff < -fac_marg * incr) & (dys[1:] < 0) #& (jnp.abs(xmin_diff) > jnp.abs(xmax_diff))
+lower_left  = (xmin_diff < -fac_marg * incr) & (dys[1:] > 0) #& (jnp.abs(xmin_diff) > jnp.abs(xmax_diff)) 
+upper_right = (xmax_diff > fac_marg * incr)  & (dys[1:] < 0) #& (jnp.abs(xmin_diff) < jnp.abs(xmax_diff))
+lower_right = (xmax_diff > fac_marg * incr)  & (dys[1:] > 0) #& (jnp.abs(xmin_diff) < jnp.abs(xmax_diff))
 
+fac = 3.0
+for k in jnp.where(upper_left)[0]:
+    offset_factor = fac * jnp.abs((xmin[k + 2] - xmin[k + 1]) / incr).astype(int)
+    z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] + incr))
+    yi += 1
+    carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
+    area, carry = image_area0(w_center, rho, z_init, incr, carry, **_params) 
+    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
+    area_all += area
+    yi = jax.lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
+    print("upper left (yi=%d)"%(k), "%.2f"%y[k], area!=0)
 
+for k in jnp.where(upper_right)[0]:
+    #k + 1 is 伸びてる部分のyi
+    offset_factor = fac * jnp.abs((xmax[k + 2] - xmax[k + 1]) / incr).astype(int)
+    z_init = jnp.complex128(xmax[k + 1] - offset_factor * incr + 1j * (y[k + 1] + incr))
+    yi += 1
+    carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
+    area, carry = image_area0(w_center, rho, z_init, incr, carry, **_params) 
+    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
+    area_all += area
+    yi = jax.lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
+    print("upper right (yi=%d)"%(k), "%.2f"%y[k], area!=0)
+
+for k in jnp.where(lower_left)[0]:
+    offset_factor = fac * jnp.abs((xmin[k + 2] - xmin[k + 1]) / incr).astype(int)
+    z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] - incr))
+    yi += 1
+    carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
+    area, carry = image_area0(w_center, rho, z_init, -incr, carry, **_params) 
+    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
+    area_all += area
+    yi = jax.lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
+    print("lower left (yi=%d)"%(k), "%.2f"%z_init.real, "%.2f"%z_init.imag, area!=0)
+        
+for k in jnp.where(lower_right)[0]:
+    offset_factor = fac * jnp.abs((xmax[k + 2] - xmax[k + 1]) / incr).astype(int)
+    z_init = jnp.complex128(xmax[k + 1] - offset_factor * incr + 1j * (y[k + 1] - incr))
+    yi += 1
+    carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
+    area, carry = image_area0(w_center, rho, z_init, -incr, carry, **_params) 
+    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
+    area_all += area
+    yi = jax.lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
+    print("lower right (yi=%d)"%(k), "%.2f"%z_init.real, "%.2f"%z_init.imag, area!=0)
 
 
 N_limb = 5000
