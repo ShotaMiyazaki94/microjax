@@ -1,3 +1,4 @@
+LICENSE
 README.md
 setup.py
 dusts/multi_pole.py
@@ -26,6 +27,7 @@ src/microjax/utils.py
 src/microjax.egg-info/PKG-INFO
 src/microjax.egg-info/SOURCES.txt
 src/microjax.egg-info/dependency_links.txt
+src/microjax.egg-info/requires.txt
 src/microjax.egg-info/top_level.txt
 src/microjax/__pycache__/point_source.cpython-39.pyc
 src/microjax/caustics/__init__.py
