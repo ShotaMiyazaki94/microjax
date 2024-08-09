@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
 from microjax.image_area0 import image_area0
 
-NBIN = 10
+NBIN = 20
 nlenses = 2
 
 w_center = jnp.complex128(-0.00 - 0.0j)
 q  = 0.5
 s  = 1.0
-rho = 0.2
+rho = 0.1
 #rho = 1e-3
 
 # extreme case
@@ -52,22 +52,23 @@ count_x = 0.0
 count_all = 0.0
 rho2 = rho * rho
 finish = jnp.bool_(False)
+carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
 
 for i in jnp.arange(len(z_inits[z_mask])):
     print('%d images positive'%i)
     z_init = z_inits[z_mask][i]
     dy     = incr
-    carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
+    #carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
     area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
-    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
+    #(yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
     #break
     #print(area)
     print('%d images negative'%i)
     dy     = -incr
     z_init = z_inits[z_mask][i] + 1j * dy
-    carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
+    #carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
     area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
-    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
+    #(yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
     ##print(area)
 if(0):
     plt.figure()

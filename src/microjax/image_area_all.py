@@ -35,7 +35,6 @@ def image_area_all(w_center, rho, NBIN=10, nlenses=2, **_params):
 
     yi         = 0
     area_all   = 0.0
-    area_image = jnp.zeros(10)
     max_iter   = int(1e+6)
     indx       = jnp.zeros((max_iter * 2, 6), dtype=int) # index for checking the overlaps
     Nindx      = jnp.zeros((max_iter * 2), dtype=int)     # Number of images at y_index
@@ -46,27 +45,62 @@ def image_area_all(w_center, rho, NBIN=10, nlenses=2, **_params):
     dys        = jnp.zeros((max_iter * 2))
 
     # seach images from each start points
-    for i in jnp.arange(len(z_inits[z_mask])):
-        area_i = 0
-        z_init = z_inits[z_mask][i]
-        # positive search
-        dy     = incr
-        carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
-        area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
-        (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
-        area_i += area
-        # negative search
-        dy     = -incr
-        z_init = z_inits[z_mask][i] + 1j * dy
-        carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
-        area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
-        (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
-        area_i += area
+    area_all    = 0.0
+    Nmax_images = 10
 
-        area_all += area_i
-        area_image = area_image.at[i].set(area_i)
-        #yi += 1 # for positive run in the next image
+    def scan_fn(carry_scan, i):
+        def run_search(carry_scan):
+            area_i = 0.0
+            (yi, indx, Nindx, xmin, xmax, area_x, y, dys, area_all) = carry_scan
+            carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys) 
+            
+            # positive dy search 
+            dy = incr
+            z_init = z_inits[i]
+            area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
+            area_i += area
+            
+            # negative dy search
+            dy = -incr
+            z_init = z_inits[i] + 1j * dy
+            area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
+            area_i += area
+            area_all += area_i
+            (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
+            carry_scan = (yi, indx, Nindx, xmin, xmax, area_x, y, dys, area_all)
 
+            return carry_scan
+        
+        def no_search(carry_scan):
+            return carry_scan
+
+        carry_scan = lax.cond(z_mask[i], 
+                              run_search, 
+                              no_search, 
+                              carry_scan)
+        
+        return carry_scan, None
+    
+    carry_scan = (yi, indx, Nindx, xmin, xmax, area_x, y, dys, area_all)
+    carry_scan, _ = lax.scan(scan_fn, carry_scan, jnp.arange(Nmax_images))
+    (yi, indx, Nindx, xmin, xmax, area_x, y, dys, area_all) = carry_scan 
+    carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys) 
+
+    # identify the protruding areas that were missed
+    xmin_diff = jnp.where(jnp.diff(xmin)==0, jnp.inf, jnp.diff(xmin))
+    xmax_diff = jnp.where(jnp.diff(xmax)==0,-jnp.inf, jnp.diff(xmax))
+    y_diff    = jnp.where(jnp.diff(y)==0, jnp.inf, jnp.diff(y))
+    fac_marg = 10.0
+    upper_left  = (xmin_diff < -fac_marg * incr) & (dys[:-1] < 0) & (jnp.abs(y_diff) <= 2.0 * incr) 
+    lower_left  = (xmin_diff < -fac_marg * incr) & (dys[:-1] > 0) & (jnp.abs(y_diff) <= 2.0 * incr)
+    upper_right = (xmax_diff > fac_marg * incr)  & (dys[:-1] < 0) & (jnp.abs(y_diff) <= 2.0 * incr)
+    lower_right = (xmax_diff > fac_marg * incr)  & (dys[:-1] > 0) & (jnp.abs(y_diff) <= 2.0 * incr)
+
+
+    magnification = area_all / (jnp.pi * NBIN * NBIN) 
+    return area_all, magnification, carry
+
+    """ 
     # identify the protruding areas that are missed
     (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
     xmin_diff = jnp.where(jnp.diff(xmin)==0, jnp.inf, jnp.diff(xmin))
@@ -122,3 +156,4 @@ def image_area_all(w_center, rho, NBIN=10, nlenses=2, **_params):
     carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
     magnification = area_all / (jnp.pi * NBIN * NBIN) 
     return area_all, magnification, carry
+    """

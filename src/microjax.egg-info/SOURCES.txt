@@ -1,6 +1,8 @@
+.gitignore
 LICENSE
 README.md
 setup.py
+.github/workflows/main.yml
 dusts/multi_pole.py
 dusts/point_source.py
 dusts/caustics/__init__.py
@@ -14,6 +16,7 @@ dusts/caustics/multipole.py
 dusts/caustics/point_source_org.py
 dusts/caustics/trajectory.py
 dusts/caustics/utils.py
+results/README.md
 src/microjax/__init__.py
 src/microjax/coeffs.py
 src/microjax/extend_source.py
@@ -103,3 +106,4 @@ tests/integrate/poly_solve/test_multi_speed.png
 tests/integrate/poly_solve/test_multi_speed.py
 tests/integrate/special/test_special.py
 tests/integrate/special/test_special_grad.py
+tests/unittests/empty_test.py
