@@ -6,19 +6,25 @@ import matplotlib.pyplot as plt
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
 from microjax.image_area0 import image_area0
 
-NBIN = 5
+NBIN = 10
 nlenses = 2
 
-#w_center = jnp.complex128(-0.0 - 0.0j)
-w_center = jnp.complex128(-0.05 - 0.1j)
-#q  = 1e-3
+w_center = jnp.complex128(-0.00 - 0.0j)
 q  = 0.5
 s  = 1.0
+rho = 0.2
+#rho = 1e-3
+
+# extreme case
+#NBIN = 5
+#w_center = jnp.complex128(-0.0 - 0.0j)
+#  = 1e-3
+#  = 1.0
+#rho = 1e-3
+
 a  = 0.5 * s
 e1 = q / (1.0 + q) 
 _params = {"q": q, "s": s, "a": a, "e1": e1}
-#rho = 1e-2
-rho = 0.28
 
 incr  = jnp.abs(rho / NBIN)
 incr2 = incr * 0.5
@@ -79,13 +85,13 @@ print("identify the protruding areas that are missed!!")
 (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
 xmin_diff = jnp.where(jnp.diff(xmin)==0, jnp.inf, jnp.diff(xmin))
 xmax_diff = jnp.where(jnp.diff(xmax)==0,-jnp.inf, jnp.diff(xmax)) 
-fac_marg = 1.1
+fac_marg = 1.2
 upper_left  = (xmin_diff < -fac_marg * incr) & (dys[1:] < 0) #& (jnp.abs(xmin_diff) > jnp.abs(xmax_diff))
 lower_left  = (xmin_diff < -fac_marg * incr) & (dys[1:] > 0) #& (jnp.abs(xmin_diff) > jnp.abs(xmax_diff)) 
 upper_right = (xmax_diff > fac_marg * incr)  & (dys[1:] < 0) #& (jnp.abs(xmin_diff) < jnp.abs(xmax_diff))
 lower_right = (xmax_diff > fac_marg * incr)  & (dys[1:] > 0) #& (jnp.abs(xmin_diff) < jnp.abs(xmax_diff))
 
-fac = 3.0
+fac = 0.0
 for k in jnp.where(upper_left)[0]:
     offset_factor = fac * jnp.abs((xmin[k + 2] - xmin[k + 1]) / incr).astype(int)
     z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] + incr))

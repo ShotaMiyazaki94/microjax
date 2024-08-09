@@ -33,7 +33,6 @@ def image_area_all(w_center, rho, NBIN=10, nlenses=2, **_params):
     z_inits_mid, z_mask = _images_point_source(w_center_mid, nlenses=nlenses, **_params)
     z_inits = z_inits_mid + 0.5 * s * (1 - q) / (1 + q)
 
-
     yi         = 0
     area_all   = 0.0
     area_image = jnp.zeros(10)
@@ -47,7 +46,7 @@ def image_area_all(w_center, rho, NBIN=10, nlenses=2, **_params):
     dys        = jnp.zeros((max_iter * 2))
 
     # seach images from each start points
-    for i in range(len(z_inits[z_mask])):
+    for i in jnp.arange(len(z_inits[z_mask])):
         area_i = 0
         z_init = z_inits[z_mask][i]
         # positive search

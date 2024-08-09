@@ -66,6 +66,7 @@ tests/integrate/inverse_ray/speed_lens_eq.py
 tests/integrate/inverse_ray/test_carry.py
 tests/integrate/inverse_ray/test_image0.py
 tests/integrate/inverse_ray/test_image_area0.py
+tests/integrate/inverse_ray/test_image_area_all.py
 tests/integrate/magfft/test_grad.py
 tests/integrate/magfft/test_grad2.py
 tests/integrate/magfft/test_grad2_1.png

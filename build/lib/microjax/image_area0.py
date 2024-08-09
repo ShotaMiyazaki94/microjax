@@ -163,8 +163,8 @@ def update_outside_source(carry):
             y_index = jnp.int_(carry.z_current.imag * carry.incr_inv + carry.max_iter)
             carry.indx = carry.indx.at[y_index, carry.Nindx[y_index]].set(carry.yi)
             carry.Nindx = carry.Nindx.at[y_index].add(1.0)
-            jax.debug.print('yi={} y={} y_index={} dys={} xmin={} xmax={}', 
-                            carry.yi, carry.y[carry.yi], y_index, carry.dys[carry.yi], carry.xmin[carry.yi], carry.xmax[carry.yi]) 
+            #jax.debug.print('yi={} y={} y_index={} dys={} xmin={} xmax={}', 
+            #                carry.yi, carry.y[carry.yi], y_index, carry.dys[carry.yi], carry.xmin[carry.yi], carry.xmax[carry.yi]) 
             # prepare for the next row
             carry.yi += 1
             carry.dx  = carry.incr
