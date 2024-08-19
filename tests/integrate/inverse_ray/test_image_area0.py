@@ -86,11 +86,12 @@ print("identify the protruding areas that are missed!!")
 (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
 xmin_diff = jnp.where(jnp.diff(xmin)==0, jnp.inf, jnp.diff(xmin))
 xmax_diff = jnp.where(jnp.diff(xmax)==0,-jnp.inf, jnp.diff(xmax)) 
-fac_marg = 1.2
-upper_left  = (xmin_diff < -fac_marg * incr) & (dys[1:] < 0) #& (jnp.abs(xmin_diff) > jnp.abs(xmax_diff))
-lower_left  = (xmin_diff < -fac_marg * incr) & (dys[1:] > 0) #& (jnp.abs(xmin_diff) > jnp.abs(xmax_diff)) 
-upper_right = (xmax_diff > fac_marg * incr)  & (dys[1:] < 0) #& (jnp.abs(xmin_diff) < jnp.abs(xmax_diff))
-lower_right = (xmax_diff > fac_marg * incr)  & (dys[1:] > 0) #& (jnp.abs(xmin_diff) < jnp.abs(xmax_diff))
+y_diff    = jnp.where(jnp.diff(y)==0, jnp.inf, jnp.diff(y))
+fac_marg = 2.0
+upper_left  = (xmin_diff < -fac_marg * incr) & (dys[:-1] < 0) & (jnp.abs(y_diff) <= 2.0 * incr) 
+lower_left  = (xmin_diff < -fac_marg * incr) & (dys[:-1] > 0) & (jnp.abs(y_diff) <= 2.0 * incr) 
+upper_right = (xmax_diff > fac_marg * incr)  & (dys[:-1] < 0) & (jnp.abs(y_diff) <= 2.0 * incr) 
+lower_right = (xmax_diff > fac_marg * incr)  & (dys[:-1] > 0) & (jnp.abs(y_diff) <= 2.0 * incr) 
 
 fac = 0.0
 for k in jnp.where(upper_left)[0]:
