@@ -96,44 +96,6 @@ def image_area_all(w_center, rho, NBIN=10, nlenses=2, **_params):
     upper_right = (xmax_diff > fac_marg * incr)  & (dys[:-1] < 0) & (jnp.abs(y_diff) <= 2.0 * incr)
     lower_right = (xmax_diff > fac_marg * incr)  & (dys[:-1] > 0) & (jnp.abs(y_diff) <= 2.0 * incr)
 
-    def search_protruding(k, carry_all, incr, fac, direction, **params):
-        yi, indx, Nindx, xmin, xmax, area_x, y, dys, area_all = carry_all
-        def upper_left_fn(_):
-            offset_factor = fac * jnp.abs((xmin[k + 2] - xmin[k + 1]) / incr).astype(int)
-            z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] + incr))
-            return z_init
-        def upper_right_fn(_):
-            offset_factor = fac * jnp.abs((xmax[k + 2] - xmax[k + 1]) / incr).astype(int)
-            z_init = jnp.complex128(xmax[k + 1] - offset_factor * incr + 1j * (y[k + 1] + incr))
-            return z_init
-        def lower_left_fn(_):
-            offset_factor = fac * jnp.abs((xmin[k + 2] - xmin[k + 1]) / incr).astype(int)
-            z_init = jnp.complex128(xmin[k + 1] + offset_factor * incr + 1j * (y[k + 1] - incr))
-            return z_init
-        def lower_right_fn(_):
-            offset_factor = fac * jnp.abs((xmax[k + 2] - xmax[k + 1]) / incr).astype(int)
-            z_init = jnp.complex128(xmax[k + 1] - offset_factor * incr + 1j * (y[k + 1] - incr))
-            return z_init
-
-        z_init = lax.cond(direction == "upper_left", upper_left_fn,
-                          lambda _: lax.cond(direction == "upper_right", upper_right_fn,
-                                             lambda _: lax.cond(direction == "lower_left", lower_left_fn,
-                                                                lower_right_fn, None), None), None)
-        yi += 1
-        carry = yi, indx, Nindx, xmin, xmax, area_x, y, dys 
-        area, carry = image_area0(w_center, rho, z_init, 
-                                  incr if direction in ["upper_left", "upper_right"] else -incr, 
-                                  carry, **params)
-        yi, indx, Nindx, xmin, xmax, area_x, y, dys = carry
-        area_all += area
-        yi = lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
-        carry_all = (yi, indx, Nindx, xmin, xmax, area_x, y, dys, area_all) 
-        return carry_all, area != 0
-
-    def scan_body(carry, direction, incr, fac):
-        carry, _ = lax.scan(partial(search_protruding, incr=incr, fac=fac, direction=direction), carry, jnp.arange(max_iter))
-        return carry
-
     magnification = area_all / (jnp.pi * NBIN * NBIN) 
     return area_all, magnification, carry
 

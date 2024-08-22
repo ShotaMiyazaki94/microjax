@@ -218,7 +218,7 @@ def update_outside_source(carry):
 
 @register_pytree_node_class
 class CarryData:
-    def __init__(self, yi: jnp.int32, indx: jnp.ndarray, Nindx: jnp.ndarray, xmin: jnp.ndarray, 
+    def __init__(self, yi: jnp.int_, indx: jnp.ndarray, Nindx: jnp.ndarray, xmin: jnp.ndarray, 
                  xmax: jnp.ndarray, area_x: jnp.ndarray, y: jnp.ndarray, dys: jnp.ndarray, 
                  z_current: jnp.complex128, x0: jnp.float_, count_x: jnp.float_, count_all: jnp.float_, 
                  dz2: jnp.float_, dz2_last: jnp.float_, dx: jnp.float_, finish: jnp.bool_, 

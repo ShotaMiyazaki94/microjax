@@ -22,6 +22,7 @@ src/microjax/coeffs.py
 src/microjax/extend_source.py
 src/microjax/image_area0.py
 src/microjax/image_area_all.py
+src/microjax/image_limb_search.py
 src/microjax/inverse_ray_old.py
 src/microjax/multipole.py
 src/microjax/point_source.py
@@ -51,6 +52,7 @@ tests/integrate/ESPL.tbl
 tests/integrate/Pk_test
 tests/integrate/caustics/check_cond.pdf
 tests/integrate/caustics/check_cond.py
+tests/integrate/caustics/check_speed_simple.py
 tests/integrate/caustics/lightcurve_cond.pdf
 tests/integrate/caustics/lightcurve_cond.py
 tests/integrate/caustics/lightcurve_grads.pdf
@@ -68,7 +70,6 @@ tests/integrate/fftlog/test_fftlog_jax_2.png
 tests/integrate/fftlog/test_fftlog_jax_3.png
 tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/speed_lens_eq.py
-tests/integrate/inverse_ray/test_carry.py
 tests/integrate/inverse_ray/test_image0.py
 tests/integrate/inverse_ray/test_image_area0.py
 tests/integrate/inverse_ray/test_image_area_all.py

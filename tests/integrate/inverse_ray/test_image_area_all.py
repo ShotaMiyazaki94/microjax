@@ -6,15 +6,15 @@ import matplotlib.pyplot as plt
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
 from microjax.image_area_all import image_area_all
 
-w_center = jnp.complex128(0.425 + 0.0j)
-#w_center = jnp.complex128(-0.1 - 0.1j)
+w_center = jnp.complex128(-0.15 - 0.1j)
 q  = 0.5
 s  = 1.0
+rho = 0.2
+
 a  = 0.5 * s
 e1 = q / (1.0 + q) 
 _params = {"q": q, "s": s, "a": a, "e1": e1}
-rho = 1e-2
-NBIN = 20
+NBIN = 10
 
 import time
 start_time = time.time()
