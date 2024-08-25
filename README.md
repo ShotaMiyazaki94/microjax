@@ -7,7 +7,7 @@ It is built using the [JAX](https://github.com/google/jax) library which enables
 ## Installation
 `microJAX` is still being actively developed and is not yet released on PyPI. To install the development version, clone this repository, and run
 ```python
-pip install .
+pip install -e .
 ```
 ## Features
 - Fast (miliseconds) and accurate computation of binary and triple lens microlensing light curves for extended limb-darkened sources.
