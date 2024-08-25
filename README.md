@@ -17,8 +17,6 @@ pip install -e .
 
 ## References
 - `microJAX` paper coming soon!
-- [Light-curve calculations for triple microlensing systems](https://academic.oup.com/mnras/article-abstract/503/4/6143/6149166?redirectedFrom=fulltext&login=false)
-- [On a compensated Ehrlich-Aberth method for the accurate computation of all polynomial roots](https://hal.archives-ouvertes.fr/hal-03335604)
-- [A robust and efficient method for calculating the magnification of extended sources caused by gravitational lenses](https://ui.adsabs.harvard.edu/abs/1998A%26A...333L..79D/abstract)
+- [FFT based evaluation of microlensing magnification with extended source](https://ui.adsabs.harvard.edu/abs/2022ApJ...937...63S/abstract)
 - [VBBINARYLENSING: a public package for microlensing light-curve computation](https://ui.adsabs.harvard.edu/abs/2018MNRAS.479.5157B/abstract)
 - [Fast computation of quadrupole and hexadecapole approximations in microlensing with a single point-source evaluation](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true)
