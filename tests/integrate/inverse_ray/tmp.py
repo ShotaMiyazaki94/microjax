@@ -9,10 +9,11 @@ from microjax.image_area0 import image_area0
 NBIN = 10
 nlenses = 2
 
-w_center = jnp.complex128(-0.15 - 0.15j)
+#w_center = jnp.complex128(-0.0 - 0.0j)
+w_center = jnp.complex128(-0.10 - 0.15j)
 q  = 0.5
 s  = 1.0
-rho = 0.3
+rho = 1e-4
 
 a  = 0.5 * s
 e1 = q / (1.0 + q) 
@@ -21,21 +22,32 @@ _params = {"q": q, "s": s, "a": a, "e1": e1}
 incr  = jnp.abs(rho / NBIN)
 incr2 = incr * 0.5
 
-#w_center_mid = w_center - 0.5 * s * (1 - q) / (1 + q) 
-#z_inits_mid, z_mask = _images_point_source(w_center_mid, nlenses=nlenses, **_params)
-#z_inits = z_inits_mid + 0.5 * s * (1 - q) / (1 + q)
-N_limb = 20
-w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
+w_center_mid = w_center - 0.5 * s * (1 - q) / (1 + q) 
+z_inits_mid, z_mask = _images_point_source(w_center_mid, nlenses=nlenses, **_params)
+z_inits = z_inits_mid + 0.5 * s * (1 - q) / (1 + q)
+
+N_limb = 10
+w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
 w_limb_shift = w_limb - 0.5*s*(1 - q)/(1 + q) # half-axis coordinate
 image, mask = _images_point_source(w_limb_shift, a=a, e1=e1) # half-axis coordinate
 image_limb = image + 0.5*s*(1 - q)/(1 + q)       # center-of-mass coordinate
 
-z_inits = image_limb.ravel()
-z_mask = mask.ravel()
+z_inits = jnp.append(z_inits.ravel(),image_limb.ravel())
+z_mask = jnp.append(z_mask.ravel(), mask.ravel())
 
 x_inits = jnp.int_(z_inits.real / incr) * incr
 y_inits = jnp.int_(z_inits.imag / incr) * incr
 z_inits = x_inits + 1j * y_inits 
+
+_, dub_indices = jnp.unique(z_inits.real, return_index=True)
+dub_mask = jnp.zeros(z_inits.shape, dtype=bool)
+dub_mask = dub_mask.at[dub_indices].set(True)
+
+print(jnp.sum(z_mask))
+z_mask = z_mask & dub_mask
+print(jnp.sum(z_mask))
+
+#z_inits = image_limb.ravel()
 
 yi         = 0
 area_all   = 0.0
@@ -58,7 +70,7 @@ finish = jnp.bool_(False)
 carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
 
 for i in jnp.arange(len(z_inits[z_mask])):
-    print('%d images positive'%i)
+    print('%d images positive %.5f %.5f '%(i, z_inits[z_mask][i].real, z_inits[z_mask][i].imag))
     z_init = z_inits[z_mask][i]
     dy     = incr
     #carry  = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
@@ -73,68 +85,9 @@ for i in jnp.arange(len(z_inits[z_mask])):
     area, carry = image_area0(w_center, rho, z_init, dy, carry, **_params)
     #(yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
 
-print("identify the protruding areas that are missed!!")
 (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
-xmin_diff = jnp.where(jnp.diff(xmin)==0, jnp.inf, jnp.diff(xmin))
-xmax_diff = jnp.where(jnp.diff(xmax)==0,-jnp.inf, jnp.diff(xmax))
-y_diff    = jnp.where(jnp.diff(y)==0, jnp.inf, jnp.diff(y))
-fac_marg = 2.0
-upper_left  = (xmin_diff < -fac_marg * incr) & (dys[:-1] < 0) & (jnp.abs(y_diff) <= 2.0 * incr) 
-lower_left  = (xmin_diff < -fac_marg * incr) & (dys[:-1] > 0) & (jnp.abs(y_diff) <= 2.0 * incr)
-upper_right = (xmax_diff > fac_marg * incr)  & (dys[:-1] < 0) & (jnp.abs(y_diff) <= 2.0 * incr)
-lower_right = (xmax_diff > fac_marg * incr)  & (dys[:-1] > 0) & (jnp.abs(y_diff) <= 2.0 * incr)
 
-for k in jnp.where(upper_left)[0]:
-    z_init = jnp.complex128(xmin[k + 1] + incr + 1j * (y[k + 1] + incr))
-    yi += 1
-    carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
-    area, carry = image_area0(w_center, rho, z_init, incr, carry, **_params) 
-    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
-    area_all += area
-    yi = jax.lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
-    print("upper left (yi=%d)"%(k), "%.2f"%y[k], area!=0)
-
-for k in jnp.where(upper_right)[0]:
-    #k is 伸びる直前
-    #k + 1 is 伸びてる部分のyi
-    z_init = jnp.complex128(xmax[k + 1] - incr + 1j * (y[k + 1] + incr))
-    yi += 1
-    carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
-    area, carry = image_area0(w_center, rho, z_init, incr, carry, **_params) 
-    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
-    area_all += area
-    yi = jax.lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
-    print("upper right (yi=%d)"%(k), "%.2f"%y[k], area!=0)
-
-for k in jnp.where(lower_left)[0]:
-    z_init = jnp.complex128(xmin[k + 1] + incr + 1j * (y[k + 1] - incr))
-    yi += 1
-    carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
-    area, carry = image_area0(w_center, rho, z_init, -incr, carry, **_params) 
-    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
-    area_all += area
-    yi = jax.lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
-    print("lower left (yi=%d)"%(k), "%.2f"%z_init.real, "%.2f"%z_init.imag, area!=0)
-        
-for k in jnp.where(lower_right)[0]:
-    z_init = jnp.complex128(xmax[k + 1] - incr + 1j * (y[k + 1] - incr))
-    yi += 1
-    carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys)
-    area, carry = image_area0(w_center, rho, z_init, -incr, carry, **_params) 
-    (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
-    area_all += area
-    yi = jax.lax.cond(area == 0, lambda _: yi - 1, lambda _: yi, None)
-    print("lower right (yi=%d)"%(k), "%.2f"%z_init.real, "%.2f"%z_init.imag, area!=0)
-
-
-N_limb = 5000
-w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
-w_limb_shift = w_limb - 0.5*s*(1 - q)/(1 + q) # half-axis coordinate
-image, mask = _images_point_source(w_limb_shift, a=a, e1=e1) # half-axis coordinate
-image_limb = image + 0.5*s*(1 - q)/(1 + q)       # center-of-mass coordinate
-crit_tri, cau_tri = critical_and_caustic_curves(npts=1000, q=q, s=s)
-
-fig = plt.figure(figsize=(8,8))
+fig = plt.figure()
 ax = plt.axes()
 
 mask_x = area_x>0
@@ -147,40 +100,14 @@ for i in range(len(xmin[mask_x])):
     plt.plot(xmin[mask_x][i], y[mask_x][i], ".", color="None", mec="k")
     plt.plot(xmax[mask_x][i], y[mask_x][i], ".", color="None", mec="k")
 
-cmap = plt.get_cmap("coolwarm_r")
-pos_neg = jnp.where(dys[mask_x] > 0, 1.0, 0.0)
-for i in range(len(xmin[mask_x])):
-    #plt.hlines(y[mask_x][i],xmin[mask_x][i],xmax[mask_x][i])
-    plt.hlines(y[mask_x][i],xmin[mask_x][i],xmax[mask_x][i], color=cmap(pos_neg[i]))
-    plt.plot(xmin[mask_x][i], y[mask_x][i], ".", color="None", mec="gray")
-    plt.plot(xmax[mask_x][i], y[mask_x][i], ".", color="None", mec="k")
+plt.plot(w_limb.ravel().real, w_limb.ravel().imag, "o", color="None",mec="k")
 
-for k in jnp.where(upper_left)[0]:
-    plt.plot(xmin[k], y[k], "o", color="None", mec="r")
-    plt.plot(xmax[k], y[k], "o", color="None", mec="r")
-    plt.plot(xmin[k+1], y[k+1], "o", color="None", mec="g", lw=2)
-    plt.plot(xmax[k+1], y[k+1], "o", color="None", mec="g", lw=2)
-
-for k in jnp.where(upper_right)[0]:
-    plt.plot(xmin[k], y[k], "o", color="None", mec="r")
-    plt.plot(xmax[k], y[k], "o", color="None", mec="r")
-    plt.plot(xmin[k+1], y[k+1], "o", color="None", mec="g", lw=2)
-    plt.plot(xmax[k+1], y[k+1], "o", color="None", mec="g", lw=2)
-
-for k in jnp.where(lower_left)[0]:
-    plt.plot(xmin[k], y[k], "o", color="None", mec="red")
-    plt.plot(xmax[k], y[k], "o", color="None", mec="red")
-    plt.plot(xmin[k+1], y[k+1], "o", color="None", mec="green")
-    plt.plot(xmax[k+1], y[k+1], "o", color="None", mec="green")
-
-for k in jnp.where(lower_right)[0]:
-    plt.plot(xmin[k], y[k], "o", color="None", mec="red")
-    plt.plot(xmax[k], y[k], "o", color="None", mec="red")
-    plt.plot(xmin[k+1], y[k+1], "o", color="None", mec="green")
-    plt.plot(xmax[k+1], y[k+1], "o", color="None", mec="green")
-
-
-
+N_limb = 5000
+w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
+w_limb_shift = w_limb - 0.5*s*(1 - q)/(1 + q) # half-axis coordinate
+image, mask = _images_point_source(w_limb_shift, a=a, e1=e1) # half-axis coordinate
+image_limb = image + 0.5*s*(1 - q)/(1 + q)       # center-of-mass coordinate
+crit_tri, cau_tri = critical_and_caustic_curves(npts=1000, q=q, s=s)
 
 source = plt.Circle((w_center.real, w_center.imag), rho, color='b', fill=False)
 ax.add_patch(source)

@@ -3,6 +3,9 @@ LICENSE
 README.md
 setup.py
 .github/workflows/main.yml
+documents/Makefile
+documents/conf.py
+documents/index.rst
 dusts/multi_pole.py
 dusts/point_source.py
 dusts/caustics/__init__.py
@@ -70,9 +73,11 @@ tests/integrate/fftlog/test_fftlog_jax_2.png
 tests/integrate/fftlog/test_fftlog_jax_3.png
 tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/speed_lens_eq.py
-tests/integrate/inverse_ray/test_image0.py
 tests/integrate/inverse_ray/test_image_area0.py
 tests/integrate/inverse_ray/test_image_area_all.py
+tests/integrate/inverse_ray/test_image_limb_search.py
+tests/integrate/inverse_ray/test_tmp.py
+tests/integrate/inverse_ray/tmp.py
 tests/integrate/magfft/test_grad.py
 tests/integrate/magfft/test_grad2.py
 tests/integrate/magfft/test_grad2_1.png
@@ -108,3 +113,6 @@ tests/integrate/poly_solve/test_multi_speed.py
 tests/integrate/special/test_special.py
 tests/integrate/special/test_special_grad.py
 tests/unittests/empty_test.py
+tests/unittests/special/ellip_test.py
+tests/unittests/special/gamma_test.py
+tests/unittests/special/j_test.py

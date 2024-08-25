@@ -85,7 +85,8 @@ def update_dy(carry):
     return carry
 
 def update_inside_source(carry):
-    #jax.debug.print('update_inside_source yi={} dx={} z={}', carry.yi, carry.dx, carry.z_current)
+    jax.debug.print('update_inside_source yi={} dx = {} y={} z.real={} count_x={}', 
+                    carry.yi, carry.dx, carry.y[carry.yi], carry.z_current.real, carry.count_x)
     # first step in negative run
     carry.xmax = lax.cond((carry.dx == -carry.incr) & (carry.count_x == 0.0),
                           lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real + carry.incr),
@@ -97,7 +98,8 @@ def update_inside_source(carry):
     return carry
 
 def update_outside_source(carry):
-    #jax.debug.print('update_outside_source yi={} dx={} z={} x0={} xmax={} xmin={}', carry.yi, carry.dx, carry.z_current, carry.x0, carry.xmax[carry.yi], carry.xmin[carry.yi])
+    jax.debug.print('update_outside_source yi={} dx = {} y={} z.real={} count_x={}', 
+                    carry.yi, carry.dx, carry.y[carry.yi], carry.z_current.real, carry.count_x)
     def positive_run_fn(carry):
         carry.xmax = lax.cond(carry.dz2_last <= carry.rho2,
                               lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real),

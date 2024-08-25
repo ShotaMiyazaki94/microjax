@@ -17,7 +17,7 @@ rho = 0.2
 w_center = jnp.complex128(-0.15 - 0.15j)
 q  = 0.5
 s  = 1.0
-rho = 0.3
+rho = 1e-3
 #rho = 1e-3
 
 # extreme case
