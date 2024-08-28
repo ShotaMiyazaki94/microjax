@@ -6,6 +6,8 @@ setup.py
 documents/Makefile
 documents/conf.py
 documents/index.rst
+dusts/image_limb_search.py
+dusts/inverse_ray_old.py
 dusts/multi_pole.py
 dusts/point_source.py
 dusts/caustics/__init__.py
@@ -19,6 +21,9 @@ dusts/caustics/multipole.py
 dusts/caustics/point_source_org.py
 dusts/caustics/trajectory.py
 dusts/caustics/utils.py
+dusts/extended_source/test_image_area0_binary.png
+dusts/extended_source/test_image_area0_binary.py
+dusts/extended_source/tmp.py
 results/README.md
 src/microjax/__init__.py
 src/microjax/coeffs.py
@@ -72,6 +77,9 @@ tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/speed_lens_eq.py
 tests/integrate/inverse_ray/test_image_area0.py
 tests/integrate/inverse_ray/test_image_limb_search.py
+tests/integrate/inverse_ray/test_inverse_ray.py
+tests/integrate/inverse_ray/test_lightcurve.py
+tests/integrate/inverse_ray/test_limb.py
 tests/integrate/inverse_ray/test_tmp.py
 tests/integrate/magfft/test_grad.py
 tests/integrate/magfft/test_grad2.py

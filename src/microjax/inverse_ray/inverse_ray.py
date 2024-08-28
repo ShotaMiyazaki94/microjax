@@ -98,4 +98,4 @@ def mag_inverse_ray(w_center, rho, NBIN=10, Nlimb=10, nlenses=2, **_params):
     carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys) 
 
     magnification = area_all / (jnp.pi * NBIN**2)
-    return magnification #, carry
+    return magnification, carry

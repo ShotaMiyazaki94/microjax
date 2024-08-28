@@ -18,7 +18,7 @@ NBIN = 10
 
 import time
 start_time = time.time()
-magnification, carry = mag_inverse_ray(w_center, rho, NBIN=NBIN, nlenses=2, **_params)
+magnification = mag_inverse_ray(w_center, rho, NBIN=NBIN, nlenses=2, **_params)
 (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
 jax.device_put(magnification).block_until_ready()
 end_time = time.time()
