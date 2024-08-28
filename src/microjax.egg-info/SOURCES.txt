@@ -22,11 +22,6 @@ dusts/caustics/utils.py
 results/README.md
 src/microjax/__init__.py
 src/microjax/coeffs.py
-src/microjax/extend_source.py
-src/microjax/image_area0.py
-src/microjax/image_area_all.py
-src/microjax/image_limb_search.py
-src/microjax/inverse_ray_old.py
 src/microjax/multipole.py
 src/microjax/point_source.py
 src/microjax/poly_solver.py
@@ -51,6 +46,11 @@ src/microjax/fastlens/__pycache__/__init__.cpython-310.pyc
 src/microjax/fastlens/__pycache__/fftlog.cpython-310.pyc
 src/microjax/fastlens/__pycache__/mag_fft.cpython-310.pyc
 src/microjax/fastlens/__pycache__/special.cpython-310.pyc
+src/microjax/inverse_ray/__init__.py
+src/microjax/inverse_ray/extend_source_python.py
+src/microjax/inverse_ray/image_area0.py
+src/microjax/inverse_ray/inverse_ray.py
+src/microjax/inverse_ray/lightcurve.py
 tests/integrate/ESPL.tbl
 tests/integrate/Pk_test
 tests/integrate/caustics/check_cond.pdf
@@ -63,9 +63,6 @@ tests/integrate/caustics/lightcurve_grads.py
 tests/integrate/caustics/performance.pdf
 tests/integrate/caustics/performance.py
 tests/integrate/caustics/test_extend_binary.py
-tests/integrate/extended_source/test_image_area0_binary.png
-tests/integrate/extended_source/test_image_area0_binary.py
-tests/integrate/extended_source/tmp.py
 tests/integrate/fftlog/test_fftlog.py
 tests/integrate/fftlog/test_fftlog_jax.py
 tests/integrate/fftlog/test_fftlog_jax_1.png
@@ -74,10 +71,8 @@ tests/integrate/fftlog/test_fftlog_jax_3.png
 tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/speed_lens_eq.py
 tests/integrate/inverse_ray/test_image_area0.py
-tests/integrate/inverse_ray/test_image_area_all.py
 tests/integrate/inverse_ray/test_image_limb_search.py
 tests/integrate/inverse_ray/test_tmp.py
-tests/integrate/inverse_ray/tmp.py
 tests/integrate/magfft/test_grad.py
 tests/integrate/magfft/test_grad2.py
 tests/integrate/magfft/test_grad2_1.png

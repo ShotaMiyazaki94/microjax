@@ -1,6 +1,6 @@
 import jax.numpy as jnp
-from .poly_solver import poly_roots_EA_multi as poly_roots
-from .point_source import _lens_eq
+from ..poly_solver import poly_roots_EA_multi as poly_roots
+from ..point_source import _lens_eq
 import jax
 
 def source_profile_limb1(dz, u1=0.0):

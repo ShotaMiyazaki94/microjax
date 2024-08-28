@@ -4,12 +4,12 @@ jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
 
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
-from microjax.image_area_all import image_area_all
+from microjax.inverse_ray.inverse_ray import mag_inverse_ray
 
 w_center = jnp.complex128(-0.15 - 0.1j)
 q  = 0.5
 s  = 1.0
-rho = 0.2
+rho = 0.3
 
 a  = 0.5 * s
 e1 = q / (1.0 + q) 
@@ -18,11 +18,12 @@ NBIN = 10
 
 import time
 start_time = time.time()
-area_all, magnification, carry = image_area_all(w_center, rho, NBIN=NBIN, nlenses=2, **_params)
+magnification, carry = mag_inverse_ray(w_center, rho, NBIN=NBIN, nlenses=2, **_params)
 (yi, indx, Nindx, xmin, xmax, area_x, y, dys) = carry
-jax.device_put(area_all).block_until_ready()
+jax.device_put(magnification).block_until_ready()
 end_time = time.time()
 print(f"Execution time: {end_time - start_time} seconds")
+print(f"magnification: {magnification}")
 
 N_limb = 5000
 w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
@@ -32,7 +33,6 @@ image_limb = image + 0.5*s*(1 - q)/(1 + q)       # center-of-mass coordinate
 crit_tri, cau_tri = critical_and_caustic_curves(npts=1000, q=q, s=s)
 
 fig = plt.figure()
-#fig = plt.figure(figsize=(8,8))
 ax = plt.axes()
 
 mask_x = area_x>0

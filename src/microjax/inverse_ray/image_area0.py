@@ -4,9 +4,9 @@ from jax.tree_util import register_pytree_node_class
 import jax
 from jax import lax, jit
 from functools import partial
-from .point_source import lens_eq, _images_point_source
+from ..point_source import lens_eq, _images_point_source
 
-def source_profile_limb1(dz2, u1=0.0):
+def source_profile_limb1(dz2, u1=0.5):
     mu = jnp.sqrt(1.0 - dz2)
     return 1 - u1 * (1.0 - mu)
 
@@ -85,8 +85,8 @@ def update_dy(carry):
     return carry
 
 def update_inside_source(carry):
-    jax.debug.print('update_inside_source yi={} dx = {} y={} z.real={} count_x={}', 
-                    carry.yi, carry.dx, carry.y[carry.yi], carry.z_current.real, carry.count_x)
+    #jax.debug.print('update_inside_source yi={} dx = {} y={} z.real={} count_x={}', 
+    #                carry.yi, carry.dx, carry.y[carry.yi], carry.z_current.real, carry.count_x)
     # first step in negative run
     carry.xmax = lax.cond((carry.dx == -carry.incr) & (carry.count_x == 0.0),
                           lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real + carry.incr),
@@ -98,8 +98,8 @@ def update_inside_source(carry):
     return carry
 
 def update_outside_source(carry):
-    jax.debug.print('update_outside_source yi={} dx = {} y={} z.real={} count_x={}', 
-                    carry.yi, carry.dx, carry.y[carry.yi], carry.z_current.real, carry.count_x)
+    #jax.debug.print('update_outside_source yi={} dx = {} y={} z.real={} count_x={}', 
+    #                carry.yi, carry.dx, carry.y[carry.yi], carry.z_current.real, carry.count_x)
     def positive_run_fn(carry):
         carry.xmax = lax.cond(carry.dz2_last <= carry.rho2,
                               lambda _: carry.xmax.at[carry.yi].set(carry.z_current.real),
@@ -184,7 +184,8 @@ def update_outside_source(carry):
                               None)
 
         # condition in negative run
-        x_larger_than_previous_xmin = carry.z_current.real >= carry.xmin[carry.yi - 1] + carry.incr
+        previous_yi_is_connected = jnp.abs(carry.z_current.imag - carry.y[carry.yi -1]) < 2.0 * carry.incr
+        x_larger_than_previous_xmin = (carry.z_current.real >= carry.xmin[carry.yi - 1] + carry.incr) & (previous_yi_is_connected)
         nothing_negative_run = (carry.yi != 0) & (carry.count_x == 0)
         cond_nothing_but_update = (x_larger_than_previous_xmin)&(nothing_negative_run)
 

@@ -4,13 +4,13 @@ jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
 
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
-from microjax.image_area0 import image_area0
+from microjax.inverse_ray.image_area0 import image_area0
 
 NBIN = 10
 nlenses = 2
 
 #w_center = jnp.complex128(-0.0 - 0.0j)
-w_center = jnp.complex128(-0.10 - 0.15j)
+w_center = jnp.complex128(-0.136 - 0.15j)
 q  = 0.5
 s  = 1.0
 rho = 1e-4
@@ -26,7 +26,7 @@ w_center_mid = w_center - 0.5 * s * (1 - q) / (1 + q)
 z_inits_mid, z_mask = _images_point_source(w_center_mid, nlenses=nlenses, **_params)
 z_inits = z_inits_mid + 0.5 * s * (1 - q) / (1 + q)
 
-N_limb = 10
+N_limb = 20
 w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
 w_limb_shift = w_limb - 0.5*s*(1 - q)/(1 + q) # half-axis coordinate
 image, mask = _images_point_source(w_limb_shift, a=a, e1=e1) # half-axis coordinate

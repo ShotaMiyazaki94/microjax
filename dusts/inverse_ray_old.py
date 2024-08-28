@@ -1,6 +1,6 @@
 import jax.numpy as jnp
-from .poly_solver import poly_roots
-from .point_source import lens_eq
+from ..src.microjax.poly_solver import poly_roots
+from ..src.microjax.point_source import lens_eq
 import jax
 from jax.tree_util import register_pytree_node_class
 

@@ -4,8 +4,8 @@ from jax.tree_util import register_pytree_node_class
 import jax
 from jax import lax, jit
 from functools import partial
-from .point_source import lens_eq, _images_point_source
-from .image_area0 import image_area0
+from ..src.microjax.point_source import lens_eq, _images_point_source
+from ..src.microjax.inverse_ray.image_area0 import image_area0
 
 @partial(jit, static_argnames=("NBIN", "Nlimbs", "nlenses"))
 def image_limb_search(w_center, rho, NBIN=10, Nlimbs=1000, nlenses=2, **_params):

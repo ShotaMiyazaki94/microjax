@@ -4,8 +4,8 @@ jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
 
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
-from microjax.image_area_all import image_area_all
-from microjax.image_limb_search import image_limb_search
+from microjax.inverse_ray.inverse_ray import image_area_all
+from dusts.image_limb_search import image_limb_search
 
 w_center = jnp.complex128(-0.14 - 0.1j)
 q  = 0.5

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from microjax.caustics.extended_source import mag_extended_source
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
-from microjax.image_area_all import image_area_all
+from microjax.inverse_ray.inverse_ray import image_area_all
 
 w_center = jnp.complex128(0.425 + 0.0j)
 #w_center = jnp.complex128(-0.1 - 0.1j)

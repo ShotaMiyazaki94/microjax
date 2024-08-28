@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import jax.numpy as jnp
 from jax import jit
-from microjax.extend_source import image_area0_binary
+from microjax.inverse_ray.extend_source_python import image_area0_binary
 from microjax.point_source import _images_point_source_binary, critical_and_caustic_curves_binary
 import jax
 jax.config.update("jax_enable_x64", True)
