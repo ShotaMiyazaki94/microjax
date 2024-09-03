@@ -27,7 +27,7 @@ def mag_ac_binary(w0, rho, a, e1, u1=0., accuracy=0.05, ld_accuracy=1e-03):
         return bl.adaptive_contouring_magnification(w0.real, w0.imag, rho, accuracy=accuracy, 
                                                     u_limb_darkening=u1, ld_accuracy=ld_accuracy)
 
-def time(func, number=5, repeats=2):
+def time(func, number=3, repeats=2):
     times = 1000*np.array((timeit.Timer(func).repeat(repeat=repeats, number=number)))/number
     return np.mean(times)
 
@@ -43,7 +43,7 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 )
 caustic_curves = caustic_curves.reshape(-1)
 
-if(0):
+if(1):
     key = random.PRNGKey(42)
     key, subkey1, subkey2 = random.split(key, num=3)
     phi = random.uniform(subkey1, caustic_curves.shape, minval=-np.pi, maxval=np.pi)
@@ -66,7 +66,7 @@ acc_ac_ld = 1e-03
 npts_limb = 500
 npts_ld = 100
 
-rho_list = [1., 1e-01, 1e-02, 1e-03]
+rho_list = [1., 1e-01, 1e-02, 1e-03, 1e-4]
 
 t_list = []
 t_vbb_list = []
@@ -111,28 +111,24 @@ for rho in rho_list:
     print(mag_binary(w_test[0]).block_until_ready())
     print(mag_binary_ld(w_test[0]).block_until_ready())
 
-    t_caustics = np.sum([
-        time(lambda: mag_binary(w).block_until_ready()) for w in w_test
-    ])
-    t_caustics_ld = np.sum([
-        time(lambda: mag_binary_ld(w).block_until_ready()) for w in w_test
-    ])
+    t_caustics = np.sum([time(lambda: mag_binary(w).block_until_ready()) for w in w_test])
+    t_caustics_ld = np.sum([time(lambda: mag_binary_ld(w).block_until_ready()) for w in w_test])
 
     # VBB
     t_vbb = np.sum([time(lambda: mag_vbb_binary(w, rho, a, e1, u1=0.0, accuracy=1e-04)) for w in w_test])
     t_vbb_ld = np.sum([time(lambda: mag_vbb_binary(w, rho, a, e1, u1=u1, accuracy=1e-04)) for w in w_test])
 
     # AC
-    t_ac = np.sum([time(lambda: mag_ac_binary(w, rho, a, e1, u1=0.0, accuracy=acc_ac)) for w in w_test])
-    t_ac_ld = np.sum([time(lambda: mag_ac_binary(w, rho, a, e1, u1=u1, accuracy=acc_ac, ld_accuracy=acc_ac_ld)) for w in w_test])
+    #t_ac = np.sum([time(lambda: mag_ac_binary(w, rho, a, e1, u1=0.0, accuracy=acc_ac)) for w in w_test])
+    #t_ac_ld = np.sum([time(lambda: mag_ac_binary(w, rho, a, e1, u1=u1, accuracy=acc_ac, ld_accuracy=acc_ac_ld)) for w in w_test])
 
     t_list.append(t_caustics)
     t_vbb_list.append(t_vbb)
-    t_ac_list.append(t_ac)
+    #t_ac_list.append(t_ac)
 
     t_list_ld.append(t_caustics_ld)
-    t_ac_list_ld.append(t_ac_ld)
     t_vbb_list_ld.append(t_vbb_ld)
+    #t_ac_list_ld.append(t_ac_ld)
 
 # https://stackoverflow.com/questions/48157735/plot-multiple-bars-for-categorical-data
 def subcategorybar(ax, X, vals,  labels, colors, width=0.7):
@@ -151,26 +147,44 @@ def subcategorybar(ax, X, vals,  labels, colors, width=0.7):
     ax.set_xticks(_X, X)
 
 labels = [
-    r"$\rho_\star=10^{0}$", r"$\rho_\star=10^{-1}$", r"$\rho_\star=10^{-2}$", r"$\rho_\star=10^{-3}$", 
+    r"$\rho_\star=10^{0}$", r"$\rho_\star=10^{-1}$", r"$\rho_\star=10^{-2}$", r"$\rho_\star=10^{-3}$", r"$\rho_\star=10^{-4}$"  
 ]
-X = ['caustics', 'VBBinaryLensing', 'Adaptive\nContouring']
+X = ['caustics', 'VBBinaryLensing']
+vals1 = [
+    [t_list[0], t_vbb_list[0]],
+    [t_list[1], t_vbb_list[1]],
+    [t_list[2], t_vbb_list[2]],
+    [t_list[3], t_vbb_list[3]],
+    [t_list[4], t_vbb_list[4]],
+]
 
+vals2 = [
+    [t_list_ld[0], t_vbb_list_ld[0]],
+    [t_list_ld[1], t_vbb_list_ld[1]],
+    [t_list_ld[2], t_vbb_list_ld[2]],
+    [t_list_ld[3], t_vbb_list_ld[3]],
+    [t_list_ld[4], t_vbb_list_ld[4]],
+]
+'''
+X = ['caustics', 'VBBinaryLensing', 'Adaptive\nContouring']
 vals1 = [
     [t_list[0], t_vbb_list[0], t_ac_list[0]],
     [t_list[1], t_vbb_list[1], t_ac_list[1]],
     [t_list[2], t_vbb_list[2], t_ac_list[2]],
     [t_list[3], t_vbb_list[3], t_ac_list[3]],
 ]
+
 vals2 = [
     [t_list_ld[0], t_vbb_list_ld[0], t_ac_list_ld[0]],
     [t_list_ld[1], t_vbb_list_ld[1], t_ac_list_ld[1]],
     [t_list_ld[2], t_vbb_list_ld[2], t_ac_list_ld[2]],
     [t_list_ld[3], t_vbb_list_ld[3], t_ac_list_ld[3]],
 ]
+'''
 
 import matplotlib
 cmap = matplotlib.cm.get_cmap('RdPu')
-colors = cmap(np.linspace(0.2, 1, 4))
+colors = cmap(np.linspace(0.2, 1, 5))
 
 fig, ax = plt.subplots(1, 2, figsize=(14,6), sharey=True,gridspec_kw={'wspace':0.1})
 subcategorybar(ax[0], X, np.array(vals1)/12, labels, colors)
@@ -186,5 +200,5 @@ ax[0].set_ylabel('Evaluation time [ms]')
 ax[0].set_title("Uniform brightness source")
 ax[1].set_title("Limb-darkened source")
 ax[1].set_yticks([1e0, 1e1, 1e2, 1e3, 1e4])
-fig.savefig("tests/caustics/performance.pdf",bbox_incehs="tight")
+fig.savefig("tests/integrate/caustics/performance.pdf",bbox_incehs="tight")
 plt.show()

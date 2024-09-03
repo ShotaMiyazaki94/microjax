@@ -46,7 +46,7 @@ def mag_inverse_ray(w_center, rho, NBIN=10, Nlimb=10, nlenses=2, **_params):
 
     yi         = 0
     area_all   = 0.0
-    max_iter   = int(1e+6)
+    max_iter   = int(1e+4)
     indx       = jnp.zeros((max_iter * 2, 6), dtype=int) # index for checking the overlaps
     Nindx      = jnp.zeros((max_iter * 2), dtype=int)     # Number of images at y_index
     xmin       = jnp.zeros((max_iter * 2))
@@ -95,7 +95,7 @@ def mag_inverse_ray(w_center, rho, NBIN=10, Nlimb=10, nlenses=2, **_params):
     carry_scan = (yi, indx, Nindx, xmin, xmax, area_x, y, dys, area_all)
     carry_scan, _ = lax.scan(scan_fn, carry_scan, jnp.arange(Nmax_images))
     (yi, indx, Nindx, xmin, xmax, area_x, y, dys, area_all) = carry_scan 
+    
     carry = (yi, indx, Nindx, xmin, xmax, area_x, y, dys) 
-
     magnification = area_all / (jnp.pi * NBIN**2)
     return magnification, carry
