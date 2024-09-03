@@ -5,6 +5,7 @@ from jax import lax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import jax
+import numpy as np
 
 @jax.jit
 def merge_intervals_jax(arr, offset=1.0):
@@ -36,17 +37,26 @@ def merge_intervals_jax(arr, offset=1.0):
 
     return merged_intervals, mask
 
-
-
-
 import time
-bins = 10**jnp.arange(-7, 0.5, 0.5)
+bins = jnp.int_(np.logspace(0.3,5,50))
 print(bins)
 
+times=[]
 for b in bins:
-    arr = jnp.arange(-1, 1, b)
+    arr = jnp.array(np.random.uniform(-10, 10, b))
+    merge_intervals_jax(jnp.ones(len(arr)), offset=1e-2) 
     start = time.time()
-    result, _ = merge_intervals_jax(arr, offset=1e-5)
+    result, _ = merge_intervals_jax(arr, offset=1e-2)
     result.block_until_ready()
     end = time.time()
-    print(len(arr),end - start,)
+    print(len(arr), "%.1e"%(end - start))
+    times.append(end-start)
+
+plt.plot(bins, times, ".")
+plt.loglog()
+plt.grid(ls="--")
+plt.title("Speed of merge")
+plt.xlabel("Number of array")
+plt.ylabel("Computation Time (seconds)")
+plt.savefig('tests/integrate/brute_force/speed_merge_jnp.pdf')
+plt.show()
