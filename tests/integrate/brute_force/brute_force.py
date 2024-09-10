@@ -78,7 +78,7 @@ a  = 0.5 * s
 e1 = q / (1.0 + q) 
 _params = {"q": q, "s": s, "a": a, "e1": e1}
 
-NBIN = 15
+NBIN = 10
 offset_r  = 1.0
 offset_th = 5.0
 GRID_RATIO = 5.0
