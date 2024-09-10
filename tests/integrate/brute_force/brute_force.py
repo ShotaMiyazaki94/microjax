@@ -84,7 +84,7 @@ offset_th = 5.0
 GRID_RATIO = 5.0
 
 start = time.time()
-N_limb = 1000
+N_limb = 5000
 w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
 w_limb_shift = w_limb - 0.5*s*(1 - q)/(1 + q) # half-axis coordinate
 image, mask = _images_point_source(w_limb_shift, a=a, e1=e1) # half-axis coordinate
