@@ -1,81 +1,145 @@
-import jax 
+import jax
 import jax.numpy as jnp
-import matplotlib.pyplot as plt
-jax.config.update("jax_enable_x64", True)
-from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
-from microjax.inverse_ray.image_area0 import image_area0
+from jax import lax
+import numpy as np
 
-# θを0から2πの範囲に正規化する関数
-def normalize_theta(theta):
-    return jnp.mod(theta, 2 * jnp.pi)
+def detect_overlaps(regions):
+    """
+    Detect overlapping regions in a given set of radial and angular boundaries.
 
-@jax.jit
-def merge_polar_intervals(polar_intervals, offset_r=1.0, offset_theta=0.1):
-    # θを0から2πの範囲に正規化
-    polar_intervals = polar_intervals.at[:, 1].set(normalize_theta(polar_intervals[:, 1]))
-    polar_intervals = polar_intervals.at[:, 3].set(normalize_theta(polar_intervals[:, 3]))
+    This function takes an array of regions defined by their radial (r) and 
+    angular (theta) boundaries and returns a matrix indicating which regions overlap.
 
-    # 各極座標区間 (r_min, theta_min, r_max, theta_max) の範囲を拡張
-    intervals = jnp.stack(
-        [polar_intervals[:, 0] - offset_r, polar_intervals[:, 1] - offset_theta, 
-         polar_intervals[:, 2] + offset_r, polar_intervals[:, 3] + offset_theta], axis=1
+    Each region is described by four values:
+    - r_min: the minimum radial boundary
+    - r_max: the maximum radial boundary
+    - t_min: the minimum angular boundary (theta)
+    - t_max: the maximum angular boundary (theta)
+
+    Parameters
+    ----------
+    regions : numpy.ndarray
+        A 2D array of shape (N, 4), where N is the number of regions.
+        Each row represents a region with the following structure:
+        [r_min, r_max, t_min, t_max], where:
+        - r_min (float): minimum radial boundary
+        - r_max (float): maximum radial boundary
+        - t_min (float): minimum angular boundary (theta)
+        - t_max (float): maximum angular boundary (theta)
+
+    Returns
+    -------
+    overlap_matrix : numpy.ndarray
+        A boolean 2D array of shape (N, N), where the element at position (i, j)
+        is True if region i overlaps with region j in both radial and angular boundaries,
+        and False otherwise. The matrix is symmetric, and the diagonal elements represent
+        self-overlap (which will always be True).
+
+    Notes
+    -----
+    - The overlap in radial and angular directions is calculated separately, and two 
+      regions are considered overlapping if they overlap in both the radial and angular 
+      boundaries.
+    - The method compares each region against every other region in the array.
+
+    Example
+    -------
+    >>> regions = np.array([[0.0, 1.0, 0.0, np.pi/4],
+                            [0.5, 1.5, np.pi/6, np.pi/2],
+                            [2.0, 3.0, np.pi/3, 2*np.pi/3]])
+    >>> overlaps = detect_overlaps(regions)
+    >>> print(overlaps)
+    [[ True  True False]
+     [ True  True False]
+     [False False  True]]
+    """
+    r_min = regions[:, 0]
+    r_max = regions[:, 1]
+    t_min = regions[:, 2]
+    t_max = regions[:, 3]
+
+    r_min_exp = r_min[:, None]
+    r_max_exp = r_max[:, None]
+    t_min_exp = t_min[:, None]
+    t_max_exp = t_max[:, None]
+
+    r_overlap = ~(r_max[:, None] < r_min_exp.T) & ~(r_max_exp.T < r_min[:, None])
+    t_overlap = ~(t_max[:, None] < t_min_exp.T) & ~(t_max_exp.T < t_min[:, None])
+
+    overlap_matrix = r_overlap & t_overlap
+    return overlap_matrix
+
+def merge_overlapping_regions(regions):
+    overlap_matrix = detect_overlaps(regions)
+    N = regions.shape[0]
+    overlap_matrix = overlap_matrix | overlap_matrix.T  # Ensure symmetry
+
+    # Initialize labels for each region
+    labels = jnp.arange(N)
+
+    def propagate_labels(labels):
+        def update_labels(i, labels):
+            overlaps = overlap_matrix[i]
+            min_label = jnp.min(jnp.where(overlaps, labels, N))
+            labels = jnp.where(overlaps, min_label, labels)
+            return labels
+
+        # Apply label updates for all regions
+        labels = jax.lax.fori_loop(0, N, update_labels, labels)
+        return labels
+
+    # Iterate label propagation until convergence
+    def cond_fun(carry):
+        old_labels, new_labels = carry
+        return jnp.any(old_labels != new_labels)
+
+    def body_fun(carry):
+        _, labels = carry
+        new_labels = propagate_labels(labels)
+        return labels, new_labels
+
+    initial_labels = labels
+    _, final_labels = jax.lax.while_loop(
+        cond_fun, body_fun, (initial_labels - 1, initial_labels)
     )
 
-    # r_min の昇順にソート
-    sorted_intervals = intervals[jnp.argsort(intervals[:, 0])]
+    unique_labels = jnp.unique(final_labels)
 
-    def merge_scan_fn(carry, next_interval):
-        current_interval = carry
+    def merge_group(label):
+        mask = final_labels == label
+        regions_to_merge = jnp.where(mask[:, None], regions, jnp.array([jnp.inf, -jnp.inf, jnp.inf, -jnp.inf]))
+        r_min = jnp.min(regions_to_merge[:, 0])
+        r_max = jnp.max(regions_to_merge[:, 1])
+        t_min = jnp.min(regions_to_merge[:, 2])
+        t_max = jnp.max(regions_to_merge[:, 3])
+        return jnp.array([r_min, r_max, t_min, t_max])
 
-        # 半径方向の開始と終了
-        r_start_max = jnp.maximum(current_interval[0], next_interval[0])
-        r_start_min = jnp.minimum(current_interval[0], next_interval[0])
-        r_end_max = jnp.maximum(current_interval[2], next_interval[2])
-        r_end_min = jnp.minimum(current_interval[2], next_interval[2])
+    # Merge regions for each unique label
+    merged_regions_per_label = jax.vmap(merge_group)(unique_labels)
 
-        # 角度方向の開始と終了 (θを0〜2πの範囲に正規化して比較)
-        theta_start_max = jnp.maximum(current_interval[1], next_interval[1])
-        theta_start_min = jnp.minimum(current_interval[1], next_interval[1])
-        theta_end_max = jnp.maximum(current_interval[3], next_interval[3])
-        theta_end_min = jnp.minimum(current_interval[3], next_interval[3])
+    # Map merged regions back to the positions of the original regions
+    def get_merged_region(region_label):
+        # Create a mask over unique_labels
+        mask = region_label == unique_labels
+        # Use the mask to select the merged region
+        merged_region = jnp.sum(jnp.where(mask[:, None], merged_regions_per_label, 0.0), axis=0)
+        return merged_region
 
-        # 角度範囲が0〜2πをまたぐ場合の特別な処理
-        overlap_exists = (r_start_max <= r_end_min) & (
-            (theta_start_max <= theta_end_min) |
-            (theta_start_min <= 0) & (theta_end_max >= 2 * jnp.pi)
-        )
+    merged_regions = jax.vmap(get_merged_region)(final_labels)
 
-        # 重なりがあれば区間を統合
-        updated_current_interval = jnp.where(
-            overlap_exists,
-            jnp.array([r_start_min, theta_start_min, r_end_max, theta_end_max]),
-            next_interval
-        )
+    # Create a mask indicating unique regions (first occurrence of each label)
+    _, index = jnp.unique(final_labels, return_index=True)
+    mask = jnp.zeros(N, dtype=bool).at[index].set(True)
 
-        return updated_current_interval, updated_current_interval
+    return merged_regions, mask
 
-    # 最初の区間で初期化し、後続の区間を順に処理
-    _, merged_intervals = jax.lax.scan(merge_scan_fn, sorted_intervals[0], sorted_intervals[1:])
-    merged_intervals = jnp.vstack([sorted_intervals[0], merged_intervals])
 
-    # 結果のマスク
-    mask = jnp.append(jnp.diff(merged_intervals[:, 0]) != 0, True)
 
-    return merged_intervals, mask
-
-polar_intervals = jnp.array([
-    [1.0, 0.1, 2.0, 1.0],  # 半径1-2, 角度0.1-1.0
-    [1.5, 0.8, 3.0, 1.2],  # 半径1.5-3, 角度0.8-1.2 (一部重なる)
-    [2.5, 6.0, 4.0, 0.2],  # 半径2.5-4, 角度6.0-0.2 (2πまたぎ)
-    [3.5, 5.8, 5.0, 6.1],  # 半径3.5-5, 角度5.8-6.1 (6.0-0.2と重なる)
+regions = jnp.array([[0.0, 1.0, 0.0, 0.1],
+                     [0.9, 1.3, 0.0, 0.1],
+                     [10, 11, 0, 2*jnp.pi]
 ])
-
-# テストする極座標区間マージ関数を実行
-merged_intervals, mask = merge_polar_intervals(polar_intervals)
-
-# 結果の表示
-print("Merged intervals:")
-print(merged_intervals)
-
-print("Mask:")
-print(mask)
+merged_regions = jax.jit(merge_overlapping_regions)(regions)
+print(regions)
+print("Merged Regions:")
+print(merged_regions)

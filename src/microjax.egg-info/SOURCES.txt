@@ -37,6 +37,8 @@ src/microjax.egg-info/dependency_links.txt
 src/microjax.egg-info/requires.txt
 src/microjax.egg-info/top_level.txt
 src/microjax/__pycache__/point_source.cpython-39.pyc
+src/microjax/brute_force/__init__.py
+src/microjax/brute_force/extended_source.py
 src/microjax/caustics/__init__.py
 src/microjax/caustics/extended_source.py
 src/microjax/caustics/integrate.py
@@ -59,12 +61,15 @@ src/microjax/inverse_ray/lightcurve.py
 tests/integrate/ESPL.tbl
 tests/integrate/Pk_test
 tests/integrate/brute_force/brute_force.py
-tests/integrate/brute_force/merge_jnp.py
+tests/integrate/brute_force/merge_2d.py
 tests/integrate/brute_force/merge_numpy.py
 tests/integrate/brute_force/speed_image_solve.png
 tests/integrate/brute_force/speed_image_solve.py
 tests/integrate/brute_force/speed_lens_eq.pdf
 tests/integrate/brute_force/speed_lens_eq.py
+tests/integrate/brute_force/speed_merge_jnp.pdf
+tests/integrate/brute_force/speed_merge_jnp.py
+tests/integrate/brute_force/trial_1.py
 tests/integrate/caustics/check_cond.pdf
 tests/integrate/caustics/check_cond.py
 tests/integrate/caustics/check_speed_simple.py
