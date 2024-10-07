@@ -148,10 +148,7 @@ if __name__ == "__main__":
     _params = {"q": q, "s": s}
     magnification = mag_simple(w_center, rho, resolution=resolution, Nlimb=Nlimb, 
                         offset_r=offset_r, offset_th=offset_th, GRID_RATIO = GRID_RATIO, **_params)
-    #magnification = mag(w_center, rho, resolution=resolution, Nlimb=Nlimb, 
-    #                    offset_r=offset_r, offset_th=offset_th, GRID_RATIO = GRID_RATIO, **_params)
     print(magnification)
-    #crit_tri, cau_tri = critical_and_caustic_curves(npts=200, q=q, s=s) 
 
 """
 # Now measure execution time without JIT compilation overhead

@@ -4,7 +4,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 import numpy as np
 import jax.numpy as jnp
-from microjax.brute_force.extended_source import mag_inverse_ray
+from microjax.brute_force.lightcurve import magnifications
 from microjax.point_source import mag_point_source, critical_and_caustic_curves
 from microjax.point_source import _images_point_source
 import jax
@@ -21,7 +21,7 @@ t0 = 0.0 # time of peak magnification
 u0 = 0.1 # impact parameter
 rho = 5e-3
 
-t  =  jnp.linspace(-15, 12.5, 1000)
+t  =  jnp.linspace(-15, 12.5, 100)
 tau = (t - t0)/tE
 y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
 y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
@@ -32,15 +32,13 @@ a  = 0.5 * s
 e1 = q / (1.0 + q) 
 _params = {"a": a, "e1": e1, "q": q, "s": s}
 
-@partial(jit, static_argnames=("Nlimb", "NBIN"))
-def mag_(w_points, rho, u1=0., NBIN=10, Nlimb=10, **_params):
+@jit
+def mag_(w_points, rho, **_params):
     def body_fn(_, w):
-        mag = mag_inverse_ray(
+        mag = magnifications(
             w,
             rho,
             nlenses=2,
-            NBIN=NBIN,
-            Nlimb=Nlimb,
             **_params,
         )
         return 0, mag

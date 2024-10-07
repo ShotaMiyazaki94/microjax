@@ -1,34 +1,11 @@
 import jax 
 import jax.numpy as jnp
-from jax import jit, lax
+from jax import jit, lax, vmap
 from functools import partial
-from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
+from microjax.point_source import lens_eq, _images_point_source
+import time
 
-@partial(jit, static_argnames=("nlenses", "NBIN", "Nlimb"))
-def mag_inverse_ray(w_center, rho, NBIN=10, Nlimb=1000, margin=1.0, nlenses=2, **_params):
-
-    q, s = _params["q"], _params["s"]
-    a = 0.5 * s
-    e1 = q / (1.0 + q)
-    
-    w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, Nlimb)), dtype=complex)
-    w_limb_shift = w_limb - 0.5*s*(1 - q)/(1 + q)  # half-axis coordinate
-    image, mask  = _images_point_source(w_limb_shift, a=a, e1=e1)  # half-axis coordinate
-    image_limb   = image + 0.5*s*(1 - q)/(1 + q)  # center-of-mass coordinate 
-    image_limb = image_limb.ravel()
-    mask = mask.ravel()
-
-    
-    dr  = rho / NBIN 
-    image_start = jnp.where(mask, image_limb, 0).ravel()
-    r_is = jnp.sqrt(image_start.real**2 + image_start.imag**2)
-    r_, r_mask = merge_intervals(r_is, offset=margin*rho)
-
-    r_ = jnp.concatenate([jnp.arange(x1, x2, dr) for x1, x2 in r_[r_mask]])
-
-    return 0.0
-
-@jax.jit
+@jit
 def merge_intervals(arr, offset=1.0):
     intervals = jnp.stack([jnp.maximum(arr - offset, 0), arr + offset], axis=1)
     sorted_intervals = intervals[jnp.argsort(intervals[:, 0])]
@@ -49,13 +26,13 @@ def merge_intervals(arr, offset=1.0):
 
         return updated_current_interval, updated_current_interval
 
-    _, merged_intervals = jax.lax.scan(merge_scan_fn, sorted_intervals[0], sorted_intervals[1:])
+    _, merged_intervals = lax.scan(merge_scan_fn, sorted_intervals[0], sorted_intervals[1:])
     merged_intervals = jnp.vstack([sorted_intervals[0], merged_intervals])
     mask = jnp.append(jnp.diff(merged_intervals[:, 0]) != 0, True)
 
     return merged_intervals, mask
 
-@jax.jit
+@jit
 def merge_intervals_circ(arr, offset=1.0):
     arr_start  = jnp.clip(arr - offset, 0, 2*jnp.pi)
     arr_end    = jnp.clip(arr + offset, 0, 2*jnp.pi)
@@ -78,8 +55,139 @@ def merge_intervals_circ(arr, offset=1.0):
 
         return updated_current_interval, updated_current_interval
 
-    _, merged_intervals = jax.lax.scan(merge_scan_fn, sorted_intervals[0], sorted_intervals[1:])
+    _, merged_intervals = lax.scan(merge_scan_fn, sorted_intervals[0], sorted_intervals[1:])
     merged_intervals = jnp.vstack([sorted_intervals[0], merged_intervals])
     mask = jnp.append(jnp.diff(merged_intervals[:, 0]) != 0, True)
 
     return merged_intervals, mask
+
+@partial(jit, static_argnums=(2,))
+def calc_source_limb(w_center, rho, N_limb=100, **_params):
+    s, q = _params["s"], _params["q"]
+    a = 0.5 * s
+    e1 = q / (1.0 + q)
+    w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
+    w_limb_shift = w_limb - 0.5 * s * (1 - q) / (1 + q)
+    image, mask = _images_point_source(w_limb_shift, a=a, e1=e1)
+    image_limb = image + 0.5 * s * (1 - q) / (1 + q)
+    return image_limb, mask
+
+@jit
+def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th):
+    r_limb = jnp.abs(image_limb.ravel())
+    r_is = jnp.where(mask_limb.ravel(), r_limb, -rho * offset_r)
+    r_, r_mask = merge_intervals(r_is, offset=offset_r*rho) 
+    th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi).ravel()
+    th_is = jnp.where(mask_limb.ravel(), th_limb.ravel(), 0.0)
+    th_is = jnp.where(th_is < 0.0, th_is + 2*jnp.pi, th_is)
+    offset_th = jnp.arctan2(offset_th * rho, jnp.max(jnp.max(r_, axis=1)*r_mask))
+    th_, th_mask = merge_intervals_circ(th_is, offset=offset_th)
+
+    return r_, r_mask, th_, th_mask
+
+#@partial(jit, static_argnums=(2, 3, 4, 5, 6, ))
+def mag_simple(w_center, rho, resolution=100, Nlimb=100, offset_r = 1.0, offset_th = 5.0, GRID_RATIO=5, **_params):
+    q, s = _params["q"], _params["s"]
+    a  = 0.5 * s
+    e1 = q / (1.0 + q)
+    _params = {"q": q, "s": s, "a": a, "e1": e1}
+    start = time.time()
+    image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
+    end = time.time()
+    print("time (calc source_limb): %.2f second"%(end - start)) 
+    start = time.time()
+    r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)  
+    end = time.time()
+    print("time (merge 1d-regions): %.2f second"%(end - start)) 
+    start = time.time()
+    r_use  = r_ * r_mask.astype(float)[:, None]
+    th_use = th_ * th_mask.astype(float)[:, None]
+    # 10 is maximum number of images for triple-lens 
+    r_use  = r_use[jnp.argsort(r_use[:,1])][-10:]
+    th_use = th_use[jnp.argsort(th_use[:,1])][-10:]
+    end = time.time()
+    print("time (extract mask ingradients): %.2f second"%(end - start)) 
+    start = time.time()
+    r_limb = jnp.abs(image_limb)
+    th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
+    
+    def compute_for_range(r_range, th_range):
+        in_ = jnp.any((r_limb > r_range[0]) & (r_limb < r_range[1]) &
+                      (th_limb > th_range[0]) & (th_limb < th_range[1]))
+        def compute_if_in():
+            r_grid = jnp.linspace(r_range[0], r_range[1], resolution, endpoint=False)
+            th_grid = jnp.linspace(th_range[0], th_range[1], resolution * GRID_RATIO, endpoint=False)
+            r_mesh, th_mesh = jnp.meshgrid(r_grid, th_grid)
+            r_mesh, th_mesh = r_mesh.T, th_mesh.T
+            x_mesh = r_mesh.ravel() * jnp.cos(th_mesh.ravel())
+            y_mesh = r_mesh.ravel() * jnp.sin(th_mesh.ravel())
+            z_mesh = x_mesh + 1j * y_mesh
+            image_mesh = lens_eq(z_mesh - 0.5 * s * (1 - q) / (1 + q), **_params)
+            image_mask = jnp.abs(image_mesh - w_center + 0.5 * s * (1 - q) / (1 + q)) < rho
+            dr = jnp.median(jnp.diff(r_grid))
+            dth = jnp.median(jnp.diff(th_grid))
+            return jnp.sum(r_mesh.ravel() * image_mask.astype(float) * dr * dth)
+
+        def compute_if_not_in():
+            return 0.0
+
+        return jnp.where(in_, compute_if_in(), compute_if_not_in())
+    
+    compute_vmap = vmap(vmap(compute_for_range, in_axes=(None, 0)), in_axes=(0, None))
+    image_areas = compute_vmap(r_use, th_use)
+    magnification = jnp.sum(image_areas) / rho**2 / jnp.pi 
+    end = time.time()
+    print("time (calc mags): %.2f second"%(end - start))  
+    return magnification
+
+if __name__ == "__main__":
+    jax.config.update("jax_enable_x64", True)
+    q = 0.1
+    s = 1.0
+    alpha = jnp.deg2rad(45) # angle between lens axis and source trajectory
+    tE = 30 # einstein radius crossing time
+    t0 = 0.0 # time of peak magnification
+    u0 = 0.1 # impact parameter
+    rho = 0.05
+
+    t  =  jnp.linspace(-15, 12.5, 1)
+    tau = (t - t0)/tE
+    y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
+    y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
+    w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
+    test_params = {"q": q, "s": s}  # Lens parameters
+
+    magnification  = lambda w: mag_simple(w, rho, resolution=200, **test_params)
+    magnifications = vmap(magnification, in_axes=(0, ))(w_points) 
+
+    # Print out the result
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
+    from microjax.point_source import critical_and_caustic_curves, mag_point_source
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
+    mags_poi = mag_point_source(w_points, s=s, q=q)
+    critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=100, s=s, q=q)
+
+    fig, ax = plt.subplots(figsize=(7,7))
+    ax_in = inset_axes(ax,
+        width="60%", height="60%", 
+        bbox_transform=ax.transAxes,
+        bbox_to_anchor=(-0.2, 0.3, 0.6, 0.6)
+    )
+    ax_in.set_aspect(1)
+    ax_in.set(xlabel="$\mathrm{Re}(w)$", ylabel="$\mathrm{Im}(w)$")
+    for cc in caustic_curves:
+        ax_in.plot(cc.real, cc.imag, color='black', lw=0.7)
+    circles = [
+        plt.Circle((xi,yi), radius=rho, fill=False, facecolor=None, zorder=-1) for xi, yi in zip(w_points.real, w_points.imag)
+    ]
+    c = mpl.collections.PatchCollection(circles, match_original=True, alpha=0.05)
+    ax_in.add_collection(c)
+    ax_in.set_aspect(1)
+    ax_in.set(xlim=(-1., 1.2), ylim=(-0.8, 1.))
+
+    ax.plot(t, magnifications)
+    ax.plot(t, mags_poi)
+    ax.set_yscale("log")
+    plt.show()
