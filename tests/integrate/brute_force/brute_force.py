@@ -5,6 +5,7 @@ import time
 from microjax.point_source import lens_eq, _images_point_source, critical_and_caustic_curves
 
 jax.config.update("jax_enable_x64", True)
+jax.config.update("jax_platform_name", "cpu")
 
 # Define functions
 @jax.jit
@@ -63,32 +64,33 @@ def merge_intervals_circ(arr, offset=1.0):
 
     return merged_intervals, mask
 
-
 # Set parameters
 w_center = jnp.complex128(0.0 + 0.0j)
 q = 0.1
-s = 1.0
-rho = 1e-3
+s = 1.1
+rho = 1e-2
 a = 0.5 * s
 e1 = q / (1.0 + q)
 _params = {"q": q, "s": s, "a": a, "e1": e1}
 NBIN = 10
 offset_r = 1.0
-offset_th = 1.0
+offset_th = 10.0
 GRID_RATIO = 1.0
 
 # Warm-up JIT-compiled functions
-_ = merge_intervals(jnp.array([0.0, 1.0, 2.0]))
-_ = merge_intervals_circ(jnp.array([0.0, 1.0, 2.0]))
-_ = lens_eq(jnp.array([0.0 + 0.0j]), **_params)
-_ = _images_point_source(jnp.array([0.0 + 0.0j]), a=a, e1=e1)
+#_ = merge_intervals(jnp.array([0.0, 1.0, 2.0]))
+# = merge_intervals_circ(jnp.array([0.0, 1.0, 2.0]))
+#_ = lens_eq(jnp.array([0.0 + 0.0j]), **_params)
+#_ = _images_point_source(jnp.array([0.0 + 0.0j]), a=a, e1=e1)
 
 # Now measure execution time without JIT compilation overhead
 # First block: Source limb image
 start = time.time()
-N_limb = 100
-w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
-w_limb = jnp.append(w_center, w_limb)
+N_limb = 10
+w_limb1 = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
+w_limb2 = w_center + jnp.array(0.5 * rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex) 
+w_limb  = jnp.append(w_center, w_limb2)
+w_limb  = jnp.append(w_limb1,  w_limb2)
 #w_limb = jnp.append(w_limb, w_center + jnp.array(1.1 * rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex))
 w_limb_shift = w_limb - 0.5*s*(1 - q)/(1 + q)  # half-axis coordinate
 image, mask = _images_point_source(w_limb_shift, a=a, e1=e1)  # half-axis coordinate

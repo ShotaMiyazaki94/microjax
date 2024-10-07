@@ -72,8 +72,6 @@ def detect_overlaps(regions):
 def merge_overlapping_regions(regions):
     overlap_matrix = detect_overlaps(regions)
     N = regions.shape[0]
-    overlap_matrix = overlap_matrix | overlap_matrix.T  # Ensure symmetry
-
     # Initialize labels for each region
     labels = jnp.arange(N)
 
