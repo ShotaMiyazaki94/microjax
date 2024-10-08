@@ -12,9 +12,11 @@ from functools import partial
 import jax.numpy as jnp
 from jax import jit, lax 
 
-from .extended_source import mag_simple
+from .inverse_ray import mag_inverse_ray
 from ..point_source import _images_point_source
+
 from ..multipole import _mag_hexadecapole
+
 from ..utils import *
 
 
@@ -86,12 +88,18 @@ def _planetary_caustic_test(w, rho, c_p=2., **params):
     jit,
     static_argnames=(
         "nlenses",
+        "NBIN",
+        "Nlimb",
+        "npts_ld",
     ),
 )
 def magnifications(
     w_points,
     rho,
     nlenses=2,
+    NBIN=10,
+    Nlimb=10,
+    u1=0.0,
     **params
 ):
     """
@@ -186,7 +194,12 @@ def magnifications(
 
 
     # Compute point images for a point source
-    z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
+    z, z_mask = _images_point_source(
+        w_points - x_cm, #miyazaki
+        #w_points + x_cm,
+        nlenses=nlenses,
+        **_params
+    )
 
     if nlenses==1:
         test = w_points > 2*rho
@@ -210,7 +223,15 @@ def magnifications(
     elif nlenses == 3:
         test = jnp.zeros_like(w_points).astype(jnp.bool_)
     
-    mag_full = lambda w: mag_simple(w, rho, resolution=150, Nlimb=100, offset_r = 1.0, offset_th = 10.0, GRID_RATIO=5, **_params)
+    mag_full = lambda w: mag_inverse_ray(
+        w,
+        rho,
+        NBIN=NBIN,
+        Nlimb=Nlimb,
+        nlenses=nlenses,
+        #u1=u1,
+        **params,
+    )
 
     # Iterate over w_points and execute either the hexadecapole  approximation
     # or the full extended source calculation. `vmap` cannot be used here because

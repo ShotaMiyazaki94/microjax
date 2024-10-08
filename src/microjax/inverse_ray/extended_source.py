@@ -85,29 +85,20 @@ def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
 
     return r_, r_mask, th_, th_mask
 
-#@partial(jit, static_argnums=(2, 3, 4, 5, 6, ))
+@partial(jit, static_argnums=(2, 3, 4, 5, 6, ))
 def mag_simple(w_center, rho, resolution=100, Nlimb=100, offset_r = 1.0, offset_th = 5.0, GRID_RATIO=5, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
     _params = {"q": q, "s": s, "a": a, "e1": e1}
-    start = time.time()
+    w_center_shifted = w_center - 0.5 * s * (1 - q) / (1 + q) 
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
-    end = time.time()
-    print("time (calc source_limb): %.2f second"%(end - start)) 
-    start = time.time()
     r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)  
-    end = time.time()
-    print("time (merge 1d-regions): %.2f second"%(end - start)) 
-    start = time.time()
     r_use  = r_ * r_mask.astype(float)[:, None]
     th_use = th_ * th_mask.astype(float)[:, None]
     # 10 is maximum number of images for triple-lens 
-    r_use  = r_use[jnp.argsort(r_use[:,1])][-10:]
-    th_use = th_use[jnp.argsort(th_use[:,1])][-10:]
-    end = time.time()
-    print("time (extract mask ingradients): %.2f second"%(end - start)) 
-    start = time.time()
+    r_use  = r_use[jnp.argsort(r_use[:,1])][-5:]
+    th_use = th_use[jnp.argsort(th_use[:,1])][-5:]
     r_limb = jnp.abs(image_limb)
     th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
     
@@ -117,15 +108,14 @@ def mag_simple(w_center, rho, resolution=100, Nlimb=100, offset_r = 1.0, offset_
         def compute_if_in():
             r_grid = jnp.linspace(r_range[0], r_range[1], resolution, endpoint=False)
             th_grid = jnp.linspace(th_range[0], th_range[1], resolution * GRID_RATIO, endpoint=False)
-            r_mesh, th_mesh = jnp.meshgrid(r_grid, th_grid)
-            r_mesh, th_mesh = r_mesh.T, th_mesh.T
+            r_mesh, th_mesh = jnp.meshgrid(r_grid, th_grid, indexing='ij')
             x_mesh = r_mesh.ravel() * jnp.cos(th_mesh.ravel())
             y_mesh = r_mesh.ravel() * jnp.sin(th_mesh.ravel())
             z_mesh = x_mesh + 1j * y_mesh
             image_mesh = lens_eq(z_mesh - 0.5 * s * (1 - q) / (1 + q), **_params)
-            image_mask = jnp.abs(image_mesh - w_center + 0.5 * s * (1 - q) / (1 + q)) < rho
-            dr = jnp.median(jnp.diff(r_grid))
-            dth = jnp.median(jnp.diff(th_grid))
+            image_mask = jnp.abs(image_mesh - w_center_shifted) < rho
+            dr = jnp.diff(r_grid)[0]
+            dth = jnp.diff(th_grid)[0]
             return jnp.sum(r_mesh.ravel() * image_mask.astype(float) * dr * dth)
 
         def compute_if_not_in():
@@ -136,8 +126,6 @@ def mag_simple(w_center, rho, resolution=100, Nlimb=100, offset_r = 1.0, offset_
     compute_vmap = vmap(vmap(compute_for_range, in_axes=(None, 0)), in_axes=(0, None))
     image_areas = compute_vmap(r_use, th_use)
     magnification = jnp.sum(image_areas) / rho**2 / jnp.pi 
-    end = time.time()
-    print("time (calc mags): %.2f second"%(end - start))  
     return magnification
 
 if __name__ == "__main__":
@@ -148,19 +136,23 @@ if __name__ == "__main__":
     tE = 30 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 0.05
+    rho = 0.01
 
-    t  =  jnp.linspace(-15, 12.5, 1)
+    t  =  jnp.linspace(-10, 12.5, 1000)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
     test_params = {"q": q, "s": s}  # Lens parameters
 
-    magnification  = lambda w: mag_simple(w, rho, resolution=200, **test_params)
+    from microjax.caustics.extended_source import mag_extended_source
+    #magnification  = lambda w: mag_extended_source(w, rho, **test_params)
+    magnification  = lambda w: mag_simple(w, rho, resolution=100, **test_params)
     magnifications = vmap(magnification, in_axes=(0, ))(w_points) 
 
     # Print out the result
+    #import seaborn as sns
+    #sns.set_theme(font="Arial", style="ticks")
     import matplotlib.pyplot as plt
     import matplotlib as mpl
     from microjax.point_source import critical_and_caustic_curves, mag_point_source
@@ -171,7 +163,7 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots(figsize=(7,7))
     ax_in = inset_axes(ax,
-        width="60%", height="60%", 
+        width="50%", height="50%", 
         bbox_transform=ax.transAxes,
         bbox_to_anchor=(-0.2, 0.3, 0.6, 0.6)
     )
@@ -188,6 +180,7 @@ if __name__ == "__main__":
     ax_in.set(xlim=(-1., 1.2), ylim=(-0.8, 1.))
 
     ax.plot(t, magnifications)
-    ax.plot(t, mags_poi)
-    ax.set_yscale("log")
+    ax.grid(ls="--")
+    #ax.plot(t, mags_poi)
+    #ax.set_yscale("log")
     plt.show()
