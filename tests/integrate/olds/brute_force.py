@@ -68,29 +68,24 @@ def merge_intervals_circ(arr, offset=1.0):
 w_center = jnp.complex128(0.0 + 0.0j)
 q = 0.1
 s = 1.1
-rho = 1e-2
+rho = 1e-5
 a = 0.5 * s
 e1 = q / (1.0 + q)
 _params = {"q": q, "s": s, "a": a, "e1": e1}
 NBIN = 10
 offset_r = 1.0
-offset_th = 10.0
-GRID_RATIO = 1.0
-
-# Warm-up JIT-compiled functions
-#_ = merge_intervals(jnp.array([0.0, 1.0, 2.0]))
-# = merge_intervals_circ(jnp.array([0.0, 1.0, 2.0]))
-#_ = lens_eq(jnp.array([0.0 + 0.0j]), **_params)
-#_ = _images_point_source(jnp.array([0.0 + 0.0j]), a=a, e1=e1)
+offset_th = 5.0
+GRID_RATIO = 5.0
 
 # Now measure execution time without JIT compilation overhead
 # First block: Source limb image
 start = time.time()
-N_limb = 10
+N_limb = 1000
 w_limb1 = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
-w_limb2 = w_center + jnp.array(0.5 * rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex) 
-w_limb  = jnp.append(w_center, w_limb2)
-w_limb  = jnp.append(w_limb1,  w_limb2)
+#w_limb2 = w_center + jnp.array(0.5 * rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex) 
+w_limb  = w_limb1
+#w_limb  = jnp.append(w_center, w_limb1)
+#w_limb  = jnp.append(w_limb1,  w_limb2)
 #w_limb = jnp.append(w_limb, w_center + jnp.array(1.1 * rho * jnp.exp(1.0j * jnp.pi * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex))
 w_limb_shift = w_limb - 0.5*s*(1 - q)/(1 + q)  # half-axis coordinate
 image, mask = _images_point_source(w_limb_shift, a=a, e1=e1)  # half-axis coordinate
@@ -140,7 +135,8 @@ print("time (grid const):", end - start)
 # Fourth block: Image mask calculation and magnification
 start = time.time()
 image_mesh = lens_eq(z_mesh - 0.5*s*(1 - q)/(1 + q), **_params) 
-image_mask = jnp.abs(image_mesh - w_center + 0.5*s*(1 - q)/(1 + q)) < rho
+distance   = jnp.abs(image_mesh - w_center + 0.5*s*(1 - q)/(1 + q)) 
+image_mask = distance < rho
 image_mask.block_until_ready()
 end = time.time()
 print("time (image_mask):", end - start)
@@ -159,11 +155,13 @@ ax.add_patch(source)
 plt.plot(w_center.real, w_center.imag, "*", color="k")
 plt.plot(-q * s, 0 , ".",c="k")
 plt.plot((1.0 - q) * s, 0 ,".",c="k")
-plt.scatter(image_limb[mask].ravel().real, image_limb[mask].ravel().imag, s=1,color="purple")
+plt.scatter(image_limb[mask].ravel().real, image_limb[mask].ravel().imag, s=1,color="orange")
 plt.scatter(cau_tri.ravel().real, cau_tri.ravel().imag, marker=".", color="red", s=1)
 plt.scatter(crit_tri.ravel().real, crit_tri.ravel().imag, marker=".", color="green", s=1)
 plt.axis("equal")
-plt.scatter(z_mesh[image_mask].real, z_mesh[image_mask].imag, s=1, marker=".", zorder=-1)
-plt.scatter(z_mesh.real, z_mesh.imag, s=1, marker=".", zorder=-2, color="gray", alpha=0.3)
+#plt.scatter(z_mesh[image_mask].real, z_mesh[image_mask].imag, s=1, marker=".", zorder=-1)
+plt.scatter(z_mesh.real, z_mesh.imag, c=distance/rho, s=5, marker="o", 
+            zorder=-2, vmin=0.5, vmax=1.5, cmap="seismic_r")
+plt.colorbar()
 plt.grid(ls="-")
 plt.show()

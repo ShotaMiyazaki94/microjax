@@ -9,7 +9,7 @@ from microjax.caustics.extended_source import mag_extended_source
 from microjax.point_source import critical_and_caustic_curves
 from microjax.utils import *
 from microjax.caustics.integrate import *
-from microjax.brute_force.extended_source import mag_simple
+from microjax.inverse_ray.extended_source import mag_simple
 
 import MulensModel as mm
 import timeit
@@ -44,7 +44,7 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 )
 caustic_curves = caustic_curves.reshape(-1)
 
-if(1):
+if(0):
     key = random.PRNGKey(42)
     key, subkey1, subkey2 = random.split(key, num=3)
     phi = random.uniform(subkey1, caustic_curves.shape, minval=-np.pi, maxval=np.pi)
@@ -61,9 +61,7 @@ if(1):
 
 # Adjusted such that all codes are roughly equivalent in terms of accuracy
 acc_vbb = 6e-03
-acc_ac = 1e-02
-acc_ac_ld = 1e-03
-
+resolution = 400
 npts_limb = 500
 npts_ld = 100
 
@@ -101,7 +99,7 @@ for rho in rho_list:
         q=q,
     )
 
-    mag_binary_simple = lambda w: mag_simple(w, rho, resolution=200, s=s, q=q)
+    mag_binary_simple = lambda w: mag_simple(w, rho, resolution=resolution, s=s, q=q)
 
     # Generate random test points near the caustics
     key = random.PRNGKey(42)
@@ -154,24 +152,7 @@ def subcategorybar(ax, X, vals,  labels, colors, width=0.7):
 labels = [
     r"$\rho_\star=10^{0}$", r"$\rho_\star=10^{-1}$", r"$\rho_\star=10^{-2}$", r"$\rho_\star=10^{-3}$", r"$\rho_\star=10^{-4}$"  
 ]
-'''
-X = ['caustics', 'VBBinaryLensing']
-vals1 = [
-    [t_list[0], t_vbb_list[0]],
-    [t_list[1], t_vbb_list[1]],
-    [t_list[2], t_vbb_list[2]],
-    [t_list[3], t_vbb_list[3]],
-    [t_list[4], t_vbb_list[4]],
-]
 
-vals2 = [
-    [t_list_ld[0], t_vbb_list_ld[0]],
-    [t_list_ld[1], t_vbb_list_ld[1]],
-    [t_list_ld[2], t_vbb_list_ld[2]],
-    [t_list_ld[3], t_vbb_list_ld[3]],
-    [t_list_ld[4], t_vbb_list_ld[4]],
-]
-'''
 X = ['caustics', 'VBBinaryLensing', 'microJAX']
 vals1 = [
     [t_list[0], t_vbb_list[0], t_ac_list[0]],
@@ -207,5 +188,5 @@ ax[0].set_ylabel('Evaluation time [ms]')
 ax[0].set_title("Uniform brightness source")
 ax[1].set_title("Limb-darkened source")
 ax[1].set_yticks([1e0, 1e1, 1e2, 1e3, 1e4])
-fig.savefig("tests/integrate/brute_force/performance.pdf",bbox_incehs="tight")
+fig.savefig("tests/integrate/inverse_ray/performance_r%.2f.pdf"%(resolution),bbox_incehs="tight")
 plt.show()
