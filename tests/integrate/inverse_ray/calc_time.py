@@ -184,7 +184,7 @@ if __name__ == "__main__":
     image, mask_limb = _images_point_source(w_limb_shift, **_params)
     image_limb = image + 0.5 * s * (1 - q) / (1 + q)
 
-    exit(1)
+    #exit(1)
 
     fig = plt.figure(figsize=(6,6))
     ax = plt.axes()

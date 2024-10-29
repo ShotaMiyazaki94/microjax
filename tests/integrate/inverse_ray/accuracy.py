@@ -28,18 +28,19 @@ def mag_binary(w_points, rho, s, q, resolution=200):
 
 s, q = 0.9, 0.2
 # 1000  points on caustic curve
-npts = 100
+npts = 50
 critical_curves, caustic_curves = critical_and_caustic_curves(
     npts=npts, nlenses=2, s=s, q=q
 )
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-resolution = 400
+resolution = 200
 mags_vbb_list = []
 mags_list = []
 
-rho_list = [1.,1e-01, 1e-02, 1e-03, 1e-04]
+rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
+#rho_list = [1.,1e-01, 1e-02, 1e-03, 1e-04]
 
 for rho in rho_list:
     print(f"rho = {rho}")
@@ -48,15 +49,12 @@ for rho in rho_list:
     key = random.PRNGKey(42)
     key, subkey1, subkey2 = random.split(key, num=3)
     phi = random.uniform(subkey1, caustic_curves.shape, minval=-jnp.pi, maxval=jnp.pi)
-    r = random.uniform(subkey2, caustic_curves.shape, minval=0., maxval=2*rho)
+    r = random.uniform(subkey2, caustic_curves.shape, minval=0., maxval=rho)
     w_test = caustic_curves + r*jnp.exp(1j*phi)
 
-    mags_vbb = jnp.array(
-        [
-            mag_vbb_binary(complex(w), rho, s, q, u1=0.0, accuracy=acc_vbb)
-            for w in w_test
-        ]
-    )
+    mags_vbb = jnp.array([mag_vbb_binary(complex(w), rho, s, q, u1=0.0, accuracy=acc_vbb)
+                          for w in w_test
+                          ])
     mags = mag_binary(w_test, rho, s, q, resolution=resolution)
     mags_vbb_list.append(mags_vbb)
     mags_list.append(mags)
