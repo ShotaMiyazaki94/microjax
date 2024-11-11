@@ -4,7 +4,7 @@ jax.config.update('jax_platform_name', 'cpu')
 import jax.numpy as jnp
 from jax import random, lax
 
-from microjax.inverse_ray.extended_source import mag_simple
+from microjax.inverse_ray.extended_source import mag_simple, mag_simple2
 from microjax.point_source import critical_and_caustic_curves
 import MulensModel as mm
 
@@ -19,14 +19,19 @@ def mag_vbb_binary(w0, rho, s, q, u1=0.0, accuracy=1e-05):
         w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1
     )
 
-def mag_binary(w_points, rho, s, q, resolution=200):
+def mag_binary(w_points, rho, s, q, r_resolution=200, th_resolution=200):
     def body_fn(_, w):
-        mag = mag_simple(w, rho, s=s, q=q, resolution=resolution)
+        mag = mag_simple2(w, rho, s=s, q=q, 
+                          r_resolution=r_resolution, 
+                          th_resolution=th_resolution,
+                          Nlimb=1000, 
+                          offset_r = 100.0,
+                          fac_r=1.0, fac_th=1.0)
         return 0, mag
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
 
-s, q = 0.9, 0.2
+s, q = 0.9, 1.0
 # 1000  points on caustic curve
 npts = 50
 critical_curves, caustic_curves = critical_and_caustic_curves(
@@ -35,12 +40,13 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-resolution = 200
+r_resolution  = 500
+th_resolution = 500
 mags_vbb_list = []
 mags_list = []
 
-rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
-#rho_list = [1.,1e-01, 1e-02, 1e-03, 1e-04]
+#rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
+rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 
 for rho in rho_list:
     print(f"rho = {rho}")
@@ -55,7 +61,7 @@ for rho in rho_list:
     mags_vbb = jnp.array([mag_vbb_binary(complex(w), rho, s, q, u1=0.0, accuracy=acc_vbb)
                           for w in w_test
                           ])
-    mags = mag_binary(w_test, rho, s, q, resolution=resolution)
+    mags = mag_binary(w_test, rho, s, q, r_resolution=r_resolution, th_resolution=th_resolution)
     mags_vbb_list.append(mags_vbb)
     mags_list.append(mags)
 
@@ -63,9 +69,7 @@ fig, ax = plt.subplots(1,len(rho_list), figsize=(16, 4), sharey=True,
     gridspec_kw={'wspace':0.2})
 
 
-labels = [
-    r"$\rho_\star=10^{0}$", r"$\rho_\star=10^{-1}$", r"$\rho_\star=10^{-2}$", r"$\rho_\star=10^{-3}$", r"$\rho_\star=10^{-4}$"
-]
+labels = [r"$\rho_\star=0.1$", r"$\rho_\star=0.01$", r"$\rho_\star=10^{-3}$", r"$\rho_\star=10^{-4}$"]
 for i in range(len(rho_list)):
     mags = mags_list[i]
     mags_vbb = mags_vbb_list[i]
@@ -74,12 +78,12 @@ for i in range(len(rho_list)):
     ax[i].yaxis.set_minor_locator(AutoMinorLocator())
     ax[i].set_yscale('log')
     ax[i].set_title(labels[i])
-    #ax[i].set_ylim(5e-06, 2e-03)
+    ax[i].set_ylim(1e-05, 1.0)
     #ax[i].set_xlim(-10, 1010)
     ax[i].set_rasterization_zorder(0)
 
 ax[0].set_ylabel("Relative error")
 ax[2].set_xlabel("Point index", labelpad=25)
-fig.savefig("tests/integrate/inverse_ray/accuracy_r%d.pdf"%(resolution),bbox_incehs="tight")
+fig.savefig("tests/integrate/inverse_ray/accuracy_r%d_th%d_Nlimb.pdf"%(r_resolution, th_resolution),bbox_incehs="tight")
 
 plt.show()
