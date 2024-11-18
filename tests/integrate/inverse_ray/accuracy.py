@@ -24,14 +24,12 @@ def mag_binary(w_points, rho, s, q, r_resolution=200, th_resolution=200):
         mag = mag_simple2(w, rho, s=s, q=q, 
                           r_resolution=r_resolution, 
                           th_resolution=th_resolution,
-                          Nlimb=1000, 
-                          offset_r = 100.0,
-                          fac_r=1.0, fac_th=1.0)
+                          Nlimb=100)
         return 0, mag
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
 
-s, q = 0.9, 1.0
+s, q = 1.0, 0.1
 # 1000  points on caustic curve
 npts = 50
 critical_curves, caustic_curves = critical_and_caustic_curves(
@@ -40,8 +38,8 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 500
-th_resolution = 500
+r_resolution  = 1000
+th_resolution = 1000
 mags_vbb_list = []
 mags_list = []
 
@@ -68,12 +66,12 @@ for rho in rho_list:
 fig, ax = plt.subplots(1,len(rho_list), figsize=(16, 4), sharey=True,
     gridspec_kw={'wspace':0.2})
 
-
 labels = [r"$\rho_\star=0.1$", r"$\rho_\star=0.01$", r"$\rho_\star=10^{-3}$", r"$\rho_\star=10^{-4}$"]
 for i in range(len(rho_list)):
     mags = mags_list[i]
     mags_vbb = mags_vbb_list[i]
-    ax[i].plot(jnp.abs((mags - mags_vbb)/mags_vbb), 'k-', alpha=0.9, zorder=-1, lw=0.3)
+    relative_error = jnp.abs((mags - mags_vbb)/mags_vbb) 
+    ax[i].plot(relative_error, 'k-', alpha=0.9, zorder=-1, lw=0.3)
     ax[i].xaxis.set_minor_locator(AutoMinorLocator())
     ax[i].yaxis.set_minor_locator(AutoMinorLocator())
     ax[i].set_yscale('log')
@@ -84,6 +82,6 @@ for i in range(len(rho_list)):
 
 ax[0].set_ylabel("Relative error")
 ax[2].set_xlabel("Point index", labelpad=25)
-fig.savefig("tests/integrate/inverse_ray/accuracy_r%d_th%d_Nlimb.pdf"%(r_resolution, th_resolution),bbox_incehs="tight")
+fig.savefig("tests/integrate/inverse_ray/accuracy_r%d_th%d_Nlimb.pdf"%(r_resolution, th_resolution),bbox_inches="tight")
 
 plt.show()

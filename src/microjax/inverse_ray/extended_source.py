@@ -31,9 +31,8 @@ def _compute_in_mask(r_limb, th_limb, r_use, th_use):
     return in_mask
 
 @partial(jit, static_argnums=(2, 3, 4, 5, 6))
-def mag_simple2(w_center, rho, r_resolution=200, th_resolution=200, Nlimb=1000, 
-                offset_r = 2.0, offset_th = 5.0, 
-                fac_r = 1.0, fac_th = 1.0, **_params):
+def mag_simple2(w_center, rho, r_resolution=200, th_resolution=200, Nlimb=500, 
+                offset_r = 1.0, offset_th = 1.0, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -45,16 +44,16 @@ def mag_simple2(w_center, rho, r_resolution=200, th_resolution=200, Nlimb=1000,
     r_use  = r_ * r_mask.astype(float)[:, None]
     th_use = th_ * th_mask.astype(float)[:, None]
     # if merging is correct, 5 is good for binary-lens and 9 is for triple-lens
-    r_use  = r_use[jnp.argsort(r_use[:,1])][-5:]
-    th_use = th_use[jnp.argsort(th_use[:,1])][-5:]
+    r_use  = r_use[jnp.argsort(r_use[:,1])][-10:]
+    th_use = th_use[jnp.argsort(th_use[:,1])][-10:]
     r_limb = jnp.abs(image_limb)
     th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
-    in_mask = _compute_in_mask(r_limb.ravel(), th_limb.ravel(), r_use, th_use)
+    in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
     # binary-lens should have less than 5 images.
-    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:5]
-    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:5]
+    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
+    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
 
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
@@ -63,8 +62,8 @@ def mag_simple2(w_center, rho, r_resolution=200, th_resolution=200, Nlimb=1000,
         in_mask = jnp.any((r_limb > r_range[0]) & (r_limb < r_range[1]) &
                           (th_limb > th_range[0]) & (th_limb < th_range[1]))
         def compute_if_in():
-            dr = fac_r * (r_range[1] - r_range[0]) / r_resolution
-            dth = fac_th * (th_range[1] - th_range[0]) / th_resolution
+            dr = (r_range[1] - r_range[0]) / r_resolution
+            dth = (th_range[1] - th_range[0]) / th_resolution
             r_values  = r_grid_norm * (r_range[1] - r_range[0]) + r_range[0]
             th_values = th_grid_norm * (th_range[1] - th_range[0]) + th_range[0]
             def process_r(r0):
@@ -89,60 +88,6 @@ def mag_simple2(w_center, rho, r_resolution=200, th_resolution=200, Nlimb=1000,
     image_areas = compute_vmap(r_vmap, th_vmap)
     magnification = jnp.sum(image_areas) / rho**2 / jnp.pi 
     return magnification
-
-@partial(jit, static_argnums=(2, 3, 4, 5, 6, 7))
-def mag_simple_lax(w_center, rho, resolution=200, Nlimb=100, offset_r=1.0, offset_th=5.0, GRID_RATIO=1, num_fine=10, **_params):
-    q, s = _params["q"], _params["s"]
-    a  = 0.5 * s
-    e1 = q / (1.0 + q)
-    _params = {"q": q, "s": s, "a": a, "e1": e1}
-    shifted = 0.5 * s * (1 - q) / (1 + q)
-    w_center_shifted = w_center - shifted
-    image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
-    r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
-    r_use  = r_ * r_mask.astype(float)[:, None]
-    th_use = th_ * th_mask.astype(float)[:, None]
-    r_use  = r_use[jnp.argsort(r_use[:,1])][-5:]
-    th_use = th_use[jnp.argsort(th_use[:,1])][-5:]
-    r_limb = jnp.abs(image_limb)
-    th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
-
-    th_resolution = resolution * GRID_RATIO
-    r_grid_norm = jnp.linspace(0, 1, resolution, endpoint=False)
-    th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
-    def compute_for_range(r_range, th_range):
-        in_mask = jnp.any((r_limb > r_range[0]) & (r_limb < r_range[1]) &
-                      (th_limb > th_range[0]) & (th_limb < th_range[1]))
-        dr = (r_range[1] - r_range[0]) / resolution
-        dth = (th_range[1] - th_range[0]) / (resolution * GRID_RATIO)
-        r_values  = r_grid_norm * (r_range[1] - r_range[0]) + r_range[0]
-        th_values = th_grid_norm * (th_range[1] - th_range[0]) + th_range[0]
-
-        cos_th = jnp.cos(th_values)
-        sin_th = jnp.sin(th_values)
-
-        def process_r(r0):
-            z_th = r0 * (cos_th + 1j * sin_th)
-            image_mesh = lens_eq(z_th - shifted, **_params)
-            distances = jnp.abs(image_mesh - w_center_shifted)
-            in_source = (distances - rho < 0.0).astype(float)
-            in0, in1 = in_source[:-1], in_source[1:]
-            d0, d1   = distances[:-1], distances[1:]
-            segment_inside = (in0 == 1) & (in1 == 1)
-            segment_in2out = (in0 == 1) & (in1 == 0)
-            segment_out2in = (in0 == 0) & (in1 == 1)
-            frac = jnp.clip((rho - d0) / (d1 - d0), 0.0, 1.0)
-            area_inside    = r0 * dth * segment_inside
-            area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
-            return jnp.sum(area_inside + area_crossing)
-
-        total_area = dr * jnp.sum(vmap(process_r)(r_values))
-        return lax.select(in_mask, total_area, 0.0)
-    compute_vmap = vmap(vmap(compute_for_range, in_axes=(None, 0)), in_axes=(0, None))
-    image_areas = compute_vmap(r_use, th_use)
-    magnification = jnp.sum(image_areas) / (rho**2 * jnp.pi)
-    return magnification
-
 
 @partial(jit, static_argnums=(2, 3, 4, 5, 6))
 def mag_simple(w_center, rho, r_resolution=200, th_resolution=200, Nlimb=200, offset_r = 2.0, offset_th = 5.0, **_params):
@@ -224,7 +169,7 @@ if __name__ == "__main__":
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_binary(w, rho, resolution=100, GRID_RATIO=1, **test_params)
     #magn  = lambda w: mag_extended_source(w, rho, **test_params, npts_limb = 100)
-    magn  = lambda w: mag_simple2(w, rho, r_resolution=200, th_resolution=1000, **test_params, Nlimb=1000)
+    magn  = lambda w: mag_simple2(w, rho, r_resolution=500, th_resolution=500, **test_params, Nlimb=100)
     #magn  = lambda w: mag_simple(w, rho, r_resolution=100, th_resolution=100, **test_params, Nlimb=100)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))

@@ -75,6 +75,8 @@ tests/integrate/fftlog/test_fftlog_jax_2.png
 tests/integrate/fftlog/test_fftlog_jax_3.png
 tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/accuracy.py
+tests/integrate/inverse_ray/accuracy_r5000_th5000.pdf
+tests/integrate/inverse_ray/accuracy_r500_th500_Nlimb.pdf
 tests/integrate/inverse_ray/calc_time.py
 tests/integrate/inverse_ray/merge_2d.py
 tests/integrate/inverse_ray/merge_numpy.py
@@ -102,6 +104,7 @@ tests/integrate/magfft/test_usage.py
 tests/integrate/multipole/test_multipole.py
 tests/integrate/olds/brute_force.py
 tests/integrate/olds/compare_vbb.py
+tests/integrate/olds/gomi.py
 tests/integrate/olds/mag_point_source_grad.py
 tests/integrate/olds/test_fftlog_jax2.py
 tests/integrate/olds/test_magfft.py
