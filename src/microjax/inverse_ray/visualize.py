@@ -10,12 +10,12 @@ import matplotlib.pyplot as plt
 from jax import jit, vmap, lax
 
 def merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
-    arr = jnp.sort(arr)
+    arr_sorted = jnp.sort(arr)
     diff = jnp.diff(arr)
     diff_neg = jnp.where(diff[:-1] > margin_fac * diff[1:],  margin_fac * diff[1:], diff[:-1])
     diff_pos = jnp.where(diff[1:]  > margin_fac * diff[:-1], margin_fac * diff[:-1], diff[1:])
-    arr_start = arr[1:-1] - diff_neg - offset 
-    arr_end   = arr[1:-1] + diff_pos  + offset
+    arr_start = arr_sorted[1:-1] - diff_neg - offset 
+    arr_end   = arr_sorted[1:-1] + diff_pos  + offset
     intervals = jnp.stack([jnp.maximum(arr_start, 0.0), arr_end], axis=1) 
     sorted_intervals = intervals[jnp.argsort(intervals[:, 0])]
 
@@ -142,10 +142,10 @@ def _compute_in_mask(r_limb, theta_limb, r_intervals, theta_intervals):
     in_mask = jnp.any(combined_condition, axis=2)  # Shape: (M, K)
     return in_mask
 
-#w_center = jnp.complex128(-0.06688372+0.00092252j)
-#rho = 0.001
-w_center = jnp.complex128(-0.25439312+3.00666326e-01j)
-rho = 0.0001
+w_center = jnp.complex128(-0.06688372+0.00092252j)
+rho = 0.003
+#w_center = jnp.complex128(-0.25439312+3.00666326e-01j)
+#rho = 0.01
 q = 0.1
 s = 1.0
 a = 0.5 * s
@@ -155,8 +155,8 @@ _params = {"q": q, "s": s, "a": a, "e1": e1}
 r_resolution  = 500
 th_resolution = 500
 Nlimb = 500
-offset_r = 1.0
-offset_th  = 1.0 
+offset_r = 0.1
+offset_th  = 0.1 
 
 shifted = 0.5 * s * (1 - q) / (1 + q)
 w_center_shifted = w_center - shifted
@@ -164,8 +164,8 @@ image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
 r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
 r_use  = r_ * r_mask.astype(float)[:, None]
 th_use = th_ * th_mask.astype(float)[:, None]
-r_use  = r_use[jnp.argsort(r_use[:,1])][-10:] # mergeできていない場合は5とは限らない・・・
-th_use = th_use[jnp.argsort(th_use[:,1])][-10:]
+r_use  = r_use[jnp.argsort(r_use[:,1])][-7:] # mergeできていない場合は5とは限らない・・・
+th_use = th_use[jnp.argsort(th_use[:,1])][-7:]
 r_limb = jnp.abs(image_limb)
 th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
 in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
@@ -173,8 +173,8 @@ r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
 th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
 
 # binary-lens should have less than 5 images.
-r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][0:10]
-th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][0:10] 
+r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][0:7]
+th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][0:7] 
 r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
 th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
 

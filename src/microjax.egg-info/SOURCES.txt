@@ -78,6 +78,7 @@ tests/integrate/inverse_ray/accuracy.py
 tests/integrate/inverse_ray/accuracy_r5000_th5000.pdf
 tests/integrate/inverse_ray/accuracy_r500_th500_Nlimb.pdf
 tests/integrate/inverse_ray/calc_time.py
+tests/integrate/inverse_ray/locate_bug_conf.py
 tests/integrate/inverse_ray/merge_2d.py
 tests/integrate/inverse_ray/merge_numpy.py
 tests/integrate/inverse_ray/performance.py

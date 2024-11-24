@@ -9,7 +9,7 @@ from microjax.caustics.extended_source import mag_extended_source
 from microjax.point_source import critical_and_caustic_curves
 from microjax.utils import *
 from microjax.caustics.integrate import *
-from microjax.inverse_ray.extended_source import mag_simple
+from microjax.inverse_ray.extended_source import mag_simple2
 
 import MulensModel as mm
 import timeit
@@ -61,7 +61,6 @@ if(0):
 
 # Adjusted such that all codes are roughly equivalent in terms of accuracy
 acc_vbb = 6e-03
-resolution = 400
 npts_limb = 500
 npts_ld = 100
 
@@ -99,7 +98,7 @@ for rho in rho_list:
         q=q,
     )
 
-    mag_binary_simple = lambda w: mag_simple(w, rho, resolution=resolution, s=s, q=q)
+    mag_binary_simple = lambda w: mag_simple2(w, rho, r_resolution=300, th_resolution=2000, Nlimb=500, s=s, q=q)
 
     # Generate random test points near the caustics
     key = random.PRNGKey(42)
@@ -188,5 +187,5 @@ ax[0].set_ylabel('Evaluation time [ms]')
 ax[0].set_title("Uniform brightness source")
 ax[1].set_title("Limb-darkened source")
 ax[1].set_yticks([1e0, 1e1, 1e2, 1e3, 1e4])
-fig.savefig("tests/integrate/inverse_ray/performance_r%.2f.pdf"%(resolution),bbox_incehs="tight")
+fig.savefig("tests/integrate/inverse_ray/performance.pdf",bbox_inches="tight")
 plt.show()
