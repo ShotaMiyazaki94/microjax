@@ -5,7 +5,7 @@ from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 
 @jit
-def merge_intervals_r(arr, offset=1.0, margin_fac=100.0, expand_fac = 4.0):
+def merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
     arr = jnp.sort(arr)
     diff = jnp.diff(arr)
     diff_neg = jnp.where(diff[:-1] > margin_fac * diff[1:],  margin_fac * diff[1:], diff[:-1])
@@ -37,19 +37,7 @@ def merge_intervals_r(arr, offset=1.0, margin_fac=100.0, expand_fac = 4.0):
     merged_intervals = jnp.vstack([sorted_intervals[0], merged_intervals])
     mask = jnp.append(jnp.diff(merged_intervals[:, 0]) != 0, True)
     return merged_intervals, mask
-    # Apply the range factor to expand the merged intervals
-    """
-    center = (merged_intervals[:, 0] + merged_intervals[:, 1]) / 2
-    half_width = (merged_intervals[:, 1] - merged_intervals[:, 0]) / 2 * expand_fac
-    expanded_intervals = jnp.stack([center - half_width, center + half_width], axis=1)
-    sorted_expanded_intervals = expanded_intervals[jnp.argsort(expanded_intervals[:, 0])]
-    # Final merge
-    _, final_merged_intervals = lax.scan(merge_scan_fn, sorted_expanded_intervals[0], sorted_expanded_intervals[1:])
-    final_merged_intervals = jnp.vstack([sorted_expanded_intervals[0], final_merged_intervals])
-    final_mask = jnp.append(jnp.diff(final_merged_intervals[:, 0]) != 0, True)
 
-    return final_merged_intervals, final_mask
-    """
 def merge_intervals_theta(arr, offset=1.0, fac=100.0):
     diff = jnp.diff(jnp.sort(arr))
     diff_neg = jnp.where(diff[:-1] > fac * diff[1:],  fac * diff[1:], diff[:-1])

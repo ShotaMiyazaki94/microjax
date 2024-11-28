@@ -4,7 +4,7 @@ jax.config.update('jax_platform_name', 'cpu')
 import jax.numpy as jnp
 from jax import random, lax
 
-from microjax.inverse_ray.extended_source import mag_simple, mag_simple2
+from microjax.inverse_ray.extended_source import mag_simple, mag_uniform
 from microjax.point_source import critical_and_caustic_curves
 import MulensModel as mm
 
@@ -21,10 +21,10 @@ def mag_vbb_binary(w0, rho, s, q, u1=0.0, accuracy=1e-05):
 
 def mag_binary(w_points, rho, s, q, r_resolution=200, th_resolution=200):
     def body_fn(_, w):
-        mag = mag_simple2(w, rho, s=s, q=q, 
+        mag = mag_uniform(w, rho, s=s, q=q, 
                           r_resolution=r_resolution, 
                           th_resolution=th_resolution,
-                          Nlimb=500)
+                          Nlimb=200)
         return 0, mag
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
@@ -38,8 +38,8 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 300
-th_resolution = 2000
+r_resolution  = 1000
+th_resolution = 1000
 mags_vbb_list = []
 mags_list = []
 
@@ -82,6 +82,6 @@ for i in range(len(rho_list)):
 
 ax[0].set_ylabel("Relative error")
 ax[2].set_xlabel("Point index", labelpad=25)
-fig.savefig("tests/integrate/inverse_ray/accuracy_r%d_th%d_Nlimb.pdf"%(r_resolution, th_resolution),bbox_inches="tight")
+fig.savefig("tests/integrate/inverse_ray/accuracy_r%d_th%d_new.pdf"%(r_resolution, th_resolution),bbox_inches="tight")
 
 plt.show()

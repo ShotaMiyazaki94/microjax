@@ -4,7 +4,7 @@ jax.config.update('jax_platform_name', 'cpu')
 import jax.numpy as jnp
 from jax import random, lax
 
-from microjax.inverse_ray.extended_source import mag_simple2
+from microjax.inverse_ray.extended_source import mag_uniform
 from microjax.point_source import critical_and_caustic_curves
 import MulensModel as mm
 
@@ -18,25 +18,25 @@ def mag_vbb_binary(w0, rho, s, q, u1=0.0, accuracy=1e-05):
 
 def mag_binary(w_points, rho, s, q, r_resolution=200, th_resolution=200):
     def body_fn(_, w):
-        mag = mag_simple2(w, rho, s=s, q=q, 
+        mag = mag_uniform(w, rho, s=s, q=q, 
                           r_resolution=r_resolution, 
                           th_resolution=th_resolution,
-                          Nlimb=500,)
+                          Nlimb=200, offset_th=5.0)
         return 0, mag
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
 
 # 設定
 s, q = 1.0, 0.1
-npts = 100
+npts = 1000
 critical_curves, caustic_curves = critical_and_caustic_curves(
     npts=npts, nlenses=2, s=s, q=q
 )
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution = 500
-th_resolution = 500
+r_resolution = 200
+th_resolution = 2000
 
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 results = []  # 結果を保存するリスト
@@ -60,7 +60,7 @@ for rho in rho_list:
     relative_error = jnp.abs((mags - mags_vbb) / mags_vbb)
 
     # relative_error > 0.5 を満たすデータを抽出
-    indices = jnp.where(relative_error > 3e-3)[0]
+    indices = jnp.where(relative_error > 0.01)[0]
     if len(indices) > 0:
         results.append({
             "rho": rho,

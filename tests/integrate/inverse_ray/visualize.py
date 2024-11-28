@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 import time
-#from microjax.inverse_ray.merge_area import calc_source_limb, calculate_overlap_and_range 
+from microjax.inverse_ray.extended_source import calc_source_limb, calculate_overlap_and_range
 import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
@@ -82,27 +82,6 @@ def merge_intervals_theta(arr, offset=1.0, fac=100.0):
 
 
 #@partial(jit, static_argnums=(2,))
-def calc_source_limb(w_center, rho, N_limb=100, **_params):
-    s, q = _params["s"], _params["q"]
-    a = 0.5 * s
-    e1 = q / (1.0 + q)
-    w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
-    w_limb_shift = w_limb - 0.5 * s * (1 - q) / (1 + q)
-    image, mask = _images_point_source(w_limb_shift, a=a, e1=e1)
-    image_limb = image + 0.5 * s * (1 - q) / (1 + q)
-    return image_limb, mask
-
-def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th):
-    r_is   = jnp.ravel(jnp.abs(image_limb*mask_limb))
-    r_, r_mask = merge_intervals_r(r_is, offset=offset_r*rho) 
-    th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2 * jnp.pi)
-    th_is = jnp.sort(jnp.where(mask_limb.ravel(), th_limb.ravel(), 0.0))
-    th_is = jnp.clip(th_is, 0, 2 * jnp.pi)
-    offset_th = jnp.arctan2(offset_th * rho, jnp.max(jnp.max(r_, axis=1)*r_mask))
-    th_, th_mask = merge_intervals_theta(th_is, offset=offset_th)
-    return r_, r_mask, th_, th_mask
-
-
 def _compute_in_mask(r_limb, theta_limb, r_intervals, theta_intervals):
     """
     Computes a boolean mask indicating whether any limb points fall within specified radial and angular intervals.
@@ -142,21 +121,22 @@ def _compute_in_mask(r_limb, theta_limb, r_intervals, theta_intervals):
     in_mask = jnp.any(combined_condition, axis=2)  # Shape: (M, K)
     return in_mask
 
-w_center = jnp.complex128(-0.06688372+0.00092252j)
-rho = 0.003
-#w_center = jnp.complex128(-0.25439312+3.00666326e-01j)
-#rho = 0.01
+#w_center = jnp.complex128(-0.06688372+0.00092252j)
+#ho = 0.003
+w_center = jnp.complex128(0.04347372+3.99780987e-01j)
+w_center = jnp.complex128(-0.0071655 -3.46797301e-01j)
+rho = 1e-4
 q = 0.1
 s = 1.0
 a = 0.5 * s
 e1 = q / (1.0 + q)
 _params = {"q": q, "s": s, "a": a, "e1": e1}
 
-r_resolution  = 500
-th_resolution = 500
-Nlimb = 500
-offset_r = 0.1
-offset_th  = 0.1 
+r_resolution  = 200
+th_resolution = 2000
+Nlimb = 200
+offset_r = 1.0
+offset_th  = 5.0 
 
 shifted = 0.5 * s * (1 - q) / (1 + q)
 w_center_shifted = w_center - shifted
@@ -164,8 +144,8 @@ image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
 r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
 r_use  = r_ * r_mask.astype(float)[:, None]
 th_use = th_ * th_mask.astype(float)[:, None]
-r_use  = r_use[jnp.argsort(r_use[:,1])][-7:] # mergeできていない場合は5とは限らない・・・
-th_use = th_use[jnp.argsort(th_use[:,1])][-7:]
+r_use  = r_use[jnp.argsort(r_use[:,1])][-6:] # mergeできていない場合は5とは限らない・・・
+th_use = th_use[jnp.argsort(th_use[:,1])][-6:]
 r_limb = jnp.abs(image_limb)
 th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
 in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
@@ -173,8 +153,8 @@ r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
 th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
 
 # binary-lens should have less than 5 images.
-r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][0:7]
-th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][0:7] 
+r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][0:6]
+th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][0:6] 
 r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
 th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
 
@@ -223,3 +203,7 @@ plt.plot(-q * s, 0 , ".",c="k")
 plt.plot((1.0 - q) * s, 0 ,".",c="k")
 ax.set_aspect('equal')
 plt.show()
+#import mpld3
+#html_string = mpld3.fig_to_html(fig)
+#with open("/Users/shotamiyazaki/Desktop/figure.html", "w") as f:
+#    f.write(html_string)

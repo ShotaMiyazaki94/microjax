@@ -55,7 +55,6 @@ src/microjax/inverse_ray/__init__.py
 src/microjax/inverse_ray/extended_source.py
 src/microjax/inverse_ray/lightcurve.py
 src/microjax/inverse_ray/merge_area.py
-src/microjax/inverse_ray/visualize.py
 tests/integrate/ESPL.tbl
 tests/integrate/Pk_test
 tests/integrate/caustics/check_cond.pdf
@@ -76,11 +75,11 @@ tests/integrate/fftlog/test_fftlog_jax_3.png
 tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/accuracy.py
 tests/integrate/inverse_ray/accuracy_r5000_th5000.pdf
-tests/integrate/inverse_ray/accuracy_r500_th500_Nlimb.pdf
 tests/integrate/inverse_ray/calc_time.py
 tests/integrate/inverse_ray/locate_bug_conf.py
 tests/integrate/inverse_ray/merge_2d.py
 tests/integrate/inverse_ray/merge_numpy.py
+tests/integrate/inverse_ray/performance.pdf
 tests/integrate/inverse_ray/performance.py
 tests/integrate/inverse_ray/speed_image_solve.png
 tests/integrate/inverse_ray/speed_image_solve.py
