@@ -75,7 +75,9 @@ tests/integrate/fftlog/test_fftlog_jax_3.png
 tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/accuracy.py
 tests/integrate/inverse_ray/accuracy_r1000_th1000_new.pdf
+tests/integrate/inverse_ray/accuracy_r250_th4000_new.pdf
 tests/integrate/inverse_ray/accuracy_r5000_th5000.pdf
+tests/integrate/inverse_ray/accuracy_r500_th2000_new.pdf
 tests/integrate/inverse_ray/calc_time.py
 tests/integrate/inverse_ray/locate_bug_conf.py
 tests/integrate/inverse_ray/merge_2d.py

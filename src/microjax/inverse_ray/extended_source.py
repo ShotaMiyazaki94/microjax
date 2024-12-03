@@ -31,9 +31,9 @@ def _compute_in_mask(r_limb, th_limb, r_use, th_use):
     return in_mask
 
 
-@partial(jit, static_argnums=(2, 3, 4, 5, 6))
+@partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th","limb_darkening"))
 def mag_uniform(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200, 
-                offset_r = 1.0, offset_th = 10.0, **_params):
+                offset_r = 1.0, offset_th = 10.0, limb_darkening=False, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -44,7 +44,7 @@ def mag_uniform(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200,
     r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)  
     r_use  = r_ * r_mask.astype(float)[:, None]
     th_use = th_ * th_mask.astype(float)[:, None]
-    # if merging is correct, 5 is good for binary-lens and 9 is for triple-lens
+    # if merging is correct, 6 is emperically sufficient for binary-lens and 9 is for triple-lens
     r_use  = r_use[jnp.argsort(r_use[:,1])][-6:]
     th_use = th_use[jnp.argsort(th_use[:,1])][-6:]
     r_limb = jnp.abs(image_limb)
