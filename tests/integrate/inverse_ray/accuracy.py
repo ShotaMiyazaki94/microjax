@@ -24,12 +24,12 @@ def mag_binary(w_points, rho, s, q, r_resolution=200, th_resolution=200):
         mag = mag_uniform(w, rho, s=s, q=q, 
                           r_resolution=r_resolution, 
                           th_resolution=th_resolution,
-                          Nlimb=200)
+                          Nlimb=400)
         return 0, mag
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
 
-s, q = 1.0, 0.1
+s, q = 1.0, 1.0
 # 1000  points on caustic curve
 npts = 100
 critical_curves, caustic_curves = critical_and_caustic_curves(
@@ -38,8 +38,8 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 1000
-th_resolution = 1000
+r_resolution  = 250
+th_resolution = 4000
 mags_vbb_list = []
 mags_list = []
 

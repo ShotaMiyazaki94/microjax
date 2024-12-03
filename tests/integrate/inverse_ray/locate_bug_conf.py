@@ -27,16 +27,17 @@ def mag_binary(w_points, rho, s, q, r_resolution=200, th_resolution=200):
     return mags
 
 # 設定
-s, q = 1.0, 0.1
-npts = 1000
+s, q = 1.0, 1.0
+npts = 100
 critical_curves, caustic_curves = critical_and_caustic_curves(
     npts=npts, nlenses=2, s=s, q=q
 )
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution = 200
+r_resolution = 500
 th_resolution = 2000
+threshold = 1e-3
 
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 results = []  # 結果を保存するリスト
@@ -60,7 +61,7 @@ for rho in rho_list:
     relative_error = jnp.abs((mags - mags_vbb) / mags_vbb)
 
     # relative_error > 0.5 を満たすデータを抽出
-    indices = jnp.where(relative_error > 0.01)[0]
+    indices = jnp.where(relative_error > threshold)[0]
     if len(indices) > 0:
         results.append({
             "rho": rho,
@@ -71,6 +72,6 @@ for rho in rho_list:
 # 結果を出力
 for result in results:
     print(f"rho: {result['rho']}")
-    print(f"w_test with relative error > 3e-3: {result['w_test']}")
+    print(f"w_test with relative error > {threshold}: {result['w_test']}")
     print(f"Relative error values: {result['relative_error']}")
     print("-" * 40)

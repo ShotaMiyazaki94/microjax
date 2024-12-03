@@ -74,6 +74,7 @@ tests/integrate/fftlog/test_fftlog_jax_2.png
 tests/integrate/fftlog/test_fftlog_jax_3.png
 tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/accuracy.py
+tests/integrate/inverse_ray/accuracy_r1000_th1000_new.pdf
 tests/integrate/inverse_ray/accuracy_r5000_th5000.pdf
 tests/integrate/inverse_ray/calc_time.py
 tests/integrate/inverse_ray/locate_bug_conf.py
@@ -90,6 +91,7 @@ tests/integrate/inverse_ray/speed_merge_jnp.py
 tests/integrate/inverse_ray/test.py
 tests/integrate/inverse_ray/test_lightcurve.py
 tests/integrate/inverse_ray/trial_1.py
+tests/integrate/inverse_ray/visualize.py
 tests/integrate/magfft/test_grad.py
 tests/integrate/magfft/test_grad2.py
 tests/integrate/magfft/test_grad2_1.png

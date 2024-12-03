@@ -121,22 +121,19 @@ def _compute_in_mask(r_limb, theta_limb, r_intervals, theta_intervals):
     in_mask = jnp.any(combined_condition, axis=2)  # Shape: (M, K)
     return in_mask
 
-#w_center = jnp.complex128(-0.06688372+0.00092252j)
-#ho = 0.003
-w_center = jnp.complex128(0.04347372+3.99780987e-01j)
-w_center = jnp.complex128(-0.0071655 -3.46797301e-01j)
-rho = 1e-4
-q = 0.1
+w_center = jnp.complex128(-0.14773887+6.15587153e-01j)
+rho = 1e-3
+q = 1.0
 s = 1.0
 a = 0.5 * s
 e1 = q / (1.0 + q)
 _params = {"q": q, "s": s, "a": a, "e1": e1}
 
-r_resolution  = 200
+r_resolution  = 500
 th_resolution = 2000
 Nlimb = 200
 offset_r = 1.0
-offset_th  = 5.0 
+offset_th  = 10.0 
 
 shifted = 0.5 * s * (1 - q) / (1 + q)
 w_center_shifted = w_center - shifted
@@ -199,8 +196,8 @@ plt.scatter((image_limb[~mask_limb].real).ravel(),
 w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, Nlimb)), dtype=complex)
 ax.scatter(w_limb.real, w_limb.imag, color="blue", s=1)
 plt.plot(w_center.real, w_center.imag, "*", color="k")
-plt.plot(-q * s, 0 , ".",c="k")
-plt.plot((1.0 - q) * s, 0 ,".",c="k")
+plt.plot(-q/(1+q) * s, 0 , ".",c="k")
+plt.plot((1.0)/(1+q) * s, 0 ,".",c="k")
 ax.set_aspect('equal')
 plt.show()
 #import mpld3

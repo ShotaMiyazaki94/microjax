@@ -30,9 +30,10 @@ def _compute_in_mask(r_limb, th_limb, r_use, th_use):
     in_mask = jnp.any(combined_condition, axis=2)  # shape: (M, K)
     return in_mask
 
+
 @partial(jit, static_argnums=(2, 3, 4, 5, 6))
-def mag_uniform(w_center, rho, r_resolution=500, th_resolution=1000, Nlimb=100, 
-                offset_r = 1.0, offset_th = 5.0, **_params):
+def mag_uniform(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200, 
+                offset_r = 1.0, offset_th = 10.0, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -83,9 +84,11 @@ def mag_uniform(w_center, rho, r_resolution=500, th_resolution=1000, Nlimb=100,
                 area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
                 return area_inside + area_crossing
                 #return jnp.sum(area_inside + area_crossing)
-            area_each_r = vmap(process_r)(r_values)
-            jax.debug.print("{}",area_each_r.shape)
-            total_area = dr * jnp.sum(area_each_r)
+            area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
+            trapezoid = area_r[:-1] + area_r[1:] 
+            total_area = 0.5 * dr * jnp.sum(trapezoid)
+            #jax.debug.print("{}",area_each_r.shape)
+            #total_area = dr * jnp.sum(area_r)
             return total_area
         return jnp.where(in_mask, compute_if_in(), 0.0)
     compute_vmap = vmap(compute_for_range, in_axes=(0, 0))
