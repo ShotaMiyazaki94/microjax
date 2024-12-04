@@ -3,20 +3,21 @@ import jax.numpy as jnp
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 import time
-from microjax.inverse_ray.extended_source import calc_source_limb, calculate_overlap_and_range
+#from microjax.inverse_ray.merge_area import calc_source_limb, calculate_overlap_and_range
 import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
 from jax import jit, vmap, lax
 
 def merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
-    arr_sorted = jnp.sort(arr)
+    arr = jnp.sort(arr)
     diff = jnp.diff(arr)
     diff_neg = jnp.where(diff[:-1] > margin_fac * diff[1:],  margin_fac * diff[1:], diff[:-1])
     diff_pos = jnp.where(diff[1:]  > margin_fac * diff[:-1], margin_fac * diff[:-1], diff[1:])
-    arr_start = arr_sorted[1:-1] - diff_neg - offset 
-    arr_end   = arr_sorted[1:-1] + diff_pos  + offset
+    arr_start = arr[1:-1] - diff_neg - offset 
+    arr_end   = arr[1:-1] + diff_pos  + offset
     intervals = jnp.stack([jnp.maximum(arr_start, 0.0), arr_end], axis=1) 
+    #intervals = jnp.stack([jnp.maximum(arr - offset, 0), arr + offset], axis=1)
     sorted_intervals = intervals[jnp.argsort(intervals[:, 0])]
 
     def merge_scan_fn(carry, next_interval):
@@ -40,22 +41,9 @@ def merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
     merged_intervals = jnp.vstack([sorted_intervals[0], merged_intervals])
     mask = jnp.append(jnp.diff(merged_intervals[:, 0]) != 0, True)
     return merged_intervals, mask
-    # Apply the range factor to expand the merged intervals
-    """
-    center = (merged_intervals[:, 0] + merged_intervals[:, 1]) / 2
-    half_width = (merged_intervals[:, 1] - merged_intervals[:, 0]) / 2 * expand_fac
-    expanded_intervals = jnp.stack([center - half_width, center + half_width], axis=1)
-    sorted_expanded_intervals = expanded_intervals[jnp.argsort(expanded_intervals[:, 0])]
-    # Final merge
-    _, final_merged_intervals = lax.scan(merge_scan_fn, sorted_expanded_intervals[0], sorted_expanded_intervals[1:])
-    final_merged_intervals = jnp.vstack([sorted_expanded_intervals[0], final_merged_intervals])
-    final_mask = jnp.append(jnp.diff(final_merged_intervals[:, 0]) != 0, True)
 
-    return final_merged_intervals, final_mask
-    """
 def merge_intervals_theta(arr, offset=1.0, fac=100.0):
-    arr = jnp.sort(arr)
-    diff = jnp.diff(arr)
+    diff = jnp.diff(jnp.sort(arr))
     diff_neg = jnp.where(diff[:-1] > fac * diff[1:],  fac * diff[1:], diff[:-1])
     diff_pos = jnp.where(diff[1:]  > fac * diff[:-1], fac * diff[:-1], diff[1:])
     arr_start = arr[1:-1] - diff_neg - offset 
@@ -79,7 +67,6 @@ def merge_intervals_theta(arr, offset=1.0, fac=100.0):
     merged_intervals = jnp.clip(merged_intervals, 0, 2*jnp.pi)
 
     return merged_intervals, mask
-
 
 #@partial(jit, static_argnums=(2,))
 def _compute_in_mask(r_limb, theta_limb, r_intervals, theta_intervals):
@@ -121,6 +108,28 @@ def _compute_in_mask(r_limb, theta_limb, r_intervals, theta_intervals):
     in_mask = jnp.any(combined_condition, axis=2)  # Shape: (M, K)
     return in_mask
 
+#@partial(jit, static_argnums=(2,))
+def calc_source_limb(w_center, rho, N_limb=100, **_params):
+    s, q = _params["s"], _params["q"]
+    a = 0.5 * s
+    e1 = q / (1.0 + q)
+    w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
+    w_limb_shift = w_limb - 0.5 * s * (1 - q) / (1 + q)
+    image, mask = _images_point_source(w_limb_shift, a=a, e1=e1)
+    image_limb = image + 0.5 * s * (1 - q) / (1 + q)
+    return image_limb, mask
+
+def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th):
+    r_limb = jnp.abs(image_limb.ravel())
+    r_is = jnp.where(mask_limb.ravel(), r_limb, 0.0)
+    r_, r_mask = merge_intervals_r(r_is, offset=offset_r*rho) 
+    th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2 * jnp.pi)
+    th_is = jnp.sort(jnp.where(mask_limb.ravel(), th_limb.ravel(), 0.0))
+    th_is = jnp.clip(th_is, 0, 2 * jnp.pi)
+    offset_th = jnp.arctan2(offset_th * rho, jnp.max(jnp.max(r_, axis=1)*r_mask))
+    th_, th_mask = merge_intervals_theta(th_is, offset=offset_th)
+    return r_, r_mask, th_, th_mask
+
 w_center = jnp.complex128(-0.14773887+6.15587153e-01j)
 rho = 1e-3
 q = 1.0
@@ -129,11 +138,12 @@ a = 0.5 * s
 e1 = q / (1.0 + q)
 _params = {"q": q, "s": s, "a": a, "e1": e1}
 
-r_resolution  = 500
-th_resolution = 2000
+r_resolution  = 100
+th_resolution = 100
 Nlimb = 200
-offset_r = 1.0
-offset_th  = 10.0 
+offset_r = 3.0
+offset_th  = 1.0 
+
 
 shifted = 0.5 * s * (1 - q) / (1 + q)
 w_center_shifted = w_center - shifted
