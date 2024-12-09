@@ -16,18 +16,21 @@ def mag_vbb_binary(w0, rho, s, q, u1=0.0, accuracy=1e-05):
         w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1
     )
 
-def mag_binary(w_points, rho, s, q, r_resolution=200, th_resolution=200):
+def mag_binary(w_points, rho, s, q, r_resolution=200, th_resolution=200, 
+               Nlimb=100, offset_r = 1.0,offset_th=1.0):
     def body_fn(_, w):
         mag = mag_uniform(w, rho, s=s, q=q, 
                           r_resolution=r_resolution, 
                           th_resolution=th_resolution,
-                          Nlimb=200, offset_th=5.0)
+                          Nlimb=Nlimb, 
+                          offset_r=offset_r, 
+                          offset_th=offset_th)
         return 0, mag
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
 
 # 設定
-s, q = 1.0, 1.0
+s, q = 1.0, 0.1
 npts = 100
 critical_curves, caustic_curves = critical_and_caustic_curves(
     npts=npts, nlenses=2, s=s, q=q
@@ -35,9 +38,14 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution = 500
-th_resolution = 2000
-threshold = 1e-3
+
+r_resolution = 250
+th_resolution = 4000
+Nlimb     = 300
+offset_r  = 0.5
+offset_th = 1.0
+
+threshold = 1e-2
 
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 results = []  # 結果を保存するリスト
@@ -55,7 +63,12 @@ for rho in rho_list:
     # Magnifications を計算
     mags_vbb = jnp.array([mag_vbb_binary(complex(w), rho, s, q, u1=0.0, accuracy=acc_vbb)
                           for w in w_test])
-    mags = mag_binary(w_test, rho, s, q, r_resolution=r_resolution, th_resolution=th_resolution)
+    mags = mag_binary(w_test, rho, s, q, 
+                      r_resolution=r_resolution, 
+                      th_resolution=th_resolution,
+                      Nlimb=Nlimb, 
+                      offset_r=offset_r,
+                      offset_th=offset_th)
 
     # relative_error を計算
     relative_error = jnp.abs((mags - mags_vbb) / mags_vbb)

@@ -130,18 +130,18 @@ def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
     th_, th_mask = merge_intervals_theta(th_is, offset=offset_th)
     return r_, r_mask, th_, th_mask
 
-w_center = jnp.complex128(-0.14773887+6.15587153e-01j)
-rho = 1e-3
-q = 1.0
+w_center = jnp.complex128(0.44089194-0.00471726j)
+rho = 1e-2
+q = 0.1
 s = 1.0
 a = 0.5 * s
 e1 = q / (1.0 + q)
 _params = {"q": q, "s": s, "a": a, "e1": e1}
 
-r_resolution  = 100
-th_resolution = 100
-Nlimb = 200
-offset_r = 3.0
+r_resolution  = 250
+th_resolution = 1000
+Nlimb = 300
+offset_r = 1.0
 offset_th  = 1.0 
 
 
@@ -151,8 +151,8 @@ image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
 r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
 r_use  = r_ * r_mask.astype(float)[:, None]
 th_use = th_ * th_mask.astype(float)[:, None]
-r_use  = r_use[jnp.argsort(r_use[:,1])][-6:] # mergeできていない場合は5とは限らない・・・
-th_use = th_use[jnp.argsort(th_use[:,1])][-6:]
+r_use  = r_use[jnp.argsort(r_use[:,1])][-5:] # mergeできていない場合は5とは限らない・・・
+th_use = th_use[jnp.argsort(th_use[:,1])][-5:]
 r_limb = jnp.abs(image_limb)
 th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
 in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
@@ -160,8 +160,8 @@ r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
 th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
 
 # binary-lens should have less than 5 images.
-r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][0:6]
-th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][0:6] 
+r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:6]
+th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:6] 
 r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
 th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
 

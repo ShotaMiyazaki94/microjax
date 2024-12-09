@@ -24,7 +24,7 @@ def mag_binary(w_points, rho, s, q, r_resolution=200, th_resolution=200):
         mag = mag_uniform(w, rho, s=s, q=q, 
                           r_resolution=r_resolution, 
                           th_resolution=th_resolution,
-                          Nlimb=400)
+                          Nlimb=100)
         return 0, mag
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
