@@ -33,7 +33,7 @@ def get_mag(params):
     test_params = {"q": q, "s": s} 
     #_params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    magn = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, Nlimb=100, **test_params)
+    magn = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params)
     magn =  jit(vmap(magn, in_axes=(0,)))
     return w_points, magn(w_points)
 

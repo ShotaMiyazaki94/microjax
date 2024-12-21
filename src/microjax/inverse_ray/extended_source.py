@@ -292,14 +292,16 @@ def mag_uniform(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200,
             z_th = x_th + 1j * y_th 
             image_mesh = lens_eq(z_th - shifted, **_params)
             distances = jnp.abs(image_mesh - w_center_shifted)
-            in_source = (distances - rho < 0.0).astype(int)
+            in_source = distances - rho < 0.0
             in0, in1 = in_source[:-1], in_source[1:]
             #th0, th1 = th_values[:-1], th_values[1:]
             d0, d1   = distances[:-1], distances[1:]
-            segment_inside = (in0 == 1) & (in1 == 1)
-            segment_in2out = (in0 == 1) & (in1 == 0)
-            segment_out2in = (in0 == 0) & (in1 == 1)
-            frac = jnp.clip((rho - d0) / (d1 - d0), 0.0, 1.0)
+            segment_inside = in0 * in1
+            segment_in2out = in0 & (~in1)
+            segment_out2in = (~in0) & in1
+            zero_term = 1e-10
+            frac = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
+            
             area_inside    = r0 * dth * segment_inside
             area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
             return area_inside + area_crossing
@@ -340,8 +342,7 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_binary(w, rho, resolution=100, GRID_RATIO=1, **test_params)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=100, th_resolution=500, **test_params)
-    #magn  = lambda w: mag_uniform(w, rho, r_resolution=100, th_resolution=500, **test_params)
+    magn  = lambda w: mag_uniform(w, rho, r_resolution=300, th_resolution=300, **test_params)
     #magn  = lambda w: mag_uniform_bisection(w, rho, r_resolution=100, th_resolution=10, **test_params, Nlimb=100)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))

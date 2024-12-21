@@ -19,12 +19,11 @@ def mag_vbb_binary(w0, rho, s, q, u1=0.0, accuracy=1e-05):
         w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1
     )
 
-def mag_binary(w_points, rho, s, q, r_resolution=200, th_resolution=200):
+def mag_microjax(w_points, rho, s, q, r_resolution=200, th_resolution=200):
     def body_fn(_, w):
         mag = mag_uniform(w, rho, s=s, q=q, 
                           r_resolution=r_resolution, 
-                          th_resolution=th_resolution,
-                          Nlimb=100)
+                          th_resolution=th_resolution)
         return 0, mag
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
@@ -59,7 +58,7 @@ for rho in rho_list:
     mags_vbb = jnp.array([mag_vbb_binary(complex(w), rho, s, q, u1=0.0, accuracy=acc_vbb)
                           for w in w_test
                           ])
-    mags = mag_binary(w_test, rho, s, q, r_resolution=r_resolution, th_resolution=th_resolution)
+    mags = mag_microjax(w_test, rho, s, q, r_resolution=r_resolution, th_resolution=th_resolution)
     mags_vbb_list.append(mags_vbb)
     mags_list.append(mags)
 
