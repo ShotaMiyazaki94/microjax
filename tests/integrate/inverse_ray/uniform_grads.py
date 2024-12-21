@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from jax import jit, jacfwd 
+from jax import jit, jacfwd, vmap 
 import jax
 jax.config.update("jax_enable_x64", True)
 import matplotlib as mpl
@@ -7,13 +7,12 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 
-from microjax.caustics.lightcurve import magnifications
+from microjax.inverse_ray.extended_source import mag_uniform
 from microjax.point_source import critical_and_caustic_curves
 
 # Parameters
 s  = 1.1  # separation between the two lenses in units of total ang. Einstein radii
 q  = 0.5  # mass ratio: mass of the lens on the right divided by mass of the lens on the left
-
 alpha = jnp.deg2rad(60) # angle between lens axis and source trajectory
 tE = 10.0 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
@@ -23,20 +22,20 @@ rho = 0.02
 a  = 0.5 * s
 e1 = q / (1.0 + q)
 
-# Position of the center of the source with respect to the center of mass.
-t  =  jnp.linspace(-22, 12, 1000)
+t  =  jnp.linspace(-22, 12, 500)
 
-@jit
 def get_mag(params):
     s, q, rho, alpha, u0, t0, tE = params
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
 
-    _params = {"q": q, "s": s}
+    test_params = {"q": q, "s": s} 
+    #_params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    return w_points, magnifications(w_points, rho, nlenses=2, q=q, s=s)
-    #return w_points, magnifications(w_points, rho, nlenses=2, q=q, s=s, limb_darkening=True, u1=0.5)
+    magn = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, Nlimb=100, **test_params)
+    magn =  jit(vmap(magn, in_axes=(0,)))
+    return w_points, magn(w_points)
 
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
 w_points, A = get_mag(params)
@@ -100,18 +99,9 @@ for i, _a in enumerate(ax):
     _a.yaxis.set_label_coords(labelx, 0.5)
     _a.xaxis.set_minor_locator(AutoMinorLocator())
     _a.yaxis.set_minor_locator(AutoMinorLocator())
-    #_a.set(xlim=(30, 70))
-
-#ax[1].set_ylim(-550, 550)
-#ax[2].set_ylim(-55, 55)
-#ax[3].set_ylim(-1200, 1200)
-#ax[4].set_ylim(-550, 550)
-#ax[5].set_ylim(-1300, 1300)
-#ax[6].set_ylim(-55, 55)
-#ax[7].set_ylim(-12, 12)
 
 ax[-1].set_xlabel('$t$ [days]')
 ax_in.set_rasterization_zorder(0)
-fig.savefig("tests/integrate/caustics/lightcurve_grads.pdf", bbox_inches="tight")
+fig.savefig("tests/integrate/inverse_ray/lightcurve_grads.pdf", bbox_inches="tight")
 plt.show()
 plt.close()

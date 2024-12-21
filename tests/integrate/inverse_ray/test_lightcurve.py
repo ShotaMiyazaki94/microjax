@@ -35,12 +35,7 @@ _params = {"a": a, "e1": e1, "q": q, "s": s}
 @jit
 def mag_(w_points, rho, **_params):
     def body_fn(_, w):
-        mag = magnifications(
-            w,
-            rho,
-            nlenses=2,
-            **_params,
-        )
+        mag = magnifications(w, rho, nlenses=2, **_params)
         return 0, mag
 
     _, mags = lax.scan(body_fn, 0, w_points)

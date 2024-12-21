@@ -12,7 +12,7 @@ from functools import partial
 import jax.numpy as jnp
 from jax import jit, lax 
 
-from .extended_source import mag_simple
+from .extended_source import mag_uniform
 from ..point_source import _images_point_source
 from ..multipole import _mag_hexadecapole
 from ..utils import *
@@ -210,7 +210,7 @@ def magnifications(
     elif nlenses == 3:
         test = jnp.zeros_like(w_points).astype(jnp.bool_)
     
-    mag_full = lambda w: mag_simple(w, rho, resolution=150, Nlimb=100, offset_r = 1.0, offset_th = 10.0, GRID_RATIO=5, **_params)
+    mag_full = lambda w: mag_uniform(w, rho, **_params)
 
     # Iterate over w_points and execute either the hexadecapole  approximation
     # or the full extended source calculation. `vmap` cannot be used here because
