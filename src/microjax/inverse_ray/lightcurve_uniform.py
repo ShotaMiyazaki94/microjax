@@ -3,19 +3,17 @@
 Computing the magnification of an extended source at an arbitrary
 set of points in the source plane.
 """
-__all__ = [
-    "magnifications",
-]
 
 from functools import partial
 
 import jax.numpy as jnp
 from jax import jit, lax 
 
-from .extended_source import mag_uniform
-from ..point_source import _images_point_source
-from ..multipole import _mag_hexadecapole
-from ..utils import *
+#from .extended_source import mag_uniform
+from microjax.inverse_ray.extended_source import mag_uniform
+from microjax.point_source import _images_point_source
+from microjax.multipole import _mag_hexadecapole
+from microjax.utils import *
 
 
 @partial(jit, static_argnames=("nlenses"))
@@ -88,7 +86,7 @@ def _planetary_caustic_test(w, rho, c_p=2., **params):
         "nlenses",
     ),
 )
-def magnifications(
+def mag_lightcurve(
     w_points,
     rho,
     nlenses=2,
@@ -209,8 +207,12 @@ def magnifications(
         )
     elif nlenses == 3:
         test = jnp.zeros_like(w_points).astype(jnp.bool_)
-    
-    mag_full = lambda w: mag_uniform(w, rho, **_params)
+
+    #e1, a = params["e1"], params["a"]
+    #s = 2 * a
+    #q = e1 / (1.0 - e1)
+    _params = {"q": q, "s": s} 
+    mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, **_params)
 
     # Iterate over w_points and execute either the hexadecapole  approximation
     # or the full extended source calculation. `vmap` cannot be used here because
@@ -223,5 +225,5 @@ def magnifications(
             xs[2],
         ),
         [test, mu_multi, w_points],
-        #        jnp.stack([mask_test, mu_approx,  w_points]).T,
+        #jnp.stack([mask_test, mu_approx,  w_points]).T,
     )

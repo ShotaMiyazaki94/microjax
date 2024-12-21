@@ -94,8 +94,8 @@ def mag_binary(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200,
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
     # binary-lens should have less than 5 images.
-    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:6]
-    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:6]
+    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:8]
+    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:8]
 
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
@@ -275,8 +275,8 @@ def mag_uniform(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200,
     in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
-    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:6]
-    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:6]
+    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:8]
+    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:8]
 
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
@@ -299,7 +299,7 @@ def mag_uniform(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200,
             segment_inside = in0 * in1
             segment_in2out = in0 & (~in1)
             segment_out2in = (~in0) & in1
-            zero_term = 1e-10
+            zero_term = 1e-12
             frac = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
             
             area_inside    = r0 * dth * segment_inside

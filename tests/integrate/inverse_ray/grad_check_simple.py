@@ -19,7 +19,7 @@ def test_jacfwd():
     tE = 10.0 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.0 # impact parameter
-    rho = 0.02
+    rho = 0.05
 
     params = jnp.array([s, q, rho, alpha, u0, t0, tE])
 
@@ -30,7 +30,7 @@ def test_jacfwd():
         y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
         w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
         _params = {"q": q, "s": s}
-        f      = lambda w: mag_uniform(w, rho, r_resolution=200, th_resolution=200, **_params)
+        f      = lambda w: mag_uniform(w, rho, r_resolution=100, th_resolution=100, **_params)
         f_vmap =  vmap(f, in_axes=(0,))
         return w_points, f_vmap(w_points) 
 

@@ -4,7 +4,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 import numpy as np
 import jax.numpy as jnp
-from microjax.inverse_ray.lightcurve import magnifications
+from microjax.inverse_ray.lightcurve_uniform import mag_lightcurve
 from microjax.point_source import mag_point_source, critical_and_caustic_curves
 from microjax.point_source import _images_point_source
 import jax
@@ -35,41 +35,11 @@ _params = {"a": a, "e1": e1, "q": q, "s": s}
 @jit
 def mag_(w_points, rho, **_params):
     def body_fn(_, w):
-        mag = magnifications(w, rho, nlenses=2, **_params)
+        mag = mag_lightcurve(w, rho, nlenses=2, **_params)
         return 0, mag
-
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
 
 mags_extended = mag_(w_points, rho, **_params)
 
 print(mags_extended)
-
-
-"""
-mags_poi = mag_point_source(w_points, s=s, q=q)
-critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=100, s=s, q=q)
-
-fig, ax = plt.subplots()
-ax_in = inset_axes(ax,
-    width="60%", height="60%", 
-    bbox_transform=ax.transAxes,
-    bbox_to_anchor=(-0.2, 0.3, 0.6, 0.6)
-)
-ax_in.set_aspect(1)
-ax_in.set(xlabel="$\mathrm{Re}(w)$", ylabel="$\mathrm{Im}(w)$")
-for cc in caustic_curves:
-    ax_in.plot(cc.real, cc.imag, color='black', lw=0.7)
-circles = [
-    plt.Circle((xi,yi), radius=rho, fill=False, facecolor=None, zorder=-1) for xi, yi in zip(w_points.real, w_points.imag)
-]
-c = mpl.collections.PatchCollection(circles, match_original=True, alpha=0.05)
-ax_in.add_collection(c)
-ax_in.set_aspect(1)
-ax_in.set(xlim=(-1., 1.2), ylim=(-0.8, 1.))
-
-ax.plot(t, mags_ext)
-ax.plot(t, mags_poi, ":")
-ax.set_yscale("log")
-plt.show()
-"""
