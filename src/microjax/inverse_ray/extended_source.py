@@ -30,7 +30,7 @@ def _compute_in_mask(r_limb, th_limb, r_use, th_use):
     in_mask = jnp.any(combined_condition, axis=2)  # shape: (M, K)
     return in_mask
 
-def limb_1st_norm(r, u1=0.0):
+def Is_limb_1st(r, u1=0.0):
     """
     Calculate the normalized limb-darkened intensity using a linear limb-darkening law.
 
@@ -74,7 +74,7 @@ def limb_1st_norm(r, u1=0.0):
     return jnp.where(r <= 1.0, I, 0.0) 
 
 def mag_binary(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200, 
-                offset_r = 1.0, offset_th = 10.0, u1=0.0, **_params):
+                offset_r = 1.0, offset_th = 10.0, u1=0.0, delta_c=0.15, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -82,59 +82,62 @@ def mag_binary(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200,
     shifted = 0.5 * s * (1 - q) / (1 + q)  
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
+    # one-dimensional overlap search and merging.
     r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)  
     r_use  = r_ * r_mask.astype(float)[:, None]
     th_use = th_ * th_mask.astype(float)[:, None]
-    # if merging is correct, 6 is emperically sufficient for binary-lens and 9 is for triple-lens
-    r_use  = r_use[jnp.argsort(r_use[:,1])][-6:]
-    th_use = th_use[jnp.argsort(th_use[:,1])][-6:]
+    # if merging is correct, 5 may be emperically sufficient for binary-lens and 9 is for triple-lens
+    r_use  = r_use[jnp.argsort(r_use[:,1])][-5:]
+    th_use = th_use[jnp.argsort(th_use[:,1])][-5:]
     r_limb = jnp.abs(image_limb)
     th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
+    # select matched regions including image limbs. binary-lens microlensing should have less than 5 images.
+    # note: theta boundary is 0 and 2pi so that images containing the boundary are divided into two.
+    # The reason why the 6 is chosen is that never all five images align on the binary axis, though three may be.
     in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
-    # binary-lens should have less than 5 images.
-    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:8]
-    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:8]
+    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
+    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
 
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
 
     def compute_for_range(r_range, th_range):
-        r_in  = (r_limb > r_range[0]) & (r_limb < r_range[1])
-        th_in = (th_limb > th_range[0]) & (th_limb < th_range[1]) 
-        in_mask = jnp.any(r_in & th_in)
-        def compute_if_in():
-            dr = (r_range[1] - r_range[0]) / r_resolution
-            dth = (th_range[1] - th_range[0]) / th_resolution
-            r_values  = r_grid_norm * (r_range[1] - r_range[0]) + r_range[0]
-            th_values = th_grid_norm * (th_range[1] - th_range[0]) + th_range[0]
-            def process_r(r0):
-                z_th = r0 * (jnp.cos(th_values) + 1j * jnp.sin(th_values))
-                image_mesh = lens_eq(z_th - shifted, **_params)
-                distances = jnp.abs(image_mesh - w_center_shifted)
-                in_source = (distances - rho < 0.0).astype(float)
-                in0, in1 = in_source[:-1], in_source[1:]
-                #th0, th1 = th_values[:-1], th_values[1:]
-                d0, d1   = distances[:-1], distances[1:]
-                segment_inside = (in0 == 1) & (in1 == 1)
-                segment_in2out = (in0 == 1) & (in1 == 0)
-                segment_out2in = (in0 == 0) & (in1 == 1)
-                frac = jnp.clip((rho - d0) / (d1 - d0), 0.0, 1.0)
-                area_inside    = r0 * dth * segment_inside
-                area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
-                return area_inside + area_crossing
-                #return jnp.sum(area_inside + area_crossing)
-            area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
-            trapezoid = area_r[:-1] + area_r[1:] 
-            total_area = 0.5 * dr * jnp.sum(trapezoid)
-            #jax.debug.print("{}",area_each_r.shape)
-            #total_area = dr * jnp.sum(area_r)
-            return total_area
-        return jnp.where(in_mask, compute_if_in(), 0.0)
+        dr = (r_range[1] - r_range[0]) / r_resolution
+        dth = (th_range[1] - th_range[0]) / th_resolution
+        r_values  = r_grid_norm * (r_range[1] - r_range[0]) + r_range[0]
+        th_values = th_grid_norm * (th_range[1] - th_range[0]) + th_range[0]
+        def process_r(r0):
+            z_th = r0 * (jnp.cos(th_values) + 1j * jnp.sin(th_values))
+            image_mesh = lens_eq(z_th - shifted, **_params)
+            distances = jnp.abs(image_mesh - w_center_shifted)
+            Is        = Is_limb_1st(distances / rho, u1=u1)
+            in_source = Is > 0.0
+            in0, in1, in2  = in_source[:-2], in_source[1:-1], in_source[2:]
+            d0, d1, d2     = distances[:-2], distances[1:-1], distances[2:]
+            in_segment = in0 & in1 & in2
+            B1_segment = (~in0) & in1 & in2
+            B2_segment = in0 & in1 & (~in2)
+            zero_term  = 1e-12 
+            delta_B1   = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0) 
+            delta_B2   = jnp.clip((d2 - rho) / (d2 - d1 + zero_term), 0.0, 1.0)
+            fac_B1 = jnp.where(delta_B1 > delta_c, 
+                               (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1), 
+                               (2.0 / 3.0) * delta_B1 + 0.5)
+            fac_B2 = jnp.where(delta_B2 > delta_c, 
+                               (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B2) * (0.5 + delta_B2), 
+                               (2.0 / 3.0) * delta_B2 + 0.5)
+            area_inside = r0 * dth * Is[1:-1] * in_segment
+            area_B1     = r0 * dth * Is[1:-1] * fac_B1 * B1_segment
+            area_B2     = r0 * dth * Is[1:-1] * fac_B2 * B2_segment
+            return jnp.sum(area_inside + area_B1 + area_B2)
+        area_r = vmap(process_r)(r_values) # (Nr) array
+        total_area = dr * jnp.sum(area_r)
+        return total_area
     compute_vmap = vmap(compute_for_range, in_axes=(0, 0))
     image_areas = compute_vmap(r_vmap, th_vmap)
-    magnification = jnp.sum(image_areas) / rho**2 / jnp.pi 
+    magnification = jnp.sum(image_areas) / rho**2 #/ jnp.pi 
     return magnification 
 
 @partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th"))
@@ -213,7 +216,7 @@ if __name__ == "__main__":
     u0 = 0.1 # impact parameter
     rho = 5e-2
 
-    num_points = 1000
+    num_points = 500
     t  =  jnp.linspace(-5, 7.5, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -229,7 +232,7 @@ if __name__ == "__main__":
         e2 = 1.0 - e1  
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
-    #magn  = lambda w: mag_binary(w, rho, resolution=100, GRID_RATIO=1, **test_params)
+    #magn  = lambda w: mag_binary(w, rho, r_resolution=500, th_resolution=500, u1=0.0, **test_params)
     magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params)
     #magn  = lambda w: mag_uniform_bisection(w, rho, r_resolution=100, th_resolution=10, **test_params, Nlimb=100)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
