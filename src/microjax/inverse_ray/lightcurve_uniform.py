@@ -84,12 +84,17 @@ def _planetary_caustic_test(w, rho, c_p=2., **params):
     jit,
     static_argnames=(
         "nlenses",
+        "r_resolution",
+        "th_resolution",
+        "Nlimb"
     ),
 )
 def mag_lightcurve(
     w_points,
     rho,
     nlenses=2,
+    r_resolution=500,
+    th_resolution=500,
     **params
 ):
     """
@@ -212,7 +217,11 @@ def mag_lightcurve(
     #s = 2 * a
     #q = e1 / (1.0 - e1)
     _params = {"q": q, "s": s} 
-    mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, **_params)
+    mag_full = lambda w: mag_uniform(w, rho, 
+                                     nlenses=nlenses, 
+                                     r_resolution=r_resolution,
+                                     th_resolution=th_resolution, 
+                                     **_params)
 
     # Iterate over w_points and execute either the hexadecapole  approximation
     # or the full extended source calculation. `vmap` cannot be used here because
