@@ -147,23 +147,26 @@ def mag_uniform(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200,
     shifted = 0.5 * s * (1 - q) / (1 + q)  
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
+    
     # one-dimensional overlap search and merging.
     r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)  
     r_use  = r_ * r_mask.astype(float)[:, None]
     th_use = th_ * th_mask.astype(float)[:, None]
+    
     # if merging is correct, 5 may be emperically sufficient for binary-lens and 9 is for triple-lens
-    r_use  = r_use[jnp.argsort(r_use[:,1])][-5:]
-    th_use = th_use[jnp.argsort(th_use[:,1])][-5:]
+    r_use  = r_use[jnp.argsort(r_use[:,1])][-6:]
+    th_use = th_use[jnp.argsort(th_use[:,1])][-6:]
     r_limb = jnp.abs(image_limb)
     th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
+    
     # select matched regions including image limbs. binary-lens microlensing should have less than 5 images.
     # note: theta boundary is 0 and 2pi so that images containing the boundary are divided into two.
     # The reason why the 6 is chosen is that never all five images align on the binary axis, though three may be.
     in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
-    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:8]
-    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:8]
+    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
+    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
 
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
@@ -193,8 +196,6 @@ def mag_uniform(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200,
             area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
             return area_inside + area_crossing
         area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
-        #trapezoid = area_r[:-1] + area_r[1:] 
-        #total_area = 0.5 * dr * jnp.sum(trapezoid)
         total_area = dr * jnp.sum(area_r)
         return total_area
     compute_vmap = vmap(compute_for_range, in_axes=(0, 0))
