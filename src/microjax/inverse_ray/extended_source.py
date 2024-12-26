@@ -58,16 +58,6 @@ def Is_limb_1st(r, u1=0.0):
       where I0 is a normalization constant ensuring that the total flux is conserved.
     - For physically meaningful results, `u1` should be in the range [0, 1], though 
       values outside this range can be used for testing or hypothetical scenarios.
-
-    Examples
-    --------
-    import jax.numpy as jnp
-    limb_1st_norm(0.5, u1=0.3)
-    DeviceArray(0.565955, dtype=float32)
-    
-    r = jnp.linspace(0, 1, 5)
-    limb_1st_norm(r, u1=0.3)
-    DeviceArray([1.042716 , 0.8890367, 0.7364623, 0.5852573, 0.        ], dtype=float32)
     """
     I0 = 3.0 / jnp.pi / (3.0 - u1)
     I  = I0 * (1.0 - u1 * (1.0 - jnp.sqrt(1.0 - r)))
