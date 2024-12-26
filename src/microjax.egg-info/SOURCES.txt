@@ -53,7 +53,7 @@ src/microjax/fastlens/__pycache__/mag_fft.cpython-310.pyc
 src/microjax/fastlens/__pycache__/special.cpython-310.pyc
 src/microjax/inverse_ray/__init__.py
 src/microjax/inverse_ray/extended_source.py
-src/microjax/inverse_ray/lightcurve_uniform.py
+src/microjax/inverse_ray/lightcurve.py
 src/microjax/inverse_ray/merge_area.py
 tests/integrate/ESPL.tbl
 tests/integrate/Pk_test
@@ -76,6 +76,7 @@ tests/integrate/fftlog/test_fftlog_jax_4.png
 tests/integrate/inverse_ray/accuracy.py
 tests/integrate/inverse_ray/find_bug_configuration.py
 tests/integrate/inverse_ray/grad_check_simple.py
+tests/integrate/inverse_ray/grads_lc_uniform.py
 tests/integrate/inverse_ray/performance.py
 tests/integrate/inverse_ray/speed_image_solve.py
 tests/integrate/inverse_ray/speed_lens_eq.py

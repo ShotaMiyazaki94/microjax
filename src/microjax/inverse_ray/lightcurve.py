@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from jax import jit, lax 
 
 #from .extended_source import mag_uniform
-from microjax.inverse_ray.extended_source import mag_uniform
+from microjax.inverse_ray.extended_source import mag_uniform, mag_binary
 from microjax.point_source import _images_point_source
 from microjax.multipole import _mag_hexadecapole
 from microjax.utils import *
@@ -80,84 +80,56 @@ def _planetary_caustic_test(w, rho, c_p=2., **params):
     return (w_pc - w).real**2 + (w_pc - w).imag**2 > c_p*(rho**2 + delta_pc**2)
 
 
-@partial(
-    jit,
-    static_argnames=(
-        "nlenses",
-    ),
-)
-def mag_lightcurve(
-    w_points,
-    rho,
-    nlenses=2,
-    **params
-):
-    """
-    Compute the extended source magnification for a system with `nlenses` lenses 
-    and a source star radius `rho` at a set of complex points `w_points` in the 
-    source plane. This function calls either [`caustics.mag_hexadecapole`][] or 
-    [`caustics.mag_extended_source`][] at each point in `w_points` depending on
-    whether or not the hexadecapole approximation is accurate enough at that point. 
-
-    If `nlenses` is 2 (binary lens) or 3 (triple lens), the coordinate system is
-    set up such that the the origin is at the center of mass of the first two 
-    lenses which are both located on the real line. The location of the first 
-    lens is $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$. The optional 
-    third lens is located at an arbitrary position in the complex plane 
-    $r_3e^{-i\psi}$. The magnification is computed using contour integration in
-    the image plane. Boolean flag `limb_darkening` indicates whether linear 
-    limb-darkening needs to taken into account. If `limb_darkening` is set to 
-    `True` the linear limb-darkening coefficient `u1` needs to be specified as 
-    well. Note that turning on this flag slows down the computation by up to an 
-    order of magnitude.
-
-    If `nlenses` is 2 only the parameters `s` and `q` should be specified. If 
-    `nlenses` is 3, the parameters `s`, `q`, `q3`, `r3` and `psi` should be 
-    specified.
-
-    !!! note
-
-        Turning on limb-darkening (`limb_darkening=True`) slows down the 
-        computation by up to an order of magnitude.
+@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "u1"))
+def mag_lc_binary(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=200, u1=0.0,**params):
+    if nlenses == 1:
+        _params = {}
+        x_cm = 0 # miyazaki
+    elif nlenses == 2:
+        s, q = params["s"], params["q"]
+        a = 0.5 * s
+        e1 = q / (1.0 + q) 
+        _params = {"a": a, "e1": e1}
+        x_cm = a*(1 - q)/(1 + q)
+    elif nlenses == 3:
+        s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
+        a = 0.5 * s
+        e1 = q / (1.0 + q + q3)
+        e2 = 1.0 / (1.0 + q + q3) #miyazaki
+        r3 = r3 * jnp.exp(1j * psi)
+        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
+        x_cm = a * (1.0 - q) / (1.0 + q)
+    else:
+        raise ValueError("nlenses must be <= 3")
     
-    !!! warning
+    z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
+    if nlenses==1:
+        test = w_points > 2*rho
+        mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params) #miyazaki
+    elif nlenses==2:
+        # Compute hexadecapole approximation at every point and a test where it is sufficient
+        mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+        test1 = _caustics_proximity_test(
+            w_points - x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params #miyazaki
+        )
+        test2 = _planetary_caustic_test(w_points - x_cm, rho, **_params)
 
-        At the moment the test determining whether or not to use the hexadecapole
-        approximation does not work for triple lenses so the function will use
-        full contour integration at every point. This substantially slows down
-        the computation. See https://github.com/fbartolic/caustics/issues/19.
+        test = lax.cond(
+            q < 0.01, 
+            lambda:test1 & test2,
+            lambda:test1,
+        )
+    elif nlenses == 3:
+        test = jnp.zeros_like(w_points).astype(jnp.bool_)
 
-    Args:
-        w_points (array_like): Source positions in the complex plane.
-        rho (float): Source radius in Einstein radii.
-        nlenses (int): Number of lenses in the system.
-        npts_limb (int, optional): Initial number of points uniformly distributed
-            on the source limb when computing the point source magnification.
-            The final number of points is greater than this value because
-            the number of points is decreased geometrically by a factor of
-            1/2 until it reaches 2.
-        limb_darkening (bool, optional): If True, compute the magnification of
-            a limb-darkened source. If limb_darkening is enabled the u1 linear
-            limb-darkening coefficient needs to be specified. Defaults to False.
-        u1 (float, optional): Linear limb darkening coefficient. Defaults to 0..
-        npts_ld (int, optional): Number of points at which the stellar brightness
-            function is evaluated when computing contour integrals 
-            $\int P(z_1^\prime, z_2) dz_1^\prime$ and 
-            $\int Q(z_1, z_2^\prime) dz_2^\prime$ (see Dominik 1998). Defaults 
-            to 100.
-         s (float): Separation between the two lenses. The first lens is located 
-            at $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$ on the real line.
-        q (float): Mass ratio defined as $m_2/m_1$.
-        q3 (float): Mass ratio defined as $m_3/m_1$.
-        r3 (float): Magnitude of the complex position of the third lens.
-        psi (float): Phase angle of the complex position of the third lens.
-        roots_itmax (int, optional): Number of iterations for the root solver.
-        roots_compensated (bool, optional): Whether to use the compensated
-            arithmetic version of the Ehrlich-Aberth root solver.
+    _params = {"q": q, "s": s} 
+    mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
+                                     r_resolution=r_resolution, th_resolution=th_resolution, **_params)
+    
+    return lax.map(lambda xs: lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],),
+        [test, mu_multi, w_points])
 
-    Returns:
-        array_like: Magnification array.
-    """
+def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, **params):
     if nlenses == 1:
         _params = {}
         x_cm = 0 # miyazaki
@@ -178,27 +150,21 @@ def mag_lightcurve(
         r3 = r3*jnp.exp(1j * psi)
         _params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
         x_cm = a * (1.0 - q) / (1.0 + q)
-
     else:
         raise ValueError("nlenses must be <= 3")
 
-
     # Compute point images for a point source
     z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
-
     if nlenses==1:
         test = w_points > 2*rho
         mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params) #miyazaki
     elif nlenses==2:
-        # Compute hexadecapole approximation at every point and a test where it is
-        # sufficient
+        # Compute hexadecapole approximation at every point and a test where it is sufficient
         mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
         test1 = _caustics_proximity_test(
             w_points - x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params #miyazaki
-            #w_points + x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params
         )
         test2 = _planetary_caustic_test(w_points - x_cm, rho, **_params)
-        #test2 = _planetary_caustic_test(w_points + x_cm, rho, **_params)
 
         test = lax.cond(
             q < 0.01, 
@@ -208,11 +174,12 @@ def mag_lightcurve(
     elif nlenses == 3:
         test = jnp.zeros_like(w_points).astype(jnp.bool_)
 
-    #e1, a = params["e1"], params["a"]
-    #s = 2 * a
-    #q = e1 / (1.0 - e1)
     _params = {"q": q, "s": s} 
-    mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, **_params)
+    mag_full = lambda w: mag_uniform(w, rho, 
+                                     nlenses=nlenses, 
+                                     r_resolution=r_resolution,
+                                     th_resolution=th_resolution, 
+                                     **_params)
 
     # Iterate over w_points and execute either the hexadecapole  approximation
     # or the full extended source calculation. `vmap` cannot be used here because
