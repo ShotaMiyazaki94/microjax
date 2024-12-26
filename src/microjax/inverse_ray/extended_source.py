@@ -4,38 +4,15 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 import time
-from microjax.inverse_ray.merge_area import calc_source_limb, calculate_overlap_and_range 
+from microjax.inverse_ray.merge_area import calc_source_limb, calculate_overlap_and_range, _compute_in_mask 
 import jax.numpy as jnp
 from jax import jit, vmap
 
 import jax.numpy as jnp
 from jax import jit, vmap
 
-def _compute_in_mask(r_limb, th_limb, r_use, th_use):
-    M = r_use.shape[0]  
-    K = th_use.shape[0]  
-    N = r_limb.shape[0]
-    r_limb_expanded = r_limb.reshape(1, 1, N)
-    th_limb_expanded = th_limb.reshape(1, 1, N)
-    r_use_min = r_use[:, 0].reshape(M, 1, 1)
-    r_use_max = r_use[:, 1].reshape(M, 1, 1)
-    th_use_min = th_use[:, 0].reshape(1, K, 1)
-    th_use_max = th_use[:, 1].reshape(1, K, 1)
-
-    r_condition = (r_limb_expanded > r_use_min) & (r_limb_expanded < r_use_max)  # shape: (M, 1, N)
-    th_condition = (th_limb_expanded > th_use_min) & (th_limb_expanded < th_use_max)  # shape: (1, K, N)
-    combined_condition = r_condition & th_condition  # shape: (M, K, N)
-
-    # condition for all the combination
-    in_mask = jnp.any(combined_condition, axis=2)  # shape: (M, K)
-    return in_mask
-
-<<<<<<< HEAD
 @partial(jit, static_argnames=("u1"))
 def Is_limb_1st(d, u1=0.0):
-=======
-def Is_limb_1st(r, u1=0.0):
->>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1
     """
     Calculate the normalized limb-darkened intensity using a linear limb-darkening law.
 
@@ -69,14 +46,10 @@ def Is_limb_1st(r, u1=0.0):
     I  = I0 * (1.0 - u1 * (1.0 - mu))
     return jnp.where(d < 1.0, I, 0.0) 
 
-<<<<<<< HEAD
-#@partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th"))
+@partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "u1",
+                               "offset_r", "offset_th", "delta_c"))
 def mag_binary(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, u1=0.0, 
                 offset_r = 1.0, offset_th = 10.0, delta_c=0.15, **_params):
-=======
-def mag_binary(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200, 
-                offset_r = 1.0, offset_th = 10.0, u1=0.0, delta_c=0.15, **_params):
->>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -159,13 +132,8 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
     th_use = th_ * th_mask.astype(float)[:, None]
     
     # if merging is correct, 5 may be emperically sufficient for binary-lens and 9 is for triple-lens
-<<<<<<< HEAD
     r_use  = r_use[jnp.argsort(r_use[:,1])][-10:]
     th_use = th_use[jnp.argsort(th_use[:,1])][-10:]
-=======
-    r_use  = r_use[jnp.argsort(r_use[:,1])][-6:]
-    th_use = th_use[jnp.argsort(th_use[:,1])][-6:]
->>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1
     r_limb = jnp.abs(image_limb)
     th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
     
@@ -206,12 +174,9 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
             area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
             return area_inside + area_crossing
         area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
-<<<<<<< HEAD
         area_r = jnp.sum(area_r, axis=1)
         #total_area = 0.5 * dr * jnp.sum(area_r[:-1] + area_r[1:])
         #total_area = dr * (0.5 * area_r[0] + jnp.sum(area_r[1:-1]) + 0.5 * area_r[-1])
-=======
->>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1
         total_area = dr * jnp.sum(area_r)
         #total_area = (dr / 3.0) * (area_r[0] + area_r[-1] 
         #                  + 4 * jnp.sum(area_r[1:-1:2])
@@ -251,14 +216,8 @@ if __name__ == "__main__":
         e2 = 1.0 - e1  
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
-<<<<<<< HEAD
     magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params)
     #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
-=======
-    #magn  = lambda w: mag_binary(w, rho, r_resolution=500, th_resolution=500, u1=0.0, **test_params)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params)
-    #magn  = lambda w: mag_uniform_bisection(w, rho, r_resolution=100, th_resolution=10, **test_params, Nlimb=100)
->>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
     magn =  vmap(magn, in_axes=(0,))

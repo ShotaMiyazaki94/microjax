@@ -4,7 +4,26 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 
-@jit
+def _compute_in_mask(r_limb, th_limb, r_use, th_use):
+    M = r_use.shape[0]  
+    K = th_use.shape[0]  
+    N = r_limb.shape[0]
+    r_limb_expanded = r_limb.reshape(1, 1, N)
+    th_limb_expanded = th_limb.reshape(1, 1, N)
+    r_use_min = r_use[:, 0].reshape(M, 1, 1)
+    r_use_max = r_use[:, 1].reshape(M, 1, 1)
+    th_use_min = th_use[:, 0].reshape(1, K, 1)
+    th_use_max = th_use[:, 1].reshape(1, K, 1)
+
+    r_condition = (r_limb_expanded > r_use_min) & (r_limb_expanded < r_use_max)  # shape: (M, 1, N)
+    th_condition = (th_limb_expanded > th_use_min) & (th_limb_expanded < th_use_max)  # shape: (1, K, N)
+    combined_condition = r_condition & th_condition  # shape: (M, K, N)
+
+    # condition for all the combination
+    in_mask = jnp.any(combined_condition, axis=2)  # shape: (M, K)
+    return in_mask
+
+@partial(jit, static_argnames=("offset", "margin_fac"))
 def merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
     arr = jnp.sort(arr)
     diff = jnp.diff(arr)
@@ -38,6 +57,7 @@ def merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
     mask = jnp.append(jnp.diff(merged_intervals[:, 0]) != 0, True)
     return merged_intervals, mask
 
+@partial(jit, static_argnames=("offset", "fac"))
 def merge_intervals_theta(arr, offset=1.0, fac=100.0):
     diff = jnp.diff(jnp.sort(arr))
     diff_neg = jnp.where(diff[:-1] > fac * diff[1:],  fac * diff[1:], diff[:-1])
@@ -65,12 +85,12 @@ def merge_intervals_theta(arr, offset=1.0, fac=100.0):
     return merged_intervals, mask
 
 
-@partial(jit, static_argnums=(2,))
-def calc_source_limb(w_center, rho, N_limb=100, **_params):
+@partial(jit, static_argnames=("Nlimb"))
+def calc_source_limb(w_center, rho, Nlimb=100, **_params):
     s, q = _params["s"], _params["q"]
     a = 0.5 * s
     e1 = q / (1.0 + q)
-    w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
+    w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, Nlimb)), dtype=complex)
     w_limb_shift = w_limb - 0.5 * s * (1 - q) / (1 + q)
     image, mask = _images_point_source(w_limb_shift, a=a, e1=e1)
     image_limb = image + 0.5 * s * (1 - q) / (1 + q)

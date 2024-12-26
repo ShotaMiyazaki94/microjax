@@ -80,7 +80,6 @@ def _planetary_caustic_test(w, rho, c_p=2., **params):
     return (w_pc - w).real**2 + (w_pc - w).imag**2 > c_p*(rho**2 + delta_pc**2)
 
 
-<<<<<<< HEAD:src/microjax/inverse_ray/lightcurve.py
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "u1"))
 def mag_lc_binary(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=200, u1=0.0,**params):
     if nlenses == 1:
@@ -126,52 +125,6 @@ def mag_lc_binary(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=400
     _params = {"q": q, "s": s} 
     mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
                                      r_resolution=r_resolution, th_resolution=th_resolution, **_params)
-=======
-@partial(
-    jit,
-    static_argnames=(
-        "nlenses",
-        "r_resolution",
-        "th_resolution",
-        "Nlimb"
-    ),
-)
-def mag_lightcurve(
-    w_points,
-    rho,
-    nlenses=2,
-    r_resolution=500,
-    th_resolution=500,
-    **params
-):
-    """
-    Compute the extended source magnification for a system with `nlenses` lenses 
-    and a source star radius `rho` at a set of complex points `w_points` in the 
-    source plane. This function calls either [`caustics.mag_hexadecapole`][] or 
-    [`caustics.mag_extended_source`][] at each point in `w_points` depending on
-    whether or not the hexadecapole approximation is accurate enough at that point. 
-
-    If `nlenses` is 2 (binary lens) or 3 (triple lens), the coordinate system is
-    set up such that the the origin is at the center of mass of the first two 
-    lenses which are both located on the real line. The location of the first 
-    lens is $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$. The optional 
-    third lens is located at an arbitrary position in the complex plane 
-    $r_3e^{-i\psi}$. The magnification is computed using contour integration in
-    the image plane. Boolean flag `limb_darkening` indicates whether linear 
-    limb-darkening needs to taken into account. If `limb_darkening` is set to 
-    `True` the linear limb-darkening coefficient `u1` needs to be specified as 
-    well. Note that turning on this flag slows down the computation by up to an 
-    order of magnitude.
-
-    If `nlenses` is 2 only the parameters `s` and `q` should be specified. If 
-    `nlenses` is 3, the parameters `s`, `q`, `q3`, `r3` and `psi` should be 
-    specified.
-
-    !!! note
-
-        Turning on limb-darkening (`limb_darkening=True`) slows down the 
-        computation by up to an order of magnitude.
->>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1:src/microjax/inverse_ray/lightcurve_uniform.py
     
     return lax.map(lambda xs: lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],),
         [test, mu_multi, w_points])
