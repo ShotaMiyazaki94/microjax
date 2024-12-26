@@ -30,8 +30,12 @@ def _compute_in_mask(r_limb, th_limb, r_use, th_use):
     in_mask = jnp.any(combined_condition, axis=2)  # shape: (M, K)
     return in_mask
 
+<<<<<<< HEAD
 @partial(jit, static_argnames=("u1"))
 def Is_limb_1st(d, u1=0.0):
+=======
+def Is_limb_1st(r, u1=0.0):
+>>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1
     """
     Calculate the normalized limb-darkened intensity using a linear limb-darkening law.
 
@@ -59,25 +63,20 @@ def Is_limb_1st(d, u1=0.0):
       where I0 is a normalization constant ensuring that the total flux is conserved.
     - For physically meaningful results, `u1` should be in the range [0, 1], though 
       values outside this range can be used for testing or hypothetical scenarios.
-
-    Examples
-    --------
-    import jax.numpy as jnp
-    limb_1st_norm(0.5, u1=0.3)
-    DeviceArray(0.565955, dtype=float32)
-    
-    r = jnp.linspace(0, 1, 5)
-    limb_1st_norm(r, u1=0.3)
-    DeviceArray([1.042716 , 0.8890367, 0.7364623, 0.5852573, 0.        ], dtype=float32)
     """
     mu = jnp.sqrt(1.0 - d**2)
     I0 = 3.0 / jnp.pi / (3.0 - u1)
     I  = I0 * (1.0 - u1 * (1.0 - mu))
     return jnp.where(d < 1.0, I, 0.0) 
 
+<<<<<<< HEAD
 #@partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th"))
 def mag_binary(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, u1=0.0, 
                 offset_r = 1.0, offset_th = 10.0, delta_c=0.15, **_params):
+=======
+def mag_binary(w_center, rho, r_resolution=250, th_resolution=4000, Nlimb=200, 
+                offset_r = 1.0, offset_th = 10.0, u1=0.0, delta_c=0.15, **_params):
+>>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -153,15 +152,23 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
     shifted = 0.5 * s * (1 - q) / (1 + q)  
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
+    
     # one-dimensional overlap search and merging.
     r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)  
     r_use  = r_ * r_mask.astype(float)[:, None]
     th_use = th_ * th_mask.astype(float)[:, None]
+    
     # if merging is correct, 5 may be emperically sufficient for binary-lens and 9 is for triple-lens
+<<<<<<< HEAD
     r_use  = r_use[jnp.argsort(r_use[:,1])][-10:]
     th_use = th_use[jnp.argsort(th_use[:,1])][-10:]
+=======
+    r_use  = r_use[jnp.argsort(r_use[:,1])][-6:]
+    th_use = th_use[jnp.argsort(th_use[:,1])][-6:]
+>>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1
     r_limb = jnp.abs(image_limb)
     th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
+    
     # select matched regions including image limbs. binary-lens microlensing should have less than 5 images.
     # note: theta boundary is 0 and 2pi so that images containing the boundary are divided into two.
     # The reason why the 6 is chosen is that never all five images align on the binary axis, though three may be.
@@ -199,9 +206,12 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
             area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
             return area_inside + area_crossing
         area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
+<<<<<<< HEAD
         area_r = jnp.sum(area_r, axis=1)
         #total_area = 0.5 * dr * jnp.sum(area_r[:-1] + area_r[1:])
         #total_area = dr * (0.5 * area_r[0] + jnp.sum(area_r[1:-1]) + 0.5 * area_r[-1])
+=======
+>>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1
         total_area = dr * jnp.sum(area_r)
         #total_area = (dr / 3.0) * (area_r[0] + area_r[-1] 
         #                  + 4 * jnp.sum(area_r[1:-1:2])
@@ -225,7 +235,7 @@ if __name__ == "__main__":
     u0 = 0.1 # impact parameter
     rho = 2e-2
 
-    num_points = 1000
+    num_points = 500
     t  =  jnp.linspace(-5, 7.5, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -241,8 +251,14 @@ if __name__ == "__main__":
         e2 = 1.0 - e1  
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
+<<<<<<< HEAD
     magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params)
     #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
+=======
+    #magn  = lambda w: mag_binary(w, rho, r_resolution=500, th_resolution=500, u1=0.0, **test_params)
+    magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params)
+    #magn  = lambda w: mag_uniform_bisection(w, rho, r_resolution=100, th_resolution=10, **test_params, Nlimb=100)
+>>>>>>> ae4cf1d3f3e52f731a95c01a9eb22fe6dc6869e1
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
     magn =  vmap(magn, in_axes=(0,))
