@@ -146,8 +146,11 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
     in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
-    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
-    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
+    r_vmap_excess   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
+    th_vmap_excess  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
+    r_vmap, th_vmap = merge_final(r_vmap_excess, th_vmap_excess)
+    r_vmap          = r_vmap[:5]
+    th_vmap         = th_vmap[:5]
 
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
