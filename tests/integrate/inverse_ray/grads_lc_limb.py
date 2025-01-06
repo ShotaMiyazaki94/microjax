@@ -35,8 +35,11 @@ def get_mag(params):
 
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    return w_points, mag_lc_uniform(w_points, rho, nlenses=2, q=q, s=s, 
-                                    r_resolution=2000, th_resolution=2000)
+    return w_points, mag_lc_binary(w_points, rho, nlenses=2, u1=0.5,
+                                    q=q, s=s, r_resolution=4000, th_resolution=1000)
+    #return w_points, mag_lc_uniform(w_points, rho, nlenses=2, 
+    #                                q=q, s=s, r_resolution=4000, th_resolution=4000)
+    #return w_points, magnifications(w_points, rho, nlenses=2, q=q, s=s, limb_darkening=True, u1=0.5)
 
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
 w_points, A = get_mag(params)
@@ -100,9 +103,18 @@ for i, _a in enumerate(ax):
     _a.yaxis.set_label_coords(labelx, 0.5)
     _a.xaxis.set_minor_locator(AutoMinorLocator())
     _a.yaxis.set_minor_locator(AutoMinorLocator())
+    #_a.set(xlim=(30, 70))
+
+#ax[1].set_ylim(-550, 550)
+#ax[2].set_ylim(-55, 55)
+#ax[3].set_ylim(-1200, 1200)
+#ax[4].set_ylim(-550, 550)
+#ax[5].set_ylim(-1300, 1300)
+#ax[6].set_ylim(-55, 55)
+#ax[7].set_ylim(-12, 12)
 
 ax[-1].set_xlabel('$t$ [days]')
 ax_in.set_rasterization_zorder(0)
-fig.savefig("tests/integrate/inverse_ray/figs/grads_lc_uniform.pdf", bbox_inches="tight")
+fig.savefig("tests/integrate/inverse_ray/figs/grads_lc_limb.pdf", bbox_inches="tight")
 plt.show()
 plt.close()

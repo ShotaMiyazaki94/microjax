@@ -129,7 +129,8 @@ def mag_lc_binary(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=400
     return lax.map(lambda xs: lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],),
         [test, mu_multi, w_points])
 
-def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, **params):
+@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb"))
+def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=200, **params):
     if nlenses == 1:
         _params = {}
         x_cm = 0 # miyazaki
@@ -178,7 +179,8 @@ def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=40
     mag_full = lambda w: mag_uniform(w, rho, 
                                      nlenses=nlenses, 
                                      r_resolution=r_resolution,
-                                     th_resolution=th_resolution, 
+                                     th_resolution=th_resolution,
+                                     Nlimb=Nlimb, 
                                      **_params)
 
     # Iterate over w_points and execute either the hexadecapole  approximation

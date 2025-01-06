@@ -130,6 +130,50 @@ def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
     th_, th_mask = merge_intervals_theta(th_is, offset=offset_th)
     return r_, r_mask, th_, th_mask
 
+def merge_final_binary(r_vmap, th_vmap):
+    """
+    merge continuous regions of the images.
+    The separated regions are due to the definition of the angle [0 ~ 2pi].
+    This checks the next and next-next elements.
+    """
+    r_next1 = jnp.roll(r_vmap, -1, axis=0)
+    th_next1 = jnp.roll(th_vmap, -1, axis=0)
+    r_next2 = jnp.roll(r_vmap, -2, axis=0)
+    th_next2 = jnp.roll(th_vmap, -2, axis=0)
+    
+    # Adjust the shape of the condition arrays to match (10, 2)
+    same_r1 = jnp.all(r_vmap == r_next1, axis=1) 
+    same_r2 = jnp.all(r_vmap == r_next2, axis=1)
+    continuous_th1 = (th_vmap[:, 0] == 0) & (th_next1[:, 1] == 2 * jnp.pi)
+    continuous_th2 = (th_vmap[:, 0] == 0) & (th_next2[:, 1] == 2 * jnp.pi)
+
+    # Broadcast conditions to match the shape of r_vmap and th_vmap
+    merge1 = same_r1 & continuous_th1
+    merge2 = same_r2 & continuous_th2
+
+    # Apply conditions
+    merged_r = jnp.where(merge1[:, None], r_next1, r_vmap)
+    merged_th = jnp.where(
+        merge1[:, None], 
+        jnp.stack([th_next1[:, 0] - 2 * jnp.pi, th_vmap[:, 1]], axis=-1), 
+        th_vmap
+    )
+    merged_r = jnp.where(merge2[:, None], r_next2, merged_r)
+    merged_th = jnp.where(
+        merge2[:, None], 
+        jnp.stack([th_next2[:, 0] - 2 * jnp.pi, merged_th[:, 1]], axis=-1), 
+        merged_th
+    )
+    # Zero out the merged regions
+    zero_out_1 = jnp.roll(merge1, 1)
+    zero_out_2 = jnp.roll(merge2, 2)
+    zero_out_mask = zero_out_1 | zero_out_2
+    merged_r = jnp.where(zero_out_mask[:, None], 0.0, merged_r)
+    merged_th = jnp.where(zero_out_mask[:, None], 0.0, merged_th)
+
+    sort_order = jnp.argsort(merged_r[:, 1] == 0)
+    return merged_r[sort_order], merged_th[sort_order]
+
 w_center = jnp.complex128(0.44089194-0.00471726j)
 rho = 1e-2
 q = 0.1
@@ -160,16 +204,16 @@ r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
 th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
 
 # binary-lens should have less than 5 images.
-r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:6]
-th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:6] 
+r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
+th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
+r_vmap, th_vmap = merge_final_binary(r_vmap, th_vmap)
+r_vmap = r_vmap[:5]
+th_vmap = th_vmap[:5]
+
 r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
 th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
 
-print("r_use:",r_use)
-print("th_use:", th_use)
-#print("r_use_expand:",r_use_expanded)
-#print("th_use_expand:", theta_use_expanded)
-print("-------------")
+print("-vmaps---")
 for r ,th in zip(r_vmap, th_vmap):
     print(r, th)
 def plot(r_range, th_range):

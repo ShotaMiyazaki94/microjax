@@ -4,6 +4,51 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 
+def merge_final(r_vmap, th_vmap):
+    """
+    merge continuous regions of the images.
+    The separated regions are due to the definition of the angle [0 ~ 2pi].
+    This checks the next and next-next elements.
+    """
+    r_next1 = jnp.roll(r_vmap, -1, axis=0)
+    th_next1 = jnp.roll(th_vmap, -1, axis=0)
+    r_next2 = jnp.roll(r_vmap, -2, axis=0)
+    th_next2 = jnp.roll(th_vmap, -2, axis=0)
+    
+    # Adjust the shape of the condition arrays to match (10, 2)
+    same_r1 = jnp.all(r_vmap == r_next1, axis=1) 
+    same_r2 = jnp.all(r_vmap == r_next2, axis=1)
+    continuous_th1 = (th_vmap[:, 0] == 0) & (th_next1[:, 1] == 2 * jnp.pi)
+    continuous_th2 = (th_vmap[:, 0] == 0) & (th_next2[:, 1] == 2 * jnp.pi)
+
+    # Broadcast conditions to match the shape of r_vmap and th_vmap
+    merge1 = same_r1 & continuous_th1
+    merge2 = same_r2 & continuous_th2
+
+    # Apply conditions
+    merged_r = jnp.where(merge1[:, None], r_next1, r_vmap)
+    merged_th = jnp.where(
+        merge1[:, None], 
+        jnp.stack([th_next1[:, 0] - 2 * jnp.pi, th_vmap[:, 1]], axis=-1), 
+        th_vmap
+    )
+    merged_r = jnp.where(merge2[:, None], r_next2, merged_r)
+    merged_th = jnp.where(
+        merge2[:, None], 
+        jnp.stack([th_next2[:, 0] - 2 * jnp.pi, merged_th[:, 1]], axis=-1), 
+        merged_th
+    )
+    # Zero out the merged regions
+    zero_out_1 = jnp.roll(merge1, 1)
+    zero_out_2 = jnp.roll(merge2, 2)
+    zero_out_mask = zero_out_1 | zero_out_2
+    merged_r = jnp.where(zero_out_mask[:, None], 0.0, merged_r)
+    merged_th = jnp.where(zero_out_mask[:, None], 0.0, merged_th)
+
+    sort_order = jnp.argsort(merged_r[:, 1] == 0)
+    return merged_r[sort_order], merged_th[sort_order]
+
+
 def _compute_in_mask(r_limb, th_limb, r_use, th_use):
     M = r_use.shape[0]  
     K = th_use.shape[0]  

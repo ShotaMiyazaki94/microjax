@@ -4,7 +4,7 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 import time
-from microjax.inverse_ray.merge_area import calc_source_limb, calculate_overlap_and_range, _compute_in_mask 
+from microjax.inverse_ray.merge_area import calc_source_limb, calculate_overlap_and_range, _compute_in_mask, merge_final
 import jax.numpy as jnp
 from jax import jit, vmap
 
@@ -49,7 +49,7 @@ def Is_limb_1st(d, u1=0.0):
 @partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "u1",
                                "offset_r", "offset_th", "delta_c"))
 def mag_binary(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, u1=0.0, 
-                offset_r = 1.0, offset_th = 10.0, delta_c=0.15, **_params):
+                offset_r = 1.0, offset_th = 10.0, delta_c=0.05, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -72,8 +72,11 @@ def mag_binary(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, 
     in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
-    r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
-    th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
+    r_vmap_excess   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
+    th_vmap_excess  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
+    r_vmap, th_vmap = merge_final(r_vmap_excess, th_vmap_excess)
+    r_vmap          = r_vmap[:5]
+    th_vmap         = th_vmap[:5]
 
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
@@ -167,14 +170,17 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
             segment_inside = in0 * in1
             segment_in2out = in0 & (~in1)
             segment_out2in = (~in0) & in1
+
+
             zero_term = 1e-12
             frac = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
             
             area_inside    = r0 * dth * segment_inside
             area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
-            return area_inside + area_crossing
+            
+            return jnp.sum(area_inside + area_crossing)
         area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
-        area_r = jnp.sum(area_r, axis=1)
+        #area_r = jnp.sum(area_r, axis=1)
         #total_area = 0.5 * dr * jnp.sum(area_r[:-1] + area_r[1:])
         #total_area = dr * (0.5 * area_r[0] + jnp.sum(area_r[1:-1]) + 0.5 * area_r[-1])
         total_area = dr * jnp.sum(area_r)
