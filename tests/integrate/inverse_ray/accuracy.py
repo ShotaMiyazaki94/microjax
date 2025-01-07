@@ -52,6 +52,8 @@ mags_list = []
 #rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 
+cubic = False
+
 for rho in rho_list:
     print(f"rho = {rho}")
     # Generate 1000 random test points within 2 source radii away from the caustic points 
@@ -65,7 +67,7 @@ for rho in rho_list:
                           for w in w_test
                           ])
     mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
-                                    th_resolution=th_resolution, cubic=True, 
+                                    th_resolution=th_resolution, cubic=cubic, 
                                     Nlimb=1000, offset_r=0.5, offset_th=5.0)
     #magn    = jax.jit(jax.vmap(mag_mj, in_axes=(0,)))
     def chunked_vmap(func, data, chunk_size):
@@ -100,6 +102,8 @@ for i in range(len(rho_list)):
 
 ax[0].set_ylabel("Relative error")
 ax[2].set_xlabel("Point index", labelpad=25)
-fig.savefig("tests/integrate/inverse_ray/figs/accuracy_r%d_th%d_cubic.pdf"%(r_resolution, th_resolution),bbox_inches="tight")
-
+if cubic:
+    fig.savefig("tests/integrate/inverse_ray/figs/accuracy_r%d_th%d_cubic.pdf"%(r_resolution, th_resolution),bbox_inches="tight")
+else:
+    fig.savefig("tests/integrate/inverse_ray/figs/accuracy_r%d_th%d_linear.pdf"%(r_resolution, th_resolution),bbox_inches="tight")
 plt.show()

@@ -26,9 +26,10 @@ e1 = q / (1.0 + q)
 # Position of the center of the source with respect to the center of mass.
 t  =  jnp.linspace(-22, 12, 1000)
 
-r_resolution  = 4000
-th_resolution = 1000
+r_resolution  = 1000
+th_resolution = 4000
 
+cubic = False
 @jit
 def get_mag(params):
     s, q, rho, alpha, u0, t0, tE = params
@@ -38,7 +39,7 @@ def get_mag(params):
 
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    return w_points, mag_lc_uniform(w_points, rho, nlenses=2, q=q, s=s, 
+    return w_points, mag_lc_uniform(w_points, rho, nlenses=2, q=q, s=s, cubic=cubic,
                                     r_resolution=r_resolution, th_resolution=th_resolution)
 
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
@@ -106,6 +107,9 @@ for i, _a in enumerate(ax):
 
 ax[-1].set_xlabel('$t$ [days]')
 ax_in.set_rasterization_zorder(0)
-fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_uniform_r{r_resolution}_{th_resolution}.pdf", bbox_inches="tight")
+if cubic:
+    fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_uniform_r{r_resolution}_{th_resolution}.pdf", bbox_inches="tight")
+else:
+    fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_uniform_r{r_resolution}_{th_resolution}_linear.pdf", bbox_inches="tight")
 plt.show()
 plt.close()
