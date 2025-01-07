@@ -118,9 +118,9 @@ def mag_binary(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, 
     magnification = jnp.sum(image_areas) / rho**2 #/ jnp.pi 
     return magnification 
 
-@partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th"))
+@partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic"))
 def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, 
-                offset_r = 1.0, offset_th = 10.0, **_params):
+                offset_r = 1.0, offset_th = 10.0, cubic = False, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -146,6 +146,7 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
     in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
+    # select the first 5 regions for the integration.
     r_vmap_excess   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
     th_vmap_excess  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
     r_vmap, th_vmap = merge_final(r_vmap_excess, th_vmap_excess)
@@ -167,20 +168,48 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
             image_mesh = lens_eq(z_th - shifted, **_params)
             distances = jnp.abs(image_mesh - w_center_shifted)
             in_source = distances - rho < 0.0
-            in0, in1 = in_source[:-1], in_source[1:]
-            #th0, th1 = th_values[:-1], th_values[1:]
-            d0, d1   = distances[:-1], distances[1:]
-            segment_inside = in0 * in1
-            segment_in2out = in0 & (~in1)
-            segment_out2in = (~in0) & in1
-
-
             zero_term = 1e-12
-            frac = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
             
-            area_inside    = r0 * dth * segment_inside
-            area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
-            
+            if cubic:
+                # cubic interpolation. The boundaries locate  at between in1 and in2.
+                def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3):
+                    # In this case, x is distance, y is coordinate.
+                    epsilon = zero_term
+                    x_min = jnp.min(jnp.array([x0, x1, x2, x3]))
+                    x_max = jnp.max(jnp.array([x0, x1, x2, x3]))
+                    scale = x_max - x_min
+                    x_hat = (x - x_min) / scale
+                    x0_hat, x1_hat, x2_hat, x3_hat = (x0 - x_min) / scale, (x1 - x_min) / scale, (x2 - x_min) / scale, (x3 - x_min) / scale
+                    L0 = ((x_hat - x1_hat) * (x_hat - x2_hat) * (x_hat - x3_hat)) / \
+                        ((x0_hat - x1_hat + epsilon) * (x0_hat - x2_hat + epsilon) * (x0_hat - x3_hat + epsilon))
+                    L1 = ((x_hat - x0_hat) * (x_hat - x2_hat) * (x_hat - x3_hat)) / \
+                        ((x1_hat - x0_hat + epsilon) * (x1_hat - x2_hat + epsilon) * (x1_hat - x3_hat + epsilon))
+                    L2 = ((x_hat - x0_hat) * (x_hat - x1_hat) * (x_hat - x3_hat)) / \
+                        ((x2_hat - x0_hat + epsilon) * (x2_hat - x1_hat + epsilon) * (x2_hat - x3_hat + epsilon))
+                    L3 = ((x_hat - x0_hat) * (x_hat - x1_hat) * (x_hat - x2_hat)) / \
+                        ((x3_hat - x0_hat + epsilon) * (x3_hat - x1_hat + epsilon) * (x3_hat - x2_hat + epsilon))
+                    return y0 * L0 + y1 * L1 + y2 * L2 + y3 * L3
+                in0, in1, in2, in3 = in_source[:-3], in_source[1:-2], in_source[2:-1], in_source[3:]
+                d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
+                th0, th1, th2, th3 = 0.0, 1.0, 2.0, 3.0
+                segment_inside = in1 * in2
+                segment_in2out = in1 * (~in2)
+                segment_out2in = (~in1) * in2
+                th_est = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3)
+                frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
+                frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
+                area_inside = r0 * dth * segment_inside
+                area_crossing = r0 * dth * (segment_in2out * frac_in2out + segment_out2in * frac_out2in)
+            else:
+                # linear interpolation. The boundaries locate at between in0 and in1.
+                in0, in1 = in_source[:-1], in_source[1:]
+                d0, d1   = distances[:-1], distances[1:]
+                segment_inside = in0 * in1
+                segment_in2out = in0 * (~in1)
+                segment_out2in = (~in0) * in1
+                frac     = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
+                area_inside    = r0 * dth * segment_inside
+                area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
             return jnp.sum(area_inside + area_crossing)
         area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
         #area_r = jnp.sum(area_r, axis=1)
@@ -226,6 +255,7 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params)
+    #magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params, cubic=True)
     #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))

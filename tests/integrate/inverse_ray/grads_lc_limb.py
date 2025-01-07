@@ -36,7 +36,7 @@ def get_mag(params):
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
     return w_points, mag_lc_binary(w_points, rho, nlenses=2, u1=0.5,
-                                    q=q, s=s, r_resolution=4000, th_resolution=1000)
+                                    q=q, s=s, r_resolution=4000, th_resolution=4000)
     #return w_points, mag_lc_uniform(w_points, rho, nlenses=2, 
     #                                q=q, s=s, r_resolution=4000, th_resolution=4000)
     #return w_points, magnifications(w_points, rho, nlenses=2, q=q, s=s, limb_darkening=True, u1=0.5)

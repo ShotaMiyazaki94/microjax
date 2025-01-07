@@ -6,8 +6,8 @@ from microjax.point_source import lens_eq, _images_point_source
 
 def merge_final(r_vmap, th_vmap):
     """
-    merge continuous regions of the images.
-    The separated regions are due to the definition of the angle [0 ~ 2pi].
+    Merge continuous regions of search space.
+    The continuous regions but separated are due to the definition of the angle [0 ~ 2pi].
     This checks the next and next-next elements.
     """
     r_next1 = jnp.roll(r_vmap, -1, axis=0)

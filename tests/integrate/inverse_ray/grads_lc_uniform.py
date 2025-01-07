@@ -36,7 +36,7 @@ def get_mag(params):
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
     return w_points, mag_lc_uniform(w_points, rho, nlenses=2, q=q, s=s, 
-                                    r_resolution=2000, th_resolution=2000)
+                                    r_resolution=3000, th_resolution=3000)
 
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
 w_points, A = get_mag(params)
