@@ -119,8 +119,8 @@ def mag_binary(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, 
     return magnification 
 
 @partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic"))
-def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, 
-                offset_r=1.0, offset_th=10.0, cubic=True, **_params):
+def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=500, 
+                offset_r=0.5, offset_th=5.0, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -168,16 +168,32 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
             image_mesh = lens_eq(z_th - shifted, **_params)
             distances = jnp.abs(image_mesh - w_center_shifted)
             in_source = distances - rho < 0.0
-            zero_term = 1e-12
+            zero_term = 1e-10
             
             if cubic:
                 # cubic interpolation. The boundaries locate  at between in1 and in2.
-                def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3):
+                def cubic_interp(x, xs, ys, eps=1e-8):
+                    x_min = jnp.min(xs, axis=1, keepdims=True)  # shape=(N, 1)
+                    x_max = jnp.max(xs, axis=1, keepdims=True)  # shape=(N, 1)
+                    scale = jnp.maximum(x_max - x_min, eps)     # shape=(N, 1)
+                    xs_hat = (xs - x_min) / scale               # shape=(N, 4) 
+                    x_hat  = (x - x_min) / scale                 # shape=(N, 1)
+                    diffs_x = x_hat - xs_hat  # shape=(N, 4)
+                    diag_mask = jnp.eye(4, dtype=bool) # shape=(4, 4)
+                    diffs_x_mat = jnp.where(diag_mask, 1.0, diffs_x[:, None, :]) # shape=(N, 4, 4)
+                    numer = jnp.prod(diffs_x_mat, axis=2)  # shape=(N, 4)
+                    diffs_xs = xs_hat[:, :, None] - xs_hat[:, None, :]  # shape=(N, 4, 4)
+                    diffs_xs_mat = jnp.where(diag_mask, 1.0, diffs_xs)  # shape=(N, 4, 4)
+                    denom = jnp.prod(diffs_xs_mat, axis=2)  # shape=(N, 4)
+                    basis = numer / (denom + eps)  # shape=(N, 4)
+                    return jnp.sum(basis * ys, axis=1)  # shape=(N,)
+
+                def _cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3):
                     # In this case, x is distance, y is coordinate.
                     epsilon = zero_term
                     x_min = jnp.min(jnp.array([x0, x1, x2, x3]))
                     x_max = jnp.max(jnp.array([x0, x1, x2, x3]))
-                    scale = jnp.maximum(x_max - x_min, 1e-10)
+                    scale = jnp.maximum(x_max - x_min, zero_term)
                     x_hat = (x - x_min) / scale
                     x0_hat, x1_hat, x2_hat, x3_hat = (x0 - x_min) / scale, (x1 - x_min) / scale, (x2 - x_min) / scale, (x3 - x_min) / scale
                     L0 = ((x_hat - x1_hat) * (x_hat - x2_hat) * (x_hat - x3_hat)) / \
@@ -191,11 +207,12 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
                     return y0 * L0 + y1 * L1 + y2 * L2 + y3 * L3
                 in0, in1, in2, in3 = in_source[:-3], in_source[1:-2], in_source[2:-1], in_source[3:]
                 d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
-                th0, th1, th2, th3 = 0.0, 1.0, 2.0, 3.0
+                th0, th1, th2, th3 = -1.5, -0.5, 0.5, 1.5
                 segment_inside = in1 * in2
                 segment_in2out = in1 * (~in2)
                 segment_out2in = (~in1) * in2
-                th_est = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3)
+                #th_est = cubic_interp(rho, jnp.array([d0, d1, d2, d3]), jnp.array([th0, th1, th2, th3]))
+                th_est = _cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3)
                 frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
                 frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
                 area_inside = r0 * dth * segment_inside
@@ -257,7 +274,7 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=500, **test_params)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=500, **test_params, cubic=True)
+    magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params, cubic=True)
     #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
@@ -311,6 +328,6 @@ if __name__ == "__main__":
     ax1.grid(ls=":")
     ax1.set_ylabel("relative diff")
     ax1.set_yscale("log")
-    ax1.set_ylim(1e-5, 1e-2)
-    plt.savefig("a.png", bbox_inches="tight")
+    ax1.set_ylim(1e-6, 1e-2)
+    plt.savefig("lc.pdf", bbox_inches="tight")
     plt.show()

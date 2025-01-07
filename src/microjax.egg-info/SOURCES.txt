@@ -2,7 +2,6 @@
 .gitignore
 LICENSE
 README.md
-a.png
 setup.py
 .github/workflows/main.yml
 documents/Makefile

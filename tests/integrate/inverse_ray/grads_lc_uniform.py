@@ -24,7 +24,10 @@ a  = 0.5 * s
 e1 = q / (1.0 + q)
 
 # Position of the center of the source with respect to the center of mass.
-t  =  jnp.linspace(-22, 12, 500)
+t  =  jnp.linspace(-22, 12, 1000)
+
+r_resolution  = 2000
+th_resolution = 2000
 
 @jit
 def get_mag(params):
@@ -36,7 +39,7 @@ def get_mag(params):
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
     return w_points, mag_lc_uniform(w_points, rho, nlenses=2, q=q, s=s, 
-                                    r_resolution=10000, th_resolution=1000)
+                                    r_resolution=r_resolution, th_resolution=th_resolution)
 
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
 w_points, A = get_mag(params)
@@ -103,6 +106,6 @@ for i, _a in enumerate(ax):
 
 ax[-1].set_xlabel('$t$ [days]')
 ax_in.set_rasterization_zorder(0)
-fig.savefig("tests/integrate/inverse_ray/figs/grads_lc_uniform.pdf", bbox_inches="tight")
+fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_uniform_r{r_resolution}_{th_resolution}.pdf", bbox_inches="tight")
 plt.show()
 plt.close()

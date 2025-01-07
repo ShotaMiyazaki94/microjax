@@ -3,8 +3,9 @@ jax.config.update("jax_enable_x64", True)
 jax.config.update('jax_platform_name', 'cpu')
 import jax.numpy as jnp
 from jax import random, lax
+import gc
 
-from microjax.inverse_ray.extended_source import mag_simple, mag_uniform
+from microjax.inverse_ray.extended_source import mag_uniform
 from microjax.point_source import critical_and_caustic_curves
 import MulensModel as mm
 
@@ -28,6 +29,14 @@ def mag_microjax(w_points, rho, s, q, r_resolution=200, th_resolution=200):
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
 
+def _mag_microjax(w_points, rho, s, q, r_resolution=200, th_resolution=200):
+    def single_mag(w):
+        return mag_uniform(w, rho, s=s, q=q, 
+                           r_resolution=r_resolution, 
+                           th_resolution=th_resolution)
+    mags = jax.vmap(single_mag)(w_points)
+    return mags
+
 s, q = 1.0, 1.0
 # 1000  points on caustic curve
 npts = 100
@@ -37,8 +46,8 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 250
-th_resolution = 4000
+r_resolution  = 4000
+th_resolution = 1000
 mags_vbb_list = []
 mags_list = []
 
@@ -59,8 +68,13 @@ for rho in rho_list:
                           for w in w_test
                           ])
     mags = mag_microjax(w_test, rho, s, q, r_resolution=r_resolution, th_resolution=th_resolution)
+    
+    mags_vbb.block_until_ready()
+    mags.block_until_ready()
     mags_vbb_list.append(mags_vbb)
     mags_list.append(mags)
+    del mags_vbb, mags, w_test, phi, r, subkey1, subkey2
+    gc.collect()
 
 fig, ax = plt.subplots(1,len(rho_list), figsize=(16, 4), sharey=True,
     gridspec_kw={'wspace':0.2})
@@ -75,12 +89,12 @@ for i in range(len(rho_list)):
     ax[i].yaxis.set_minor_locator(AutoMinorLocator())
     ax[i].set_yscale('log')
     ax[i].set_title(labels[i])
-    ax[i].set_ylim(1e-05, 1.0)
+    ax[i].set_ylim(1e-06, 1.0)
     #ax[i].set_xlim(-10, 1010)
     ax[i].set_rasterization_zorder(0)
 
 ax[0].set_ylabel("Relative error")
 ax[2].set_xlabel("Point index", labelpad=25)
-fig.savefig("tests/integrate/inverse_ray/accuracy_r%d_th%d_new.pdf"%(r_resolution, th_resolution),bbox_inches="tight")
+fig.savefig("tests/integrate/inverse_ray/figs/accuracy_r%d_th%d_cubic.pdf"%(r_resolution, th_resolution),bbox_inches="tight")
 
 plt.show()
