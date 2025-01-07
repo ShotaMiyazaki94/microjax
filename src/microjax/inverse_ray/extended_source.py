@@ -119,8 +119,8 @@ def mag_binary(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, 
     return magnification 
 
 @partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic"))
-def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=500, 
-                offset_r=0.5, offset_th=5.0, cubic=True, **_params):
+def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000, 
+                Nlimb=1000, offset_r=0.5, offset_th=5.0, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -141,8 +141,6 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=500,
     th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
     
     # select matched regions including image limbs. binary-lens microlensing should have less than 5 images.
-    # note: theta boundary is 0 and 2pi so that images containing the boundary are divided into two.
-    # The reason why the 6 is chosen is that never all five images align on the binary axis, though three may be.
     in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
@@ -207,7 +205,7 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=500,
                     return y0 * L0 + y1 * L1 + y2 * L2 + y3 * L3
                 in0, in1, in2, in3 = in_source[:-3], in_source[1:-2], in_source[2:-1], in_source[3:]
                 d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
-                th0, th1, th2, th3 = -1.5, -0.5, 0.5, 1.5
+                th0, th1, th2, th3 = jnp.arange(4)
                 segment_inside = in1 * in2
                 segment_in2out = in1 * (~in2)
                 segment_out2in = (~in1) * in2
@@ -229,7 +227,6 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=500,
                 area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
             return jnp.sum(area_inside + area_crossing)
         area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
-        #area_r = jnp.sum(area_r, axis=1)
         #total_area = 0.5 * dr * jnp.sum(area_r[:-1] + area_r[1:])
         #total_area = dr * (0.5 * area_r[0] + jnp.sum(area_r[1:-1]) + 0.5 * area_r[-1])
         total_area = dr * jnp.sum(area_r)
@@ -247,15 +244,14 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=500,
 
 if __name__ == "__main__":
     jax.config.update("jax_enable_x64", True)
-    import jax
-    jax.config.update("jax_debug_nans", True)
+    #jax.config.update("jax_debug_nans", True)
     q = 0.1
     s = 1.0
     alpha = jnp.deg2rad(30) # angle between lens axis and source trajectory
     tE = 20 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 2e-2
+    rho = 5e-2
 
     num_points = 500
     t  =  jnp.linspace(-5, 7.5, num_points)
@@ -274,7 +270,7 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=500, **test_params)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params, cubic=True)
+    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=1000, **test_params, cubic=True)
     #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))

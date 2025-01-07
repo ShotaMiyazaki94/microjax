@@ -1,6 +1,6 @@
 import jax
 jax.config.update("jax_enable_x64", True)
-jax.config.update('jax_platform_name', 'cpu')
+#jax.config.update('jax_platform_name', 'cpu')
 import jax.numpy as jnp
 from jax import random, lax
 import gc
@@ -29,24 +29,22 @@ def mag_microjax(w_points, rho, s, q, r_resolution=200, th_resolution=200):
     _, mags = lax.scan(body_fn, 0, w_points)
     return mags
 
-def _mag_microjax(w_points, rho, s, q, r_resolution=200, th_resolution=200):
-    def single_mag(w):
-        return mag_uniform(w, rho, s=s, q=q, 
-                           r_resolution=r_resolution, 
-                           th_resolution=th_resolution)
-    mags = jax.vmap(single_mag)(w_points)
-    return mags
+def mag_microjax_vmap(w_points, rho, s, q, r_resolution=200, th_resolution=200):
+    magn = jax.vmap(lambda w: mag_uniform(w, rho, s=s, q=q, 
+                                          r_resolution=r_resolution, 
+                                          th_resolution=th_resolution))
+    return magn(w_points)
 
 s, q = 1.0, 1.0
 # 1000  points on caustic curve
-npts = 100
+npts = 120
 critical_curves, caustic_curves = critical_and_caustic_curves(
     npts=npts, nlenses=2, s=s, q=q
 )
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 4000
+r_resolution  = 1000
 th_resolution = 1000
 mags_vbb_list = []
 mags_list = []
@@ -56,25 +54,32 @@ rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 
 for rho in rho_list:
     print(f"rho = {rho}")
-
     # Generate 1000 random test points within 2 source radii away from the caustic points 
-    key = random.PRNGKey(42)
+    key = random.PRNGKey(32)
     key, subkey1, subkey2 = random.split(key, num=3)
     phi = random.uniform(subkey1, caustic_curves.shape, minval=-jnp.pi, maxval=jnp.pi)
-    r = random.uniform(subkey2, caustic_curves.shape, minval=0., maxval=rho)
+    r = random.uniform(subkey2, caustic_curves.shape, minval=0., maxval=2*rho)
     w_test = caustic_curves + r*jnp.exp(1j*phi)
 
     mags_vbb = jnp.array([mag_vbb_binary(complex(w), rho, s, q, u1=0.0, accuracy=acc_vbb)
                           for w in w_test
                           ])
-    mags = mag_microjax(w_test, rho, s, q, r_resolution=r_resolution, th_resolution=th_resolution)
+    mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
+                                    th_resolution=th_resolution, cubic=True, 
+                                    Nlimb=1000, offset_r=0.5, offset_th=5.0)
+    #magn    = jax.jit(jax.vmap(mag_mj, in_axes=(0,)))
+    def chunked_vmap(func, data, chunk_size):
+        results = []
+        for i in range(0, len(data), chunk_size):
+            chunk = data[i:i + chunk_size]
+            results.append(jax.vmap(func)(chunk))
+        return jnp.concatenate(results)
+
+    chunk_size = 100  # メモリ消費を調整するため適宜変更
+    mags = chunked_vmap(mag_mj, w_test, chunk_size)
     
-    mags_vbb.block_until_ready()
-    mags.block_until_ready()
     mags_vbb_list.append(mags_vbb)
     mags_list.append(mags)
-    del mags_vbb, mags, w_test, phi, r, subkey1, subkey2
-    gc.collect()
 
 fig, ax = plt.subplots(1,len(rho_list), figsize=(16, 4), sharey=True,
     gridspec_kw={'wspace':0.2})
