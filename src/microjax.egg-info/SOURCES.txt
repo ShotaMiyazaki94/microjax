@@ -100,7 +100,6 @@ tests/integrate/inverse_ray/figs/accuracy_r1000_th1000_new.pdf
 tests/integrate/inverse_ray/figs/accuracy_r250_th4000_new.pdf
 tests/integrate/inverse_ray/figs/accuracy_r5000_th5000.pdf
 tests/integrate/inverse_ray/figs/accuracy_r500_th2000_new.pdf
-tests/integrate/inverse_ray/figs/grads.png
 tests/integrate/inverse_ray/figs/grads_lc_limb.pdf
 tests/integrate/inverse_ray/figs/grads_lc_uniform.pdf
 tests/integrate/inverse_ray/figs/performance.pdf

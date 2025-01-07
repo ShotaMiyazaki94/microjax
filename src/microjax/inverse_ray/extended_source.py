@@ -120,7 +120,7 @@ def mag_binary(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, 
 
 @partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic"))
 def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, 
-                offset_r = 1.0, offset_th = 10.0, cubic = False, **_params):
+                offset_r=1.0, offset_th=10.0, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -177,7 +177,7 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
                     epsilon = zero_term
                     x_min = jnp.min(jnp.array([x0, x1, x2, x3]))
                     x_max = jnp.max(jnp.array([x0, x1, x2, x3]))
-                    scale = x_max - x_min
+                    scale = jnp.maximum(x_max - x_min, 1e-10)
                     x_hat = (x - x_min) / scale
                     x0_hat, x1_hat, x2_hat, x3_hat = (x0 - x_min) / scale, (x1 - x_min) / scale, (x2 - x_min) / scale, (x3 - x_min) / scale
                     L0 = ((x_hat - x1_hat) * (x_hat - x2_hat) * (x_hat - x3_hat)) / \
@@ -230,6 +230,8 @@ def mag_uniform(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200,
 
 if __name__ == "__main__":
     jax.config.update("jax_enable_x64", True)
+    import jax
+    jax.config.update("jax_debug_nans", True)
     q = 0.1
     s = 1.0
     alpha = jnp.deg2rad(30) # angle between lens axis and source trajectory
@@ -254,8 +256,8 @@ if __name__ == "__main__":
         e2 = 1.0 - e1  
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params)
-    #magn  = lambda w: mag_uniform(w, rho, r_resolution=500, th_resolution=500, **test_params, cubic=True)
+    #magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=500, **test_params)
+    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=500, **test_params, cubic=True)
     #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
