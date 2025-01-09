@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from jax import jit, jacfwd 
+from jax import jit, jacfwd, jacrev 
 import jax
 jax.config.update("jax_enable_x64", True)
 import matplotlib as mpl
@@ -29,7 +29,7 @@ t  =  jnp.linspace(-22, 12, 1000)
 r_resolution  = 1000
 th_resolution = 4000
 
-cubic = False
+cubic = True
 @jit
 def get_mag(params):
     s, q, rho, alpha, u0, t0, tE = params
@@ -48,6 +48,7 @@ print("mag finish")
 
 # Evaluate the Jacobian at every point
 mag_jac = jit(jacfwd(lambda params: get_mag(params)[1]))
+#mag_jac = jit(jacrev(lambda params: get_mag(params)[1])) # memory error
 jac_eval = mag_jac(params)
 print("jac finish")
 

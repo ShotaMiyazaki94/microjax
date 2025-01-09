@@ -48,8 +48,8 @@ def Is_limb_1st(d, u1=0.0):
 
 @partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "u1",
                                "offset_r", "offset_th", "delta_c"))
-def mag_binary(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, u1=0.0, 
-                offset_r = 1.0, offset_th = 10.0, delta_c=0.05, **_params):
+def mag_binary(w_center, rho, u1=0.0, r_resolution=4000, th_resolution=4000, 
+               Nlimb=1000, offset_r = 0.5, offset_th = 5.0, delta_c=0.05, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -68,7 +68,6 @@ def mag_binary(w_center, rho, r_resolution=4000, th_resolution=4000, Nlimb=200, 
     th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
     # select matched regions including image limbs. binary-lens microlensing should have less than 5 images.
     # note: theta boundary is 0 and 2pi so that images containing the boundary are divided into two.
-    # The reason why the 6 is chosen is that never all five images align on the binary axis, though three may be.
     in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
@@ -170,47 +169,13 @@ def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000,
             
             if cubic:
                 # cubic interpolation. The boundaries locate  at between in1 and in2.
-                def cubic_interp(x, xs, ys, eps=1e-8):
-                    x_min = jnp.min(xs, axis=1, keepdims=True)  # shape=(N, 1)
-                    x_max = jnp.max(xs, axis=1, keepdims=True)  # shape=(N, 1)
-                    scale = jnp.maximum(x_max - x_min, eps)     # shape=(N, 1)
-                    xs_hat = (xs - x_min) / scale               # shape=(N, 4) 
-                    x_hat  = (x - x_min) / scale                 # shape=(N, 1)
-                    diffs_x = x_hat - xs_hat  # shape=(N, 4)
-                    diag_mask = jnp.eye(4, dtype=bool) # shape=(4, 4)
-                    diffs_x_mat = jnp.where(diag_mask, 1.0, diffs_x[:, None, :]) # shape=(N, 4, 4)
-                    numer = jnp.prod(diffs_x_mat, axis=2)  # shape=(N, 4)
-                    diffs_xs = xs_hat[:, :, None] - xs_hat[:, None, :]  # shape=(N, 4, 4)
-                    diffs_xs_mat = jnp.where(diag_mask, 1.0, diffs_xs)  # shape=(N, 4, 4)
-                    denom = jnp.prod(diffs_xs_mat, axis=2)  # shape=(N, 4)
-                    basis = numer / (denom + eps)  # shape=(N, 4)
-                    return jnp.sum(basis * ys, axis=1)  # shape=(N,)
-
-                def _cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3):
-                    # In this case, x is distance, y is coordinate.
-                    epsilon = zero_term
-                    x_min = jnp.min(jnp.array([x0, x1, x2, x3]))
-                    x_max = jnp.max(jnp.array([x0, x1, x2, x3]))
-                    scale = jnp.maximum(x_max - x_min, zero_term)
-                    x_hat = (x - x_min) / scale
-                    x0_hat, x1_hat, x2_hat, x3_hat = (x0 - x_min) / scale, (x1 - x_min) / scale, (x2 - x_min) / scale, (x3 - x_min) / scale
-                    L0 = ((x_hat - x1_hat) * (x_hat - x2_hat) * (x_hat - x3_hat)) / \
-                        ((x0_hat - x1_hat + epsilon) * (x0_hat - x2_hat + epsilon) * (x0_hat - x3_hat + epsilon))
-                    L1 = ((x_hat - x0_hat) * (x_hat - x2_hat) * (x_hat - x3_hat)) / \
-                        ((x1_hat - x0_hat + epsilon) * (x1_hat - x2_hat + epsilon) * (x1_hat - x3_hat + epsilon))
-                    L2 = ((x_hat - x0_hat) * (x_hat - x1_hat) * (x_hat - x3_hat)) / \
-                        ((x2_hat - x0_hat + epsilon) * (x2_hat - x1_hat + epsilon) * (x2_hat - x3_hat + epsilon))
-                    L3 = ((x_hat - x0_hat) * (x_hat - x1_hat) * (x_hat - x2_hat)) / \
-                        ((x3_hat - x0_hat + epsilon) * (x3_hat - x1_hat + epsilon) * (x3_hat - x2_hat + epsilon))
-                    return y0 * L0 + y1 * L1 + y2 * L2 + y3 * L3
                 in0, in1, in2, in3 = in_source[:-3], in_source[1:-2], in_source[2:-1], in_source[3:]
                 d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
                 th0, th1, th2, th3 = jnp.arange(4)
                 segment_inside = in1 * in2
                 segment_in2out = in1 * (~in2)
                 segment_out2in = (~in1) * in2
-                #th_est = cubic_interp(rho, jnp.array([d0, d1, d2, d3]), jnp.array([th0, th1, th2, th3]))
-                th_est = _cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3)
+                th_est = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
                 frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
                 frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
                 area_inside = r0 * dth * segment_inside
@@ -227,12 +192,15 @@ def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000,
                 area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
             return jnp.sum(area_inside + area_crossing)
         area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
-        #total_area = 0.5 * dr * jnp.sum(area_r[:-1] + area_r[1:])
-        #total_area = dr * (0.5 * area_r[0] + jnp.sum(area_r[1:-1]) + 0.5 * area_r[-1])
+        # trapz integration 
         total_area = dr * jnp.sum(area_r)
+        # midpoint integration                           
+        #total_area = 0.5 * dr * jnp.sum(area_r[:-1] + area_r[1:])
+        # simpson integration
         #total_area = (dr / 3.0) * (area_r[0] + area_r[-1] 
         #                  + 4 * jnp.sum(area_r[1:-1:2])
         #                  + 2 * jnp.sum(area_r[2:-2:2]))
+        # 3/8 simpson integration          
         #total_area = (3 * dr / 8.0) * (area_r[0] + area_r[-1] 
         #                               + 3 * jnp.sum(area_r[1:-1:3] + area_r[2:-1:3]) 
         #                               + 2 * jnp.sum(area_r[3:-3:3]))
@@ -241,6 +209,28 @@ def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000,
     image_areas = compute_vmap(r_vmap, th_vmap)
     magnification = jnp.sum(image_areas) / rho**2 / jnp.pi 
     return magnification 
+
+def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
+    # Implemented algebraically, much faster than polyfit that uses matrix manipulation.
+    # In this case, x is distance, y is coordinate.
+    x_min = jnp.min(jnp.array([x0, x1, x2, x3]))
+    x_max = jnp.max(jnp.array([x0, x1, x2, x3]))
+    scale = jnp.maximum(x_max - x_min, epsilon)
+    x_hat = (x - x_min) / scale
+    x0_hat, x1_hat, x2_hat, x3_hat = (x0 - x_min) / scale, (x1 - x_min) / scale, (x2 - x_min) / scale, (x3 - x_min) / scale
+    L0 = ((x_hat - x1_hat) * (x_hat - x2_hat) * (x_hat - x3_hat)) / \
+        ((x0_hat - x1_hat + epsilon) * (x0_hat - x2_hat + epsilon) * (x0_hat - x3_hat + epsilon))
+    L1 = ((x_hat - x0_hat) * (x_hat - x2_hat) * (x_hat - x3_hat)) / \
+        ((x1_hat - x0_hat + epsilon) * (x1_hat - x2_hat + epsilon) * (x1_hat - x3_hat + epsilon))
+    L2 = ((x_hat - x0_hat) * (x_hat - x1_hat) * (x_hat - x3_hat)) / \
+        ((x2_hat - x0_hat + epsilon) * (x2_hat - x1_hat + epsilon) * (x2_hat - x3_hat + epsilon))
+    L3 = ((x_hat - x0_hat) * (x_hat - x1_hat) * (x_hat - x2_hat)) / \
+        ((x3_hat - x0_hat + epsilon) * (x3_hat - x1_hat + epsilon) * (x3_hat - x2_hat + epsilon))
+    return y0 * L0 + y1 * L1 + y2 * L2 + y3 * L3
+
+
+
+
 
 if __name__ == "__main__":
     jax.config.update("jax_enable_x64", True)
