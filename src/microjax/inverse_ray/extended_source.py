@@ -154,7 +154,7 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
     
-    def _process_r(r0, th_values):
+    def _process_r(r0, th_values, cubic=True):
         dth = (th_values[1] - th_values[0])
         x_th = r0 * jnp.cos(th_values)
         y_th = r0 * jnp.sin(th_values)
@@ -162,7 +162,7 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
         image_mesh = lens_eq(z_th - shifted, **_params)
         distances = jnp.abs(image_mesh - w_center_shifted)
         in_source = distances - rho < 0.0
-        zero_term = 1e-10
+        zero_term = 1e-12
         if cubic:
             in0, in1, in2, in3 = in_source[:-3], in_source[1:-2], in_source[2:-1], in_source[3:]
             d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
@@ -181,7 +181,8 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
             segment_inside = in0 * in1
             segment_in2out = in0 * (~in1)
             segment_out2in = (~in0) * in1
-            frac     = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
+            #frac     = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
+            frac     = jnp.maximum(0.0, jnp.minimum(1.0, (rho - d0) / (d1 - d0 + zero_term)))
             area_inside    = r0 * dth * segment_inside
             area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
         return jnp.sum(area_inside + area_crossing)  
@@ -193,58 +194,7 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
         th_values = th_grid_norm * (th_range[1] - th_range[0]) + th_range[0]
         area_r = vmap(lambda r: _process_r(r, th_values))(r_values)
         total_area = dr * jnp.sum(area_r)
-        return total_area
-
-    def compute_for_range(r_range, th_range):
-        dr = (r_range[1] - r_range[0]) / r_resolution
-        dth = (th_range[1] - th_range[0]) / th_resolution
-        r_values  = r_grid_norm * (r_range[1] - r_range[0]) + r_range[0]
-        th_values = th_grid_norm * (th_range[1] - th_range[0]) + th_range[0]
-        def process_r(r0):
-            x_th = r0 * jnp.cos(th_values)
-            y_th = r0 * jnp.sin(th_values)
-            z_th = x_th + 1j * y_th 
-            image_mesh = lens_eq(z_th - shifted, **_params)
-            distances = jnp.abs(image_mesh - w_center_shifted)
-            if(1):
-                in_source = distances - rho < 0.0
-            if(0):
-                beta = 1e+4
-                in_source = 1.0 / (1.0 + jnp.exp(beta * (distances - rho)))
-
-            zero_term = 1e-10
-            
-            if cubic:
-                # cubic interpolation. The boundaries locate  at between in1 and in2.
-                in0, in1, in2, in3 = in_source[:-3], in_source[1:-2], in_source[2:-1], in_source[3:]
-                d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
-                th0, th1, th2, th3 = jnp.arange(4)
-                if(1):
-                    segment_inside = in1 * in2
-                    segment_in2out = in1 * (~in2)
-                    segment_out2in = (~in1) * in2
-                if(0):
-                    segment_inside = in1 * in2
-                    segment_in2out = jnp.abs(in1 * (1.0 - in2))
-                    segment_out2in = jnp.abs((1.0 - in1) * in2)
-                th_est = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
-                frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
-                frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
-                area_inside = r0 * dth * segment_inside
-                area_crossing = r0 * dth * (segment_in2out * frac_in2out + segment_out2in * frac_out2in)
-            else:
-                # linear interpolation. The boundaries locate at between in0 and in1.
-                in0, in1 = in_source[:-1], in_source[1:]
-                d0, d1   = distances[:-1], distances[1:]
-                segment_inside = in0 * in1
-                segment_in2out = in0 * (~in1)
-                segment_out2in = (~in0) * in1
-                frac     = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
-                area_inside    = r0 * dth * segment_inside
-                area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
-            return jnp.sum(area_inside + area_crossing)
-        area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
-        if(1): # trapz integration 
+        if(0): # trapz integration 
             total_area = dr * jnp.sum(area_r)
         if(0): # midpoint integration                           
             total_area = 0.5 * dr * jnp.sum(area_r[:-1] + area_r[1:])
@@ -258,17 +208,12 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
     
     def scan_fn(carry, inputs):
         r_range, th_range = inputs
-        total_area = compute_for_range(r_range, th_range)
+        total_area = _compute_for_range(r_range, th_range, cubic=cubic)
         return carry + total_area, None
 
-    # memory efficient, 1/5 of the memory is used compared to vmap.  
     inputs = (r_vmap, th_vmap)
     magnification_unnorm, _ = lax.scan(scan_fn, 0.0, inputs, unroll=1)
     magnification = magnification_unnorm / rho**2 / jnp.pi
-
-    #compute_vmap = vmap(compute_for_range, in_axes=(0, 0))
-    #image_areas = compute_vmap(r_vmap, th_vmap)
-    #magnification = jnp.sum(image_areas) / rho**2 / jnp.pi 
     return magnification 
 
 #@jit
