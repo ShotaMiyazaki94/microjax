@@ -124,6 +124,7 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
     a  = 0.5 * s
     e1 = q / (1.0 + q)
     _params = {"q": q, "s": s, "a": a, "e1": e1}
+    
     shifted = 0.5 * s * (1 - q) / (1 + q)  
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
@@ -153,6 +154,47 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
     
+    def _process_r(r0, th_values):
+        dth = (th_values[1] - th_values[0])
+        x_th = r0 * jnp.cos(th_values)
+        y_th = r0 * jnp.sin(th_values)
+        z_th = x_th + 1j * y_th
+        image_mesh = lens_eq(z_th - shifted, **_params)
+        distances = jnp.abs(image_mesh - w_center_shifted)
+        in_source = distances - rho < 0.0
+        zero_term = 1e-10
+        if cubic:
+            in0, in1, in2, in3 = in_source[:-3], in_source[1:-2], in_source[2:-1], in_source[3:]
+            d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
+            th0, th1, th2, th3 = jnp.arange(4)
+            segment_inside = in1 * in2
+            segment_in2out = in1 * (~in2)
+            segment_out2in = (~in1) * in2
+            th_est = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
+            frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
+            frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
+            area_inside = r0 * dth * segment_inside
+            area_crossing = r0 * dth * (segment_in2out * frac_in2out + segment_out2in * frac_out2in)
+        else:
+            in0, in1 = in_source[:-1], in_source[1:]
+            d0, d1   = distances[:-1], distances[1:]
+            segment_inside = in0 * in1
+            segment_in2out = in0 * (~in1)
+            segment_out2in = (~in0) * in1
+            frac     = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
+            area_inside    = r0 * dth * segment_inside
+            area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
+        return jnp.sum(area_inside + area_crossing)  
+    
+    def _compute_for_range(r_range, th_range):
+        dr = (r_range[1] - r_range[0]) / r_resolution
+        dth = (th_range[1] - th_range[0]) / th_resolution
+        r_values  = r_grid_norm * (r_range[1] - r_range[0]) + r_range[0]
+        th_values = th_grid_norm * (th_range[1] - th_range[0]) + th_range[0]
+        area_r = vmap(lambda r: _process_r(r, th_values))(r_values)
+        total_area = dr * jnp.sum(area_r)
+        return total_area
+
     def compute_for_range(r_range, th_range):
         dr = (r_range[1] - r_range[0]) / r_resolution
         dth = (th_range[1] - th_range[0]) / th_resolution
@@ -164,9 +206,9 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
             z_th = x_th + 1j * y_th 
             image_mesh = lens_eq(z_th - shifted, **_params)
             distances = jnp.abs(image_mesh - w_center_shifted)
-            if(0):
-                in_source = distances - rho < 0.0
             if(1):
+                in_source = distances - rho < 0.0
+            if(0):
                 beta = 1e+4
                 in_source = 1.0 / (1.0 + jnp.exp(beta * (distances - rho)))
 
@@ -177,11 +219,11 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
                 in0, in1, in2, in3 = in_source[:-3], in_source[1:-2], in_source[2:-1], in_source[3:]
                 d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
                 th0, th1, th2, th3 = jnp.arange(4)
-                if(0):
+                if(1):
                     segment_inside = in1 * in2
                     segment_in2out = in1 * (~in2)
                     segment_out2in = (~in1) * in2
-                if(1):
+                if(0):
                     segment_inside = in1 * in2
                     segment_in2out = jnp.abs(in1 * (1.0 - in2))
                     segment_out2in = jnp.abs((1.0 - in1) * in2)
@@ -231,6 +273,17 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
 
 #@jit
 def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
+    x_vals = jnp.array([x0, x1, x2, x3])
+    x_min, x_max = jnp.min(x_vals), jnp.max(x_vals)
+    scale = jnp.maximum(x_max - x_min, epsilon)
+    x_hat = (x - x_min) / scale             
+    x_hat_vals = (x_vals - x_min) / scale   # x_hat_vals = [x0_hat, x1_hat, x2_hat, x3_hat]
+    diffs = x_hat - x_hat_vals              # diffs = [x_hat - x0_hat, x_hat - x1_hat, x_hat - x2_hat, x_hat - x3_hat]
+    denom = (x_hat_vals[:, None] - x_hat_vals[None, :]) + epsilon
+    L = jnp.prod(diffs[:, None] - diffs[None, :], axis=1) / jnp.prod(denom, axis=1)
+    return jnp.dot(jnp.array([y0, y1, y2, y3]), L)
+
+def _cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
     # Implemented algebraically, much faster than polyfit that uses matrix manipulation.
     # In this case, x is distance, y is coordinate.
     x_min = jnp.min(jnp.array([x0, x1, x2, x3]))
