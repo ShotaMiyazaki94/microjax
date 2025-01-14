@@ -118,8 +118,8 @@ def mag_binary(w_center, rho, u1=0.0, r_resolution=4000, th_resolution=4000,
     return magnification 
 
 @partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic"))
-def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000, 
-                Nlimb=1000, offset_r=0.5, offset_th=5.0, cubic=True, **_params):
+def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000, 
+                Nlimb=1000, offset_r=1.0, offset_th=10.0, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -152,7 +152,7 @@ def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000,
 
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
-
+    
     def compute_for_range(r_range, th_range):
         dr = (r_range[1] - r_range[0]) / r_resolution
         dth = (th_range[1] - th_range[0]) / th_resolution
@@ -164,7 +164,12 @@ def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000,
             z_th = x_th + 1j * y_th 
             image_mesh = lens_eq(z_th - shifted, **_params)
             distances = jnp.abs(image_mesh - w_center_shifted)
-            in_source = distances - rho < 0.0
+            if(0):
+                in_source = distances - rho < 0.0
+            if(1):
+                beta = 1e+4
+                in_source = 1.0 / (1.0 + jnp.exp(beta * (distances - rho)))
+
             zero_term = 1e-10
             
             if cubic:
@@ -172,9 +177,14 @@ def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000,
                 in0, in1, in2, in3 = in_source[:-3], in_source[1:-2], in_source[2:-1], in_source[3:]
                 d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
                 th0, th1, th2, th3 = jnp.arange(4)
-                segment_inside = in1 * in2
-                segment_in2out = in1 * (~in2)
-                segment_out2in = (~in1) * in2
+                if(0):
+                    segment_inside = in1 * in2
+                    segment_in2out = in1 * (~in2)
+                    segment_out2in = (~in1) * in2
+                if(1):
+                    segment_inside = in1 * in2
+                    segment_in2out = jnp.abs(in1 * (1.0 - in2))
+                    segment_out2in = jnp.abs((1.0 - in1) * in2)
                 th_est = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
                 frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
                 frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
@@ -192,24 +202,34 @@ def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000,
                 area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
             return jnp.sum(area_inside + area_crossing)
         area_r = vmap(process_r)(r_values) # (Nr, Ntheta -1) array
-        # trapz integration 
-        total_area = dr * jnp.sum(area_r)
-        # midpoint integration                           
-        #total_area = 0.5 * dr * jnp.sum(area_r[:-1] + area_r[1:])
-        # simpson integration
-        #total_area = (dr / 3.0) * (area_r[0] + area_r[-1] 
-        #                  + 4 * jnp.sum(area_r[1:-1:2])
-        #                  + 2 * jnp.sum(area_r[2:-2:2]))
-        # 3/8 simpson integration          
-        #total_area = (3 * dr / 8.0) * (area_r[0] + area_r[-1] 
-        #                               + 3 * jnp.sum(area_r[1:-1:3] + area_r[2:-1:3]) 
-        #                               + 2 * jnp.sum(area_r[3:-3:3]))
+        if(1): # trapz integration 
+            total_area = dr * jnp.sum(area_r)
+        if(0): # midpoint integration                           
+            total_area = 0.5 * dr * jnp.sum(area_r[:-1] + area_r[1:])
+        if(0): # simpson integration
+            total_area = (dr / 3.0) * (area_r[0] + area_r[-1] + 4 * jnp.sum(area_r[1:-1:2]) 
+            + 2 * jnp.sum(area_r[2:-2:2]))
+        if(0): # 3/8 simpson integration          
+            total_area = (3 * dr / 8.0) * (area_r[0] + area_r[-1] + 3 * jnp.sum(area_r[1:-1:3] 
+            + area_r[2:-1:3]) + 2 * jnp.sum(area_r[3:-3:3]))
         return total_area
-    compute_vmap = vmap(compute_for_range, in_axes=(0, 0))
-    image_areas = compute_vmap(r_vmap, th_vmap)
-    magnification = jnp.sum(image_areas) / rho**2 / jnp.pi 
+    
+    def scan_fn(carry, inputs):
+        r_range, th_range = inputs
+        total_area = compute_for_range(r_range, th_range)
+        return carry + total_area, None
+
+    # memory efficient, 1/5 of the memory is used compared to vmap.  
+    inputs = (r_vmap, th_vmap)
+    magnification_unnorm, _ = lax.scan(scan_fn, 0.0, inputs, unroll=1)
+    magnification = magnification_unnorm / rho**2 / jnp.pi
+
+    #compute_vmap = vmap(compute_for_range, in_axes=(0, 0))
+    #image_areas = compute_vmap(r_vmap, th_vmap)
+    #magnification = jnp.sum(image_areas) / rho**2 / jnp.pi 
     return magnification 
 
+#@jit
 def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
     # Implemented algebraically, much faster than polyfit that uses matrix manipulation.
     # In this case, x is distance, y is coordinate.
@@ -227,10 +247,6 @@ def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
     L3 = ((x_hat - x0_hat) * (x_hat - x1_hat) * (x_hat - x2_hat)) / \
         ((x3_hat - x0_hat + epsilon) * (x3_hat - x1_hat + epsilon) * (x3_hat - x2_hat + epsilon))
     return y0 * L0 + y1 * L1 + y2 * L2 + y3 * L3
-
-
-
-
 
 if __name__ == "__main__":
     jax.config.update("jax_enable_x64", True)
@@ -264,15 +280,15 @@ if __name__ == "__main__":
     #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
-    magn =  vmap(magn, in_axes=(0,))
+    magn =  jit(vmap(magn, in_axes=(0,)))
 
     _ = magn(w_points).block_until_ready()
 
+    print("start computation")
     start = time.time()
-    magnifications = magn(w_points)
-    magnifications.block_until_ready() 
+    magnifications = magn(w_points).block_until_ready() 
     end = time.time()
-    print("computation time: %.3f sec per points"%((end - start)/num_points))
+    print("computation time: %.6f sec per points"%((end - start)/num_points))
     magnifications2 = magn2(w_points) 
     # Print out the result
     import matplotlib.pyplot as plt

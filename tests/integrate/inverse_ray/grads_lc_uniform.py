@@ -24,7 +24,7 @@ a  = 0.5 * s
 e1 = q / (1.0 + q)
 
 # Position of the center of the source with respect to the center of mass.
-t  =  jnp.linspace(-22, 12, 1000)
+t  =  jnp.linspace(-22, 12, 500)
 
 r_resolution  = 1000
 th_resolution = 4000

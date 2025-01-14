@@ -44,15 +44,15 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 1000
-th_resolution = 1000
+r_resolution  = 2000
+th_resolution = 4000
 mags_vbb_list = []
 mags_list = []
 
 #rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 
-cubic = False
+cubic = True
 
 for rho in rho_list:
     print(f"rho = {rho}")
@@ -68,7 +68,7 @@ for rho in rho_list:
                           ])
     mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
                                     th_resolution=th_resolution, cubic=cubic, 
-                                    Nlimb=1000, offset_r=0.5, offset_th=5.0)
+                                    Nlimb=1000, offset_r=1.0, offset_th=10.0)
     #magn    = jax.jit(jax.vmap(mag_mj, in_axes=(0,)))
     def chunked_vmap(func, data, chunk_size):
         results = []

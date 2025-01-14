@@ -10,13 +10,13 @@ It is built using the [JAX](https://github.com/google/jax) library which enables
 pip install -e .
 ```
 ## Features
-- Fast (miliseconds) and accurate computation of binary and triple lens microlensing light curves for extended limb-darkened sources.
+- Fast (miliseconds) and accurate computation of binary and triple lens microlensing light curves for extended uniform and limb-darkened sources.
 - Automatic differentiation enables the use of gradient-based inference methods such as Hamiltonian Monte Carlo when fitting multiple lens microlensing light curves.
 - A differentiable JAX version of a complex polynomial root solver which uses the Aberth-Ehrlich method to obtain all roots of a complex polynomial at once using an implicit deflation strategy. The gradient of the solutions with respect to the polynomial coefficients is obtained through [implicit differentiation](http://implicit-layers-tutorial.org/implicit_functions/).
 - Hexadecapole approximation from [Cassan 2017](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true) is used to substantially speed up the computation of the magnification everywhere except near the caustics.
 
 ## References
-- `microJAX` paper coming soon (assumed within 2024)!
+- `microJAX` paper coming soon (assumed within 2025)!
 - [FFT based evaluation of microlensing magnification with extended source](https://ui.adsabs.harvard.edu/abs/2022ApJ...937...63S/abstract)
 - [VBBINARYLENSING: a public package for microlensing light-curve computation](https://ui.adsabs.harvard.edu/abs/2018MNRAS.479.5157B/abstract)
 - [Fast computation of quadrupole and hexadecapole approximations in microlensing with a single point-source evaluation](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true)
