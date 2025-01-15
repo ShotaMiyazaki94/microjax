@@ -154,45 +154,98 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
     
-    def _process_r(r0, th_values, cubic=True):
-        dth = (th_values[1] - th_values[0])
+    def in_source_distance(r0, th_values, w_center_shifted, shifted, **_params):
         x_th = r0 * jnp.cos(th_values)
         y_th = r0 * jnp.sin(th_values)
         z_th = x_th + 1j * y_th
         image_mesh = lens_eq(z_th - shifted, **_params)
         distances = jnp.abs(image_mesh - w_center_shifted)
         in_source = distances - rho < 0.0
-        zero_term = 1e-12
+        return in_source, distances
+
+    def distance_from_source(r0, th_values, w_center_shifted, shifted, **_params):
+        x_th = r0 * jnp.cos(th_values)
+        y_th = r0 * jnp.sin(th_values)
+        z_th = x_th + 1j * y_th
+        image_mesh = lens_eq(z_th - shifted, **_params)
+        distances = jnp.abs(image_mesh - w_center_shifted)
+        return distances 
+
+    @partial(jit, static_argnames=("cubic")) 
+    def _process_r(r0, th_values, cubic=True):
+        dth = (th_values[1] - th_values[0])
+        distances = distance_from_source(r0, th_values, w_center_shifted, shifted, **_params)
+        factor = 200.0 / rho
+        in_bool = distances - rho < 0.0
+        in_num = jax.nn.sigmoid(factor * (rho - distances)) 
+        #in_source, distances = in_source_distance(r0, th_values, w_center_shifted, shifted, **_params)
+        #in_source, distances = in_source_distance(r0, th_values, w_center_shifted, shifted, **_params)
+        zero_term = 1e-10
         if cubic:
-            in0, in1, in2, in3 = in_source[:-3], in_source[1:-2], in_source[2:-1], in_source[3:]
+            in0, in1, in2, in3 = in_bool[:-3], in_bool[1:-2], in_bool[2:-1], in_bool[3:] 
+            in0_num, in1_num, in2_num, in3_num = in_num[:-3], in_num[1:-2], in_num[2:-1], in_num[3:]
             d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
             th0, th1, th2, th3 = jnp.arange(4)
             segment_inside = in1 * in2
             segment_in2out = in1 * (~in2)
             segment_out2in = (~in1) * in2
-            th_est = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
+            num_inside     = in1_num * in2_num
+            num_in2out     = in1_num * (1.0 - in2_num)
+            num_out2in     = (1.0 - in1_num) * in2_num
+            th_est = _cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
             frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
             frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
-            area_inside = r0 * dth * segment_inside
-            area_crossing = r0 * dth * (segment_in2out * frac_in2out + segment_out2in * frac_out2in)
+            area_inside = r0 * dth * num_inside
+            area_crossing = r0 * dth * (num_in2out * frac_in2out + num_out2in * frac_out2in)
         else:
-            in0, in1 = in_source[:-1], in_source[1:]
+            in0, in1 = in_bool[:-1], in_bool[1:]
+            in0_num, in1_num = in_num[:-1], in_num[1:]
             d0, d1   = distances[:-1], distances[1:]
             segment_inside = in0 * in1
+            num_inside     = in0_num * in1_num
+            area_inside    = r0 * dth * num_inside
+            num_in2out = in0_num * (1.0 - in1_num)
+            num_out2in = (1.0 - in0_num) * in1_num
+            frac = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
+            area_crossing  = r0 * dth * (num_in2out * frac + num_out2in * (1.0 - frac))
+            
+            """
+            def cross_area(r0, th0, th1, Nbin=100):
+                th_sub = jnp.linspace(th0, th1, Nbin, endpoint=True)
+                dth_sub = th_sub[1] - th_sub[0] 
+                in_sub, d_sub = in_source_distance_smooth(r0, th_sub, w_center_shifted, shifted, **_params)
+                in0_sub, in1_sub = in_sub[:-1], in_sub[1:]
+                d0_sub, d1_sub   = d_sub[:-1], d_sub[1:]
+                # inside points within the crossing grid
+                segment_in_sub = in0_sub * in1_sub
+                area_in_sub = r0 * dth_sub * segment_in_sub
+                # crossing points within the crossing grid 
+                segment_in2out_sub = in0_sub * (1.0 - in1_sub) 
+                segment_out2in_sub = (1.0 - in0_sub) * in1_sub
+                frac = jnp.clip((rho - d0_sub) / (d1_sub - d0_sub + zero_term), 0.0, 1.0)
+                area_crossing_sub  = r0 * dth_sub * (segment_in2out_sub * frac + segment_out2in_sub * (1.0 - frac)) 
+                return jnp.sum(area_in_sub + area_crossing_sub)
+            # The number of crossing segments is expected to be 4 or less.
             segment_in2out = in0 * (~in1)
             segment_out2in = (~in0) * in1
-            #frac     = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
-            frac     = jnp.maximum(0.0, jnp.minimum(1.0, (rho - d0) / (d1 - d0 + zero_term)))
-            area_inside    = r0 * dth * segment_inside
-            area_crossing  = r0 * dth * (segment_in2out * frac + segment_out2in * (1.0 - frac))
+            th0, th1 = th_values[:-1], th_values[1:]
+            th0s_in2out = th0[jnp.argsort(~segment_in2out)][:2]
+            th1s_in2out = th1[jnp.argsort(~segment_in2out)][:2]
+            th0s_out2in = th0[jnp.argsort(~segment_out2in)][:2]
+            th1s_out2in = th1[jnp.argsort(~segment_out2in)][:2]
+            th0s = jnp.concatenate([th0s_in2out, th0s_out2in]).ravel()
+            th1s = jnp.concatenate([th1s_in2out, th1s_out2in]).ravel()
+            area_crossing = jnp.sum(vmap(lambda th0, th1: cross_area(r0, th0, th1))(th0s, th1s))
+            """
         return jnp.sum(area_inside + area_crossing)  
     
-    def _compute_for_range(r_range, th_range):
+    @partial(jit, static_argnames=("cubic"))  
+    def _compute_for_range(r_range, th_range, cubic=True):
         dr = (r_range[1] - r_range[0]) / r_resolution
         dth = (th_range[1] - th_range[0]) / th_resolution
         r_values  = r_grid_norm * (r_range[1] - r_range[0]) + r_range[0]
         th_values = th_grid_norm * (th_range[1] - th_range[0]) + th_range[0]
-        area_r = vmap(lambda r: _process_r(r, th_values))(r_values)
+        area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
         total_area = dr * jnp.sum(area_r)
         if(0): # trapz integration 
             total_area = dr * jnp.sum(area_r)
@@ -230,6 +283,7 @@ def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
 
 def _cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
     # Implemented algebraically, much faster than polyfit that uses matrix manipulation.
+    # memory efficient version of cubic_interp
     # In this case, x is distance, y is coordinate.
     x_min = jnp.min(jnp.array([x0, x1, x2, x3]))
     x_max = jnp.max(jnp.array([x0, x1, x2, x3]))
@@ -249,16 +303,16 @@ def _cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
 if __name__ == "__main__":
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
-    q = 0.1
-    s = 1.0
+    q = 0.5
+    s = 0.9
     alpha = jnp.deg2rad(30) # angle between lens axis and source trajectory
-    tE = 20 # einstein radius crossing time
+    tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 5e-2
+    rho = 1e-2
 
-    num_points = 500
-    t  =  jnp.linspace(-5, 7.5, num_points)
+    num_points = 100
+    t  =  jnp.linspace(-5.0, 5.0, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
@@ -273,8 +327,8 @@ if __name__ == "__main__":
         e2 = 1.0 - e1  
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
-    #magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=500, **test_params)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=1000, **test_params, cubic=True)
+    #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
+    magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=2000, **test_params, cubic=False)
     #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
@@ -287,7 +341,10 @@ if __name__ == "__main__":
     magnifications = magn(w_points).block_until_ready() 
     end = time.time()
     print("computation time: %.6f sec per points"%((end - start)/num_points))
+    start = time.time()
     magnifications2 = magn2(w_points) 
+    end = time.time()
+    print("computation time: %.6f sec per points"%((end - start)/num_points))
     # Print out the result
     import matplotlib.pyplot as plt
     import matplotlib as mpl
@@ -330,4 +387,4 @@ if __name__ == "__main__":
     ax1.set_yscale("log")
     ax1.set_ylim(1e-6, 1e-2)
     plt.savefig("lc.pdf", bbox_inches="tight")
-    plt.show()
+    plt.close()

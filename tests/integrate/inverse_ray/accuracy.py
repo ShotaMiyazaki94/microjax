@@ -44,7 +44,7 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 2000
+r_resolution  = 1000
 th_resolution = 4000
 mags_vbb_list = []
 mags_list = []
@@ -52,7 +52,7 @@ mags_list = []
 #rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 
-cubic = True
+cubic = False
 
 for rho in rho_list:
     print(f"rho = {rho}")

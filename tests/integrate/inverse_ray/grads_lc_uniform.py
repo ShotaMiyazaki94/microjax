@@ -26,10 +26,10 @@ e1 = q / (1.0 + q)
 # Position of the center of the source with respect to the center of mass.
 t  =  jnp.linspace(-22, 12, 500)
 
-r_resolution  = 1000
-th_resolution = 4000
+r_resolution  = 2000
+th_resolution = 2000
 
-cubic = True
+cubic = False
 @jit
 def get_mag(params):
     s, q, rho, alpha, u0, t0, tE = params
@@ -45,7 +45,6 @@ def get_mag(params):
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
 w_points, A = get_mag(params)
 print("mag finish")
-
 # Evaluate the Jacobian at every point
 mag_jac = jit(jacfwd(lambda params: get_mag(params)[1]))
 #mag_jac = jit(jacrev(lambda params: get_mag(params)[1])) # memory error
@@ -109,8 +108,9 @@ for i, _a in enumerate(ax):
 ax[-1].set_xlabel('$t$ [days]')
 ax_in.set_rasterization_zorder(0)
 if cubic:
-    fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_uniform_r{r_resolution}_{th_resolution}.pdf", bbox_inches="tight")
+    fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_uniform_r{r_resolution}_{th_resolution}_cub.pdf", bbox_inches="tight")
+    print(f"tests/integrate/inverse_ray/figs/grads_lc_uniform_r{r_resolution}_{th_resolution}_cub.pdf")
 else:
-    fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_uniform_r{r_resolution}_{th_resolution}_linear.pdf", bbox_inches="tight")
-plt.show()
+    fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_uniform_r{r_resolution}_{th_resolution}_lin.pdf", bbox_inches="tight")
+    print(f"tests/integrate/inverse_ray/figs/grads_lc_uniform_r{r_resolution}_{th_resolution}_lin.pdf")
 plt.close()
