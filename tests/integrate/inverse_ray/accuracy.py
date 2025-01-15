@@ -52,7 +52,7 @@ mags_list = []
 #rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 
-cubic = False
+cubic = True
 
 for rho in rho_list:
     print(f"rho = {rho}")
@@ -77,7 +77,7 @@ for rho in rho_list:
             results.append(jax.vmap(func)(chunk))
         return jnp.concatenate(results)
 
-    chunk_size = 100  # メモリ消費を調整するため適宜変更
+    chunk_size = 200  # メモリ消費を調整するため適宜変更
     mags = chunked_vmap(mag_mj, w_test, chunk_size)
     
     mags_vbb_list.append(mags_vbb)

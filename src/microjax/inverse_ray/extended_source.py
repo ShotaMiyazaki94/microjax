@@ -1,15 +1,9 @@
 import jax 
 import jax.numpy as jnp
-from jax import jit, lax, vmap
+from jax import jit, lax, vmap, custom_jvp
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
-import time
 from microjax.inverse_ray.merge_area import calc_source_limb, calculate_overlap_and_range, _compute_in_mask, merge_final
-import jax.numpy as jnp
-from jax import jit, vmap
-
-import jax.numpy as jnp
-from jax import jit, vmap
 
 @partial(jit, static_argnames=("u1"))
 def Is_limb_1st(d, u1=0.0):
@@ -154,41 +148,56 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
     r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
     th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
     
-    def in_source_distance(r0, th_values, w_center_shifted, shifted, **_params):
-        x_th = r0 * jnp.cos(th_values)
-        y_th = r0 * jnp.sin(th_values)
-        z_th = x_th + 1j * y_th
-        image_mesh = lens_eq(z_th - shifted, **_params)
-        distances = jnp.abs(image_mesh - w_center_shifted)
-        in_source = distances - rho < 0.0
-        return in_source, distances
-
     def distance_from_source(r0, th_values, w_center_shifted, shifted, **_params):
         x_th = r0 * jnp.cos(th_values)
         y_th = r0 * jnp.sin(th_values)
         z_th = x_th + 1j * y_th
         image_mesh = lens_eq(z_th - shifted, **_params)
         distances = jnp.abs(image_mesh - w_center_shifted)
-        return distances 
+        return distances
+    
+    @custom_jvp 
+    def in_source(distances, rho):
+        return jnp.where(rho - distances < 0.0, 0.0, 1.0)
+
+    @in_source.defjvp
+    def in_source_jvp(primal, tangent):
+        distances, rho = primal
+        distances_dot, rho_dot = tangent
+        primal_out = in_source(distances, rho)
+
+        z = (rho - distances) / rho 
+        factor = 400.0 
+        sigmoid_input = factor * z
+        sigmoid = jax.nn.sigmoid(sigmoid_input)
+        sigmoid_derivative = sigmoid * (1.0 - sigmoid) * factor
+        dz_distances = -1.0 / rho
+        dz_rho = distances / rho**2
+        tangent_out = sigmoid_derivative * (dz_distances * distances_dot + dz_rho * rho_dot)
+        primal_out = sigmoid
+        return primal_out, tangent_out
 
     @partial(jit, static_argnames=("cubic")) 
     def _process_r(r0, th_values, cubic=True):
         dth = (th_values[1] - th_values[0])
         distances = distance_from_source(r0, th_values, w_center_shifted, shifted, **_params)
-        factor = 200.0 / rho
-        in_bool = distances - rho < 0.0
-        in_num = jax.nn.sigmoid(factor * (rho - distances)) 
+        if(0):
+            factor = 400.0 / rho
+            in_num = jax.nn.sigmoid(factor * (rho - distances)) 
+        if(1):
+            in_num = in_source(distances, rho)
+        #in_num = jax.nn.softplus(factor * (rho - distances))
         #in_source, distances = in_source_distance(r0, th_values, w_center_shifted, shifted, **_params)
         #in_source, distances = in_source_distance(r0, th_values, w_center_shifted, shifted, **_params)
         zero_term = 1e-10
         if cubic:
-            in0, in1, in2, in3 = in_bool[:-3], in_bool[1:-2], in_bool[2:-1], in_bool[3:] 
+            #in0, in1, in2, in3 = in_bool[:-3], in_bool[1:-2], in_bool[2:-1], in_bool[3:] 
             in0_num, in1_num, in2_num, in3_num = in_num[:-3], in_num[1:-2], in_num[2:-1], in_num[3:]
             d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
             th0, th1, th2, th3 = jnp.arange(4)
-            segment_inside = in1 * in2
-            segment_in2out = in1 * (~in2)
-            segment_out2in = (~in1) * in2
+            #segment_inside = in1 * in2
+            #segment_in2out = in1 * (~in2)
+            #segment_out2in = (~in1) * in2
             num_inside     = in1_num * in2_num
             num_in2out     = in1_num * (1.0 - in2_num)
             num_out2in     = (1.0 - in1_num) * in2_num
@@ -198,10 +207,10 @@ def mag_uniform(w_center, rho, r_resolution=2000, th_resolution=4000,
             area_inside = r0 * dth * num_inside
             area_crossing = r0 * dth * (num_in2out * frac_in2out + num_out2in * frac_out2in)
         else:
-            in0, in1 = in_bool[:-1], in_bool[1:]
+            #in0, in1 = in_bool[:-1], in_bool[1:]
             in0_num, in1_num = in_num[:-1], in_num[1:]
             d0, d1   = distances[:-1], distances[1:]
-            segment_inside = in0 * in1
+            #segment_inside = in0 * in1
             num_inside     = in0_num * in1_num
             area_inside    = r0 * dth * num_inside
             num_in2out = in0_num * (1.0 - in1_num)
@@ -301,6 +310,7 @@ def _cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
     return y0 * L0 + y1 * L1 + y2 * L2 + y3 * L3
 
 if __name__ == "__main__":
+    import time
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
     q = 0.5
@@ -309,9 +319,9 @@ if __name__ == "__main__":
     tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 1e-2
+    rho = 5e-4
 
-    num_points = 100
+    num_points = 500
     t  =  jnp.linspace(-5.0, 5.0, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -328,7 +338,7 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=2000, **test_params, cubic=False)
+    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=2000, **test_params, cubic=True)
     #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
