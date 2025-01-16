@@ -68,7 +68,7 @@ for rho in rho_list:
                           ])
     mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
                                     th_resolution=th_resolution, cubic=cubic, 
-                                    Nlimb=1000, offset_r=1.0, offset_th=10.0)
+                                    Nlimb=4000, offset_r=0.5, offset_th=10.0)
     #magn    = jax.jit(jax.vmap(mag_mj, in_axes=(0,)))
     def chunked_vmap(func, data, chunk_size):
         results = []
