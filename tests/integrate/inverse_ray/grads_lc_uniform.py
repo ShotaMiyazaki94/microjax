@@ -18,7 +18,7 @@ alpha = jnp.deg2rad(60) # angle between lens axis and source trajectory
 tE = 10.0 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
 u0 = 0.0 # impact parameter
-rho = 0.2
+rho = 0.02
 
 a  = 0.5 * s
 e1 = q / (1.0 + q)
@@ -30,6 +30,7 @@ r_resolution  = 1000
 th_resolution = 1000
 
 cubic = True
+
 @jit
 def get_mag(params):
     s, q, rho, alpha, u0, t0, tE = params

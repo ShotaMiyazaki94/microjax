@@ -4,41 +4,7 @@ from jax import jit, lax, vmap, custom_jvp
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 from microjax.inverse_ray.merge_area import calc_source_limb, calculate_overlap_and_range, _compute_in_mask, merge_final
-
-@partial(jit, static_argnames=("u1"))
-def Is_limb_1st(d, u1=0.0):
-    """
-    Calculate the normalized limb-darkened intensity using a linear limb-darkening law.
-
-    Parameters
-    ----------
-    r : array-like or float
-        Radial distance from the center of the star's disk, 
-        normalized such that r = 1 corresponds to the edge of the stellar disk.
-        Should be in the range [0, 1].
-    u1 : float, optional
-        Linear limb-darkening coefficient. Defaults to 0.0, which corresponds 
-        to a uniform disk with no limb darkening.
-
-    Returns
-    -------
-    I : array-like or float
-        Normalized intensity at the given radial distance(s), calculated as:
-        I(r) = (3 / (π * (3 - u1))) * (1 - u1 * (1 - sqrt(1 - r))).
-
-    Notes
-    -----
-    - The returned intensity is normalized such that the integral over the stellar disk is 1.
-    - The equation implements the linear limb-darkening law:
-      I(r) = I0 * (1 - u1 * (1 - sqrt(1 - r))),
-      where I0 is a normalization constant ensuring that the total flux is conserved.
-    - For physically meaningful results, `u1` should be in the range [0, 1], though 
-      values outside this range can be used for testing or hypothetical scenarios.
-    """
-    mu = jnp.sqrt(1.0 - d**2)
-    I0 = 3.0 / jnp.pi / (3.0 - u1)
-    I  = I0 * (1.0 - u1 * (1.0 - mu))
-    return jnp.where(d < 1.0, I, 0.0) 
+from microjax.inverse_ray.limb_darkening import Is_limb_1st
 
 @partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "u1",
                                "offset_r", "offset_th", "delta_c"))
@@ -113,7 +79,7 @@ def mag_binary(w_center, rho, u1=0.0, r_resolution=1000, th_resolution=4000,
 
 @partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic"))
 def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000, 
-                Nlimb=4000, offset_r=0.5, offset_th=10.0, cubic=True, **_params):
+                Nlimb=2000, offset_r=0.5, offset_th=10.0, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -139,44 +105,14 @@ def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000,
     r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
     th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
     # select the first 5 regions for the integration.
-    r_vmap_excess   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
-    th_vmap_excess  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
-    r_vmap, th_vmap = merge_final(r_vmap_excess, th_vmap_excess)
-    r_vmap          = r_vmap[:5]
-    th_vmap         = th_vmap[:5]
+    r_excess   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
+    th_excess  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
+    r_scan, th_scan = merge_final(r_excess, th_excess)
+    r_scan, th_scan = r_scan[:5], th_scan[:5]
 
-    r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
-    th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
+    #r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
+    #th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
     
-    def distance_from_source(r0, th_values, w_center_shifted, shifted, **_params):
-        x_th = r0 * jnp.cos(th_values)
-        y_th = r0 * jnp.sin(th_values)
-        z_th = x_th + 1j * y_th
-        image_mesh = lens_eq(z_th - shifted, **_params)
-        distances = jnp.abs(image_mesh - w_center_shifted)
-        return distances
-    
-    @custom_jvp 
-    def in_source(distances, rho):
-        return jnp.where(rho - distances < 0.0, 0.0, 1.0)
-
-    @in_source.defjvp
-    def in_source_jvp(primal, tangent):
-        distances, rho = primal
-        distances_dot, rho_dot = tangent
-        primal_out = in_source(distances, rho)
-
-        z = (rho - distances) / rho 
-        factor = 100.0 
-        sigmoid_input = factor * z
-        sigmoid = jax.nn.sigmoid(sigmoid_input)
-        sigmoid_derivative = sigmoid * (1.0 - sigmoid) * factor
-        dz_distances = -1.0 / rho
-        dz_rho = distances / rho**2
-        tangent_out = sigmoid_derivative * (dz_distances * distances_dot + dz_rho * rho_dot)
-        primal_out = sigmoid
-        return primal_out, tangent_out
-
     @partial(jit, static_argnames=("cubic")) 
     def _process_r(r0, th_values, cubic=True):
         dth = (th_values[1] - th_values[0])
@@ -208,21 +144,20 @@ def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000,
     
     @partial(jit, static_argnames=("cubic"))  
     def _compute_for_range(r_range, th_range, cubic=True):
-        dr = (r_range[1] - r_range[0]) / r_resolution
-        dth = (th_range[1] - th_range[0]) / th_resolution
-        r_values  = r_grid_norm * (r_range[1] - r_range[0]) + r_range[0]
-        th_values = th_grid_norm * (th_range[1] - th_range[0]) + th_range[0]
+        r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=False)
+        th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=False)
         area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
+        dr = r_values[1] - r_values[0]
         total_area = dr * jnp.sum(area_r) # trapezoidal integration
         return total_area
     
-    def scan_fn(carry, inputs):
+    def scan_images(carry, inputs):
         r_range, th_range = inputs
         total_area = _compute_for_range(r_range, th_range, cubic=cubic)
         return carry + total_area, None
 
-    inputs = (r_vmap, th_vmap)
-    magnification_unnorm, _ = lax.scan(scan_fn, 0.0, inputs, unroll=1)
+    inputs = (r_scan, th_scan)
+    magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
     magnification = magnification_unnorm / rho**2 / jnp.pi
     return magnification 
 
@@ -240,8 +175,7 @@ def _cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
     return jnp.dot(jnp.array([y0, y1, y2, y3]), L)
 
 def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
-    # Implemented algebraically, much faster than polyfit that uses matrix manipulation.
-    # memory efficient version of cubic_interp
+    # Implemented algebraically, much faster and memory efficient than polyfit that uses matrix manipulation.
     # In this case, x is distance, y is coordinate.
     x_min = jnp.min(jnp.array([x0, x1, x2, x3]))
     x_max = jnp.max(jnp.array([x0, x1, x2, x3]))
@@ -258,6 +192,35 @@ def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
         ((x3_hat - x0_hat + epsilon) * (x3_hat - x1_hat + epsilon) * (x3_hat - x2_hat + epsilon))
     return y0 * L0 + y1 * L1 + y2 * L2 + y3 * L3
 
+@custom_jvp 
+def in_source(distances, rho):
+    return jnp.where(rho - distances < 0.0, 0.0, 1.0)
+
+@in_source.defjvp
+def in_source_jvp(primal, tangent):
+    distances, rho = primal
+    distances_dot, rho_dot = tangent
+    primal_out = in_source(distances, rho)
+
+    z = (rho - distances) / rho 
+    factor = 100.0 
+    sigmoid_input = factor * z
+    sigmoid = jax.nn.sigmoid(sigmoid_input)
+    sigmoid_derivative = sigmoid * (1.0 - sigmoid) * factor
+    dz_distances = -1.0 / rho
+    dz_rho = distances / rho**2
+    tangent_out = sigmoid_derivative * (dz_distances * distances_dot + dz_rho * rho_dot)
+    primal_out = sigmoid
+    return primal_out, tangent_out
+
+def distance_from_source(r0, th_values, w_center_shifted, shifted, **_params):
+    x_th = r0 * jnp.cos(th_values)
+    y_th = r0 * jnp.sin(th_values)
+    z_th = x_th + 1j * y_th
+    image_mesh = lens_eq(z_th - shifted, **_params)
+    distances = jnp.abs(image_mesh - w_center_shifted)
+    return distances
+
 if __name__ == "__main__":
     import time
     jax.config.update("jax_enable_x64", True)
@@ -268,7 +231,7 @@ if __name__ == "__main__":
     tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 5e-2
+    rho = 2e-2
 
     num_points = 500
     t  =  jnp.linspace(-5.0, 5.0, num_points)
@@ -287,7 +250,7 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=2000, **test_params, cubic=True)
+    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=1000, **test_params, cubic=True)
     #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))

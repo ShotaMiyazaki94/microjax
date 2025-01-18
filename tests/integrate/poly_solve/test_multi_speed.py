@@ -10,10 +10,10 @@ import timeit
 import time
 import matplotlib.pyplot as plt
 
-def generate_coeffs(key, num_coeffs, num_eqs, dtype=jnp.complex128):
+def generate_coeffs(key, num_coeffs, num_eqs):#, dtype=jnp.complex128):
     real_part = jax.random.uniform(key, (num_eqs, num_coeffs), dtype=jnp.float64, minval=-1, maxval=1)
     imag_part = jax.random.uniform(key, (num_eqs, num_coeffs), dtype=jnp.float64, minval=-1, maxval=1)
-    return jnp.array(real_part + 1j * imag_part, dtype=dtype)
+    return jnp.array(real_part + 1j * imag_part)
 
 def measure_time(degree, lengths):
     key = jax.random.PRNGKey(0)
@@ -24,13 +24,14 @@ def measure_time(degree, lengths):
         start = time.time()
         roots = poly_roots(coeffs_multi)
         #roots = poly_roots_EA_multi(coeffs_multi)
-        jax.device_get(roots)
+        roots.block_until_ready()
+        #jax.device_get(roots)
         end = time.time()
         print(f"{degree} degree, {l:.1e} equations: {end - start:.3f} sec")
         times.append(end - start)
     return times
 
-lengths = 10**np.arange(3, 7.25, 0.25)
+lengths = 10**np.arange(3, 7.25, 0.125)
 
 #polyjit(poly_roots_EA_multi)
 time6 = measure_time(6, lengths)
@@ -44,7 +45,7 @@ plt.legend(["5 deg (binary-lens)","10 deg (triple-lens)"])
 plt.grid(ls=":")
 plt.xlabel("number of equations")
 plt.ylabel("time (sec.)")
-plt.savefig("tests/poly_solve/test_multi_speed.png", dpi=200, bbox_inches="tight")
+plt.savefig("tests/integrate/poly_solve/test_multi_speed.png", dpi=200, bbox_inches="tight")
 plt.close()
 
 

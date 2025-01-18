@@ -68,7 +68,7 @@ for rho in rho_list:
                           ])
     mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
                                     th_resolution=th_resolution, cubic=cubic, 
-                                    Nlimb=4000, offset_r=0.5, offset_th=10.0)
+                                    Nlimb=2000, offset_r=0.5, offset_th=10.0)
     #magn    = jax.jit(jax.vmap(mag_mj, in_axes=(0,)))
     def chunked_vmap(func, data, chunk_size):
         results = []
@@ -99,6 +99,9 @@ for i in range(len(rho_list)):
     ax[i].set_ylim(1e-06, 1.0)
     #ax[i].set_xlim(-10, 1010)
     ax[i].set_rasterization_zorder(0)
+    if jnp.any(relative_error > 1e-03):
+        mask = relative_error > 1e-03
+        print(f"rho = {rho_list[i]}, w_test = {w_test[mask]}", relative_error[mask])
 
 ax[0].set_ylabel("Relative error")
 ax[2].set_xlabel("Point index", labelpad=25)

@@ -68,7 +68,7 @@ plt.grid(ls=":")
 plt.legend()
 plt.xlabel("number of polynomial")
 plt.ylabel("difference in 1000 equations")
-plt.savefig("tests/poly_solve/test_multi_accuracy.png", dpi=200, bbox_inches="tight")
+plt.savefig("tests/integrate/poly_solve/test_multi_accuracy.eps", dpi=200, bbox_inches="tight")
 plt.show()
 plt.close()
 
