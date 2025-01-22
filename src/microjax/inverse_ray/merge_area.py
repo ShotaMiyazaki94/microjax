@@ -4,6 +4,38 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 
+def determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=2):
+    """
+    determine the regions to be grid-spaced for the inverse-ray integration.
+    """
+    if nlenses == 2:
+        nimages_init = 10
+        nimage_real = 5
+    elif nlenses == 3:
+        nimages_init = 18
+        nimage_real = 9
+    else:
+        raise ValueError("Only 2 or 3 lenses are supported.")
+    # one-dimensional overlap search and merging.
+    r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
+    r_use  = r_ * r_mask.astype(float)[:, None]
+    th_use = th_ * th_mask.astype(float)[:, None]
+    # if merging is correct, 5 may be emperically sufficient for binary-lens and 9 is for triple-lens
+    r_use  = r_use[jnp.argsort(r_use[:, 1])][-nimages_init:]
+    th_use = th_use[jnp.argsort(th_use[:, 1])][-nimages_init:]
+    r_limb = jnp.abs(image_limb)
+    th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2 * jnp.pi)
+    # select matched regions including image limbs. binary-lens microlensing should have less than 5 images.
+    in_mask = _compute_in_mask(r_limb.ravel() * mask_limb.ravel(), th_limb.ravel() * mask_limb.ravel(), r_use, th_use)
+    r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
+    th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
+    # select the first regions (5 for binary, 9 for triple) for the integration.
+    r_excess   = r_masked[jnp.argsort(r_masked[:, 1] == 0)][:nimages_init]
+    th_excess  = th_masked[jnp.argsort(th_masked[:, 1] == 0)][:nimages_init]
+    r_scan, th_scan = merge_final(r_excess, th_excess)
+    return r_scan[:nimage_real], th_scan[:nimage_real]
+
+
 def merge_final(r_vmap, th_vmap):
     """
     Merge continuous regions of search space.

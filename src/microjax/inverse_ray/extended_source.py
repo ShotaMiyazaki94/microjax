@@ -3,12 +3,12 @@ import jax.numpy as jnp
 from jax import jit, lax, vmap, custom_jvp
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
-from microjax.inverse_ray.merge_area import calc_source_limb, calculate_overlap_and_range, _compute_in_mask, merge_final
+from microjax.inverse_ray.merge_area import calc_source_limb, determine_grid_regions
 from microjax.inverse_ray.limb_darkening import Is_limb_1st
 
-@partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "u1",
+@partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
                                "offset_r", "offset_th", "delta_c"))
-def mag_binary(w_center, rho, u1=0.0, r_resolution=1000, th_resolution=4000, 
+def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, th_resolution=4000, 
                Nlimb=1000, offset_r = 0.5, offset_th = 5.0, delta_c=0.05, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
@@ -17,29 +17,59 @@ def mag_binary(w_center, rho, u1=0.0, r_resolution=1000, th_resolution=4000,
     shifted = 0.5 * s * (1 - q) / (1 + q)  
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
-    # one-dimensional overlap search and merging.
-    r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)  
-    r_use  = r_ * r_mask.astype(float)[:, None]
-    th_use = th_ * th_mask.astype(float)[:, None]
-    # if merging is correct, 5 may be emperically sufficient for binary-lens and 9 is for triple-lens
-    r_use  = r_use[jnp.argsort(r_use[:,1])][-10:]
-    th_use = th_use[jnp.argsort(th_use[:,1])][-10:]
-    r_limb = jnp.abs(image_limb)
-    th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
-    # select matched regions including image limbs. binary-lens microlensing should have less than 5 images.
-    # note: theta boundary is 0 and 2pi so that images containing the boundary are divided into two.
-    in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
-    r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
-    th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
-    r_vmap_excess   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
-    th_vmap_excess  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
-    r_vmap, th_vmap = merge_final(r_vmap_excess, th_vmap_excess)
-    r_vmap          = r_vmap[:5]
-    th_vmap         = th_vmap[:5]
+    r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
 
-    r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
-    th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
+    @partial(jit, static_argnames=("cubic")) 
+    def _process_r(r0, th_values, cubic=True):
+        dth = (th_values[1] - th_values[0])
+        distances = distance_from_source(r0, th_values, w_center_shifted, shifted, **_params)
+        in_num = in_source(distances, rho)
+        zero_term = 1e-10
+        if cubic:
+            in0_num, in1_num, in2_num, in3_num = in_num[:-3], in_num[1:-2], in_num[2:-1], in_num[3:]
+            d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
+            th0, th1, th2, th3 = jnp.arange(4)
+            num_inside  = in1_num * in2_num
+            num_in2out  = in1_num * (1.0 - in2_num)
+            num_out2in  = (1.0 - in1_num) * in2_num
+            th_est      = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
+            frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
+            frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
+            area_inside = r0 * dth * num_inside
+            area_crossing = r0 * dth * (num_in2out * frac_in2out + num_out2in * frac_out2in)
+        else:
+            in0_num, in1_num = in_num[:-1], in_num[1:]
+            d0, d1   = distances[:-1], distances[1:]
+            num_inside     = in0_num * in1_num
+            area_inside    = r0 * dth * num_inside
+            num_in2out = in0_num * (1.0 - in1_num)
+            num_out2in = (1.0 - in0_num) * in1_num
+            frac = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
+            area_crossing  = r0 * dth * (num_in2out * frac + num_out2in * (1.0 - frac))
+        return jnp.sum(area_inside + area_crossing)  
+    
+    @partial(jit, static_argnames=("cubic"))  
+    def _compute_for_range(r_range, th_range, cubic=True):
+        r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=False)
+        th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=False)
+        area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
+        dr = r_values[1] - r_values[0]
+        total_area = dr * jnp.sum(area_r) # trapezoidal integration
+        return total_area
+    
+    def scan_images(carry, inputs):
+        r_range, th_range = inputs
+        total_area = _compute_for_range(r_range, th_range, cubic=cubic)
+        return carry + total_area, None
 
+    inputs = (r_scan, th_scan)
+    magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
+    magnification = magnification_unnorm / rho**2 / jnp.pi
+    return magnification 
+
+
+
+    """
     def compute_for_range(r_range, th_range):
         dr = (r_range[1] - r_range[0]) / r_resolution
         dth = (th_range[1] - th_range[0]) / th_resolution
@@ -76,9 +106,10 @@ def mag_binary(w_center, rho, u1=0.0, r_resolution=1000, th_resolution=4000,
     image_areas = compute_vmap(r_vmap, th_vmap)
     magnification = jnp.sum(image_areas) / rho**2 #/ jnp.pi 
     return magnification 
+    """
 
-@partial(jit, static_argnames=("r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic"))
-def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000, 
+@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
+def mag_uniform(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000, 
                 Nlimb=2000, offset_r=0.5, offset_th=10.0, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
@@ -88,30 +119,7 @@ def mag_uniform(w_center, rho, r_resolution=1000, th_resolution=4000,
     shifted = 0.5 * s * (1 - q) / (1 + q)  
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
-    
-    # one-dimensional overlap search and merging.
-    r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)  
-    r_use  = r_ * r_mask.astype(float)[:, None]
-    th_use = th_ * th_mask.astype(float)[:, None]
-    
-    # if merging is correct, 5 may be emperically sufficient for binary-lens and 9 is for triple-lens
-    r_use  = r_use[jnp.argsort(r_use[:,1])][-10:]
-    th_use = th_use[jnp.argsort(th_use[:,1])][-10:]
-    r_limb = jnp.abs(image_limb)
-    th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
-    
-    # select matched regions including image limbs. binary-lens microlensing should have less than 5 images.
-    in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
-    r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
-    th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
-    # select the first 5 regions for the integration.
-    r_excess   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
-    th_excess  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
-    r_scan, th_scan = merge_final(r_excess, th_excess)
-    r_scan, th_scan = r_scan[:5], th_scan[:5]
-
-    #r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
-    #th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
+    r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
     
     @partial(jit, static_argnames=("cubic")) 
     def _process_r(r0, th_values, cubic=True):
@@ -233,7 +241,7 @@ if __name__ == "__main__":
     u0 = 0.1 # impact parameter
     rho = 2e-2
 
-    num_points = 500
+    num_points = 1000
     t  =  jnp.linspace(-5.0, 5.0, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -298,8 +306,9 @@ if __name__ == "__main__":
     ax_in.set_aspect(1)
     ax_in.set(xlim=(-1., 1.2), ylim=(-0.8, 1.))
 
-    ax.plot(t, magnifications, ".")
-    ax.plot(t, magnifications2)
+    ax.plot(t, magnifications, ".", label="microjax")
+    ax.plot(t, magnifications2, "-", label="VBBinaryLensing")
+    ax.set_title("extended source evaluation")
     #ax.plot(t, mags_poi, ls="--")
     ax.grid(ls=":")
     ax.set_ylabel("magnification")
@@ -308,5 +317,6 @@ if __name__ == "__main__":
     ax1.set_ylabel("relative diff")
     ax1.set_yscale("log")
     ax1.set_ylim(1e-6, 1e-2)
+    ax.legend(loc="upper left")
     plt.savefig("lc.pdf", bbox_inches="tight")
     plt.close()
