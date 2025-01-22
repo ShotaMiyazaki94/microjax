@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 
-from microjax.inverse_ray.lightcurve import mag_lc_uniform, mag_lc_binary
+from microjax.inverse_ray.lightcurve import mag_lc_uniform, mag_lc
 from microjax.point_source import critical_and_caustic_curves
 
 # Parameters

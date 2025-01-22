@@ -9,7 +9,7 @@ from microjax.inverse_ray.limb_darkening import Is_limb_1st
 @partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
                                "offset_r", "offset_th", "delta_c"))
 def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, th_resolution=4000, 
-               Nlimb=1000, offset_r = 0.5, offset_th = 10.0, delta_c=0.01, **_params):
+               Nlimb=1000, offset_r = 0.5, offset_th = 10.0, delta_c=0.05, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -22,7 +22,7 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
     @partial(jit, static_argnames=("cubic")) 
     def _process_r(r0, th_values, cubic=True):
         dth = (th_values[1] - th_values[0])
-        distances = distance_from_source(r0, th_values, w_center_shifted, shifted, **_params)
+        distances = distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=nlenses, **_params)
         in_num = in_source(distances, rho)
         Is     = Is_limb_1st(distances / rho, u1=u1)
         zero_term = 1e-10
@@ -141,7 +141,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000,
     @partial(jit, static_argnames=("cubic")) 
     def _process_r(r0, th_values, cubic=True):
         dth = (th_values[1] - th_values[0])
-        distances = distance_from_source(r0, th_values, w_center_shifted, shifted, **_params)
+        distances = distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=nlenses, **_params)
         in_num = in_source(distances, rho)
         zero_term = 1e-10
         if cubic:
@@ -225,11 +225,11 @@ def in_source_jvp(primal, tangent):
     primal_out = sigmoid
     return primal_out, tangent_out
 
-def distance_from_source(r0, th_values, w_center_shifted, shifted, **_params):
+def distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=2, **_params):
     x_th = r0 * jnp.cos(th_values)
     y_th = r0 * jnp.sin(th_values)
     z_th = x_th + 1j * y_th
-    image_mesh = lens_eq(z_th - shifted, **_params)
+    image_mesh = lens_eq(z_th - shifted, nlenses=nlenses, **_params)
     distances = jnp.abs(image_mesh - w_center_shifted)
     return distances
 
@@ -262,8 +262,8 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=1000, **test_params, cubic=True)
-    #magn  = lambda w: mag_binary(w, rho, r_resolution=1500, th_resolution=1500, u1=0.0, **test_params, cubic=True)
+    #magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=1000, **test_params, cubic=True)
+    magn  = lambda w: mag_binary(w, rho, r_resolution=1000, th_resolution=1000, u1=0.0, **test_params, cubic=True)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
     magn =  jit(vmap(magn, in_axes=(0,)))
