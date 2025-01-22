@@ -39,7 +39,7 @@ def get_mag(params):
 
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    return w_points, mag_lc(w_points, rho, nlenses=2, u1=0.0, q=q, s=s, cubic=cubic,
+    return w_points, mag_lc(w_points, rho, nlenses=2, u1=0.5, q=q, s=s, cubic=cubic,
                             r_resolution=r_resolution, th_resolution=th_resolution)
 
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])

@@ -9,7 +9,7 @@ from microjax.inverse_ray.limb_darkening import Is_limb_1st
 @partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
                                "offset_r", "offset_th", "delta_c"))
 def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, th_resolution=4000, 
-               Nlimb=1000, offset_r = 0.5, offset_th = 10.0, delta_c=0.05, **_params):
+               Nlimb=1000, offset_r = 0.5, offset_th = 10.0, delta_c=0.01, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -35,8 +35,12 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
             num_B2      = in1_num * in2_num * (1.0 - in3_num)
             th_est_B1   = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
             th_est_B2   = cubic_interp(rho, d1, d2, d3, d4, th0, th1, th2, th3, epsilon=zero_term)
-            delta_B1    = jnp.clip(th2 - th_est_B1, 0.0, 1.0)
-            delta_B2    = jnp.clip(th_est_B2 - th1, 0.0, 1.0)
+            #delta_B1 = jnp.clip(th2 - th_est_B1, 1e-12, 1.0)
+            #delta_B2 = jnp.clip(th_est_B2 - th1, 1e-12, 1.0)
+            #fac_B1 = (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1)
+            #fac_B2 = (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B2) * (0.5 + delta_B2)
+            delta_B1    = jnp.clip(th2 - th_est_B1, 0.0, 1.0) + zero_term
+            delta_B2    = jnp.clip(th_est_B2 - th1, 0.0, 1.0) + zero_term
             fac_B1      = jnp.where(delta_B1 > delta_c,
                                     (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1),
                                     (2.0 / 3.0) * delta_B1 + 0.5)

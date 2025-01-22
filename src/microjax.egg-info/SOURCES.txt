@@ -105,7 +105,7 @@ tests/integrate/inverse_ray/figs/accuracy_r100_th4000_cubic.pdf
 tests/integrate/inverse_ray/figs/accuracy_r2000_th2000_cubic.pdf
 tests/integrate/inverse_ray/figs/accuracy_r500_th8000_cubic.pdf
 tests/integrate/inverse_ray/figs/accuracy_r500_th8000_linear.pdf
-tests/integrate/inverse_ray/figs/grads_lc_limb_r1000_4000_cub.pdf
+tests/integrate/inverse_ray/figs/grads_lc_limb_r500_500_cub.pdf
 tests/integrate/inverse_ray/figs/grads_lc_uniform_r1000_1000_cub.pdf
 tests/integrate/inverse_ray/figs/grads_lc_uniform_r1000_1000_lin.pdf
 tests/integrate/inverse_ray/figs/grads_lc_uniform_r1000_4000_cub.pdf
