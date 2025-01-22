@@ -109,6 +109,7 @@ tests/integrate/inverse_ray/figs/grads_lc_limb.pdf
 tests/integrate/inverse_ray/figs/grads_lc_uniform_r1000_1000_cub.pdf
 tests/integrate/inverse_ray/figs/grads_lc_uniform_r1000_1000_lin.pdf
 tests/integrate/inverse_ray/figs/grads_lc_uniform_r1000_4000_cub.pdf
+tests/integrate/inverse_ray/figs/grads_lc_uniform_r1000_4000_lin.pdf
 tests/integrate/inverse_ray/figs/performance.pdf
 tests/integrate/inverse_ray/figs/speed_image_solve.png
 tests/integrate/inverse_ray/figs/speed_lens_eq.pdf

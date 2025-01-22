@@ -9,7 +9,7 @@ from microjax.inverse_ray.limb_darkening import Is_limb_1st
 @partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
                                "offset_r", "offset_th", "delta_c"))
 def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, th_resolution=4000, 
-               Nlimb=1000, offset_r = 0.5, offset_th = 5.0, delta_c=0.05, **_params):
+               Nlimb=1000, offset_r = 0.5, offset_th = 10.0, delta_c=0.01, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -24,29 +24,46 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
         dth = (th_values[1] - th_values[0])
         distances = distance_from_source(r0, th_values, w_center_shifted, shifted, **_params)
         in_num = in_source(distances, rho)
+        Is     = Is_limb_1st(distances / rho, u1=u1)
         zero_term = 1e-10
         if cubic:
-            in0_num, in1_num, in2_num, in3_num = in_num[:-3], in_num[1:-2], in_num[2:-1], in_num[3:]
-            d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
+            in0_num, in1_num, in2_num, in3_num, in4_num = in_num[:-4], in_num[1:-3], in_num[2:-2], in_num[3:-1], in_num[4:]
+            d0, d1, d2, d3, d4 = distances[:-4], distances[1:-3], distances[2:-2], distances[3:-1], distances[4:]
             th0, th1, th2, th3 = jnp.arange(4)
-            num_inside  = in1_num * in2_num
-            num_in2out  = in1_num * (1.0 - in2_num)
-            num_out2in  = (1.0 - in1_num) * in2_num
-            th_est      = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
-            frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
-            frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
-            area_inside = r0 * dth * num_inside
-            area_crossing = r0 * dth * (num_in2out * frac_in2out + num_out2in * frac_out2in)
+            num_inside  = in1_num * in2_num * in3_num
+            num_B1      = (1.0 - in1_num) * in2_num * in3_num
+            num_B2      = in1_num * in2_num * (1.0 - in3_num)
+            th_est_B1   = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
+            th_est_B2   = cubic_interp(rho, d1, d2, d3, d4, th0, th1, th2, th3, epsilon=zero_term)
+            delta_B1    = jnp.clip(th2 - th_est_B1, 0.0, 1.0)
+            delta_B2    = jnp.clip(th_est_B2 - th1, 0.0, 1.0)
+            fac_B1      = jnp.where(delta_B1 > delta_c,
+                                    (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1),
+                                    (2.0 / 3.0) * delta_B1 + 0.5)
+            fac_B2      = jnp.where(delta_B2 > delta_c,
+                                    (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B2) * (0.5 + delta_B2),
+                                    (2.0 / 3.0) * delta_B2 + 0.5)
+            area_inside = r0 * dth * Is[2:-2] * num_inside
+            area_B1     = r0 * dth * Is[2:-2] * fac_B1 * num_B1
+            area_B2     = r0 * dth * Is[2:-2] * fac_B2 * num_B2
         else:
-            in0_num, in1_num = in_num[:-1], in_num[1:]
-            d0, d1   = distances[:-1], distances[1:]
-            num_inside     = in0_num * in1_num
-            area_inside    = r0 * dth * num_inside
-            num_in2out = in0_num * (1.0 - in1_num)
-            num_out2in = (1.0 - in0_num) * in1_num
-            frac = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
-            area_crossing  = r0 * dth * (num_in2out * frac + num_out2in * (1.0 - frac))
-        return jnp.sum(area_inside + area_crossing)  
+            in0_num, in1_num, in2_num = in_num[:-2], in_num[1:-1], in_num[2:]
+            d0, d1, d2 = distances[:-2], distances[1:-1], distances[2:]
+            num_inside     = in0_num * in1_num * in2_num
+            num_B1         = (1.0 - in0_num) * in1_num * in2_num 
+            num_B2         = in0_num * in1_num * (1.0 - in2_num)
+            delta_B1   = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0) 
+            delta_B2   = jnp.clip((d2 - rho) / (d2 - d1 + zero_term), 0.0, 1.0)
+            fac_B1 = jnp.where(delta_B1 > delta_c, 
+                               (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1), 
+                               (2.0 / 3.0) * delta_B1 + 0.5)
+            fac_B2 = jnp.where(delta_B2 > delta_c, 
+                               (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B2) * (0.5 + delta_B2), 
+                               (2.0 / 3.0) * delta_B2 + 0.5)
+            area_inside = r0 * dth * Is[1:-1] * num_inside
+            area_B1     = r0 * dth * Is[1:-1] * fac_B1 * num_B1
+            area_B2     = r0 * dth * Is[1:-1] * fac_B2 * num_B2
+        return jnp.sum(area_inside + area_B1 + area_B2)
     
     @partial(jit, static_argnames=("cubic"))  
     def _compute_for_range(r_range, th_range, cubic=True):
@@ -64,7 +81,7 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
 
     inputs = (r_scan, th_scan)
     magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
-    magnification = magnification_unnorm / rho**2 / jnp.pi
+    magnification = magnification_unnorm / rho**2 
     return magnification 
 
 
@@ -258,8 +275,8 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=1000, **test_params, cubic=True)
-    #magn  = lambda w: mag_binary(w, rho, r_resolution=200, th_resolution=200, u1=0.0, **test_params)
+    #magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=1000, **test_params, cubic=True)
+    magn  = lambda w: mag_binary(w, rho, r_resolution=1500, th_resolution=1500, u1=0.0, **test_params, cubic=True)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
     magn =  jit(vmap(magn, in_axes=(0,)))
