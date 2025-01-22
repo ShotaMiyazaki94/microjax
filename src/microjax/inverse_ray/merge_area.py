@@ -162,15 +162,15 @@ def merge_intervals_theta(arr, offset=1.0, fac=100.0):
     return merged_intervals, mask
 
 
-@partial(jit, static_argnames=("Nlimb"))
-def calc_source_limb(w_center, rho, Nlimb=100, **_params):
+@partial(jit, static_argnames=("Nlimb", "nlenses"))
+def calc_source_limb(w_center, rho, Nlimb=100, nlenses=2, **_params):
     s, q = _params["s"], _params["q"]
     a = 0.5 * s
     e1 = q / (1.0 + q)
     w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, Nlimb)), dtype=complex)
     w_limb_shift = w_limb - 0.5 * s * (1 - q) / (1 + q)
     _params = {"q": q, "s": s, "a": a, "e1": e1}
-    image, mask = _images_point_source(w_limb_shift, **_params)
+    image, mask = _images_point_source(w_limb_shift, nlenses=nlenses, **_params)
     image_limb = image + 0.5 * s * (1 - q) / (1 + q)
     return image_limb, mask
 

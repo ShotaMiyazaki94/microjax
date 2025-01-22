@@ -29,7 +29,7 @@ t  =  jnp.linspace(-22, 12, 500)
 r_resolution  = 1000
 th_resolution = 4000
 
-cubic = False
+cubic = True
 
 @jit
 def get_mag(params):

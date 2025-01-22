@@ -81,7 +81,7 @@ def _planetary_caustic_test(w, rho, c_p=2., **params):
 
 
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "u1"))
-def mag_lc_binary(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=200, u1=0.0,**params):
+def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=200, u1=0.0, **params):
     if nlenses == 1:
         _params = {}
         x_cm = 0 # miyazaki
@@ -89,7 +89,7 @@ def mag_lc_binary(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=400
         s, q = params["s"], params["q"]
         a = 0.5 * s
         e1 = q / (1.0 + q) 
-        _params = {"a": a, "e1": e1}
+        _params = {"a": a, "e1": e1, "q": q, "s": s}
         x_cm = a*(1 - q)/(1 + q)
     elif nlenses == 3:
         s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
@@ -97,7 +97,7 @@ def mag_lc_binary(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=400
         e1 = q / (1.0 + q + q3)
         e2 = 1.0 / (1.0 + q + q3) #miyazaki
         r3 = r3 * jnp.exp(1j * psi)
-        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
+        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
         x_cm = a * (1.0 - q) / (1.0 + q)
     else:
         raise ValueError("nlenses must be <= 3")
@@ -122,12 +122,10 @@ def mag_lc_binary(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=400
     elif nlenses == 3:
         test = jnp.zeros_like(w_points).astype(jnp.bool_)
 
-    _params = {"q": q, "s": s} 
     mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
                                      r_resolution=r_resolution, th_resolution=th_resolution, **_params)
     
-    return lax.map(lambda xs: lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],),
-        [test, mu_multi, w_points])
+    return lax.map(lambda xs: lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],), [test, mu_multi, w_points])
 
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "cubic"))
 def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=200, cubic=True, **params):

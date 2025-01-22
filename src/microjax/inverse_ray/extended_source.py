@@ -186,19 +186,6 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000,
     magnification = magnification_unnorm / rho**2 / jnp.pi
     return magnification 
 
-#@jit
-def _cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
-    # general but slower version of cubic_interp
-    x_vals = jnp.array([x0, x1, x2, x3])
-    x_min, x_max = jnp.min(x_vals), jnp.max(x_vals)
-    scale = jnp.maximum(x_max - x_min, epsilon)
-    x_hat = (x - x_min) / scale             
-    x_hat_vals = (x_vals - x_min) / scale   # x_hat_vals = [x0_hat, x1_hat, x2_hat, x3_hat]
-    diffs = x_hat - x_hat_vals              # diffs = [x_hat - x0_hat, x_hat - x1_hat, x_hat - x2_hat, x_hat - x3_hat]
-    denom = (x_hat_vals[:, None] - x_hat_vals[None, :]) + epsilon
-    L = jnp.prod(diffs[:, None] - diffs[None, :], axis=1) / jnp.prod(denom, axis=1)
-    return jnp.dot(jnp.array([y0, y1, y2, y3]), L)
-
 def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
     # Implemented algebraically, much faster and memory efficient than polyfit that uses matrix manipulation.
     # In this case, x is distance, y is coordinate.
@@ -275,8 +262,8 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
-    #magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=1000, **test_params, cubic=True)
-    magn  = lambda w: mag_binary(w, rho, r_resolution=1500, th_resolution=1500, u1=0.0, **test_params, cubic=True)
+    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=1000, **test_params, cubic=True)
+    #magn  = lambda w: mag_binary(w, rho, r_resolution=1500, th_resolution=1500, u1=0.0, **test_params, cubic=True)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
     magn =  jit(vmap(magn, in_axes=(0,)))

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 
-from microjax.inverse_ray.lightcurve import mag_lc_uniform, mag_lc_binary
+from microjax.inverse_ray.lightcurve import mag_lc_uniform, mag_lc
 from microjax.point_source import critical_and_caustic_curves
 
 # Parameters
@@ -26,6 +26,10 @@ e1 = q / (1.0 + q)
 # Position of the center of the source with respect to the center of mass.
 t  =  jnp.linspace(-22, 12, 500)
 
+r_resolution  = 1000
+th_resolution = 4000
+cubic = True
+
 @jit
 def get_mag(params):
     s, q, rho, alpha, u0, t0, tE = params
@@ -35,11 +39,8 @@ def get_mag(params):
 
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    return w_points, mag_lc_binary(w_points, rho, nlenses=2, u1=0.5,
-                                    q=q, s=s, r_resolution=4000, th_resolution=4000)
-    #return w_points, mag_lc_uniform(w_points, rho, nlenses=2, 
-    #                                q=q, s=s, r_resolution=4000, th_resolution=4000)
-    #return w_points, magnifications(w_points, rho, nlenses=2, q=q, s=s, limb_darkening=True, u1=0.5)
+    return w_points, mag_lc(w_points, rho, nlenses=2, u1=0.0, q=q, s=s, cubic=cubic,
+                            r_resolution=r_resolution, th_resolution=th_resolution)
 
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
 w_points, A = get_mag(params)
@@ -103,18 +104,13 @@ for i, _a in enumerate(ax):
     _a.yaxis.set_label_coords(labelx, 0.5)
     _a.xaxis.set_minor_locator(AutoMinorLocator())
     _a.yaxis.set_minor_locator(AutoMinorLocator())
-    #_a.set(xlim=(30, 70))
-
-#ax[1].set_ylim(-550, 550)
-#ax[2].set_ylim(-55, 55)
-#ax[3].set_ylim(-1200, 1200)
-#ax[4].set_ylim(-550, 550)
-#ax[5].set_ylim(-1300, 1300)
-#ax[6].set_ylim(-55, 55)
-#ax[7].set_ylim(-12, 12)
 
 ax[-1].set_xlabel('$t$ [days]')
 ax_in.set_rasterization_zorder(0)
-fig.savefig("tests/integrate/inverse_ray/figs/grads_lc_limb.pdf", bbox_inches="tight")
-plt.show()
+if cubic:
+    fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_limb_r{r_resolution}_{th_resolution}_cub.pdf", bbox_inches="tight")
+    print(f"tests/integrate/inverse_ray/figs/grads_lc_limb_r{r_resolution}_{th_resolution}_cub.pdf")
+else:
+    fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_limb_r{r_resolution}_{th_resolution}_lin.pdf", bbox_inches="tight")
+    print(f"tests/integrate/inverse_ray/figs/grads_lc_limb_r{r_resolution}_{th_resolution}_lin.pdf")
 plt.close()
