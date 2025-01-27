@@ -5,7 +5,7 @@ from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 from microjax.inverse_ray.merge_area import calc_source_limb, determine_grid_regions
 from microjax.inverse_ray.limb_darkening import Is_limb_1st
-from microjax.inverse_ray.boundary import in_source, distance_from_source, step_smooth, calc_facB
+from microjax.inverse_ray.boundary import in_source, distance_from_source, calc_facB
 
 @partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
                                "offset_r", "offset_th", "delta_c"))
@@ -55,12 +55,8 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
             num_B2         = in0_num * in1_num * (1.0 - in2_num)
             delta_B1   = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0) 
             delta_B2   = jnp.clip((d2 - rho) / (d2 - d1 + zero_term), 0.0, 1.0)
-            fac_B1 = jnp.where(delta_B1 > delta_c, 
-                               (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1), 
-                               (2.0 / 3.0) * delta_B1 + 0.5)
-            fac_B2 = jnp.where(delta_B2 > delta_c, 
-                               (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B2) * (0.5 + delta_B2), 
-                               (2.0 / 3.0) * delta_B2 + 0.5)
+            fac_B1     = calc_facB(delta_B1, delta_c)
+            fac_B2     = calc_facB(delta_B2, delta_c) 
             area_inside = r0 * dth * Is[1:-1] * num_inside
             area_B1     = r0 * dth * Is[1:-1] * fac_B1 * num_B1
             area_B2     = r0 * dth * Is[1:-1] * fac_B2 * num_B2
@@ -84,47 +80,6 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
     magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
     magnification = magnification_unnorm / rho**2 
     return magnification 
-
-
-
-    """
-    def compute_for_range(r_range, th_range):
-        dr = (r_range[1] - r_range[0]) / r_resolution
-        dth = (th_range[1] - th_range[0]) / th_resolution
-        r_values  = r_grid_norm * (r_range[1] - r_range[0]) + r_range[0]
-        th_values = th_grid_norm * (th_range[1] - th_range[0]) + th_range[0]
-        def process_r(r0):
-            z_th = r0 * (jnp.cos(th_values) + 1j * jnp.sin(th_values))
-            image_mesh = lens_eq(z_th - shifted, **_params)
-            distances = jnp.abs(image_mesh - w_center_shifted)
-            Is        = Is_limb_1st(distances / rho, u1=u1)
-            in_source = Is > 0.0
-            in0, in1, in2  = in_source[:-2], in_source[1:-1], in_source[2:]
-            d0, d1, d2     = distances[:-2], distances[1:-1], distances[2:]
-            in_segment = in0 & in1 & in2
-            B1_segment = (~in0) & in1 & in2
-            B2_segment = in0 & in1 & (~in2)
-            zero_term  = 1e-12 
-            delta_B1   = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0) 
-            delta_B2   = jnp.clip((d2 - rho) / (d2 - d1 + zero_term), 0.0, 1.0)
-            fac_B1 = jnp.where(delta_B1 > delta_c, 
-                               (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1), 
-                               (2.0 / 3.0) * delta_B1 + 0.5)
-            fac_B2 = jnp.where(delta_B2 > delta_c, 
-                               (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B2) * (0.5 + delta_B2), 
-                               (2.0 / 3.0) * delta_B2 + 0.5)
-            area_inside = r0 * dth * Is[1:-1] * in_segment
-            area_B1     = r0 * dth * Is[1:-1] * fac_B1 * B1_segment
-            area_B2     = r0 * dth * Is[1:-1] * fac_B2 * B2_segment
-            return jnp.sum(area_inside + area_B1 + area_B2)
-        area_r = vmap(process_r)(r_values) # (Nr) array
-        total_area = dr * jnp.sum(area_r)
-        return total_area
-    compute_vmap = vmap(compute_for_range, in_axes=(0, 0))
-    image_areas = compute_vmap(r_vmap, th_vmap)
-    magnification = jnp.sum(image_areas) / rho**2 #/ jnp.pi 
-    return magnification 
-    """
 
 @partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
 def mag_uniform(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000, 

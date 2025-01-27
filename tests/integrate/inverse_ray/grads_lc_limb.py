@@ -26,8 +26,8 @@ e1 = q / (1.0 + q)
 # Position of the center of the source with respect to the center of mass.
 t  =  jnp.linspace(-22, 12, 500)
 
-r_resolution  = 1000
-th_resolution = 4000
+r_resolution  = 2000
+th_resolution = 2000
 cubic = True
 
 @jit
