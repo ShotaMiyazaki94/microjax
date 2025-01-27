@@ -5,6 +5,7 @@ from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 from microjax.inverse_ray.merge_area import calc_source_limb, determine_grid_regions
 from microjax.inverse_ray.limb_darkening import Is_limb_1st
+from microjax.inverse_ray.boundary import in_source, distance_from_source, step_smooth, calc_facB
 
 @partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
                                "offset_r", "offset_th", "delta_c"))
@@ -35,18 +36,14 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
             num_B2      = in1_num * in2_num * (1.0 - in3_num)
             th_est_B1   = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
             th_est_B2   = cubic_interp(rho, d1, d2, d3, d4, th0, th1, th2, th3, epsilon=zero_term)
-            #delta_B1 = jnp.clip(th2 - th_est_B1, 1e-12, 1.0)
-            #delta_B2 = jnp.clip(th_est_B2 - th1, 1e-12, 1.0)
-            #fac_B1 = (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1)
-            #fac_B2 = (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B2) * (0.5 + delta_B2)
             delta_B1    = jnp.clip(th2 - th_est_B1, 0.0, 1.0) + zero_term
             delta_B2    = jnp.clip(th_est_B2 - th1, 0.0, 1.0) + zero_term
-            fac_B1      = jnp.where(delta_B1 > delta_c,
-                                    (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1),
-                                    (2.0 / 3.0) * delta_B1 + 0.5)
-            fac_B2      = jnp.where(delta_B2 > delta_c,
-                                    (2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B2) * (0.5 + delta_B2),
-                                    (2.0 / 3.0) * delta_B2 + 0.5)
+            #fac_B1      = step_smooth(delta_B1 - delta_c) * ((2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1)) \
+            #    + step_smooth(delta_c - delta_B1) * ((2.0 / 3.0) * delta_B1 + 0.5) 
+            #fac_B2      = step_smooth(delta_B2 - delta_c) * ((2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B2) * (0.5 + delta_B2)) \
+            #    + step_smooth(delta_c - delta_B2) * ((2.0 / 3.0) * delta_B2 + 0.5)  
+            fac_B1 = calc_facB(delta_B1, delta_c)
+            fac_B2 = calc_facB(delta_B2, delta_c)
             area_inside = r0 * dth * Is[2:-2] * num_inside
             area_B1     = r0 * dth * Is[2:-2] * fac_B1 * num_B1
             area_B2     = r0 * dth * Is[2:-2] * fac_B2 * num_B2
@@ -207,35 +204,6 @@ def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
     L3 = ((x_hat - x0_hat) * (x_hat - x1_hat) * (x_hat - x2_hat)) / \
         ((x3_hat - x0_hat + epsilon) * (x3_hat - x1_hat + epsilon) * (x3_hat - x2_hat + epsilon))
     return y0 * L0 + y1 * L1 + y2 * L2 + y3 * L3
-
-@custom_jvp 
-def in_source(distances, rho):
-    return jnp.where(rho - distances < 0.0, 0.0, 1.0)
-
-@in_source.defjvp
-def in_source_jvp(primal, tangent):
-    distances, rho = primal
-    distances_dot, rho_dot = tangent
-    primal_out = in_source(distances, rho)
-
-    z = (rho - distances) / rho 
-    factor = 100.0 
-    sigmoid_input = factor * z
-    sigmoid = jax.nn.sigmoid(sigmoid_input)
-    sigmoid_derivative = sigmoid * (1.0 - sigmoid) * factor
-    dz_distances = -1.0 / rho
-    dz_rho = distances / rho**2
-    tangent_out = sigmoid_derivative * (dz_distances * distances_dot + dz_rho * rho_dot)
-    primal_out = sigmoid
-    return primal_out, tangent_out
-
-def distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=2, **_params):
-    x_th = r0 * jnp.cos(th_values)
-    y_th = r0 * jnp.sin(th_values)
-    z_th = x_th + 1j * y_th
-    image_mesh = lens_eq(z_th - shifted, nlenses=nlenses, **_params)
-    distances = jnp.abs(image_mesh - w_center_shifted)
-    return distances
 
 if __name__ == "__main__":
     import time

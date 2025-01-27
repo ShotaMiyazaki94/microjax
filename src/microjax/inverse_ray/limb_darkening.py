@@ -24,11 +24,9 @@ def Is_limb_1st(d, u1=0.0):
 def Is_limb_1st_jvp(primals, tangents):
     d, u1 = primals
     d_dot, u1_dot = tangents
-    #primal_out = Is_limb_1st(d, u1)
 
-    # I = I0(u1) * profile(mu(d), u1) * sigmoid(z(d))
     fac = 100.0
-    mu = jnp.sqrt(jnp.maximum(1e-6, 1.0 - d**2))
+    mu = jnp.sqrt(jnp.maximum(1e-3, 1.0 - d**2))
     I0 = 3.0 / jnp.pi / (3.0 - u1)
     dI0_du1 = -3.0 / jnp.pi / (3.0 - u1)**2
     prof = 1.0 - u1 * (1.0 - mu)
