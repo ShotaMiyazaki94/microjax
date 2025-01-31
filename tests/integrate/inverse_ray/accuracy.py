@@ -35,29 +35,28 @@ def mag_microjax_vmap(w_points, rho, s, q, r_resolution=200, th_resolution=200):
                                           th_resolution=th_resolution))
     return magn(w_points)
 
-s, q = 1.0, 1.0
+s, q = 1.0, 0.01
 # 1000  points on caustic curve
-npts = 120
+npts = 150
 critical_curves, caustic_curves = critical_and_caustic_curves(
     npts=npts, nlenses=2, s=s, q=q
 )
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 1000
-th_resolution = 4000
+r_resolution  = 2000
+th_resolution = 2000
 mags_vbb_list = []
 mags_list = []
 
 #rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
-
 cubic = True
 
 for rho in rho_list:
     print(f"rho = {rho}")
     # Generate 1000 random test points within 2 source radii away from the caustic points 
-    key = random.PRNGKey(32)
+    key = random.PRNGKey(4)
     key, subkey1, subkey2 = random.split(key, num=3)
     phi = random.uniform(subkey1, caustic_curves.shape, minval=-jnp.pi, maxval=jnp.pi)
     r = random.uniform(subkey2, caustic_curves.shape, minval=0., maxval=2*rho)
@@ -68,7 +67,7 @@ for rho in rho_list:
                           ])
     mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
                                     th_resolution=th_resolution, cubic=cubic, 
-                                    Nlimb=2000, offset_r=0.5, offset_th=10.0)
+                                    Nlimb=2000, offset_r=0.5, offset_th=5.0)
     #magn    = jax.jit(jax.vmap(mag_mj, in_axes=(0,)))
     def chunked_vmap(func, data, chunk_size):
         results = []

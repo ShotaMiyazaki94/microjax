@@ -1,13 +1,5 @@
 # -*- coding: utf-8 -*-
-from functools import partial
-
-import numpy as np
 import jax.numpy as jnp
-from jax import jit, lax
-
-#from microjax.poly_solver import poly_roots_EA_multi as poly_roots
-#from .ehrlich_aberth_primitive import poly_roots
-#from .utils import match_points
 
 def _poly_coeffs_binary(w, a, e1):
     """

@@ -16,7 +16,7 @@ def calc_facB_jvp(primal, tangent):
     delta_B_dot, delta_c_dot = tangent
     primal_out = calc_facB(delta_B, delta_c)
     #facB = (2.0 / 3.0) * delta_B + 0.5 
-    tangent_out = 2.0 / 3.0 * delta_B_dot
+    tangent_out = 2.0 / 3.0 * delta_B_dot # applying the 1.5-order rule
     return primal_out, tangent_out
 
 @custom_jvp
