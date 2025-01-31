@@ -1,35 +1,62 @@
 name: Run pytest
+on:
+  # Triggers the workflow on push or pull request events but only for the "develop" and "master" branch
+  push:
+    branches: [ "develop" , "master"]
+  pull_request:
+    branches: [ "develop" , "master"]
 
-on: [push, pull_request]
 
 jobs:
-  build:
+  pytest:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+      # Checkout repository
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v3
-      with:
-        python-version: '3.x'
+      # Setup Python
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
 
-#    - name: Install dependencies
-#      run: |
-#        python -m pip install --upgrade pip
-#        pip install -r requirements.txt
+      # install package	  
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python setup.py install
 
-    - name: Run tests
-      run: |
-        pytest
+      # install pytest
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
 
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: test-results/
+      # pytest -> JUnit xml
+      - name: PyTest
+        run: |
+          python -m pytest tests/unittests --junit-xml results/pytest.xml
+        continue-on-error: true
 
-    - name: Download test results
-      uses: actions/download-artifact@v4
-      with:
-        name: test-results
+      # show the results
+      - name: Upload Unit Test Results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Unit Test Results (Python 3.10)
+          path: results/*.xml
+
+      - name: Download Artifacts
+        if: success() || failure()
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: artifacts/**/*.xml
+
+      
