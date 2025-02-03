@@ -124,8 +124,15 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlim
 
     mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
                                      r_resolution=r_resolution, th_resolution=th_resolution, **_params)
-    
-    return lax.map(lambda xs: lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],), [test, mu_multi, w_points])
+    def mag_full_scan(w):
+        batch_size = 400
+        return lax.scan(lambda _, i: mag_full(w[i]), init=None, xs=w_points, length=batch_size)
+        #return mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
+        #                            r_resolution=r_resolution, th_resolution=th_resolution, **_params)
+
+    return lax.map(lambda xs: 
+                   lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],), 
+                   [test, mu_multi, w_points])
 
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "cubic"))
 def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=200, cubic=True, **params):
@@ -185,13 +192,6 @@ def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=40
     # Iterate over w_points and execute either the hexadecapole  approximation
     # or the full extended source calculation. `vmap` cannot be used here because
     # `lax.cond` executes both branches within vmap.
-    return lax.map(
-        lambda xs: lax.cond(
-            xs[0],
-            lambda _: xs[1],
-            mag_full,
-            xs[2],
-        ),
-        [test, mu_multi, w_points],
-        #jnp.stack([mask_test, mu_approx,  w_points]).T,
-    )
+    #jnp.stack([mask_test, mu_approx,  w_points]).T,
+    return lax.map(lambda xs: lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],),
+                   [test, mu_multi, w_points])

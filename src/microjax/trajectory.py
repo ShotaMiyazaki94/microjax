@@ -2,7 +2,9 @@ import jax.numpy as jnp
 from functools import partial
 from jax import jit
 
-def dtn_dum_parallax(t, piEN, piEE, t_peri, qne0, vne0, xpos, ypos, north, east, tref=0.0, ecc=0.0167, period = 365.25636):
+@partial(jit, static_argnames=("t_peri", "qne0", "vne0", "xpos", "ypos", "north", "east", "tref", "ecc", "period"))
+def dtn_dum_parallax(t, piEN, piEE, t_peri, qne0, vne0, xpos, ypos, north, east, 
+                     tref=0.0, ecc=0.0167, period = 365.25636):
     """
     Returns:
         dtn: offsets in the tn direction
@@ -14,13 +16,11 @@ def dtn_dum_parallax(t, piEN, piEE, t_peri, qne0, vne0, xpos, ypos, north, east,
     dum = piEN * qne[1] - piEE * qne[0]
     return dtn, dum
 
-def _get_info(RA=0.0, Dec=0.0, tref=0.0,
-             rotaxis=23.44, ecc=0.0167, period = 365.25636, 
-             t_peri=0.0, t_vernal=0.0, dt=0.1):
-    if t_peri*t_vernal == 0:
-        tptmp, tvtmp = _peri_vernal(tref)
-    t_peri = t_peri if t_peri > 0 else tptmp
-    t_vernal  = t_vernal if t_vernal > 0 else tvtmp
+def _get_info_parallax(RA=0.0, Dec=0.0, tref=0.0,rotaxis=23.44, ecc=0.0167, 
+                       period=365.25636, t_peri=0.0, t_vernal=0.0, dt=0.1):
+    tp_tmp, tv_tmp = _peri_vernal(tref)
+    t_peri = jnp.where(t_peri > 0, t_peri, tp_tmp)
+    t_vernal = jnp.where(t_vernal > 0, t_vernal, tv_tmp)
     offset   = t_vernal - t_peri
     # Get the perihelion (x) direction and the corresponding y direction
     # in the equatorial coordinate system (where x = vernal)
@@ -28,13 +28,10 @@ def _get_info(RA=0.0, Dec=0.0, tref=0.0,
     # Calculate East and North vector on the event sky
     north, east = _get_north_east(RA, Dec)
     # Calculate Earth projected velocity at reference time tref
-    qne1 = _get_sun_proj(tref - dt, t_peri, period, ecc,
-                         xpos, ypos, north, east)
-    qne2 = _get_sun_proj(tref + dt, t_peri, period, ecc,
-                         xpos, ypos, north, east)
+    qne1 = _get_sun_proj(tref - dt, t_peri, period, ecc, xpos, ypos, north, east)
+    qne2 = _get_sun_proj(tref + dt, t_peri, period, ecc, xpos, ypos, north, east)
     vne0 = 0.5 * (qne2 - qne1) / dt # AU / day, minus projected Earth velocity
-    qne0 = _get_sun_proj(tref, t_peri, period, ecc,
-                         xpos, ypos, north, east)
+    qne0 = _get_sun_proj(tref, t_peri, period, ecc, xpos, ypos, north, east)
     return t_peri, qne0, vne0, xpos, ypos, north, east 
     
 
