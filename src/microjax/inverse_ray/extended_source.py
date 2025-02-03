@@ -83,7 +83,7 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
 
 @partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
 def mag_uniform(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000, 
-                Nlimb=2000, offset_r=0.5, offset_th=10.0, cubic=True, **_params):
+                Nlimb=1000, offset_r=0.5, offset_th=10.0, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -170,15 +170,19 @@ if __name__ == "__main__":
     tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 2e-2
+    rho = 0.05
 
-    num_points = 1000
-    t  =  jnp.linspace(-5.0, 5.0, num_points)
+    num_points = 4000
+    t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
     test_params = {"q": q, "s": s}  # Lens parameters
+
+    r_resolution = 1000
+    th_resolution = 4000
+    cubic = True
 
     from microjax.caustics.extended_source import mag_extended_source
     import MulensModel as mm
@@ -189,35 +193,48 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
-    magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=2000, **test_params, cubic=True)
+    mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
+                                    th_resolution=th_resolution, cubic=cubic, 
+                                    Nlimb=1000, offset_r=0.5, offset_th=10.0)
+    def chunked_vmap(func, data, chunk_size):
+        results = []
+        for i in range(0, len(data), chunk_size):
+            chunk = data[i:i + chunk_size]
+            results.append(jax.vmap(func)(chunk))
+        return jnp.concatenate(results)
+
+    #magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=2000, **test_params, cubic=True)
     #magn  = lambda w: mag_binary(w, rho, r_resolution=1000, th_resolution=2000, u1=0.0, **test_params, cubic=True)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
-    magn =  jit(vmap(magn, in_axes=(0,)))
+    #magn =  jit(vmap(magn, in_axes=(0,)))
 
-    _ = magn(w_points).block_until_ready()
+    #_ = magn(w_points).block_until_ready()
+    chunk_size = 500  # メモリ消費を調整するため適宜変更
+    _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
 
     print("start computation")
     start = time.time()
-    magnifications = magn(w_points).block_until_ready() 
+    magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
+    #magnifications = magn(w_points).block_until_ready() 
     end = time.time()
-    print("computation time: %.6f sec per points"%((end - start)/num_points))
+    print("computation time: %.3f ms per points"%(1000*(end - start)/num_points))
     start = time.time()
     magnifications2 = magn2(w_points) 
     end = time.time()
-    print("computation time: %.6f sec per points"%((end - start)/num_points))
+    print("computation time: %.3f ms per points"%(1000*(end - start)/num_points))
     # Print out the result
     import matplotlib.pyplot as plt
     import matplotlib as mpl
     from microjax.point_source import critical_and_caustic_curves, mag_point_source
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     import seaborn as sns
-    #sns.set_theme(font="Arial", style="ticks")
+    sns.set_theme(style="ticks")
 
     mags_poi = mag_point_source(w_points, s=s, q=q)
     critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=100, s=s, q=q)
 
-    fig, ax_ = plt.subplots(2,1,figsize=(8,6), sharex=True, gridspec_kw=dict(hspace=0, height_ratios=[4,1]))
+    fig, ax_ = plt.subplots(2,1,figsize=(8,6), sharex=True, gridspec_kw=dict(hspace=0.1, height_ratios=[4,1]))
     ax  = ax_[0]
     ax1 = ax_[1]
     ax_in = inset_axes(ax,
@@ -228,19 +245,20 @@ if __name__ == "__main__":
     ax_in.set_aspect(1)
     ax_in.set(xlabel="$\mathrm{Re}(w)$", ylabel="$\mathrm{Im}(w)$")
     for cc in caustic_curves:
-        ax_in.plot(cc.real, cc.imag, color='black', lw=0.7)
-    circles = [plt.Circle((xi,yi), radius=rho, fill=False, facecolor=None, ec="k", zorder=1) 
+        ax_in.plot(cc.real, cc.imag, color='red', lw=0.7)
+    circles = [plt.Circle((xi,yi), radius=rho, fill=False, facecolor=None, ec="blue", zorder=2) 
                for xi, yi in zip(w_points.real, w_points.imag)
                ]
     c = mpl.collections.PatchCollection(circles, match_original=True, alpha=0.5)
     ax_in.add_collection(c)
     ax_in.set_aspect(1)
-    ax_in.set(xlim=(-1., 1.2), ylim=(-0.8, 1.))
+    ax_in.set(xlim=(-1., 1.2), ylim=(-1.0, 1.))
+    ax_in.plot(-q/(1+q) * s, 0 , ".",c="k")
+    ax_in.plot((1.0)/(1+q) * s, 0 ,".",c="k")
 
-    ax.plot(t, magnifications, ".", label="microjax")
-    ax.plot(t, magnifications2, "-", label="VBBinaryLensing")
-    ax.set_title("extended source evaluation")
-    #ax.plot(t, mags_poi, ls="--")
+    ax.plot(t, magnifications, ".", label="microjax", zorder=1)
+    ax.plot(t, magnifications2, "-", label="VBBinaryLensing", zorder=2)
+    ax.set_title("extended uniform source evaluation")
     ax.grid(ls=":")
     ax.set_ylabel("magnification")
     ax1.plot(t, jnp.abs(magnifications - magnifications2)/magnifications2, "-", ms=1)
@@ -249,5 +267,6 @@ if __name__ == "__main__":
     ax1.set_yscale("log")
     ax1.set_ylim(1e-6, 1e-2)
     ax.legend(loc="upper left")
-    plt.savefig("lc.pdf", bbox_inches="tight")
+    ax1.set_xlabel("time (days)")
+    plt.savefig("extended_source.pdf", bbox_inches="tight")
     plt.close()

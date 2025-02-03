@@ -35,7 +35,7 @@ def mag_microjax_vmap(w_points, rho, s, q, r_resolution=200, th_resolution=200):
                                           th_resolution=th_resolution))
     return magn(w_points)
 
-s, q = 1.0, 0.01
+s, q = 1.0, 1.0
 # 1000  points on caustic curve
 npts = 150
 critical_curves, caustic_curves = critical_and_caustic_curves(
@@ -45,7 +45,7 @@ caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
 r_resolution  = 2000
-th_resolution = 2000
+th_resolution = 4000
 mags_vbb_list = []
 mags_list = []
 
@@ -67,7 +67,7 @@ for rho in rho_list:
                           ])
     mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
                                     th_resolution=th_resolution, cubic=cubic, 
-                                    Nlimb=2000, offset_r=0.5, offset_th=5.0)
+                                    Nlimb=1000, offset_r=0.5, offset_th=5.0)
     #magn    = jax.jit(jax.vmap(mag_mj, in_axes=(0,)))
     def chunked_vmap(func, data, chunk_size):
         results = []
@@ -76,7 +76,7 @@ for rho in rho_list:
             results.append(jax.vmap(func)(chunk))
         return jnp.concatenate(results)
 
-    chunk_size = 200  # メモリ消費を調整するため適宜変更
+    chunk_size = 250  # メモリ消費を調整するため適宜変更
     mags = chunked_vmap(mag_mj, w_test, chunk_size)
     
     mags_vbb_list.append(mags_vbb)
@@ -95,11 +95,11 @@ for i in range(len(rho_list)):
     ax[i].yaxis.set_minor_locator(AutoMinorLocator())
     ax[i].set_yscale('log')
     ax[i].set_title(labels[i])
-    ax[i].set_ylim(1e-06, 1.0)
+    ax[i].set_ylim(1e-06, 1e-2)
     #ax[i].set_xlim(-10, 1010)
     ax[i].set_rasterization_zorder(0)
-    if jnp.any(relative_error > 1e-03):
-        mask = relative_error > 1e-03
+    if jnp.any(relative_error > 5e-04):
+        mask = relative_error > 5e-04
         print(f"rho = {rho_list[i]}, w_test = {w_test[mask]}", relative_error[mask])
 
 ax[0].set_ylabel("Relative error")

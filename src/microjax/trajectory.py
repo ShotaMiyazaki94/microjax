@@ -2,30 +2,21 @@ import jax.numpy as jnp
 from functools import partial
 from jax import jit
 
-@partial(jit, static_argnames=("RA", "Dec", "tref", "rotaxis", "ecc", 
-                               "period", "t_peri", "t_vernal", "dt"))
-def dtn_dum_parallax(t, piEN, piEE, RA=0.0, Dec=0.0, tref=0.0,
-                     rotaxis=23.44, ecc=0.0167, period = 365.25636, 
-                     t_peri=0.0, t_vernal=0.0, dt=0.1):
+def dtn_dum_parallax(t, piEN, piEE, qne0, vne0, xpos, ypos, north, east, tref=0.0, ecc=0.0167, period = 365.25636):
     """
-    calculate the offsets caused by the microlensing parallax effect
-    Args:
-        t: time
-        tref: reference time
-        piEN: North parallax
-        piEE: East parallax
-        RA: right ascension
-        Dec: declination
-        rotaxis: rotation axis (Earth axis for parallax)
-        ecc: eccentricity
-        period: orbital period
-        tperi: perihelion time
-        tvernal: vernal equinox time
-        dt: time step for numerical differentiation
     Returns:
         dtn: offsets in the tn direction
         dum: offsets in the um direction
-    """
+    """ 
+    qne = _get_sun_proj(t, t_peri, period, ecc, xpos, ypos, north, east)
+    qne = jnp.array([qne[i] - qne0[i] - vne0[i]*(t - tref) for i in range(2)])
+    dtn = piEN * qne[0] + piEE * qne[1]
+    dum = piEN * qne[1] - piEE * qne[0]
+    return dtn, dum
+
+def _get_info(RA=0.0, Dec=0.0, tref=0.0,
+             rotaxis=23.44, ecc=0.0167, period = 365.25636, 
+             t_peri=0.0, t_vernal=0.0, dt=0.1):
     if t_peri*t_vernal == 0:
         tptmp, tvtmp = _peri_vernal(tref)
     t_peri = t_peri if t_peri > 0 else tptmp
@@ -43,13 +34,9 @@ def dtn_dum_parallax(t, piEN, piEE, RA=0.0, Dec=0.0, tref=0.0,
                          xpos, ypos, north, east)
     vne0 = 0.5 * (qne2 - qne1) / dt # AU / day, minus projected Earth velocity
     qne0 = _get_sun_proj(tref, t_peri, period, ecc,
-                         xpos, ypos, north, east) 
-
-    qne = _get_sun_proj(t, t_peri, period, ecc, xpos, ypos, north, east)
-    qne = jnp.array([qne[i] - qne0[i] - vne0[i]*(t - tref) for i in range(2)])
-    dtn = piEN * qne[0] + piEE * qne[1]
-    dum = piEN * qne[1] - piEE * qne[0]
-    return (dtn, dum)
+                         xpos, ypos, north, east)
+    return qne0, vne0, xpos, ypos, north, east 
+    
 
 def _get_north_east(RA, Dec):
     """
