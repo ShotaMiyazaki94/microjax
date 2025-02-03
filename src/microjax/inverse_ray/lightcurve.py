@@ -81,16 +81,17 @@ def _planetary_caustic_test(w, rho, c_p=2., **params):
 
 
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "u1"))
-def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=200, u1=0.0, **params):
+def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=1000, u1=0.0, **params):
+    # set parameters for the lens system
     if nlenses == 1:
         _params = {}
         x_cm = 0 # miyazaki
     elif nlenses == 2:
         s, q = params["s"], params["q"]
         a = 0.5 * s
-        e1 = q / (1.0 + q) 
+        e1 = q/(1.0 + q) 
         _params = {"a": a, "e1": e1, "q": q, "s": s}
-        x_cm = a*(1 - q)/(1 + q)
+        x_cm = a*(1.0 - q)/(1.0 + q)
     elif nlenses == 3:
         s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
         a = 0.5 * s
@@ -101,38 +102,37 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlim
         x_cm = a * (1.0 - q) / (1.0 + q)
     else:
         raise ValueError("nlenses must be <= 3")
-    
+
+    # compute quadrupole approximation at every point and a test where it is sufficient 
     z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
     if nlenses==1:
         test = w_points > 2*rho
         mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params) #miyazaki
     elif nlenses==2:
-        # Compute hexadecapole approximation at every point and a test where it is sufficient
         mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
         test1 = _caustics_proximity_test(
             w_points - x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params #miyazaki
         )
         test2 = _planetary_caustic_test(w_points - x_cm, rho, **_params)
 
-        test = lax.cond(
-            q < 0.01, 
-            lambda:test1 & test2,
-            lambda:test1,
-        )
+        test = lax.cond(q < 0.01, lambda:test1 & test2, lambda:test1)
     elif nlenses == 3:
         test = jnp.zeros_like(w_points).astype(jnp.bool_)
 
     mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
                                      r_resolution=r_resolution, th_resolution=th_resolution, **_params)
-    #def mag_full_scan(w):
-    #    batch_size = 400
-    #    return lax.scan(lambda _, i: mag_full(w[i]), init=None, xs=w_points, length=batch_size)
-        #return mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
-        #                            r_resolution=r_resolution, th_resolution=th_resolution, **_params)
-
+    def mag_full_scan(w_points):
+        batch_size = 400 
+        return lax.scan(lambda _, i: mag_full(w_points[i]), init=None, xs=w_points, length=batch_size)
+    
+    #return lax.cond(test.any(),
+    #                lambda _: mu_multi, 
+    #                lambda _: mag_full_scan(w_points),
+    #                None)
     return lax.map(lambda xs: 
-                   lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],), 
+                   lax.cond(xs[0], lambda _: xs[1], mag_full_scan, xs[2],), 
                    [test, mu_multi, w_points])
+    
 
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "cubic"))
 def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=200, cubic=True, **params):
