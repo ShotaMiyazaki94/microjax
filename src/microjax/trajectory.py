@@ -2,7 +2,7 @@ import jax.numpy as jnp
 from functools import partial
 from jax import jit
 
-def dtn_dum_parallax(t, piEN, piEE, qne0, vne0, xpos, ypos, north, east, tref=0.0, ecc=0.0167, period = 365.25636):
+def dtn_dum_parallax(t, piEN, piEE, t_peri, qne0, vne0, xpos, ypos, north, east, tref=0.0, ecc=0.0167, period = 365.25636):
     """
     Returns:
         dtn: offsets in the tn direction
@@ -35,7 +35,7 @@ def _get_info(RA=0.0, Dec=0.0, tref=0.0,
     vne0 = 0.5 * (qne2 - qne1) / dt # AU / day, minus projected Earth velocity
     qne0 = _get_sun_proj(tref, t_peri, period, ecc,
                          xpos, ypos, north, east)
-    return qne0, vne0, xpos, ypos, north, east 
+    return t_peri, qne0, vne0, xpos, ypos, north, east 
     
 
 def _get_north_east(RA, Dec):
