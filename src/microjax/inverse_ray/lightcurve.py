@@ -7,7 +7,7 @@ set of points in the source plane.
 from functools import partial
 
 import jax.numpy as jnp
-from jax import jit, lax 
+from jax import jit, lax, vmap 
 
 #from .extended_source import mag_uniform
 from microjax.inverse_ray.extended_source import mag_uniform, mag_binary
@@ -80,7 +80,7 @@ def _planetary_caustic_test(w, rho, c_p=2., **params):
     return (w_pc - w).real**2 + (w_pc - w).imag**2 > c_p*(rho**2 + delta_pc**2)
 
 
-@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "u1"))
+#@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "u1"))
 def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=1000, u1=0.0, **params):
     # set parameters for the lens system
     if nlenses == 1:
@@ -121,17 +121,40 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlim
 
     mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
                                      r_resolution=r_resolution, th_resolution=th_resolution, **_params)
-    def mag_full_scan(w_points):
-        batch_size = 400 
-        return lax.scan(lambda _, i: mag_full(w_points[i]), init=None, xs=w_points, length=batch_size)
-    
-    #return lax.cond(test.any(),
-    #                lambda _: mu_multi, 
-    #                lambda _: mag_full_scan(w_points),
-    #                None)
+    mag_full_vmap = vmap(mag_full)
+    """
+    map_input = [test, mu_multi, w_points] 
     return lax.map(lambda xs: 
-                   lax.cond(xs[0], lambda _: xs[1], mag_full_scan, xs[2],), 
-                   [test, mu_multi, w_points])
+                   lax.cond(xs[0], 
+                            lambda _: xs[1], 
+                            lambda _: mag_full(xs[2]), 
+                            None),
+                    map_input)
+    batch_size = 5
+    results = []
+    for i in range(0, len(w_points), batch_size):
+        chunk = w_points[i:i + batch_size]
+        results.append(mag_full_vmap(chunk))
+    return jnp.concatenate(results)
+    """
+    def process_in_batches(w_points, mag_full_vmap, batch_size=5):
+        def body_fn(carry, i):
+            chunk = w_points[i:i + batch_size]
+            mag_batch = mag_full_vmap(chunk)
+            return carry, mag_batch
+        carry = []
+        _, results = lax.scan(body_fn, carry, jnp.arange(0, len(w_points), batch_size))
+        return jnp.concatenate(results)
+    result = process_in_batches(w_points, mag_full_vmap, batch_size=5)
+    return result
+ 
+    #w_points_truncated = w_points[:num_batches * batch_size]
+    #batches = jnp.split(w_points_truncated, num_batches)
+    #def process_batch(carry, w_batch):
+    #    result = mag_full_vmap(w_batch)
+    #    return carry, result
+    #_, results = lax.scan(process_batch, None, batches)
+    #return jnp.concatenate(results)
     
 
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "cubic"))

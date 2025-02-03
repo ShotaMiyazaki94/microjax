@@ -69,7 +69,7 @@ def model(t, y, yerr, t_peri, qne0, vne0, xpos, ypos, north, east):
     y2 = um*jnp.cos(alpha_rad) + tau*jnp.sin(alpha_rad)
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
 
-    mags = mag_lc(w_points, rho, s=s, q=q, nlenses=2, cubic=True, r_resolution=10, th_resolution=10)
+    mags = mag_lc(w_points, rho, s=s, q=q, nlenses=2, cubic=True, r_resolution=500, th_resolution=500)
     fs = numpyro.sample("fs", dist.Uniform(_fs - 1.0, _fs + 1.0))
     f_sum = numpyro.sample("f_sum", dist.Uniform(_f_sum - 1.0, _f_sum + 1.0))
     fb = f_sum - fs

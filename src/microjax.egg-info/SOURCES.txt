@@ -37,6 +37,7 @@ example/data/ogle-2014-blg-0124/lcurve_s.ps
 example/data/ogle-2014-blg-0124/map.dat
 example/data/ogle-2014-blg-0124/params.dat
 example/data/ogle-2014-blg-0124/phot.dat
+example/ob140124/glance.ipynb
 example/ob140124/hmc_ob140124.py
 example/ob140124/ob140124_data.pdf
 example/templete/ob05086.py
