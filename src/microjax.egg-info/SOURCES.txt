@@ -39,6 +39,9 @@ example/data/ogle-2014-blg-0124/params.dat
 example/data/ogle-2014-blg-0124/phot.dat
 example/ob140124/hmc_ob140124.py
 example/ob140124/ob140124_data.pdf
+example/templete/ob05086.py
+example/templete/ob05086_corner.pdf
+example/templete/ob05086_lc.pdf
 results/README.md
 src/.DS_Store
 src/microjax/.DS_Store

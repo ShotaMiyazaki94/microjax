@@ -3,218 +3,40 @@ import jax.numpy as jnp
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 import time
-#from microjax.inverse_ray.merge_area import calc_source_limb, calculate_overlap_and_range
 import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
 from jax import jit, vmap, lax
+from microjax.inverse_ray.merge_area import calc_source_limb, determine_grid_regions
+jax.config.update("jax_enable_x64", True)
 
-def merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
-    arr = jnp.sort(arr)
-    diff = jnp.diff(arr)
-    diff_neg = jnp.where(diff[:-1] > margin_fac * diff[1:],  margin_fac * diff[1:], diff[:-1])
-    diff_pos = jnp.where(diff[1:]  > margin_fac * diff[:-1], margin_fac * diff[:-1], diff[1:])
-    arr_start = arr[1:-1] - diff_neg - offset 
-    arr_end   = arr[1:-1] + diff_pos  + offset
-    intervals = jnp.stack([jnp.maximum(arr_start, 0.0), arr_end], axis=1) 
-    #intervals = jnp.stack([jnp.maximum(arr - offset, 0), arr + offset], axis=1)
-    sorted_intervals = intervals[jnp.argsort(intervals[:, 0])]
+#rho = 0.1
+#w_center = jnp.complex128(-0.21044241+0.12124181j)
+rho = 1e-4
+w_center = jnp.complex128(0.23053418+8.75822851e-02j)
 
-    def merge_scan_fn(carry, next_interval):
-        current_interval = carry
-        start_max = jnp.maximum(current_interval[0], next_interval[0])
-        start_min = jnp.minimum(current_interval[0], next_interval[0])
-        end_max = jnp.maximum(current_interval[1], next_interval[1])
-        end_min = jnp.minimum(current_interval[1], next_interval[1])
-        overlap_exists = start_max <= end_min
-
-        updated_current_interval = jnp.where(
-            overlap_exists,
-            jnp.array([start_min, end_max]),
-            next_interval
-        )
-
-        return updated_current_interval, updated_current_interval
-
-    # Initial merge
-    _, merged_intervals = lax.scan(merge_scan_fn, sorted_intervals[0], sorted_intervals[1:])
-    merged_intervals = jnp.vstack([sorted_intervals[0], merged_intervals])
-    mask = jnp.append(jnp.diff(merged_intervals[:, 0]) != 0, True)
-    return merged_intervals, mask
-
-def merge_intervals_theta(arr, offset=1.0, fac=100.0):
-    diff = jnp.diff(jnp.sort(arr))
-    diff_neg = jnp.where(diff[:-1] > fac * diff[1:],  fac * diff[1:], diff[:-1])
-    diff_pos = jnp.where(diff[1:]  > fac * diff[:-1], fac * diff[:-1], diff[1:])
-    arr_start = arr[1:-1] - diff_neg - offset 
-    arr_end   = arr[1:-1] + diff_pos  + offset
-    intervals = jnp.stack([arr_start, arr_end], axis=1)
-    sorted_intervals = intervals[jnp.argsort(intervals[:, 0])]
-    def merge_scan_fn(carry, next_interval):
-        current_interval = carry
-        overlap_exists = current_interval[1] >= next_interval[0]
-        merged_interval = jnp.where(
-            overlap_exists,
-            jnp.array([current_interval[0], jnp.maximum(current_interval[1], next_interval[1])]),
-            next_interval
-        )
-        return merged_interval, merged_interval
-
-    _, merged_intervals = lax.scan(merge_scan_fn, sorted_intervals[0], sorted_intervals[1:])
-    merged_intervals = jnp.vstack([sorted_intervals[0], merged_intervals])
-
-    mask = jnp.append(jnp.diff(merged_intervals[:, 0]) != 0, True)
-    merged_intervals = jnp.clip(merged_intervals, 0, 2*jnp.pi)
-
-    return merged_intervals, mask
-
-#@partial(jit, static_argnums=(2,))
-def _compute_in_mask(r_limb, theta_limb, r_intervals, theta_intervals):
-    """
-    Computes a boolean mask indicating whether any limb points fall within specified radial and angular intervals.
-
-    Parameters:
-    -----------
-    r_limb : array_like
-        1D array of radial positions of limb points.
-    theta_limb : array_like
-        1D array of angular positions (theta) of limb points.
-    r_intervals : array_like
-        2D array of shape (M, 2), where each row defines an [r_min, r_max] interval.
-    theta_intervals : array_like
-        2D array of shape (K, 2), where each row defines a [theta_min, theta_max] interval.
-
-    Returns:
-    --------
-    in_mask : array_like
-        2D boolean array of shape (M, K). Each element (i, j) is True if any limb point falls within
-        both r_intervals[i] and theta_intervals[j], and False otherwise.
-    """
-    num_r_intervals = r_intervals.shape[0]       # Number of radial intervals (M)
-    num_theta_intervals = theta_intervals.shape[0]  # Number of angular intervals (K)
-    num_limb_points = r_limb.shape[0]            # Number of limb points (N)
-    # Reshape arrays to enable broadcasting over intervals and limb points
-    r_limb_expanded = r_limb.reshape(1, 1, num_limb_points)
-    theta_limb_expanded = theta_limb.reshape(1, 1, num_limb_points)
-    r_min = r_intervals[:, 0].reshape(num_r_intervals, 1, 1)
-    r_max = r_intervals[:, 1].reshape(num_r_intervals, 1, 1)
-    theta_min = theta_intervals[:, 0].reshape(1, num_theta_intervals, 1)
-    theta_max = theta_intervals[:, 1].reshape(1, num_theta_intervals, 1)
-    # Create boolean conditions for limb points within each radial and angular interval
-    r_condition     = (r_min < r_limb_expanded) & (r_limb_expanded < r_max)      # Shape: (M, 1, N)
-    theta_condition = (theta_min < theta_limb_expanded) & (theta_limb_expanded < theta_max)  # Shape: (1, K, N)
-    combined_condition = r_condition & theta_condition  # Shape: (M, K, N)
-    # Determine if any limb point satisfies both conditions for each interval pair
-    in_mask = jnp.any(combined_condition, axis=2)  # Shape: (M, K)
-    return in_mask
-
-#@partial(jit, static_argnums=(2,))
-def calc_source_limb(w_center, rho, N_limb=100, **_params):
-    s, q = _params["s"], _params["q"]
-    a = 0.5 * s
-    e1 = q / (1.0 + q)
-    w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, N_limb)), dtype=complex)
-    w_limb_shift = w_limb - 0.5 * s * (1 - q) / (1 + q)
-    image, mask = _images_point_source(w_limb_shift, a=a, e1=e1)
-    image_limb = image + 0.5 * s * (1 - q) / (1 + q)
-    return image_limb, mask
-
-def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th):
-    r_limb = jnp.abs(image_limb.ravel())
-    r_is = jnp.where(mask_limb.ravel(), r_limb, 0.0)
-    r_, r_mask = merge_intervals_r(r_is, offset=offset_r*rho) 
-    th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2 * jnp.pi)
-    th_is = jnp.sort(jnp.where(mask_limb.ravel(), th_limb.ravel(), 0.0))
-    th_is = jnp.clip(th_is, 0, 2 * jnp.pi)
-    offset_th = jnp.arctan2(offset_th * rho, jnp.max(jnp.max(r_, axis=1)*r_mask))
-    th_, th_mask = merge_intervals_theta(th_is, offset=offset_th)
-    return r_, r_mask, th_, th_mask
-
-def merge_final_binary(r_vmap, th_vmap):
-    """
-    merge continuous regions of the images.
-    The separated regions are due to the definition of the angle [0 ~ 2pi].
-    This checks the next and next-next elements.
-    """
-    r_next1 = jnp.roll(r_vmap, -1, axis=0)
-    th_next1 = jnp.roll(th_vmap, -1, axis=0)
-    r_next2 = jnp.roll(r_vmap, -2, axis=0)
-    th_next2 = jnp.roll(th_vmap, -2, axis=0)
-    
-    # Adjust the shape of the condition arrays to match (10, 2)
-    same_r1 = jnp.all(r_vmap == r_next1, axis=1) 
-    same_r2 = jnp.all(r_vmap == r_next2, axis=1)
-    continuous_th1 = (th_vmap[:, 0] == 0) & (th_next1[:, 1] == 2 * jnp.pi)
-    continuous_th2 = (th_vmap[:, 0] == 0) & (th_next2[:, 1] == 2 * jnp.pi)
-
-    # Broadcast conditions to match the shape of r_vmap and th_vmap
-    merge1 = same_r1 & continuous_th1
-    merge2 = same_r2 & continuous_th2
-
-    # Apply conditions
-    merged_r = jnp.where(merge1[:, None], r_next1, r_vmap)
-    merged_th = jnp.where(
-        merge1[:, None], 
-        jnp.stack([th_next1[:, 0] - 2 * jnp.pi, th_vmap[:, 1]], axis=-1), 
-        th_vmap
-    )
-    merged_r = jnp.where(merge2[:, None], r_next2, merged_r)
-    merged_th = jnp.where(
-        merge2[:, None], 
-        jnp.stack([th_next2[:, 0] - 2 * jnp.pi, merged_th[:, 1]], axis=-1), 
-        merged_th
-    )
-    # Zero out the merged regions
-    zero_out_1 = jnp.roll(merge1, 1)
-    zero_out_2 = jnp.roll(merge2, 2)
-    zero_out_mask = zero_out_1 | zero_out_2
-    merged_r = jnp.where(zero_out_mask[:, None], 0.0, merged_r)
-    merged_th = jnp.where(zero_out_mask[:, None], 0.0, merged_th)
-
-    sort_order = jnp.argsort(merged_r[:, 1] == 0)
-    return merged_r[sort_order], merged_th[sort_order]
-
-w_center = jnp.complex128(0.44089194-0.00471726j)
-rho = 1e-2
-q = 0.1
+q = 1.0
 s = 1.0
 a = 0.5 * s
 e1 = q / (1.0 + q)
 _params = {"q": q, "s": s, "a": a, "e1": e1}
 
-r_resolution  = 250
-th_resolution = 1000
-Nlimb = 300
-offset_r = 1.0
-offset_th  = 1.0 
-
+r_resolution  = 100
+th_resolution = 400
+Nlimb = 1000
+offset_r = 0.5
+offset_th  = 1.0
 
 shifted = 0.5 * s * (1 - q) / (1 + q)
 w_center_shifted = w_center - shifted
 image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
-r_, r_mask, th_, th_mask = calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
-r_use  = r_ * r_mask.astype(float)[:, None]
-th_use = th_ * th_mask.astype(float)[:, None]
-r_use  = r_use[jnp.argsort(r_use[:,1])][-5:] # mergeできていない場合は5とは限らない・・・
-th_use = th_use[jnp.argsort(th_use[:,1])][-5:]
-r_limb = jnp.abs(image_limb)
-th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi)
-in_mask = _compute_in_mask(r_limb.ravel()*mask_limb.ravel(), th_limb.ravel()*mask_limb.ravel(), r_use, th_use)
-r_masked  = jnp.repeat(r_use, r_use.shape[0], axis=0) * in_mask.ravel()[:, None]
-th_masked = jnp.tile(th_use, (r_use.shape[0], 1)) * in_mask.ravel()[:, None]
-
-# binary-lens should have less than 5 images.
-r_vmap   = r_masked[jnp.argsort(r_masked[:,1] == 0)][:10]
-th_vmap  = th_masked[jnp.argsort(th_masked[:,1] == 0)][:10]
-r_vmap, th_vmap = merge_final_binary(r_vmap, th_vmap)
-r_vmap = r_vmap[:5]
-th_vmap = th_vmap[:5]
+r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=2)
 
 r_grid_norm = jnp.linspace(0, 1, r_resolution, endpoint=False)
 th_grid_norm = jnp.linspace(0, 1, th_resolution, endpoint=False)
 
 print("-vmaps---")
-for r ,th in zip(r_vmap, th_vmap):
+for r ,th in zip(r_scan, th_scan):
     print(r, th)
 def plot(r_range, th_range):
     r_values = r_grid_norm * (r_range[1] - r_range[0]) + r_range[0]
@@ -226,7 +48,7 @@ def plot(r_range, th_range):
     in_source = (distances - rho < 0.0)
     return z_grid.real, z_grid.imag, in_source
 vmap_plot = vmap(plot, in_axes=(0, 0))
-x_grids, y_grids, in_sources = vmap_plot(r_vmap, th_vmap)
+x_grids, y_grids, in_sources = vmap_plot(r_scan, th_scan)
 fig = plt.figure(figsize=(6,6))
 ax = plt.axes()
 for x_grid, y_grid, in_source in zip(x_grids, y_grids, in_sources):
@@ -235,24 +57,25 @@ for x_grid, y_grid, in_source in zip(x_grids, y_grids, in_sources):
 from microjax.point_source import critical_and_caustic_curves
 critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=500, s=s, q=q) 
 plt.scatter(critical_curves.ravel().real, 
-            critical_curves.ravel().imag, marker=".", color="green", s=3)
+            critical_curves.ravel().imag, marker=".", color="black", s=3, label="critical curve")
 plt.scatter(caustic_curves.ravel().real, 
-            caustic_curves.ravel().imag, marker=".", color="crimson", s=3)
+            caustic_curves.ravel().imag, marker=".", color="crimson", s=3, label="caustic")
 plt.scatter(image_limb[mask_limb].ravel().real, 
             image_limb[mask_limb].ravel().imag, 
-            s=1,color="purple", zorder=2)
+            s=1,color="purple", zorder=2, label="true image limb")
 plt.scatter((image_limb[~mask_limb].real).ravel(), 
             (image_limb[~mask_limb].imag).ravel(), 
-            s=1,color="blue", zorder=1)
+            s=1,color="green", zorder=1, label="false image limb")
 #plt.scatter((image_limb.real*mask_limb).ravel(), 
 #            (image_limb.imag*mask_limb).ravel(), 
 #            s=1,color="blue", zorder=2)
 w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, Nlimb)), dtype=complex)
-ax.scatter(w_limb.real, w_limb.imag, color="blue", s=1)
+ax.scatter(w_limb.real, w_limb.imag, color="blue", s=1, label="source limb")
 plt.plot(w_center.real, w_center.imag, "*", color="k")
-plt.plot(-q/(1+q) * s, 0 , ".",c="k")
-plt.plot((1.0)/(1+q) * s, 0 ,".",c="k")
+plt.plot(-q/(1+q) * s, 0 , "o",c="k")
+plt.plot((1.0)/(1+q) * s, 0 ,"o",c="k")
 ax.set_aspect('equal')
+plt.legend(fontsize=8)
 plt.show()
 #import mpld3
 #html_string = mpld3.fig_to_html(fig)

@@ -174,10 +174,11 @@ def calc_source_limb(w_center, rho, Nlimb=100, nlenses=2, **_params):
     image_limb = image + 0.5 * s * (1 - q) / (1 + q)
     return image_limb, mask
 
+@partial(jit, static_argnames=("offset_r", "offset_th"))
 def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th):
     r_limb = jnp.abs(image_limb.ravel())
     r_is = jnp.where(mask_limb.ravel(), r_limb, 0.0)
-    r_, r_mask = merge_intervals_r(r_is, offset=offset_r*rho) 
+    r_, r_mask = merge_intervals_r(r_is, offset=offset_r*rho)
     th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2 * jnp.pi)
     th_is = jnp.sort(jnp.where(mask_limb.ravel(), th_limb.ravel(), 0.0))
     th_is = jnp.clip(th_is, 0, 2 * jnp.pi)

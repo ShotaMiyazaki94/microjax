@@ -30,15 +30,16 @@ magd_grad = jit(vmap(grad(magd_scaler,argnums=(0,1,2))))
 
 rho_value = 10.0
 a1=0.5
-u   = jnp.linspace(1e-3,30,1000)
-rho = jnp.ones(1000) * rho_value
-a1  = jnp.ones(1000) * a1
+N_points = 5000
+u   = jnp.linspace(1e-3,30,N_points)
+rho = jnp.ones(N_points) * rho_value
+a1  = jnp.ones(N_points) * a1
 magd_plot = jit(vmap(magd))(u,rho,a1) 
 magl_plot = jit(vmap(magl))(u,rho,a1) 
 magd_plot_grad = magd_grad(u,rho,a1)
 magl_plot_grad = magl_grad(u,rho,a1)
 a1=0.3
-a1  = jnp.ones(1000) * a1
+a1  = jnp.ones(N_points) * a1
 magl_plot_ = jit(vmap(magl))(u,rho,a1) 
 magl_plot_grad_ = magl_grad(u,rho,a1)
 
@@ -71,7 +72,7 @@ ax["C"].set_ylabel("$dA/d\\rho$")
 ax["D"].set_ylabel("$dA/da_1$")
 ax["D"].set_xlabel("u")
 ax["A"].set_title("$\\rho=10.0$")
-plt.savefig("tests/magfft/test_grad2_1.png",dpi=200,bbox_inches="tight")
+plt.savefig("tests/integrate/magfft/test_grad2_1.png",dpi=200,bbox_inches="tight")
 #ax["D"].set_xscale("log")
 plt.close()
 
@@ -101,6 +102,6 @@ ax[0].set_xlabel("u")
 ax[0].set_ylabel("rho")
 ax[1].set_xlabel("u")
 ax[1].set_ylabel("rho")
-plt.savefig("tests/magfft/test_grad2_2.png",dpi=200,bbox_inches="tight")
+plt.savefig("tests/integrate/magfft/test_grad2_2.png",dpi=200,bbox_inches="tight")
 plt.close()
 

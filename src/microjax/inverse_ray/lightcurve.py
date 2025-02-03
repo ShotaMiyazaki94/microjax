@@ -124,9 +124,9 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlim
 
     mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
                                      r_resolution=r_resolution, th_resolution=th_resolution, **_params)
-    def mag_full_scan(w):
-        batch_size = 400
-        return lax.scan(lambda _, i: mag_full(w[i]), init=None, xs=w_points, length=batch_size)
+    #def mag_full_scan(w):
+    #    batch_size = 400
+    #    return lax.scan(lambda _, i: mag_full(w[i]), init=None, xs=w_points, length=batch_size)
         #return mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
         #                            r_resolution=r_resolution, th_resolution=th_resolution, **_params)
 
