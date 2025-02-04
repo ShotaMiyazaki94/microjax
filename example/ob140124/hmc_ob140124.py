@@ -42,7 +42,7 @@ info_parallax = _get_info_parallax(RA=coords_deg[0], Dec=coords_deg[1], tref=tre
 t_peri, qne0, vne0, xpos, ypos, north, east = info_parallax
 #dtn_dum = lambda t, _pi_E_N, _pi_E_E: dtn_dum_parallax(t, _pi_E_N, _pi_E_E, t_peri, qne0, vne0, xpos, ypos, north, east)
 
-def model(t, y, yerr, t_peri, qne0, vne0, xpos, ypos, north, east):
+def model(t, y, yerr): #, t_peri, qne0, vne0, xpos, ypos, north, east):
     t0 = numpyro.sample("t0", dist.Uniform(_t_0 - 1.0, _t_0 + 1.0))
     u0 = numpyro.sample("u0", dist.Uniform(_u_0 - 0.5, _u_0 + 0.5))
     lntE = numpyro.sample("lntE", dist.Uniform(0, 10))
@@ -82,11 +82,11 @@ def model(t, y, yerr, t_peri, qne0, vne0, xpos, ypos, north, east):
     loglike = -0.5 * jnp.sum(residuals**2 / yerr**2) - 0.5 * N * jnp.log(2*jnp.pi) - jnp.sum(jnp.log(yerr * k_norm)) 
     numpyro.factor("loglike", loglike)
 
-kernel = numpyro.infer.NUTS(model)
+kernel = numpyro.infer.NUTS(model, forward_mode_differentiation=True)
 mcmc = MCMC(kernel, num_warmup=500, num_samples=1000, num_chains=1)
 rng_key = random.PRNGKey(0)
-mcmc.run(rng_key, data.HJD.values, data.flux.values, data.fluxe.values, t_peri, qne0, vne0, xpos, ypos, north, east)
-#mcmc.run(rng_key, data.HJD.values, data.flux.values, data.fluxe.values)
+#mcmc.run(rng_key, data.HJD.values, data.flux.values, data.fluxe.values, t_peri, qne0, vne0, xpos, ypos, north, east)
+mcmc.run(rng_key, data.HJD.values, data.flux.values, data.fluxe.values)
 
 mcmc.print_summary()
 

@@ -80,6 +80,42 @@ def _planetary_caustic_test(w, rho, c_p=2., **params):
     return (w_pc - w).real**2 + (w_pc - w).imag**2 > c_p*(rho**2 + delta_pc**2)
 
 
+def mag_lc_vmap(w_points, rho, nlenses=2, batch_size=400,
+                r_resolution=1000, th_resolution=4000, Nlimb=1000, u1=0.0, **params):
+    if nlenses == 1:
+        _params = {}
+        x_cm = 0 # miyazaki
+    elif nlenses == 2:
+        s, q = params["s"], params["q"]
+        a = 0.5 * s
+        e1 = q/(1.0 + q) 
+        _params = {"a": a, "e1": e1, "q": q, "s": s}
+        x_cm = a*(1.0 - q)/(1.0 + q)
+    elif nlenses == 3:
+        s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
+        a = 0.5 * s
+        e1 = q / (1.0 + q + q3)
+        e2 = 1.0 / (1.0 + q + q3) #miyazaki
+        r3 = r3 * jnp.exp(1j * psi)
+        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
+        x_cm = a * (1.0 - q) / (1.0 + q)
+    else:
+        raise ValueError("nlenses must be <= 3")
+    
+    mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
+                                     r_resolution=r_resolution, th_resolution=th_resolution, **_params)
+    
+    def batched_vmap(w_points, batch_size=500):
+        results = []
+        for i in range(0, len(w_points), batch_size):
+            chunk = w_points[i:i + batch_size]
+            results.append(vmap(mag_full)(chunk))
+        return jnp.concatenate(results)
+    
+    return batched_vmap(w_points, batch_size=batch_size)
+
+
+
 #@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "u1"))
 def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=1000, u1=0.0, **params):
     # set parameters for the lens system
@@ -121,21 +157,26 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlim
 
     mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
                                      r_resolution=r_resolution, th_resolution=th_resolution, **_params)
-    mag_full_vmap = vmap(mag_full)
-    """
+    mag_full_jit = jit(mag_full) 
+    #def mag_full_vmap(w_points, batch_size=500):
+    #    results = []
+    #    for i in range(0, len(w_points), batch_size):
+    #        chunk = w_points[i:i + batch_size]
+    #        results.append(vmap(mag_full)(chunk))
+    #    return jnp.concatenate(results)
     map_input = [test, mu_multi, w_points] 
     return lax.map(lambda xs: 
-                   lax.cond(xs[0], 
-                            lambda _: xs[1], 
-                            lambda _: mag_full(xs[2]), 
-                            None),
-                    map_input)
-    batch_size = 5
-    results = []
-    for i in range(0, len(w_points), batch_size):
-        chunk = w_points[i:i + batch_size]
-        results.append(mag_full_vmap(chunk))
-    return jnp.concatenate(results)
+                        lax.cond(xs[0], 
+                                lambda _: xs[1], 
+                                lambda _: mag_full_jit(xs[2]), 
+                                None), 
+                            map_input)
+    #batch_size = 5
+    #results = []
+    #for i in range(0, len(w_points), batch_size):
+    #    chunk = w_points[i:i + batch_size]
+    #    results.append(mag_full_vmap(chunk))
+    #return jnp.concatenate(results)
     """
     def process_in_batches(w_points, mag_full_vmap, batch_size=5):
         def body_fn(carry, i):
@@ -147,7 +188,7 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlim
         return jnp.concatenate(results)
     result = process_in_batches(w_points, mag_full_vmap, batch_size=5)
     return result
- 
+    """
     #w_points_truncated = w_points[:num_batches * batch_size]
     #batches = jnp.split(w_points_truncated, num_batches)
     #def process_batch(carry, w_batch):

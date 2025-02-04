@@ -2,7 +2,7 @@ import jax.numpy as jnp
 from functools import partial
 from jax import jit
 
-@partial(jit, static_argnames=("t_peri", "qne0", "vne0", "xpos", "ypos", "north", "east", "tref", "ecc", "period"))
+#@partial(jit, static_argnames=("t_peri", "qne0", "vne0", "xpos", "ypos", "north", "east", "tref", "ecc", "period"))
 def dtn_dum_parallax(t, piEN, piEE, t_peri, qne0, vne0, xpos, ypos, north, east, 
                      tref=0.0, ecc=0.0167, period = 365.25636):
     """
@@ -19,8 +19,8 @@ def dtn_dum_parallax(t, piEN, piEE, t_peri, qne0, vne0, xpos, ypos, north, east,
 def _get_info_parallax(RA=0.0, Dec=0.0, tref=0.0,rotaxis=23.44, ecc=0.0167, 
                        period=365.25636, t_peri=0.0, t_vernal=0.0, dt=0.1):
     tp_tmp, tv_tmp = _peri_vernal(tref)
-    t_peri = jnp.where(t_peri > 0, t_peri, tp_tmp)
-    t_vernal = jnp.where(t_vernal > 0, t_vernal, tv_tmp)
+    t_peri = jnp.where(t_peri == 0, tp_tmp, t_peri)
+    t_vernal = jnp.where(t_vernal == 0, tv_tmp, t_vernal)
     offset   = t_vernal - t_peri
     # Get the perihelion (x) direction and the corresponding y direction
     # in the equatorial coordinate system (where x = vernal)
