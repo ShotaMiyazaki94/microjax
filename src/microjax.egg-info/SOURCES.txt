@@ -37,9 +37,12 @@ example/data/ogle-2014-blg-0124/lcurve_s.ps
 example/data/ogle-2014-blg-0124/map.dat
 example/data/ogle-2014-blg-0124/params.dat
 example/data/ogle-2014-blg-0124/phot.dat
+example/ob140124/draw_lightcurve.py
 example/ob140124/glance.ipynb
 example/ob140124/hmc_ob140124.py
 example/ob140124/ob140124_data.pdf
+example/ob140124/ob140124_plot.pdf
+example/ob140124/plot.pdf
 example/templete/ob05086.py
 example/templete/ob05086_corner.pdf
 example/templete/ob05086_lc.pdf
@@ -103,6 +106,7 @@ tests/integrate/inverse_ray/grad_check_simple.py
 tests/integrate/inverse_ray/grads_lc_limb.py
 tests/integrate/inverse_ray/grads_lc_uniform.py
 tests/integrate/inverse_ray/performance.py
+tests/integrate/inverse_ray/speed_comp_vmap.py
 tests/integrate/inverse_ray/speed_image_solve.py
 tests/integrate/inverse_ray/speed_lens_eq.py
 tests/integrate/inverse_ray/test_lightcurve.py

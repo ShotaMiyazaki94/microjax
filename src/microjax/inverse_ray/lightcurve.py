@@ -105,7 +105,7 @@ def mag_lc_vmap(w_points, rho, nlenses=2, batch_size=400,
     mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
                                      r_resolution=r_resolution, th_resolution=th_resolution, **_params)
     
-    def batched_vmap(w_points, batch_size=500):
+    def batched_vmap(w_points, batch_size=400):
         results = []
         for i in range(0, len(w_points), batch_size):
             chunk = w_points[i:i + batch_size]

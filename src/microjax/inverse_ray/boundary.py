@@ -62,6 +62,15 @@ def in_source_jvp(primal, tangent):
     primal_out = sigmoid
     return primal_out, tangent_out
 
+def distance_from_source_adaptive(r0, th_unit, th_min, th_max, w_center_shifted, shifted, nlenses=2, **_params):
+    th_values = th_min + (th_max - th_min) * th_unit
+    x_th = r0 * jnp.cos(th_values)
+    y_th = r0 * jnp.sin(th_values)
+    z_th = x_th + 1j * y_th
+    image_mesh = lens_eq(z_th - shifted, nlenses=nlenses, **_params)
+    distances = jnp.abs(image_mesh - w_center_shifted)
+    return distances
+
 def distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=2, **_params):
     x_th = r0 * jnp.cos(th_values)
     y_th = r0 * jnp.sin(th_values)

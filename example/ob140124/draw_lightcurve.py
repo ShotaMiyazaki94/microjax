@@ -28,10 +28,10 @@ tref = 6836.0
 info_parallax = _get_info_parallax(RA=coords_deg[0], Dec=coords_deg[1], tref=tref)
 t_peri, qne0, vne0, xpos, ypos, north, east = info_parallax
 
-t = jnp.linspace(6650, 7000, 2000)
+t = jnp.linspace(6650, 7000, 1000)
 _alpha_rad = jnp.deg2rad(_alpha)
-dtn, dum = dtn_dum_parallax(t, _pi_E_N, _pi_E_E, t_peri, qne0, vne0, xpos, ypos, north, east)
-print("!!!:",dtn, dum)
+#dtn, dum = dtn_dum_parallax(t, _pi_E_N, _pi_E_E, t_peri, qne0, vne0, xpos, ypos, north, east)
+#print("!!!:",dtn, dum)
 tau = (t - _t_0)/_t_E 
 um  = _u_0 
 #tau = (t - _t_0)/_t_E + dtn
@@ -39,7 +39,7 @@ um  = _u_0
 y1 = -um*jnp.sin(_alpha_rad) + tau*jnp.cos(_alpha_rad)
 y2 = um*jnp.cos(_alpha_rad) + tau*jnp.sin(_alpha_rad)
 w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-mags = mag_lc_vmap(w_points, _rho, s=_s, q=_q, nlenses=2, cubic=True, r_resolution=1000, th_resolution=4000)
+mags = mag_lc(w_points, _rho, s=_s, q=_q, nlenses=2, cubic=True, r_resolution=1000, th_resolution=4000)
 _f = _fs * mags + _fb
 
 import matplotlib.pyplot as plt

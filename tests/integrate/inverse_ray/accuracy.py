@@ -44,10 +44,11 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 2000
-th_resolution = 4000
+r_resolution  = 1000
+th_resolution = 1000
 mags_vbb_list = []
 mags_list = []
+w_test_list = []
 
 #rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
@@ -76,14 +77,26 @@ for rho in rho_list:
             results.append(jax.vmap(func)(chunk))
         return jnp.concatenate(results)
 
-    chunk_size = 250  # メモリ消費を調整するため適宜変更
+    chunk_size = 400  # メモリ消費を調整するため適宜変更
     mags = chunked_vmap(mag_mj, w_test, chunk_size)
-    
+
+    w_test_list.append(w_test) 
     mags_vbb_list.append(mags_vbb)
     mags_list.append(mags)
 
-fig, ax = plt.subplots(1,len(rho_list), figsize=(16, 4), sharey=True,
-    gridspec_kw={'wspace':0.2})
+w_test_list = jnp.array(w_test_list)
+fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+crit, cau = critical_and_caustic_curves(npts=1000, nlenses=2, s=s, q=q)
+for cc in cau:
+    ax.plot(cc.real, cc.imag, color='k', lw=1)
+colors = ['r', 'g', 'b', 'c']
+for i, w_test in enumerate(w_test_list):
+    ax.plot(w_test.real, w_test.imag, ".", color=colors[i], zorder=i, ms=1)
+ax.set_aspect('equal')
+fig.savefig("tests/integrate/inverse_ray/figs/accuracy_caustic.pdf",bbox_inches="tight")
+plt.close()
+
+fig, ax = plt.subplots(1,len(rho_list), figsize=(16, 4), sharey=True, gridspec_kw={'wspace':0.2})
 
 labels = [r"$\rho_\star=0.1$", r"$\rho_\star=0.01$", r"$\rho_\star=10^{-3}$", r"$\rho_\star=10^{-4}$"]
 for i in range(len(rho_list)):

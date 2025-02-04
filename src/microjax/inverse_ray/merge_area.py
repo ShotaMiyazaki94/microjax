@@ -41,6 +41,7 @@ def merge_final(r_vmap, th_vmap):
     Merge continuous regions of search space.
     The continuous regions but separated are due to the definition of the angle [0 ~ 2pi].
     This checks the next and next-next elements.
+    The regions merged and not mearged are within [-pi, pi] and [0, 2pi], respectively.
     """
     r_next1 = jnp.roll(r_vmap, -1, axis=0)
     th_next1 = jnp.roll(th_vmap, -1, axis=0)
