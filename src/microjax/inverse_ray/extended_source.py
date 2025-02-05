@@ -21,7 +21,8 @@ def mag_uniform_adative(w_center, rho, nlenses=2, r_resolution=1000, th_resoluti
     r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
     
     #@partial(jit, static_argnames=("cubic")) 
-    def _process_r(r0, th_min_max, th_units, cubic=True):
+    def _process_r(r0, th_units, th_range, image_limb, mask_limb, cubic=True):
+        th_min_max = prepare_th_minmax(r0, th_range, image_limb, mask_limb) 
         th_min, th_max = th_min_max
         dth = (th_max - th_min) / (th_resolution - 1)
         distances = distance_from_source_adaptive(r0, th_units, th_min, th_max, w_center_shifted, shifted, nlenses=nlenses, **_params)
@@ -55,8 +56,9 @@ def mag_uniform_adative(w_center, rho, nlenses=2, r_resolution=1000, th_resoluti
     def _compute_for_range(r_range, th_range, cubic=True):
         r_values  = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=False)
         th_units  = jnp.linspace(0, 1.0, th_resolution, endpoint=False)
-        th_minmax = vmap(lambda r: prepare_th_minmax(r, th_range, image_limb, mask_limb))(r_values)
-        area_r    = vmap(_process_r, in_axes=(0, 0, None))(r_values, th_minmax, th_units)
+        #th_minmax = vmap(lambda r: prepare_th_minmax(r, th_range, image_limb, mask_limb))(r_values)
+        #area_r    = vmap(_process_r, in_axes=(0, 0))(r_values, th_units)
+        area_r = vmap(lambda r: _process_r(r, th_units, th_range, image_limb, mask_limb, cubic=cubic))(r_values)
         #area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
         dr = r_values[1] - r_values[0]
         total_area = dr * jnp.sum(area_r) # trapezoidal integration
@@ -72,6 +74,7 @@ def mag_uniform_adative(w_center, rho, nlenses=2, r_resolution=1000, th_resoluti
         # select limb points closest to the r0 value
         r_diff   = jnp.abs(image_limb.real * mask_limb.astype(float) * in_mask.astype(float) - r0)
         th_close = limb_th[jnp.argsort(r_diff)][:Nclose]
+        #th_close = limb_th[jnp.partition(r_diff, Nclose)]
         th_max = jnp.max(th_close)
         th_min = jnp.min(th_close)
         margin_min_max = 0.5 * (th_max - th_min)
@@ -255,7 +258,7 @@ if __name__ == "__main__":
     u0 = 0.1 # impact parameter
     rho = 0.05
 
-    num_points = 4000
+    num_points = 5000
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -263,8 +266,8 @@ if __name__ == "__main__":
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
     test_params = {"q": q, "s": s}  # Lens parameters
 
-    r_resolution  = 500
-    th_resolution = 100
+    r_resolution  = 1000
+    th_resolution = 1000
     cubic = True
 
     from microjax.caustics.extended_source import mag_extended_source
@@ -277,9 +280,9 @@ if __name__ == "__main__":
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
     #mag_mj  = lambda w: mag_uniform_adative(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
-    #                                Nlimb=1000, offset_r=0.5, offset_th=10.0)
+    #                                Nlimb=100, offset_r=0.5, offset_th=10.0)
     mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
-                                    Nlimb=1000, offset_r=0.5, offset_th=10.0)
+                                    Nlimb=300, offset_r=0.5, offset_th=10.0)
     def chunked_vmap(func, data, chunk_size):
         results = []
         for i in range(0, len(data), chunk_size):

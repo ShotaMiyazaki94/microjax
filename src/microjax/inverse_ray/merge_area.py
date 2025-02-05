@@ -138,10 +138,10 @@ def merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
 @partial(jit, static_argnames=("offset", "fac"))
 def merge_intervals_theta(arr, offset=1.0, fac=100.0):
     diff = jnp.diff(jnp.sort(arr))
-    diff_neg = jnp.where(diff[:-1] > fac * diff[1:],  fac * diff[1:], diff[:-1])
-    diff_pos = jnp.where(diff[1:]  > fac * diff[:-1], fac * diff[:-1], diff[1:])
+    diff_neg = jnp.minimum(diff[:-1], fac * diff[1:])
+    diff_pos = jnp.minimum(diff[1:],  fac * diff[:-1])
     arr_start = arr[1:-1] - diff_neg - offset 
-    arr_end   = arr[1:-1] + diff_pos  + offset
+    arr_end   = arr[1:-1] + diff_pos + offset
     intervals = jnp.stack([arr_start, arr_end], axis=1)
     sorted_intervals = intervals[jnp.argsort(intervals[:, 0])]
     def merge_scan_fn(carry, next_interval):

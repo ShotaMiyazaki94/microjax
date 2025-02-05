@@ -35,17 +35,18 @@ def mag_microjax_vmap(w_points, rho, s, q, r_resolution=200, th_resolution=200):
                                           th_resolution=th_resolution))
     return magn(w_points)
 
-s, q = 1.0, 1.0
+s, q = 1.0, 0.1
 # 1000  points on caustic curve
-npts = 150
+npts = 1000
 critical_curves, caustic_curves = critical_and_caustic_curves(
     npts=npts, nlenses=2, s=s, q=q
 )
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 1000
-th_resolution = 1000
+r_resolution  = 500
+th_resolution = 2000
+Nlimb = 300
 mags_vbb_list = []
 mags_list = []
 w_test_list = []
@@ -54,7 +55,7 @@ w_test_list = []
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 cubic = True
 
-for rho in rho_list:
+for i, rho in enumerate(rho_list):
     print(f"rho = {rho}")
     # Generate 1000 random test points within 2 source radii away from the caustic points 
     key = random.PRNGKey(4)
@@ -66,9 +67,11 @@ for rho in rho_list:
     mags_vbb = jnp.array([mag_vbb_binary(complex(w), rho, s, q, u1=0.0, accuracy=acc_vbb)
                           for w in w_test
                           ])
+    #margin_r  = [0.05, 0.1, 5.0, 10.0]
+    #margin_th = [0.1, 1.0, 10.0, 100.0]
     mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
                                     th_resolution=th_resolution, cubic=cubic, 
-                                    Nlimb=1000, offset_r=0.5, offset_th=5.0)
+                                    Nlimb=Nlimb, offset_r=0.5, offset_th=10.0)
     #magn    = jax.jit(jax.vmap(mag_mj, in_axes=(0,)))
     def chunked_vmap(func, data, chunk_size):
         results = []
@@ -77,7 +80,7 @@ for rho in rho_list:
             results.append(jax.vmap(func)(chunk))
         return jnp.concatenate(results)
 
-    chunk_size = 400  # メモリ消費を調整するため適宜変更
+    chunk_size = 500  # メモリ消費を調整するため適宜変更
     mags = chunked_vmap(mag_mj, w_test, chunk_size)
 
     w_test_list.append(w_test) 
@@ -108,17 +111,18 @@ for i in range(len(rho_list)):
     ax[i].yaxis.set_minor_locator(AutoMinorLocator())
     ax[i].set_yscale('log')
     ax[i].set_title(labels[i])
-    ax[i].set_ylim(1e-06, 1e-2)
+    ax[i].set_ylim(1e-05, 1e-1)
     #ax[i].set_xlim(-10, 1010)
     ax[i].set_rasterization_zorder(0)
-    if jnp.any(relative_error > 5e-04):
-        mask = relative_error > 5e-04
-        print(f"rho = {rho_list[i]}, w_test = {w_test[mask]}", relative_error[mask])
+    if jnp.any(relative_error > 1e-03):
+        mask = relative_error > 1e-03
+        print(f"rho = {rho_list[i]}, w_test = {w_test[mask]}")
+        #print(f"rho = {rho_list[i]}, w_test = {w_test[mask]}", relative_error[mask])
 
 ax[0].set_ylabel("Relative error")
 ax[2].set_xlabel("Point index", labelpad=25)
 if cubic:
-    fig.savefig("tests/integrate/inverse_ray/figs/accuracy_r%d_th%d_cubic.pdf"%(r_resolution, th_resolution),bbox_inches="tight")
+    fig.savefig("tests/integrate/inverse_ray/figs/accuracy_r%d_th%d_Nl%d_cub.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
 else:
-    fig.savefig("tests/integrate/inverse_ray/figs/accuracy_r%d_th%d_linear.pdf"%(r_resolution, th_resolution),bbox_inches="tight")
+    fig.savefig("tests/integrate/inverse_ray/figs/accuracy_r%d_th%d_Nl%d_lin.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
 plt.show()
