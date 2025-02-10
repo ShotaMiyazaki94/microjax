@@ -8,7 +8,7 @@ from microjax.inverse_ray.limb_darkening import Is_limb_1st
 from microjax.inverse_ray.boundary import in_source, distance_from_source, calc_facB
 from microjax.inverse_ray.boundary import distance_from_source_adaptive
 
-def mag_uniform_adative(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000, 
+def mag_uniform_adaptive(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000, 
                                  Nlimb=1000, offset_r=0.5, offset_th=10.0, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
@@ -21,12 +21,11 @@ def mag_uniform_adative(w_center, rho, nlenses=2, r_resolution=1000, th_resoluti
     r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
     
     #@partial(jit, static_argnames=("cubic")) 
-    def _process_r(r0, th_units, th_range, image_limb, mask_limb, cubic=True):
-        th_min_max = prepare_th_minmax(r0, th_range, image_limb, mask_limb) 
+    def _process_r(r0, dr, th_units, th_range, image_limb, mask_limb, cubic=True):
+        th_min_max = th_minmax(r0, dr, th_range, image_limb, mask_limb) 
         th_min, th_max = th_min_max
-        dth = (th_max - th_min) / (th_resolution - 1)
+        dth = jnp.abs(th_max - th_min) / (th_resolution - 1)
         distances = distance_from_source_adaptive(r0, th_units, th_min, th_max, w_center_shifted, shifted, nlenses=nlenses, **_params)
-        #distances = distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=nlenses, **_params)
         in_num = in_source(distances, rho)
         zero_term = 1e-10
         if cubic:
@@ -54,33 +53,32 @@ def mag_uniform_adative(w_center, rho, nlenses=2, r_resolution=1000, th_resoluti
     
     @partial(jit, static_argnames=("cubic"))  
     def _compute_for_range(r_range, th_range, cubic=True):
-        r_values  = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=False)
-        th_units  = jnp.linspace(0, 1.0, th_resolution, endpoint=False)
-        #th_minmax = vmap(lambda r: prepare_th_minmax(r, th_range, image_limb, mask_limb))(r_values)
-        #area_r    = vmap(_process_r, in_axes=(0, 0))(r_values, th_units)
-        area_r = vmap(lambda r: _process_r(r, th_units, th_range, image_limb, mask_limb, cubic=cubic))(r_values)
-        #area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
-        dr = r_values[1] - r_values[0]
+        r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=False)
+        th_unit  = jnp.linspace(0, 1, th_resolution, endpoint=False)
+        dr = jnp.abs(r_values[1] - r_values[0])
+        area_r = vmap(lambda r: _process_r(r, dr, th_unit, th_range, image_limb, mask_limb, cubic=True))(r_values)
         total_area = dr * jnp.sum(area_r) # trapezoidal integration
         return total_area
 
-    def prepare_th_minmax(r0, th_range, image_limb, mask_limb, Nclose=5):
-        th_max_init, th_min_init = th_range[1], th_range[0]
-        mode = th_range[1]*th_range[0] > 0 # True if [0, 2pi], False if [-pi, pi]
+    def th_minmax(r0, dr, th_range, image_limb, mask_limb):
+        th_range_min = jnp.min(th_range)
+        th_range_max = jnp.max(th_range)
+        margin_r = 10 * dr
+        mode = th_range[0] * th_range[1] > 0 # True if [0, 2pi], False if [-pi, pi]
         limb_th = jnp.where(mode, 
-                             jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi),
-                             jnp.arctan2(image_limb.imag, image_limb.real))
-        in_mask = jnp.logical_and(limb_th > th_range[0], limb_th < th_range[1])
-        # select limb points closest to the r0 value
-        r_diff   = jnp.abs(image_limb.real * mask_limb.astype(float) * in_mask.astype(float) - r0)
-        th_close = limb_th[jnp.argsort(r_diff)][:Nclose]
-        #th_close = limb_th[jnp.partition(r_diff, Nclose)]
-        th_max = jnp.max(th_close)
-        th_min = jnp.min(th_close)
-        margin_min_max = 0.5 * (th_max - th_min)
-        th_max = jnp.minimum(th_max + margin_min_max, th_max_init)
-        th_min = jnp.maximum(th_min - margin_min_max, th_min_init)
-        return th_min, th_max 
+                            jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi),
+                            jnp.arctan2(image_limb.imag, image_limb.real))
+        limb_r_in  = (r0 - margin_r < image_limb.real) & (image_limb.real < r0 + margin_r)
+        limb_th_in = (th_range_min < limb_th) & (limb_th < th_range_max)
+        limb_in_mask = limb_r_in & limb_th_in & mask_limb
+        limb_in_th_min = jnp.min(jnp.where(limb_in_mask, limb_th, 2*jnp.pi))
+        limb_in_th_max = jnp.max(jnp.where(limb_in_mask, limb_th, -2*jnp.pi))
+        length = limb_in_th_min - limb_in_th_min
+        th_min = limb_in_th_min - 0.5 * length 
+        th_max = limb_in_th_max + 0.5 * length
+        th_min = jnp.maximum(th_range_min, th_min)
+        th_max = jnp.minimum(th_range_max, th_max)
+        return th_min, th_max
 
     def scan_images(carry, inputs):
         r_range, th_range = inputs
@@ -150,8 +148,8 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
     
     @partial(jit, static_argnames=("cubic"))  
     def _compute_for_range(r_range, th_range, cubic=True):
-        r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=False)
-        th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=False)
+        r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
+        th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
         area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
         dr = r_values[1] - r_values[0]
         total_area = dr * jnp.sum(area_r) # trapezoidal integration
@@ -211,8 +209,8 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000,
     
     @partial(jit, static_argnames=("cubic"))  
     def _compute_for_range(r_range, th_range, cubic=True):
-        r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=False)
-        th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=False)
+        r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
+        th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
         area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
         dr = r_values[1] - r_values[0]
         total_area = dr * jnp.sum(area_r) # trapezoidal integration
@@ -256,7 +254,7 @@ if __name__ == "__main__":
     tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 0.05
+    rho = 0.08
 
     num_points = 5000
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
@@ -267,7 +265,7 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     r_resolution  = 1000
-    th_resolution = 1000
+    th_resolution = 2000
     cubic = True
 
     from microjax.caustics.extended_source import mag_extended_source
@@ -279,10 +277,10 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
-    #mag_mj  = lambda w: mag_uniform_adative(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
-    #                                Nlimb=100, offset_r=0.5, offset_th=10.0)
+    #mag_mj  = lambda w: mag_uniform_adaptive(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
+    #                                Nlimb=300, offset_r=0.5, offset_th=10.0)
     mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
-                                    Nlimb=300, offset_r=0.5, offset_th=10.0)
+                                    Nlimb=5000, offset_r=0.1, offset_th=0.1)
     def chunked_vmap(func, data, chunk_size):
         results = []
         for i in range(0, len(data), chunk_size):
@@ -297,7 +295,7 @@ if __name__ == "__main__":
     #magn =  jit(vmap(magn, in_axes=(0,)))
 
     #_ = magn(w_points).block_until_ready()
-    chunk_size = 500  # メモリ消費を調整するため適宜変更
+    chunk_size = 1000  # メモリ消費を調整するため適宜変更
     _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
 
     print("start computation")

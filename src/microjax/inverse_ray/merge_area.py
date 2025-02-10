@@ -108,7 +108,7 @@ def merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
     diff_neg = jnp.where(diff[:-1] > margin_fac * diff[1:],  margin_fac * diff[1:], diff[:-1])
     diff_pos = jnp.where(diff[1:]  > margin_fac * diff[:-1], margin_fac * diff[:-1], diff[1:])
     arr_start = arr[1:-1] - diff_neg - offset 
-    arr_end   = arr[1:-1] + diff_pos  + offset
+    arr_end   = arr[1:-1] + diff_pos + offset
     intervals = jnp.stack([jnp.maximum(arr_start, 0.0), arr_end], axis=1) 
     #intervals = jnp.stack([jnp.maximum(arr - offset, 0), arr + offset], axis=1)
     sorted_intervals = intervals[jnp.argsort(intervals[:, 0])]
@@ -183,6 +183,7 @@ def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
     th_limb = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2 * jnp.pi)
     th_is = jnp.sort(jnp.where(mask_limb.ravel(), th_limb.ravel(), 0.0))
     th_is = jnp.clip(th_is, 0, 2 * jnp.pi)
-    offset_th = jnp.arctan2(offset_th * rho, jnp.max(jnp.max(r_, axis=1)*r_mask))
+    offset_th = jnp.deg2rad(offset_th)
+    #offset_th = jnp.arctan2(offset_th * rho, jnp.max(jnp.max(r_, axis=1)*r_mask))
     th_, th_mask = merge_intervals_theta(th_is, offset=offset_th)
     return r_, r_mask, th_, th_mask

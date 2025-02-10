@@ -120,7 +120,6 @@ tests/integrate/inverse_ray/dusts/test.py
 tests/integrate/inverse_ray/dusts/test_extend_binary.py
 tests/integrate/inverse_ray/dusts/trial_1.py
 tests/integrate/inverse_ray/dusts/uniform_grads.py
-tests/integrate/inverse_ray/figs/accuracy_caustic.pdf
 tests/integrate/inverse_ray/figs/grads_lc_limb_r1000_1000_cub.pdf
 tests/integrate/inverse_ray/figs/grads_lc_limb_r1000_4000_cub.pdf
 tests/integrate/inverse_ray/figs/grads_lc_limb_r1000_4000_lin.pdf
