@@ -109,7 +109,6 @@ tests/integrate/inverse_ray/performance.py
 tests/integrate/inverse_ray/speed_comp_vmap.py
 tests/integrate/inverse_ray/speed_image_solve.py
 tests/integrate/inverse_ray/speed_lens_eq.py
-tests/integrate/inverse_ray/test_lightcurve.py
 tests/integrate/inverse_ray/visualize.py
 tests/integrate/inverse_ray/dusts/calc_time.py
 tests/integrate/inverse_ray/dusts/check_speed_simple.py
@@ -120,6 +119,11 @@ tests/integrate/inverse_ray/dusts/test.py
 tests/integrate/inverse_ray/dusts/test_extend_binary.py
 tests/integrate/inverse_ray/dusts/trial_1.py
 tests/integrate/inverse_ray/dusts/uniform_grads.py
+tests/integrate/inverse_ray/figs/accuracy_r1000_th2000_Nl1000_cub.pdf
+tests/integrate/inverse_ray/figs/accuracy_r1000_th2000_Nl100_cub.pdf
+tests/integrate/inverse_ray/figs/accuracy_r1000_th2000_Nl5000_cub.pdf
+tests/integrate/inverse_ray/figs/accuracy_r1000_th2000_Nl500_cub_100.pdf
+tests/integrate/inverse_ray/figs/accuracy_r1000_th2000_Nl500_cub_50.pdf
 tests/integrate/inverse_ray/figs/grads_lc_limb_r1000_1000_cub.pdf
 tests/integrate/inverse_ray/figs/grads_lc_limb_r1000_4000_cub.pdf
 tests/integrate/inverse_ray/figs/grads_lc_limb_r1000_4000_lin.pdf

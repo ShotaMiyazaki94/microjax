@@ -165,7 +165,7 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
     magnification = magnification_unnorm / rho**2 
     return magnification 
 
-@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
+#@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
 def mag_uniform(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000, 
                 Nlimb=1000, offset_r=0.5, offset_th=10.0, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
@@ -178,7 +178,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000,
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
     r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
     
-    @partial(jit, static_argnames=("cubic")) 
+    #@partial(jit, static_argnames=("cubic")) 
     def _process_r(r0, th_values, cubic=True):
         dth = (th_values[1] - th_values[0])
         distances = distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=nlenses, **_params)
@@ -207,7 +207,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000,
             area_crossing  = r0 * dth * (num_in2out * frac + num_out2in * (1.0 - frac))
         return jnp.sum(area_inside + area_crossing)  
     
-    @partial(jit, static_argnames=("cubic"))  
+    #@partial(jit, static_argnames=("cubic"))  
     def _compute_for_range(r_range, th_range, cubic=True):
         r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
         th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
@@ -256,7 +256,7 @@ if __name__ == "__main__":
     u0 = 0.1 # impact parameter
     rho = 0.08
 
-    num_points = 5000
+    num_points = 8000
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -265,7 +265,7 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     r_resolution  = 1000
-    th_resolution = 2000
+    th_resolution = 1000
     cubic = True
 
     from microjax.caustics.extended_source import mag_extended_source
@@ -279,8 +279,12 @@ if __name__ == "__main__":
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
     #mag_mj  = lambda w: mag_uniform_adaptive(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
     #                                Nlimb=300, offset_r=0.5, offset_th=10.0)
-    mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
-                                    Nlimb=5000, offset_r=0.1, offset_th=0.1)
+    #mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
+    #                                Nlimb=5000, offset_r=0.1, offset_th=0.1)
+    @jax.jit
+    def mag_mj(w):
+        return mag_uniform(w, rho, s=s, q=q, Nlimb=2000,
+                           r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
     def chunked_vmap(func, data, chunk_size):
         results = []
         for i in range(0, len(data), chunk_size):
@@ -288,14 +292,12 @@ if __name__ == "__main__":
             results.append(jax.vmap(func)(chunk))
         return jnp.concatenate(results)
 
-    #magn  = lambda w: mag_uniform(w, rho, r_resolution=1000, th_resolution=2000, **test_params, cubic=True)
-    #magn  = lambda w: mag_binary(w, rho, r_resolution=1000, th_resolution=2000, u1=0.0, **test_params, cubic=True)
     magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     #magn2 =  jit(vmap(magn2, in_axes=(0,)))
     #magn =  jit(vmap(magn, in_axes=(0,)))
 
     #_ = magn(w_points).block_until_ready()
-    chunk_size = 1000  # メモリ消費を調整するため適宜変更
+    chunk_size = 2000  # メモリ消費を調整するため適宜変更
     _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
 
     print("start computation")

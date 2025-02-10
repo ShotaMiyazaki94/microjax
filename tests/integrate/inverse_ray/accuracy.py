@@ -44,9 +44,9 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 1000
-th_resolution = 2000
-Nlimb = 5000
+r_resolution  = 2000
+th_resolution = 500
+Nlimb = 2000
 mags_vbb_list = []
 mags_list = []
 w_test_list = []
@@ -80,7 +80,7 @@ for i, rho in enumerate(rho_list):
             results.append(jax.vmap(func)(chunk))
         return jnp.concatenate(results)
 
-    chunk_size = 500  # メモリ消費を調整するため適宜変更
+    chunk_size = 1000  # メモリ消費を調整するため適宜変更
     mags = chunked_vmap(mag_mj, w_test, chunk_size)
 
     w_test_list.append(w_test) 
