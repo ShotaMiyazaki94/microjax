@@ -7,7 +7,8 @@ from jax import grad, jit, vmap, random
 from microjax.inverse_ray.lightcurve import mag_lc, mag_lc_vmap
 from microjax.trajectory import dtn_dum_parallax, _get_info_parallax
 
-data = pd.read_csv("example/data/ogle-2014-blg-0124/phot.dat", delim_whitespace=True,header=None, names=["HJD", "mag", "mage", "seeing", "sky"])
+data = pd.read_csv("example/data/ogle-2014-blg-0124/phot.dat", 
+                   delim_whitespace=True,header=None, names=["HJD", "mag", "mage", "seeing", "sky"])
 data = data[(data.HJD>2.4563e+6)&(data.mage<0.4)]
 #data = data[(data.HJD>2.4566e+6)&(data.mage<0.4)]
 data["HJD"] -= 2450000
@@ -39,7 +40,7 @@ um  = _u_0
 y1 = -um*jnp.sin(_alpha_rad) + tau*jnp.cos(_alpha_rad)
 y2 = um*jnp.cos(_alpha_rad) + tau*jnp.sin(_alpha_rad)
 w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-mags = mag_lc(w_points, _rho, s=_s, q=_q, nlenses=2, cubic=True, r_resolution=1000, th_resolution=4000)
+mags = mag_lc(w_points, _rho, s=_s, q=_q, nlenses=2, cubic=True, r_resolution=500, th_resolution=500)
 _f = _fs * mags + _fb
 
 import matplotlib.pyplot as plt

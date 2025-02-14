@@ -264,8 +264,8 @@ if __name__ == "__main__":
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
     test_params = {"q": q, "s": s}  # Lens parameters
 
-    r_resolution  = 1000
-    th_resolution = 1000
+    r_resolution  = 500
+    th_resolution = 500
     cubic = True
 
     from microjax.caustics.extended_source import mag_extended_source
