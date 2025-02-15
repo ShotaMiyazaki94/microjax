@@ -117,7 +117,7 @@ def mag_lc_vmap(w_points, rho, nlenses=2, batch_size=400,
 
 
 #@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "u1"))
-def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=1000, u1=0.0, **params):
+def mag_lc(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, Nlimb=2000, u1=0.0, **params):
     # set parameters for the lens system
     if nlenses == 1:
         _params = {}
@@ -157,7 +157,7 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlim
 
     mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
                                      r_resolution=r_resolution, th_resolution=th_resolution, **_params)
-    mag_full_jit = jit(mag_full) 
+    #mag_full_jit = jit(mag_full) 
     #def mag_full_vmap(w_points, batch_size=500):
     #    results = []
     #    for i in range(0, len(w_points), batch_size):
@@ -168,38 +168,12 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlim
     return lax.map(lambda xs: 
                         lax.cond(xs[0], 
                                 lambda _: xs[1], 
-                                lambda _: mag_full_jit(xs[2]), 
+                                lambda _: mag_full(xs[2]), 
                                 None), 
                             map_input)
-    #batch_size = 5
-    #results = []
-    #for i in range(0, len(w_points), batch_size):
-    #    chunk = w_points[i:i + batch_size]
-    #    results.append(mag_full_vmap(chunk))
-    #return jnp.concatenate(results)
-    """
-    def process_in_batches(w_points, mag_full_vmap, batch_size=5):
-        def body_fn(carry, i):
-            chunk = w_points[i:i + batch_size]
-            mag_batch = mag_full_vmap(chunk)
-            return carry, mag_batch
-        carry = []
-        _, results = lax.scan(body_fn, carry, jnp.arange(0, len(w_points), batch_size))
-        return jnp.concatenate(results)
-    result = process_in_batches(w_points, mag_full_vmap, batch_size=5)
-    return result
-    """
-    #w_points_truncated = w_points[:num_batches * batch_size]
-    #batches = jnp.split(w_points_truncated, num_batches)
-    #def process_batch(carry, w_batch):
-    #    result = mag_full_vmap(w_batch)
-    #    return carry, result
-    #_, results = lax.scan(process_batch, None, batches)
-    #return jnp.concatenate(results)
-    
 
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "cubic"))
-def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=4000, th_resolution=4000, Nlimb=200, cubic=True, **params):
+def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, Nlimb=2000, cubic=True, **params):
     if nlenses == 1:
         _params = {}
         x_cm = 0 # miyazaki

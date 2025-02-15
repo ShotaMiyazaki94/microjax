@@ -105,6 +105,32 @@ def _compute_in_mask(r_limb, th_limb, r_use, th_use):
 def merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
     arr = jnp.sort(arr)
     diff = jnp.diff(arr)
+    diff_neg = jnp.minimum(diff[:-1], margin_fac * diff[1:])
+    diff_pos = jnp.minimum(diff[1:], margin_fac * diff[:-1])
+    arr_start = arr[1:-1] - diff_neg - offset 
+    arr_end   = arr[1:-1] + diff_pos + offset
+    intervals = jnp.stack([arr_start, arr_end], axis=1)
+    sorted_intervals = intervals[jnp.argsort(intervals[:, 0])]
+
+    def merge_scan_fn(carry, next_interval):
+        overlap_exists = carry[1] >= next_interval[0]
+        merged_interval = jnp.where(
+            overlap_exists,
+            jnp.array([carry[0], jnp.maximum(carry[1], next_interval[1])]),
+            next_interval
+        )
+        return merged_interval, merged_interval
+
+    _, merged_intervals = lax.scan(merge_scan_fn, sorted_intervals[0], sorted_intervals[1:])
+    merged_intervals = jnp.vstack([sorted_intervals[0], merged_intervals])
+
+    mask = jnp.append(jnp.diff(merged_intervals[:, 0]) != 0, True)
+    #merged_intervals = jnp.clip(merged_intervals, 0, jnp.max(arr) + offset)
+    return merged_intervals, mask
+
+def _merge_intervals_r(arr, offset=1.0, margin_fac=100.0):
+    arr = jnp.sort(arr)
+    diff = jnp.diff(arr)
     diff_neg = jnp.where(diff[:-1] > margin_fac * diff[1:],  margin_fac * diff[1:], diff[:-1])
     diff_pos = jnp.where(diff[1:]  > margin_fac * diff[:-1], margin_fac * diff[:-1], diff[1:])
     arr_start = arr[1:-1] - diff_neg - offset 
@@ -163,7 +189,7 @@ def merge_intervals_theta(arr, offset=1.0, fac=100.0):
     return merged_intervals, mask
 
 
-#@partial(jit, static_argnames=("Nlimb", "nlenses"))
+@partial(jit, static_argnames=("Nlimb", "nlenses"))
 def calc_source_limb(w_center, rho, Nlimb=100, nlenses=2, **_params):
     s, q = _params["s"], _params["q"]
     a = 0.5 * s
@@ -175,7 +201,7 @@ def calc_source_limb(w_center, rho, Nlimb=100, nlenses=2, **_params):
     image_limb = image + 0.5 * s * (1 - q) / (1 + q)
     return image_limb, mask
 
-#@partial(jit, static_argnames=("offset_r", "offset_th"))
+@partial(jit, static_argnames=("offset_r", "offset_th"))
 def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th):
     r_limb = jnp.abs(image_limb.ravel())
     r_is = jnp.where(mask_limb.ravel(), r_limb, 0.0)
@@ -184,6 +210,5 @@ def calculate_overlap_and_range(image_limb, mask_limb, rho, offset_r, offset_th)
     th_is = jnp.sort(jnp.where(mask_limb.ravel(), th_limb.ravel(), 0.0))
     th_is = jnp.clip(th_is, 0, 2 * jnp.pi)
     offset_th = jnp.deg2rad(offset_th)
-    #offset_th = jnp.arctan2(offset_th * rho, jnp.max(jnp.max(r_, axis=1)*r_mask))
-    th_, th_mask = merge_intervals_theta(th_is, offset=offset_th)
+    th_, th_mask = merge_intervals_theta(th_is, offset=offset_th) 
     return r_, r_mask, th_, th_mask

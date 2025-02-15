@@ -93,8 +93,8 @@ def mag_uniform_adaptive(w_center, rho, nlenses=2, r_resolution=1000, th_resolut
 
 @partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
                                "offset_r", "offset_th", "delta_c"))
-def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, th_resolution=4000, 
-               Nlimb=1000, offset_r = 0.5, offset_th = 10.0, delta_c=0.01, **_params):
+def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=500, th_resolution=500, 
+               Nlimb=2000, offset_r = 0.1, offset_th = 0.1, delta_c=0.01, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -166,8 +166,8 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=1000, 
     return magnification 
 
 #@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
-def mag_uniform(w_center, rho, nlenses=2, r_resolution=1000, th_resolution=4000, 
-                Nlimb=1000, offset_r=0.5, offset_th=10.0, cubic=True, **_params):
+def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500, 
+                Nlimb=2000, offset_r=0.1, offset_th=0.1, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -302,6 +302,7 @@ if __name__ == "__main__":
 
     print("start computation")
     start = time.time()
+    #magnifications = mag_uniform(w_points, rho, s=s, q=q, Nlimb=2000, r_resolution=r_resolution, th_resolution=th_resolution).block_until_ready()
     magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
     #magnifications = magn(w_points).block_until_ready() 
     end = time.time()

@@ -13,7 +13,7 @@ t0 = 0.0
 u0 = 0.1
 rho = 0.08
 
-num_points = 2000
+num_points = 8000
 t = jnp.linspace(-0.8 * tE, 0.8 * tE, num_points)
 tau = (t - t0) / tE
 y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
@@ -21,8 +21,8 @@ y2 = u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
 w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
 test_params = {"q": q, "s": s}
 
-r_resolution = 1000
-th_resolution = 1000
+r_resolution = 500
+th_resolution = 500
 cubic = True
 
 def chunked_vmap(func, data, chunk_size):
@@ -32,13 +32,13 @@ def chunked_vmap(func, data, chunk_size):
         results.append(jax.vmap(func)(chunk))
     return jnp.concatenate(results)
 
-chunk_size = 2000
+chunk_size = 8000
 #mag_mj = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
 @jax.jit
 def mag_mj(w):
     return mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
 
-_ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
+#_ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
 
 def mag_vbbl(w0, rho, u1=0., accuracy=1e-05):
     a = 0.5 * s
@@ -48,4 +48,5 @@ def mag_vbbl(w0, rho, u1=0., accuracy=1e-05):
     return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
 
 with jax.profiler.trace("/tmp/jax-trace", create_perfetto_link=True):
-    magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
+    for i in range(10):
+        magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()

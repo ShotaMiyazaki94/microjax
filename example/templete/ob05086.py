@@ -53,7 +53,8 @@ def model(t, y, yerr):
 
     k_norm = numpyro.sample("k_norm", dist.Uniform(0.0, 5.0))
     res = y - fmodel
-    loglike = -0.5 * jnp.sum( (res/(k_norm*yerr))**2) - 0.5 * jnp.log(2*jnp.pi) * len(t) - jnp.sum(jnp.log(k_norm * yerr))
+    sigma = k_norm * yerr
+    loglike = -0.5 * jnp.sum( (res/(sigma))**2) - jnp.sum(jnp.log(sigma)) #- 0.5 * jnp.log(2*jnp.pi) * len(t)
     numpyro.factor("loglike", loglike)
 
 def make_corner(samples, keys, labs=None):

@@ -35,8 +35,8 @@ y1 = -um*jnp.sin(_alpha_rad) + tau*jnp.cos(_alpha_rad)
 y2 = um*jnp.cos(_alpha_rad) + tau*jnp.sin(_alpha_rad)
 w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
 
-r_resolution = 1000
-th_resolution = 4000
+r_resolution = 500
+th_resolution = 500
 
 mag_lc(w_points, _rho, s=_s, q=_q, cubic=True, r_resolution=r_resolution, th_resolution=th_resolution).block_until_ready()
 start_time = time.time()
@@ -46,6 +46,6 @@ print(f"Execution time for mag_lc: {1000 * (end_time - start_time)/N_points:.3f}
 
 mag_lc_vmap(w_points, _rho, s=_s, q=_q, cubic=True, r_resolution=r_resolution, th_resolution=th_resolution)
 start_time = time.time()
-lc_vmap = mag_lc_vmap(w_points, _rho, batch_size=400, s=_s, q=_q, cubic=True, r_resolution=r_resolution, th_resolution=th_resolution).block_until_ready()
+lc_vmap = mag_lc_vmap(w_points, _rho, batch_size=8000, s=_s, q=_q, cubic=True, r_resolution=r_resolution, th_resolution=th_resolution).block_until_ready()
 end_time = time.time()
 print(f"Execution time for mag_lc_vmap: {1000 * (end_time - start_time)/N_points:.3f} ms per datapoint")
