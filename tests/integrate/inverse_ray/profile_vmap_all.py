@@ -29,12 +29,13 @@ def chunked_vmap(func, data, chunk_size):
     results = []
     for i in range(0, len(data), chunk_size):
         chunk = data[i:i + chunk_size]
+        #results.append(jax.jit(jax.vmap(func))(chunk))
         results.append(jax.vmap(func)(chunk))
     return jnp.concatenate(results)
 
 chunk_size = 8000
 #mag_mj = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
-@jax.jit
+#@jax.jit
 def mag_mj(w):
     return mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
 
@@ -47,6 +48,16 @@ def mag_vbbl(w0, rho, u1=0., accuracy=1e-05):
     bl = mm.BinaryLens(e1, e2, 2 * a)
     return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
 
+def scan_body(carry, i):
+    result = chunked_vmap(mag_mj, w_points, chunk_size)
+    return carry, result
+
 with jax.profiler.trace("/tmp/jax-trace", create_perfetto_link=True):
-    for i in range(10):
-        magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
+    final_carry, magnifications = jax.lax.scan(scan_body, None, jnp.arange(3))
+    magnifications.block_until_ready()
+
+
+#with jax.profiler.trace("/tmp/jax-trace", create_perfetto_link=True):
+#    for i in range(10):
+#        magnifications = chunked_vmap(mag_mj, w_points, chunk_size)
+#        magnifications.block_until_ready() 

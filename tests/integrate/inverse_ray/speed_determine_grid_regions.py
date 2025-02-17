@@ -21,10 +21,16 @@ mean_times = []
 std_times = []
 
 for Nlimb in Nlimbs:
+    Nlimb = int(Nlimb)
     times = []
+    image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
+    image_limb.block_until_ready()
+    r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r=0.1, offset_th=0.1)
+    r_scan.block_until_ready() 
     for _ in range(num_measurements):
         start = time.time()
-        image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
+        #image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
+        #image_limb.block_until_ready()
         r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r=0.1, offset_th=0.1)
         r_scan.block_until_ready()
         end = time.time()
@@ -41,8 +47,10 @@ plt.plot(Nlimbs[1:], mean_times[1:])
 plt.xscale("log")
 plt.yscale("log")
 plt.grid(ls="--")
-plt.title("Speed of _images_point_source")
 plt.xlabel("Number of Source Limb Points")
 plt.ylabel("Computation Time (seconds)")
-plt.savefig('tests/integrate/inverse_ray/figs/speed_determine_grid.pdf', bbox_inches="tight")
+#plt.title("Speed of calc_source_limb")
+#plt.savefig('tests/integrate/inverse_ray/figs/speed_calc_source_limb.pdf', bbox_inches="tight")
+plt.title("Speed of determine_grid_regions")
+plt.savefig('tests/integrate/inverse_ray/figs/speed_determine_grid_regions.pdf', bbox_inches="tight")
 plt.show()
