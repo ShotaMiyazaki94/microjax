@@ -41,14 +41,14 @@ def refine_intervals(image_limb, mask_limb, r_starts, r_ends, th_starts, th_ends
 
 
 if(1):
-    w_center = jnp.complex128(0.1 - 0.1j)
+    w_center = jnp.complex128(0.1 - 0.0j)
     s = 1.0
     q = 0.01
     a = 0.5 * s
     e1 = q / (1.0 + q)
     _params = {"a": a, "e1": e1, "q": q, "s": s}
-    rho = 1e-2
-    Nlimb = 300
+    rho = 2e-2
+    Nlimb = 500
     critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=500, s=s, q=q) 
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
     image_limb = image_limb.ravel()
@@ -56,7 +56,7 @@ if(1):
     r     = jnp.abs(image_limb * mask_limb)
     theta = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi) * mask_limb
     
-    bins=50
+    bins=100
     r_mins, r_maxs = cluster_1d(r, bins=bins)
     th_mins, th_maxs = cluster_1d(theta, bins, zero_cut=False)
     for r_min, r_max in zip(r_mins, r_maxs):
@@ -77,8 +77,24 @@ if(1):
     plt.vlines(r_maxs, ymin=0, ymax=ymax, color="red", zorder=1)
     plt.vlines(bin_edges, ymin=0, ymax=0.1*ymax, color="gray", zorder=1)
     plt.xlim(0.9*r_non.min(), 1.1*r_non.max())
-    plt.savefig("test.pdf")
+    plt.yscale("log")
+    plt.savefig("test_r.pdf")
     plt.close()
+
+    bin_min, bin_max = 0, 2*jnp.pi
+    delta = (bin_max - bin_min) / bins
+    bin_edges = jnp.linspace(bin_min - delta, bin_max + delta, bins + 3, endpoint=True)
+    plt.hist(np.array(theta), bins=jnp.linspace(0, 2*jnp.pi, bins + 1))
+    ymin, ymax = plt.ylim()
+    plt.vlines(th_mins, ymin=0, ymax=ymax, color="orange", zorder=2)
+    plt.vlines(th_maxs, ymin=0, ymax=ymax, color="red", zorder=1)
+    plt.vlines(bin_edges, ymin=0, ymax=0.1*ymax, color="gray", zorder=1)
+    plt.yscale("log")
+    plt.savefig("test_th.pdf")
+    plt.close()
+
+
+
     w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, Nlimb)), dtype=complex)
     plt.scatter(w_limb.real, w_limb.imag, color="blue", s=1, label="source limb")
     critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=500, s=s, q=q) 
