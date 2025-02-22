@@ -49,11 +49,8 @@ def select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=5):
     return r_scan, th_scan
 
 def merge_theta(arr):
-    # We might be cared for that bins should not be less than 100 because of these conditions.
-    # Especially, arr[:, 1] == 2*jnp.pi may cause bugs.  
     start_zero = (arr[:, 0] == 0)&(arr[:, 1] != 0) 
     end_twopi  = (arr[:, 0] != 0)&(jnp.isclose(arr[:, 1], 2*jnp.pi, atol=1e-6))
-    #end_twopi  = (arr[:, 0] != 0)&(arr[:, 1] == 2*jnp.pi) 
     start_pick = jnp.min(jnp.where(end_twopi,  arr[:, 0] - 2*jnp.pi, 0.0))
     end_pick   = jnp.max(jnp.where(start_zero, arr[:, 1], 0.0))
     merge = jnp.where(end_twopi[:, None], jnp.array([0.0, 0.0]), arr)
