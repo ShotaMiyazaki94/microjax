@@ -4,6 +4,56 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 
+def grid_intervals(image_limb, mask_limb, rho, nlenses=2, bins=100, max_cluster=5):
+    image_limb = image_limb.ravel()
+    mask_limb = mask_limb.ravel()
+    r     = jnp.abs(image_limb * mask_limb)
+    theta = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi) * mask_limb
+    # determine 1D regions by binning method
+    r_mins, r_maxs   = cluster_1d(r, bins=bins, max_cluster=max_cluster)
+    th_mins, th_maxs = cluster_1d(theta, bins, mode_r=False, max_cluster=2*max_cluster)
+    r_map = jnp.array([r_mins, r_maxs]).T
+    th_map = jnp.array([th_mins, th_maxs]).T
+    th_map = merge_theta(th_map)[-max_cluster:]
+
+
+def merge_theta(arr):
+    """
+    merge 1-D theta ranges separated due to the (0, 2pi) definition
+    """
+    start_zero = (arr[:, 0] == 0)&(arr[:, 1] != 0) 
+    end_twopi  = (arr[:, 0] != 0)&(arr[:, 1] == 2*jnp.pi) 
+    start_pick = jnp.min(jnp.where(end_twopi, arr[:,0] - 2*jnp.pi, 0.0))
+    end_pick   = jnp.max(jnp.where(start_zero, arr[:,1], 0.0))
+    merge = jnp.where(end_twopi[:, None], 0.0, arr) # 0 padding 
+    merge = jnp.where(start_zero[:, None], jnp.array([start_pick, end_pick]), merge)
+    return merge[merge[:, 1].argsort()]
+
+@partial(jit, static_argnames=["bins", "max_cluster", "mode_r"])
+def cluster_1d(arr, bins=100, max_cluster=5, mode_r=True):
+    # This might cause the gradient error.
+    if mode_r:
+        bin_min = jnp.min(jnp.where(arr == 0, np.inf, arr))
+        bin_max = jnp.max(jnp.where(arr == 0, -np.inf, arr))
+    else:
+        # Here I do not want to optimize the intervals so much.
+        bin_min = 0
+        bin_max = 2 * jnp.pi
+    delta = (bin_max - bin_min) / bins
+    bin_edges = jnp.linspace(bin_min - delta, bin_max + delta, bins + 3, endpoint=True) # [0]-[bin+1]
+    bin_indices = jnp.digitize(arr, bin_edges) - 1  # [0]-[bin+1]
+    bin_indices = jnp.clip(bin_indices, 1, bins)    # [1]-[bin]
+    counts = jnp.bincount(bin_indices, length=bins + 2)
+    bin_mask = counts > 0 # bins + 2 
+    diff_mask = jnp.diff(bin_mask.astype(int))  #length: bin + 1
+    start_mask = diff_mask == 1 
+    end_mask   = diff_mask == -1
+
+    start_edges = jnp.sort(bin_edges[1:-1] * start_mask.astype(float), descending=False)[-max_cluster:]
+    end_edges   = jnp.sort(bin_edges[1:-1] * end_mask.astype(float), descending=False)[-max_cluster:] 
+    return start_edges, end_edges
+
+
 def determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=2):
     """
     determine the regions to be grid-spaced for the inverse-ray integration.
