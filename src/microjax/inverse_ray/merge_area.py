@@ -15,17 +15,47 @@ def grid_intervals(image_limb, mask_limb, rho, nlenses=2, bins=100, max_cluster=
     r_map = jnp.array([r_mins, r_maxs]).T
     th_map = jnp.array([th_mins, th_maxs]).T
     th_map = merge_theta(th_map)[-max_cluster:]
+    # select combinations that contain the image limb
+    r_scan, th_scan = select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=max_cluster)
+    # refine intervals?
 
+def select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=5):
+    r_limb = jnp.abs(image_limb.ravel() * mask_limb.ravel())
+    M = r_map.shape[0]
+    K = th_map.shape[0]
+    N = r_limb.shape[0]
+    
+    r_limb_expanded = r_limb.reshape(1, 1, N)
+    r_map_min = r_map[:, 0].reshape(M, 1, 1)
+    r_map_max = r_map[:, 1].reshape(M, 1, 1)
+    r_condition = (r_map_min < r_limb_expanded) & (r_limb_expanded < r_map_max)  # shape: (M, 1, N)
+
+    th_map_min = th_map[:, 0].reshape(1, K, 1)
+    th_map_max = th_map[:, 1].reshape(1, K, 1)
+    th_limb_pipi = jnp.arctan2(image_limb.imag, image_limb.real)
+    th_limb_2pi = jnp.mod(th_limb_pipi, 2*jnp.pi)
+    th_limb_pipi_ex = jnp.where(mask_limb.ravel(), th_limb_pipi, jnp.inf)
+    th_limb_2pi_ex  = jnp.where(mask_limb.ravel(), th_limb_2pi, jnp.inf)
+    th_cond_pipi = (th_map_min < th_limb_pipi_ex) & (th_limb_pipi_ex < th_map_max) # shape: (1, K, N)    
+    th_cond_2pi  = (th_map_min < th_limb_2pi_ex) & (th_limb_2pi_ex < th_map_max)   # shape: (1, K, N)
+    th_condition = (th_cond_pipi)|(th_cond_2pi) # shape: (1, K, N)
+
+    combined_condition = r_condition & th_condition  # shape: (M, K, N)
+    in_mask = jnp.any(combined_condition, axis=2)  # shape: (M, K)
+    r_repeat = jnp.repeat(r_map, K, axis=0) * in_mask.ravel()[:, None]
+    th_tiled = jnp.tile(th_map, (M, 1)) * in_mask.ravel()[:, None]
+    r_scan  = r_repeat[jnp.argsort(r_repeat[:,1] == 0)][:max_regions]
+    th_scan = th_tiled[jnp.argsort(th_tiled[:,1] == 0)][:max_regions]
+    return r_scan, th_scan
 
 def merge_theta(arr):
-    """
-    merge 1-D theta ranges separated due to the (0, 2pi) definition
-    """
+    # We might be cared for that bins should not be less than 100 because of these conditions.
+    # Especially, arr[:, 1] == 2*jnp.pi may cause bugs.  
     start_zero = (arr[:, 0] == 0)&(arr[:, 1] != 0) 
     end_twopi  = (arr[:, 0] != 0)&(arr[:, 1] == 2*jnp.pi) 
-    start_pick = jnp.min(jnp.where(end_twopi, arr[:,0] - 2*jnp.pi, 0.0))
-    end_pick   = jnp.max(jnp.where(start_zero, arr[:,1], 0.0))
-    merge = jnp.where(end_twopi[:, None], 0.0, arr) # 0 padding 
+    start_pick = jnp.min(jnp.where(end_twopi,  arr[:, 0] - 2*jnp.pi, 0.0))
+    end_pick   = jnp.max(jnp.where(start_zero, arr[:, 1], 0.0))
+    merge = jnp.where(end_twopi[:, None], jnp.array([0.0, 0.0]), arr)
     merge = jnp.where(start_zero[:, None], jnp.array([start_pick, end_pick]), merge)
     return merge[merge[:, 1].argsort()]
 
@@ -33,8 +63,8 @@ def merge_theta(arr):
 def cluster_1d(arr, bins=100, max_cluster=5, mode_r=True):
     # This might cause the gradient error.
     if mode_r:
-        bin_min = jnp.min(jnp.where(arr == 0, np.inf, arr))
-        bin_max = jnp.max(jnp.where(arr == 0, -np.inf, arr))
+        bin_min = jnp.min(jnp.where(arr == 0, jnp.inf, arr))
+        bin_max = jnp.max(jnp.where(arr == 0, -jnp.inf, arr))
     else:
         # Here I do not want to optimize the intervals so much.
         bin_min = 0
