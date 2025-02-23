@@ -7,6 +7,7 @@ from microjax.point_source import lens_eq, _images_point_source
 def grid_intervals(image_limb, mask_limb, rho, nlenses=2, bins=100, max_cluster=5):
     image_limb = image_limb.ravel()
     mask_limb = mask_limb.ravel()
+    # theta is defined within the (0, 2*jnp.pi) range
     r     = jnp.abs(image_limb * mask_limb)
     theta = jnp.mod(jnp.arctan2(image_limb.imag, image_limb.real), 2*jnp.pi) * mask_limb
     # determine 1D regions by binning method
@@ -18,6 +19,23 @@ def grid_intervals(image_limb, mask_limb, rho, nlenses=2, bins=100, max_cluster=
     # select combinations that contain the image limb
     r_scan, th_scan = select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=max_cluster)
     # refine intervals?
+
+def refine_intevals(image_limb, mask_limb, r_scan, th_scan, r_offset=1.0, th_offset=0.1):
+    for r_range, th_range in zip(r_scan, th_scan):
+        r_min, r_max = r_range
+        th_min, th_max = th_range
+        # should care the theta definition
+        limb_r  = jnp.where(mask_limb, jnp.abs(image_limb), jnp.inf)
+        limb_th = jnp.arctan2(image_limb.imag, image_limb.real)
+        limb_th = jnp.where(mask_limb, limb_th, jnp.inf)
+        limb_th_2pi = jnp.mod(limb_th, 2*jnp.pi)
+        # identify confined image limb points
+        r_in      = (r_min<limb_r)&(limb_r<r_max)
+        th_in_pi  = (th_min<limb_th)&(limb_th<th_max)
+        th_in_2pi = (th_min<limb_th_2pi)&(limb_th_2pi<th_max)
+        # theta definition
+        
+
 
 def select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=5):
     r_limb = jnp.abs(image_limb.ravel() * mask_limb.ravel())
