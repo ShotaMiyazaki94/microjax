@@ -18,38 +18,20 @@ def grid_intervals(image_limb, mask_limb, rho, nlenses=2, bins=100, max_cluster=
     th_map = merge_theta(th_map)[-max_cluster:]
     # select combinations that contain the image limb
     r_scan, th_scan = select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=max_cluster)
-    # refine intervals?
-
-def refine_intevals(image_limb, mask_limb, r_scan, th_scan, r_offset=1.0, th_offset=0.1):
-    for r_range, th_range in zip(r_scan, th_scan):
-        r_min, r_max = r_range
-        th_min, th_max = th_range
-        # should care the theta definition
-        limb_r  = jnp.where(mask_limb, jnp.abs(image_limb), jnp.inf)
-        limb_th = jnp.arctan2(image_limb.imag, image_limb.real)
-        limb_th = jnp.where(mask_limb, limb_th, jnp.inf)
-        limb_th_2pi = jnp.mod(limb_th, 2*jnp.pi)
-        # identify confined image limb points
-        r_in      = (r_min<limb_r)&(limb_r<r_max)
-        th_in_pi  = (th_min<limb_th)&(limb_th<th_max)
-        th_in_2pi = (th_min<limb_th_2pi)&(limb_th_2pi<th_max)
-        # theta definition
+    
+    return r_scan, th_scan
 
 
 @partial(jit, static_argnames=["max_regions", "optimize", "offset_r", "offset_th"])
-def select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=5, optimize=False, offset_r=0.1, offset_th=0.1):
+def select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=5, optimize=False, margin_r=0.0, margin_th=0.0):
     r_limb = jnp.abs(image_limb.ravel() * mask_limb.ravel())
-    M = r_map.shape[0]
-    K = th_map.shape[0]
-    N = r_limb.shape[0]
+    M, K, N = r_map.shape[0], th_map.shape[0], r_limb.shape[0]
     
     r_limb_expanded = r_limb.reshape(1, 1, N)
-    r_map_min = r_map[:, 0].reshape(M, 1, 1)
-    r_map_max = r_map[:, 1].reshape(M, 1, 1)
+    r_map_min, r_map_max  = r_map[:, 0].reshape(M, 1, 1), r_map[:, 1].reshape(M, 1, 1)
     r_condition = (r_map_min < r_limb_expanded) & (r_limb_expanded < r_map_max)  # shape: (M, 1, N)
 
-    th_map_min = th_map[:, 0].reshape(1, K, 1)
-    th_map_max = th_map[:, 1].reshape(1, K, 1)
+    th_map_min, th_map_max = th_map[:, 0].reshape(1, K, 1), th_map[:, 1].reshape(1, K, 1)
     th_limb_pipi = jnp.arctan2(image_limb.imag, image_limb.real)
     th_limb_2pi  = jnp.mod(th_limb_pipi, 2*jnp.pi)
     th_limb_pipi_expanded = jnp.where(mask_limb.ravel(), th_limb_pipi, jnp.inf)
@@ -69,14 +51,16 @@ def select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=5, optimi
     else:
         mask_comb_min = jnp.where(combined_condition, 1.0, jnp.inf)
         mask_comb_max = jnp.where(combined_condition, 1.0, -jnp.inf)
-        r_min  = jnp.min(r_limb * mask_comb_min, axis=2) - offset_r # shape: (M, K) 
-        r_max  = jnp.max(r_limb * mask_comb_max, axis=2) + offset_r # shape: (M, K)
-        th_min_pipi = jnp.min(th_limb_pipi * mask_comb_min, axis=2) - offset_th 
-        th_min_2pi  = jnp.min(th_limb_2pi * mask_comb_min, axis=2) - offset_th
-        th_max_pipi = jnp.max(th_limb_pipi * mask_comb_max, axis=2) + offset_th  
-        th_max_2pi  = jnp.max(th_limb_2pi * mask_comb_max, axis=2) + offset_th 
-        th_min = th_min_pipi + th_min_2pi # shape: (M, K) 
-        th_max = th_max_pipi + th_max_2pi # shape: (M, K)
+        r_min  = jnp.min(r_limb * mask_comb_min, axis=2) - margin_r # shape: (M, K) 
+        r_max  = jnp.max(r_limb * mask_comb_max, axis=2) + margin_r # shape: (M, K)
+        th_min_pipi = jnp.maximum(jnp.min(th_limb_pipi * mask_comb_min, axis=2) - margin_th, -jnp.pi)
+        th_min_2pi  = jnp.maximum(jnp.min(th_limb_2pi  * mask_comb_min, axis=2) - margin_th, 0.0)
+        th_max_pipi = jnp.minimum(jnp.max(th_limb_pipi * mask_comb_max, axis=2) + margin_th, jnp.pi)
+        th_max_2pi  = jnp.minimum(jnp.max(th_limb_2pi  * mask_comb_max, axis=2) + margin_th, 2*jnp.pi)
+        # case 
+        cond_pipi   = (th_min_pipi < 0)&(0 < th_max_pipi)
+        th_min = jnp.where(cond_pipi, th_min_pipi, th_min_2pi) # shape: (M, K)  
+        th_max = jnp.where(cond_pipi, th_max_pipi, th_max_2pi) # shape: (M, K) 
         r_scan = jnp.stack([r_min, r_max], axis=-1) * in_mask[:, None]      # shape: (M, K, 2)
         th_scan = jnp.stack([th_min, th_max], axis=-1) * in_mask[:, None]   # shape: (M, K, 2)
         r_scan = r_scan.reshape(-1, 2)  # shape: (M * K, 2)
