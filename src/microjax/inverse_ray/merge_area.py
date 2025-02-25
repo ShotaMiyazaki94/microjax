@@ -34,10 +34,10 @@ def refine_intevals(image_limb, mask_limb, r_scan, th_scan, r_offset=1.0, th_off
         th_in_pi  = (th_min<limb_th)&(limb_th<th_max)
         th_in_2pi = (th_min<limb_th_2pi)&(limb_th_2pi<th_max)
         # theta definition
-        
 
 
-def select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=5):
+@partial(jit, static_argnames=["max_regions", "optimize", "offset_r", "offset_th"])
+def select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=5, optimize=False, offset_r=0.1, offset_th=0.1):
     r_limb = jnp.abs(image_limb.ravel() * mask_limb.ravel())
     M = r_map.shape[0]
     K = th_map.shape[0]
@@ -51,19 +51,38 @@ def select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=5):
     th_map_min = th_map[:, 0].reshape(1, K, 1)
     th_map_max = th_map[:, 1].reshape(1, K, 1)
     th_limb_pipi = jnp.arctan2(image_limb.imag, image_limb.real)
-    th_limb_2pi = jnp.mod(th_limb_pipi, 2*jnp.pi)
-    th_limb_pipi_ex = jnp.where(mask_limb.ravel(), th_limb_pipi, jnp.inf)
-    th_limb_2pi_ex  = jnp.where(mask_limb.ravel(), th_limb_2pi, jnp.inf)
-    th_cond_pipi = (th_map_min < th_limb_pipi_ex) & (th_limb_pipi_ex < th_map_max) # shape: (1, K, N)    
-    th_cond_2pi  = (th_map_min < th_limb_2pi_ex) & (th_limb_2pi_ex < th_map_max)   # shape: (1, K, N)
+    th_limb_2pi  = jnp.mod(th_limb_pipi, 2*jnp.pi)
+    th_limb_pipi_expanded = jnp.where(mask_limb.ravel(), th_limb_pipi, jnp.inf)
+    th_limb_2pi_expanded  = jnp.where(mask_limb.ravel(), th_limb_2pi, jnp.inf)
+    th_cond_pipi = (th_map_min < th_limb_pipi_expanded) & (th_limb_pipi_expanded < th_map_max) # shape: (1, K, N)    
+    th_cond_2pi  = (th_map_min < th_limb_2pi_expanded) & (th_limb_2pi_expanded < th_map_max)   # shape: (1, K, N)
     th_condition = (th_cond_pipi)|(th_cond_2pi) # shape: (1, K, N)
 
     combined_condition = r_condition & th_condition  # shape: (M, K, N)
     in_mask = jnp.any(combined_condition, axis=2)  # shape: (M, K)
-    r_repeat = jnp.repeat(r_map, K, axis=0) * in_mask.ravel()[:, None]
-    th_tiled = jnp.tile(th_map, (M, 1)) * in_mask.ravel()[:, None]
-    r_scan  = r_repeat[jnp.argsort(r_repeat[:,1] == 0)][:max_regions]
-    th_scan = th_tiled[jnp.argsort(th_tiled[:,1] == 0)][:max_regions]
+
+    if not optimize:
+        r_repeat = jnp.repeat(r_map, K, axis=0) * in_mask.ravel()[:, None]  # shape: (M * K, 2)
+        th_tiled = jnp.tile(th_map, (M, 1)) * in_mask.ravel()[:, None]      # shape: (M * K, 2) 
+        r_scan  = r_repeat[jnp.argsort(r_repeat[:, 1] == 0)][:max_regions]
+        th_scan = th_tiled[jnp.argsort(th_tiled[:, 1] == 0)][:max_regions]
+    else:
+        mask_comb_min = jnp.where(combined_condition, 1.0, jnp.inf)
+        mask_comb_max = jnp.where(combined_condition, 1.0, -jnp.inf)
+        r_min  = jnp.min(r_limb * mask_comb_min, axis=2) - offset_r # shape: (M, K) 
+        r_max  = jnp.max(r_limb * mask_comb_max, axis=2) + offset_r # shape: (M, K)
+        th_min_pipi = jnp.min(th_limb_pipi * mask_comb_min, axis=2) - offset_th 
+        th_min_2pi  = jnp.min(th_limb_2pi * mask_comb_min, axis=2) - offset_th
+        th_max_pipi = jnp.max(th_limb_pipi * mask_comb_max, axis=2) + offset_th  
+        th_max_2pi  = jnp.max(th_limb_2pi * mask_comb_max, axis=2) + offset_th 
+        th_min = th_min_pipi + th_min_2pi # shape: (M, K) 
+        th_max = th_max_pipi + th_max_2pi # shape: (M, K)
+        r_scan = jnp.stack([r_min, r_max], axis=-1) * in_mask[:, None]      # shape: (M, K, 2)
+        th_scan = jnp.stack([th_min, th_max], axis=-1) * in_mask[:, None]   # shape: (M, K, 2)
+        r_scan = r_scan.reshape(-1, 2)  # shape: (M * K, 2)
+        th_scan = th_scan.reshape(-1, 2)  # shape: (M * K, 2)
+        r_scan = r_scan[jnp.argsort(r_scan[:, 1] == 0)][:max_regions]  # shape: (max_regions, 2)
+        th_scan = th_scan[jnp.argsort(th_scan[:, 1] == 0)][:max_regions]  # shape: (max_regions, 2)
     return r_scan, th_scan
 
 def merge_theta(arr):
