@@ -4,7 +4,7 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 
-def grid_intervals(image_limb, mask_limb, rho, nlenses=2, bins=100, max_cluster=5):
+def grid_intervals(image_limb, mask_limb, rho, nlenses=2, bins=100, max_cluster=5, optimize=False):
     image_limb = image_limb.ravel()
     mask_limb = mask_limb.ravel()
     # theta is defined within the (0, 2*jnp.pi) range
@@ -17,7 +17,7 @@ def grid_intervals(image_limb, mask_limb, rho, nlenses=2, bins=100, max_cluster=
     th_map = jnp.array([th_mins, th_maxs]).T
     th_map = merge_theta(th_map)[-max_cluster:]
     # select combinations that contain the image limb
-    r_scan, th_scan = select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=max_cluster)
+    r_scan, th_scan = select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=max_cluster, optimize=optimize)
     
     return r_scan, th_scan
 
