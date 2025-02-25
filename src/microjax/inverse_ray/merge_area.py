@@ -22,7 +22,7 @@ def grid_intervals(image_limb, mask_limb, rho, nlenses=2, bins=100, max_cluster=
     return r_scan, th_scan
 
 
-@partial(jit, static_argnames=["max_regions", "optimize", "offset_r", "offset_th"])
+@partial(jit, static_argnames=["max_regions", "optimize", "margin_r", "margin_th"])
 def select_intervals(image_limb, mask_limb, r_map, th_map, max_regions=5, optimize=False, margin_r=0.0, margin_th=0.0):
     r_limb = jnp.abs(image_limb.ravel() * mask_limb.ravel())
     M, K, N = r_map.shape[0], th_map.shape[0], r_limb.shape[0]
