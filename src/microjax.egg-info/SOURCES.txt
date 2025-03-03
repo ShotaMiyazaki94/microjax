@@ -3,8 +3,10 @@
 LICENSE
 README.md
 extended_source.pdf
-extended_source_.pdf
 setup.py
+test_geo.pdf
+test_r.pdf
+test_th.pdf
 .github/workflows/main.yml
 documents/Makefile
 documents/conf.py
@@ -84,6 +86,7 @@ src/microjax/inverse_ray/extended_source.py
 src/microjax/inverse_ray/lightcurve.py
 src/microjax/inverse_ray/limb_darkening.py
 src/microjax/inverse_ray/merge_area.py
+src/microjax/inverse_ray/merge_area_2.py
 tests/.DS_Store
 tests/integrate/.DS_Store
 tests/integrate/ESPL.tbl
@@ -107,10 +110,13 @@ tests/integrate/inverse_ray/find_bug_configuration.py
 tests/integrate/inverse_ray/grad_check_simple.py
 tests/integrate/inverse_ray/grads_lc_limb.py
 tests/integrate/inverse_ray/grads_lc_uniform.py
+tests/integrate/inverse_ray/merge_new.py
 tests/integrate/inverse_ray/performance.py
 tests/integrate/inverse_ray/profile_mag_lc.py
 tests/integrate/inverse_ray/profile_vmap_all.py
+tests/integrate/inverse_ray/speed_calc_source_limb.py
 tests/integrate/inverse_ray/speed_comp_vmap.py
+tests/integrate/inverse_ray/speed_determine_grid_regions.py
 tests/integrate/inverse_ray/speed_image_solve.py
 tests/integrate/inverse_ray/speed_lens_eq.py
 tests/integrate/inverse_ray/visualize.py
@@ -146,6 +152,8 @@ tests/integrate/inverse_ray/figs/grads_lc_limb_r500_500_cub.pdf
 tests/integrate/inverse_ray/figs/grads_lc_uniform_r1000_4000_cub.pdf
 tests/integrate/inverse_ray/figs/grads_lc_uniform_r500_500_cub.pdf
 tests/integrate/inverse_ray/figs/performance.pdf
+tests/integrate/inverse_ray/figs/speed_calc_source_limb.pdf
+tests/integrate/inverse_ray/figs/speed_determine_grid_regions.pdf
 tests/integrate/inverse_ray/figs/speed_image_solve.pdf
 tests/integrate/inverse_ray/figs/speed_lens_eq.pdf
 tests/integrate/magfft/test_grad.py

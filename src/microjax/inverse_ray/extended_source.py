@@ -4,6 +4,7 @@ from jax import jit, lax, vmap, custom_jvp
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 from microjax.inverse_ray.merge_area import calc_source_limb, determine_grid_regions
+from microjax.inverse_ray.merge_area_2 import grid_intervals
 from microjax.inverse_ray.limb_darkening import Is_limb_1st
 from microjax.inverse_ray.boundary import in_source, distance_from_source, calc_facB
 from microjax.inverse_ray.boundary import distance_from_source_adaptive
@@ -165,7 +166,7 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=500, t
     magnification = magnification_unnorm / rho**2 
     return magnification 
 
-#@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
+@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
 def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500, 
                 Nlimb=2000, offset_r=0.1, offset_th=0.1, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
@@ -177,6 +178,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
     r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
+    #r_scan, th_scan = grid_intervals(image_limb, mask_limb, rho, bins=50, max_cluster=5, optimize=True)
     
     #@partial(jit, static_argnames=("cubic")) 
     def _process_r(r0, th_values, cubic=True):
@@ -254,9 +256,9 @@ if __name__ == "__main__":
     tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 0.08
+    rho = 0.1
 
-    num_points = 8000
+    num_points = 5000
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -270,17 +272,13 @@ if __name__ == "__main__":
 
     from microjax.caustics.extended_source import mag_extended_source
     import MulensModel as mm
-    def mag_vbbl(w0, rho, u1=0., accuracy=1e-05):
+    def mag_vbbl(w0, rho, u1=0., accuracy=1e-03):
         a  = 0.5 * s
         e1 = 1.0 / (1.0 + q)
         e2 = 1.0 - e1  
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
-    #mag_mj  = lambda w: mag_uniform_adaptive(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
-    #                                Nlimb=300, offset_r=0.5, offset_th=10.0)
-    #mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
-    #                                Nlimb=5000, offset_r=0.1, offset_th=0.1)
     @jax.jit
     def mag_mj(w):
         return mag_uniform(w, rho, s=s, q=q, Nlimb=2000,
@@ -297,8 +295,17 @@ if __name__ == "__main__":
     #magn =  jit(vmap(magn, in_axes=(0,)))
 
     #_ = magn(w_points).block_until_ready()
-    chunk_size = 2000  # メモリ消費を調整するため適宜変更
+    chunk_size = 1000  # メモリ消費を調整するため適宜変更
     _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
+
+    @jax.jit
+    def scan_mag_mj(w_points):
+        def body_fun(carry, w):
+            result = mag_mj(w)
+            return carry, result
+
+        _, results = lax.scan(body_fun, None, w_points)
+        return results
 
     print("start computation")
     start = time.time()
@@ -306,20 +313,29 @@ if __name__ == "__main__":
     magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
     #magnifications = magn(w_points).block_until_ready() 
     end = time.time()
-    print("computation time: %.3f ms per points"%(1000*(end - start)/num_points))
+    print("computation time: %.3f sec (%.3f ms per points) for mag_uniform in microjax"%(end-start, 1000*(end - start)/num_points))
+    #print("start computation with lax.scan")
+    #print("computation time: %.3f ms per points for lax.scan in microjax" % (1000 * (end - start) / num_points))
     start = time.time()
-    magnifications2 = magn2(w_points) 
+    magnifications2 = magn2(w_points)
+    magnifications2.block_until_ready() 
     end = time.time()
-    print("computation time: %.3f ms per points"%(1000*(end - start)/num_points))
+    print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
+    from microjax.point_source import mag_point_source, critical_and_caustic_curves
+    mag_point_source(w_points, s=s, q=q)
+    start = time.time()
+    mags_poi = mag_point_source(w_points, s=s, q=q)
+    mags_poi.block_until_ready()
+    end = time.time()
+    print("computation time: %.3f sec (%.3f ms) per points for point-source in microjax"%(end-start, 1000*(end - start)/num_points)) 
+   
     # Print out the result
     import matplotlib.pyplot as plt
     import matplotlib as mpl
-    from microjax.point_source import critical_and_caustic_curves, mag_point_source
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     import seaborn as sns
     sns.set_theme(style="ticks")
 
-    mags_poi = mag_point_source(w_points, s=s, q=q)
     critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=100, s=s, q=q)
 
     fig, ax_ = plt.subplots(2,1,figsize=(8,6), sharex=True, gridspec_kw=dict(hspace=0.1, height_ratios=[4,1]))
@@ -351,6 +367,7 @@ if __name__ == "__main__":
     ax.set_ylabel("magnification")
     ax1.plot(t, jnp.abs(magnifications - magnifications2)/magnifications2, "-", ms=1)
     ax1.grid(ls=":")
+    ax1.set_yticks(10**jnp.arange(-4, -2, 1))
     ax1.set_ylabel("relative diff")
     ax1.set_yscale("log")
     ax1.set_ylim(1e-6, 1e-2)
@@ -358,3 +375,7 @@ if __name__ == "__main__":
     ax1.set_xlabel("time (days)")
     plt.savefig("extended_source.pdf", bbox_inches="tight")
     plt.close()
+
+    #diff = jnp.abs(magnifications - magnifications2)/magnifications2
+    #label = diff > 1e-3
+    #print(w_points[label], diff[label])
