@@ -258,7 +258,7 @@ if __name__ == "__main__":
     u0 = 0.1 # impact parameter
     rho = 0.1
 
-    num_points = 5000
+    num_points = 2000
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -295,7 +295,7 @@ if __name__ == "__main__":
     #magn =  jit(vmap(magn, in_axes=(0,)))
 
     #_ = magn(w_points).block_until_ready()
-    chunk_size = 1000  # メモリ消費を調整するため適宜変更
+    chunk_size = 2000  # メモリ消費を調整するため適宜変更
     _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
 
     @jax.jit
@@ -303,14 +303,14 @@ if __name__ == "__main__":
         def body_fun(carry, w):
             result = mag_mj(w)
             return carry, result
-
         _, results = lax.scan(body_fun, None, w_points)
         return results
 
     print("start computation")
     start = time.time()
     #magnifications = mag_uniform(w_points, rho, s=s, q=q, Nlimb=2000, r_resolution=r_resolution, th_resolution=th_resolution).block_until_ready()
-    magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
+    magnifications = scan_mag_mj(w_points).block_until_ready()
+    #magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
     #magnifications = magn(w_points).block_until_ready() 
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for mag_uniform in microjax"%(end-start, 1000*(end - start)/num_points))
@@ -373,6 +373,7 @@ if __name__ == "__main__":
     ax1.set_ylim(1e-6, 1e-2)
     ax.legend(loc="upper left")
     ax1.set_xlabel("time (days)")
+    plt.show()
     plt.savefig("extended_source.pdf", bbox_inches="tight")
     plt.close()
 

@@ -108,9 +108,9 @@ for i, _a in enumerate(ax):
 ax[-1].set_xlabel('$t$ [days]')
 ax_in.set_rasterization_zorder(0)
 if cubic:
-    fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_limb_r{r_resolution}_{th_resolution}_cub.pdf", bbox_inches="tight")
-    print(f"tests/integrate/inverse_ray/figs/grads_lc_limb_r{r_resolution}_{th_resolution}_cub.pdf")
+    fig.savefig(f"tests/integrate/inverse_ray/grads/grads_lc_limb_r{r_resolution}_{th_resolution}_cub.pdf", bbox_inches="tight")
+    print(f"tests/integrate/inverse_ray/grads/grads_lc_limb_r{r_resolution}_{th_resolution}_cub.pdf")
 else:
-    fig.savefig(f"tests/integrate/inverse_ray/figs/grads_lc_limb_r{r_resolution}_{th_resolution}_lin.pdf", bbox_inches="tight")
-    print(f"tests/integrate/inverse_ray/figs/grads_lc_limb_r{r_resolution}_{th_resolution}_lin.pdf")
+    fig.savefig(f"tests/integrate/inverse_ray/grads/grads_lc_limb_r{r_resolution}_{th_resolution}_lin.pdf", bbox_inches="tight")
+    print(f"tests/integrate/inverse_ray/grads/grads_lc_limb_r{r_resolution}_{th_resolution}_lin.pdf")
 plt.close()

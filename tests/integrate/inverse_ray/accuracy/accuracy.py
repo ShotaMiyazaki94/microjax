@@ -127,7 +127,7 @@ ax[-1].set_aspect('equal')
 ax[-1].legend()
 ax[0].set_ylabel("Relative error")
 if cubic:
-    fig.savefig("tests/integrate/inverse_ray/figs/accuracy_r%d_th%d_Nl%d_cub.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
+    fig.savefig("tests/integrate/inverse_ray/accuracy/accuracy_r%d_th%d_Nl%d_cub.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
 else:
-    fig.savefig("tests/integrate/inverse_ray/figs/accuracy_r%d_th%d_Nl%d_lin.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
+    fig.savefig("tests/integrate/inverse_ray/accuracy/accuracy_r%d_th%d_Nl%d_lin.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
 plt.show()

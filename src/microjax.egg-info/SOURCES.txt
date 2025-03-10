@@ -191,7 +191,6 @@ tests/integrate/point_source/animation_triple.mp4
 tests/integrate/point_source/make_animation_binary.py
 tests/integrate/point_source/make_animation_triple.py
 tests/integrate/point_source/test_image_speed.py
-tests/integrate/point_source/test_mag_point_source_binary.png
 tests/integrate/point_source/test_mag_point_source_binary.py
 tests/integrate/point_source/test_mag_point_source_triple.png
 tests/integrate/point_source/test_mag_point_source_triple.py
