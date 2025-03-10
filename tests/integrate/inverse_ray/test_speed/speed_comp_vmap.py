@@ -28,9 +28,6 @@ t = jnp.linspace(6300, 7000, N_points)
 _alpha_rad = jnp.deg2rad(_alpha)
 tau = (t - _t_0)/_t_E 
 um  = _u_0 
-#dtn, dum = dtn_dum_parallax(t, _pi_E_N, _pi_E_E, t_peri, qne0, vne0, xpos, ypos, north, east)
-#tau = (t - _t_0)/_t_E + dtn
-#um  = _u_0 + dum 
 y1 = -um*jnp.sin(_alpha_rad) + tau*jnp.cos(_alpha_rad)
 y2 = um*jnp.cos(_alpha_rad) + tau*jnp.sin(_alpha_rad)
 w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
