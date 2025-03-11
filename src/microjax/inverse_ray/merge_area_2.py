@@ -115,3 +115,22 @@ def cluster_1d(arr, bins=100, max_cluster=5, mode_r=True):
     start_edges = jnp.sort(bin_edges[1:-1] * start_mask.astype(float), descending=False)[-max_cluster:]
     end_edges   = jnp.sort(bin_edges[1:-1] * end_mask.astype(float), descending=False)[-max_cluster:] 
     return start_edges, end_edges
+
+def margin_add_merge(r_map, margin=0.0):
+    r_mins, r_maxs = r_map.T[0], r_map.T[1]
+    r_mins = jnp.maximum(0.0, r_mins - margin)
+    r_maxs = jnp.where(r_maxs!=0, r_maxs + margin, 0.0)
+    #r_map_new = jnp.column_stack((r_mins, r_maxs))
+
+    not_null = (r_mins[:-1]!=0)&(r_maxs[:-1]!=0) 
+    update   = (not_null)&(r_maxs[:-1] > r_mins[1:])      # for 0~N-2
+    r_mins_0 = jnp.where(update, r_mins[:-1], r_mins[1:]) # for 1~N-2
+    r_mins_1 = jnp.concatenate([jnp.array([r_mins[0]]), r_mins_0]) # 0~N-1 array
+    update2  = jnp.isclose(jnp.diff(r_mins_1), 0.0) # for 0~N-2
+    r_mins_2 = jnp.where(update2, 0.0, r_mins_1[:-1])
+    r_mins_new = jnp.concatenate([r_mins_2, jnp.array([r_mins_1[-1]])])
+
+    r_maxs_0 = jnp.where(update, 0.0, r_maxs[:-1])
+    r_maxs_new = jnp.concatenate([r_maxs_0, jnp.array([r_maxs[-1]])])
+    r_map_new = jnp.array([r_mins_new, r_maxs_new]).T
+    return r_map_new  
