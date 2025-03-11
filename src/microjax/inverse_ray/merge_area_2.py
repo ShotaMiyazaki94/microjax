@@ -92,7 +92,7 @@ def merge_theta(arr):
     merge = jnp.where(start_zero[:, None], jnp.array([start_pick, end_pick]), merge)
     return merge[merge[:, 1].argsort()]
 
-@partial(jit, static_argnames=["bins", "max_cluster", "mode_r"])
+#@partial(jit, static_argnames=["bins", "max_cluster", "mode_r"])
 def cluster_1d(arr, bins=100, max_cluster=5, mode_r=True):
     # This might cause the gradient error.
     if mode_r:

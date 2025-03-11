@@ -102,17 +102,43 @@ def mag_lc_vmap(w_points, rho, nlenses=2, batch_size=400,
     else:
         raise ValueError("nlenses must be <= 3")
     
+    # compute quadrupole approximation at every point and a test where it is sufficient 
+    z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
+    if nlenses==1:
+        test = w_points > 2*rho
+        mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params) #miyazaki
+    elif nlenses==2:
+        mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+        test1 = _caustics_proximity_test(
+            w_points - x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params #miyazaki
+        )
+        test2 = _planetary_caustic_test(w_points - x_cm, rho, **_params)
+
+        test = lax.cond(q < 0.01, lambda:test1 & test2, lambda:test1)
+    elif nlenses == 3:
+        test = jnp.zeros_like(w_points).astype(jnp.bool_)
+    
     mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
                                      r_resolution=r_resolution, th_resolution=th_resolution, **_params)
-    
-    def batched_vmap(w_points, batch_size=400):
-        results = []
-        for i in range(0, len(w_points), batch_size):
-            chunk = w_points[i:i + batch_size]
-            results.append(vmap(mag_full)(chunk))
-        return jnp.concatenate(results)
-    
-    return batched_vmap(w_points, batch_size=batch_size)
+    mag_full_vmap = vmap(mag_full, in_axes=(0,))
+
+    map_input = [test, mu_multi, w_points]
+    result = lax.map(lambda xs: 
+                     lax.cond(xs[0], 
+                              lambda _: xs[1], 
+                              lambda _: mag_full_vmap(xs[2]), 
+                              None), 
+                     map_input)
+    return result
+
+    #def batched_vmap(w_points, batch_size=400):
+    #    results = []
+    #    for i in range(0, len(w_points), batch_size):
+    #        chunk = w_points[i:i + batch_size]
+    #        results.append(vmap(mag_full)(chunk))
+    #    return jnp.concatenate(results)
+    #
+    #return batched_vmap(w_points, batch_size=batch_size)
 
 
 

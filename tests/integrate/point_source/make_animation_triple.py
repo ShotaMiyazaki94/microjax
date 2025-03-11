@@ -17,7 +17,7 @@ alpha = np.deg2rad(65) # angle between lens axis and source trajectory
 tE = 10 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
 u0 = 0.0 # impact parameter
-rho = 0.07
+rho = 0.2
 
 a  = 0.5 * s
 e1 = q/(1 + q + q3)

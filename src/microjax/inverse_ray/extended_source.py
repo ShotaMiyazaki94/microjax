@@ -166,7 +166,7 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=500, t
     magnification = magnification_unnorm / rho**2 
     return magnification 
 
-@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
+#@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
 def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500, 
                 Nlimb=2000, offset_r=0.1, offset_th=0.1, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
@@ -225,6 +225,11 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
 
     inputs = (r_scan, th_scan)
     magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
+    
+    # vmap case
+    #total_areas = vmap(_compute_for_range, in_axes=(0, 0, None))(r_scan, th_scan, cubic)
+    #magnification_unnorm = jnp.sum(total_areas)
+    
     magnification = magnification_unnorm / rho**2 / jnp.pi
     return magnification 
 
@@ -256,7 +261,7 @@ if __name__ == "__main__":
     tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 0.1
+    rho = 0.02
 
     num_points = 2000
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
@@ -266,6 +271,7 @@ if __name__ == "__main__":
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
     test_params = {"q": q, "s": s}  # Lens parameters
 
+    Nlimb = 2000
     r_resolution  = 500
     th_resolution = 500
     cubic = True
@@ -281,7 +287,7 @@ if __name__ == "__main__":
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
     @jax.jit
     def mag_mj(w):
-        return mag_uniform(w, rho, s=s, q=q, Nlimb=2000,
+        return mag_uniform(w, rho, s=s, q=q, Nlimb=Nlimb,
                            r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
     def chunked_vmap(func, data, chunk_size):
         results = []
@@ -295,9 +301,6 @@ if __name__ == "__main__":
     #magn =  jit(vmap(magn, in_axes=(0,)))
 
     #_ = magn(w_points).block_until_ready()
-    chunk_size = 2000  # メモリ消費を調整するため適宜変更
-    _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
-
     @jax.jit
     def scan_mag_mj(w_points):
         def body_fun(carry, w):
@@ -306,21 +309,6 @@ if __name__ == "__main__":
         _, results = lax.scan(body_fun, None, w_points)
         return results
 
-    print("start computation")
-    start = time.time()
-    #magnifications = mag_uniform(w_points, rho, s=s, q=q, Nlimb=2000, r_resolution=r_resolution, th_resolution=th_resolution).block_until_ready()
-    magnifications = scan_mag_mj(w_points).block_until_ready()
-    #magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
-    #magnifications = magn(w_points).block_until_ready() 
-    end = time.time()
-    print("computation time: %.3f sec (%.3f ms per points) for mag_uniform in microjax"%(end-start, 1000*(end - start)/num_points))
-    #print("start computation with lax.scan")
-    #print("computation time: %.3f ms per points for lax.scan in microjax" % (1000 * (end - start) / num_points))
-    start = time.time()
-    magnifications2 = magn2(w_points)
-    magnifications2.block_until_ready() 
-    end = time.time()
-    print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
     from microjax.point_source import mag_point_source, critical_and_caustic_curves
     mag_point_source(w_points, s=s, q=q)
     start = time.time()
@@ -328,6 +316,26 @@ if __name__ == "__main__":
     mags_poi.block_until_ready()
     end = time.time()
     print("computation time: %.3f sec (%.3f ms) per points for point-source in microjax"%(end-start, 1000*(end - start)/num_points)) 
+
+    start = time.time()
+    magnifications2 = magn2(w_points)
+    magnifications2.block_until_ready() 
+    end = time.time()
+    print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
+
+
+    chunk_size = 2000  # メモリ消費を調整するため適宜変更
+    _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
+    print("start computation")
+    start = time.time()
+    #magnifications = mag_uniform(w_points, rho, s=s, q=q, Nlimb=2000, r_resolution=r_resolution, th_resolution=th_resolution).block_until_ready()
+    magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
+    end = time.time()
+    print("computation time: %.3f sec (%.3f ms per points) for mag_uniform in microjax"%(end-start, 1000*(end - start)/num_points))
+    #print("start computation with lax.scan")
+    #magnifications = scan_mag_mj(w_points).block_until_ready()
+    #print("computation time: %.3f ms per points for lax.scan in microjax" % (1000 * (end - start) / num_points))
+    
    
     # Print out the result
     import matplotlib.pyplot as plt
@@ -362,9 +370,12 @@ if __name__ == "__main__":
 
     ax.plot(t, magnifications, ".", label="microjax", zorder=1)
     ax.plot(t, magnifications2, "-", label="VBBinaryLensing", zorder=2)
+    ylim = ax.get_ylim()
+    ax.plot(t, mags_poi, "--", label="point-source", zorder=-1, color="gray")
     ax.set_title("extended uniform source evaluation")
     ax.grid(ls=":")
     ax.set_ylabel("magnification")
+    ax.set_ylim(ylim[0], ylim[1])
     ax1.plot(t, jnp.abs(magnifications - magnifications2)/magnifications2, "-", ms=1)
     ax1.grid(ls=":")
     ax1.set_yticks(10**jnp.arange(-4, -2, 1))

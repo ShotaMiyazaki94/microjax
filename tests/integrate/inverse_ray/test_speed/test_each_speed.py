@@ -110,7 +110,7 @@ if __name__ == "__main__":
         return mag_uniform(w, rho, s=s, q=q, Nlimb=2000, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
 
     r_resolution  = 500
-    th_resolution = 1000
+    th_resolution = 500
     cubic = True
 
     from microjax.point_source import mag_point_source, critical_and_caustic_curves
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for hexadecapole in microjax"%(end-start, 1000*(end - start)/num_points)) 
 
-    Nlimb = 2000
+    Nlimb = 200
 
     test1_ = lambda w: test1(w, rho, s=s, q=q, Nlimb=Nlimb) 
     @jax.jit
@@ -149,12 +149,12 @@ if __name__ == "__main__":
         _, results = lax.scan(body_fun, None, w_points)
         return results
 
-    #test1_vmap = jit(vmap(test1_))
-    #_ = test1_vmap(w_points)
+    test1_vmap = jit(vmap(test1_))
+    _ = test1_vmap(w_points)
     print("start computation")
     start = time.time()
-    _= test1_scan(w_points).block_until_ready()
-    #_= test1_vmap(w_points).block_until_ready()
+    #_= test1_scan(w_points).block_until_ready()
+    _= test1_vmap(w_points).block_until_ready()
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for calc_source_limb in microjax"%(end-start, 1000*(end - start)/num_points)) 
 

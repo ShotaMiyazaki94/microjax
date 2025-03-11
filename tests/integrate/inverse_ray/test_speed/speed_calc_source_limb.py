@@ -15,7 +15,7 @@ e1 = q / (1.0 + q)
 _params = {"a": a, "e1": e1, "q": q, "s": s}
 rho = 1e-3
 
-Nlimbs = jnp.int_(10**jnp.arange(1.5,4.5,0.125))
+Nlimbs = jnp.int_(10**jnp.arange(2.0,5.55,0.05))
 num_measurements = 10
 mean_times = []
 std_times = []
@@ -50,7 +50,7 @@ plt.grid(ls="--")
 plt.xlabel("Number of Source Limb Points")
 plt.ylabel("Computation Time (seconds)")
 plt.title("Speed of calc_source_limb")
-plt.savefig('tests/integrate/inverse_ray/figs/speed_calc_source_limb.pdf', bbox_inches="tight")
+plt.savefig('tests/integrate/inverse_ray/test_speed/speed_calc_source_limb.pdf', bbox_inches="tight")
 #plt.title("Speed of determine_grid_regions")
 #plt.savefig('tests/integrate/inverse_ray/figs/speed_determine_grid_regions.pdf', bbox_inches="tight")
 plt.show()
