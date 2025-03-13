@@ -87,6 +87,7 @@ src/microjax/inverse_ray/lightcurve.py
 src/microjax/inverse_ray/limb_darkening.py
 src/microjax/inverse_ray/merge_area.py
 src/microjax/inverse_ray/merge_area_2.py
+src/microjax/inverse_ray/merge_area_3.py
 tests/.DS_Store
 tests/integrate/.DS_Store
 tests/integrate/ESPL.tbl

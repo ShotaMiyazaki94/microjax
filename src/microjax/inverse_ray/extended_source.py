@@ -4,6 +4,7 @@ from jax import jit, lax, vmap, custom_jvp
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 from microjax.inverse_ray.merge_area import calc_source_limb, determine_grid_regions
+from microjax.inverse_ray.merge_area_3 import define_regions
 from microjax.inverse_ray.merge_area_2 import grid_intervals
 from microjax.inverse_ray.limb_darkening import Is_limb_1st
 from microjax.inverse_ray.boundary import in_source, distance_from_source, calc_facB
@@ -178,6 +179,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
     r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
+    #r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=500, bins_th=120, margin_r=0.2, nlenses=nlenses)
     #r_scan, th_scan = grid_intervals(image_limb, mask_limb, rho, bins=50, max_cluster=5, optimize=True)
     
     #@partial(jit, static_argnames=("cubic")) 
@@ -263,7 +265,7 @@ if __name__ == "__main__":
     u0 = 0.1 # impact parameter
     rho = 0.02
 
-    num_points = 2000
+    num_points = 1000
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -326,14 +328,19 @@ if __name__ == "__main__":
 
     chunk_size = 2000  # メモリ消費を調整するため適宜変更
     _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
-    print("start computation")
+    print("start computation with vmap")
     start = time.time()
     #magnifications = mag_uniform(w_points, rho, s=s, q=q, Nlimb=2000, r_resolution=r_resolution, th_resolution=th_resolution).block_until_ready()
     magnifications = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
     end = time.time()
-    print("computation time: %.3f sec (%.3f ms per points) for mag_uniform in microjax"%(end-start, 1000*(end - start)/num_points))
-    #print("start computation with lax.scan")
-    #magnifications = scan_mag_mj(w_points).block_until_ready()
+    print("computation time: %.3f sec (%.3f ms per points) for vmap in microjax"%(end-start, 1000*(end - start)/num_points))
+    
+    if(0):
+        print("start computation with lax.scan")
+        start = time.time()
+        magnifications = scan_mag_mj(w_points).block_until_ready()
+        end = time.time()
+        print("computation time: %.3f sec (%.3f ms per points) for lax.scan in microjax"%(end-start, 1000*(end - start)/num_points))
     #print("computation time: %.3f ms per points for lax.scan in microjax" % (1000 * (end - start) / num_points))
     
    
@@ -341,6 +348,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import matplotlib as mpl
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    import matplotlib.ticker as ticker
     import seaborn as sns
     sns.set_theme(style="ticks")
 
@@ -371,7 +379,7 @@ if __name__ == "__main__":
     ax.plot(t, magnifications, ".", label="microjax", zorder=1)
     ax.plot(t, magnifications2, "-", label="VBBinaryLensing", zorder=2)
     ylim = ax.get_ylim()
-    ax.plot(t, mags_poi, "--", label="point-source", zorder=-1, color="gray")
+    #ax.plot(t, mags_poi, "--", label="point-source", zorder=-1, color="gray")
     ax.set_title("extended uniform source evaluation")
     ax.grid(ls=":")
     ax.set_ylabel("magnification")
@@ -381,13 +389,17 @@ if __name__ == "__main__":
     ax1.set_yticks(10**jnp.arange(-4, -2, 1))
     ax1.set_ylabel("relative diff")
     ax1.set_yscale("log")
-    ax1.set_ylim(1e-6, 1e-2)
+    ax1.set_ylim(1e-6, 1.0)
+    ax1.yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=[1.0, 10**-2, 10**-4, 10**-6], numticks=10))
     ax.legend(loc="upper left")
     ax1.set_xlabel("time (days)")
     plt.show()
     plt.savefig("extended_source.pdf", bbox_inches="tight")
     plt.close()
 
-    #diff = jnp.abs(magnifications - magnifications2)/magnifications2
-    #label = diff > 1e-3
-    #print(w_points[label], diff[label])
+    if(1):
+        diff = jnp.abs(magnifications - magnifications2)/magnifications2
+        label = diff > 1e-3
+        for i, (r, th) in enumerate(zip(w_points[label], diff[label])):
+            print(i, r, th)
+        #print("errnous \n", w_points[label], diff[label])
