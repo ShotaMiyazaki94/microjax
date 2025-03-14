@@ -178,8 +178,8 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     shifted = 0.5 * s * (1 - q) / (1 + q)  
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
-    r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
-    #r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=500, bins_th=120, margin_r=0.2, nlenses=nlenses)
+    #r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
+    r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=50, bins_th=100, margin_r=0.5, nlenses=nlenses)
     #r_scan, th_scan = grid_intervals(image_limb, mask_limb, rho, bins=50, max_cluster=5, optimize=True)
     
     #@partial(jit, static_argnames=("cubic")) 
@@ -263,7 +263,7 @@ if __name__ == "__main__":
     tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 0.02
+    rho = 0.3
 
     num_points = 1000
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
     test_params = {"q": q, "s": s}  # Lens parameters
 
-    Nlimb = 2000
+    Nlimb = 500
     r_resolution  = 500
     th_resolution = 500
     cubic = True

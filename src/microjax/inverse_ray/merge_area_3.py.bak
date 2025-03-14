@@ -4,6 +4,7 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 
+
 def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, nlenses=2):
     """
     determine the regions to be grid-spaced for the inverse-ray integration.
@@ -41,7 +42,6 @@ def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, nl
     r_scan, th_scan = _merge_final(r_excess, th_excess)
     return r_scan[:nimage_real], th_scan[:nimage_real]
 
-
 def cluster_1d(arr, bins=100, max_cluster=5, mode_r=True):
     # This might cause the gradient error.
     if mode_r:
@@ -64,6 +64,51 @@ def cluster_1d(arr, bins=100, max_cluster=5, mode_r=True):
     start_edges = jnp.sort(bin_edges[1:-1] * start_mask.astype(float), descending=False)[-max_cluster:]
     end_edges   = jnp.sort(bin_edges[1:-1] * end_mask.astype(float), descending=False)[-max_cluster:] 
     return start_edges, end_edges
+
+def _refine_addmargin_merge_r(r_limb, r_ranges, margin=0.0):
+    # refine range
+    M = r_ranges.shape[0]  
+    N = r_limb.shape[0]
+    r_limb_expanded = r_limb.reshape(1, N)
+    r_mins  = r_ranges[:, 0].reshape(M, 1)
+    r_maxs  = r_ranges[:, 1].reshape(M, 1)
+    cond_in = (r_limb_expanded > r_mins) & (r_limb_expanded < r_maxs)  # shape: (M, N)
+    valid_mins = jnp.where(cond_in, r_limb_expanded, jnp.inf)
+    valid_maxs = jnp.where(cond_in, r_limb_expanded, -jnp.inf)
+    r_mins = jnp.where(jnp.any(cond_in, axis=1), jnp.min(valid_mins, axis=1), 0.0)
+    r_maxs = jnp.where(jnp.any(cond_in, axis=1), jnp.max(valid_maxs, axis=1), 0.0)
+    # add margin
+    r_mins = jnp.maximum(0.0, r_mins - margin)
+    r_maxs = jnp.where(r_maxs!=0, r_maxs + margin, 0.0)
+    # merge
+    rows = jnp.array([r_mins, r_maxs]).T # (N, 2) shape
+    N = rows.shape[0]
+    rows_new = rows.copy()
+    for i in range(N-1):
+        row_0 = rows_new[i]
+        row_1 = rows_new[i+1]
+        update = row_0[1] > row_1[0]
+        def true_fn(rows):
+            rows = rows.at[i].set(jnp.array([0.0, 0.0]))
+            rows = rows.at[i + 1].set(jnp.array([row_0[0], row_1[1]]))
+            return rows
+        
+        def false_fn(rows):
+            return rows
+        
+        rows_new = lax.cond(update, true_fn, false_fn, rows_new)
+
+    #not_null = (r_mins[:-1]!=0)&(r_maxs[:-1]!=0) 
+    #update   = (not_null)&(r_maxs[:-1] > r_mins[1:])      # for 0~N-2
+    #r_mins_0 = jnp.where(update, r_mins[:-1], r_mins[1:]) # for 1~N-2
+    #r_mins_1 = jnp.concatenate([jnp.array([r_mins[0]]), r_mins_0]) # 0~N-1 array
+    #update2  = jnp.isclose(jnp.diff(r_mins_1), 0.0) # for 0~N-2
+    #r_mins_2 = jnp.where(update2, 0.0, r_mins_1[:-1])
+    #r_mins_new = jnp.concatenate([r_mins_2, jnp.array([r_mins_1[-1]])])
+    #_maxs_0 = jnp.where(update, 0.0, r_maxs[:-1])
+    #r_maxs_new  = jnp.concatenate([r_maxs_0, jnp.array([r_maxs[-1]])])
+    #r_ranges_new = jnp.array([r_mins_new, r_maxs_new]).T
+    return rows_new
 
 def _compute_in_mask(r_limb, th_limb, r_use, th_use):
     M = r_use.shape[0]  
@@ -100,44 +145,15 @@ def _merge_final(r_map, th_map):
     th_min_new = jnp.sum(th_min_adjusted, axis=1)  # (N,)
     th_min_new = jnp.where(th_min_new == 0, th_mins, th_min_new) # (N,)
 
-    new_matrix = jnp.stack([r_mins, r_maxs, th_min_new, th_maxs], axis=1)  # (N, 4)
     cond_vanish = jnp.any(jnp.any(same_r, axis=1)&(th_mins == 0)) & (th_maxs == 2*jnp.pi)  # (N, ) shape
-    new_matrix = jnp.where(cond_vanish[:, None], 0.0, new_matrix)  # (N, 4) shape
+    #th_min_new = jnp.where((th_maxs == 2 * jnp.pi) & (th_min_new != 0), 0.0, th_min_new)
+    
+    #mask_zero_fill = (th_maxs == 2 * jnp.pi) & (th_min_new != 0) & jnp.any((same_r)&(th_min_col == 0), axis=1) 
+    new_matrix = jnp.stack([r_mins, r_maxs, th_min_new, th_maxs], axis=1)  # (N, 4)
+    new_matrix = jnp.where(cond_vanish[:, None], 0.0, new_matrix)  # (N, 4) problematic!!!
     
     sort_order = jnp.argsort(new_matrix[:, 1] == 0)
     new_matrix = new_matrix[sort_order]
     new_r_map = new_matrix[:, :2]
     new_th_map = new_matrix[:, 2:]
     return new_r_map, new_th_map
-
-def _refine_addmargin_merge_r(r_limb, r_ranges, margin=0.0):
-    # refine range
-    M = r_ranges.shape[0]  
-    N = r_limb.shape[0]
-    r_limb_expanded = r_limb.reshape(1, N)
-    r_mins  = r_ranges[:, 0].reshape(M, 1)
-    r_maxs  = r_ranges[:, 1].reshape(M, 1)
-    cond_in = (r_limb_expanded > r_mins) & (r_limb_expanded < r_maxs)  # shape: (M, N)
-    valid_mins = jnp.where(cond_in, r_limb_expanded, jnp.inf)
-    valid_maxs = jnp.where(cond_in, r_limb_expanded, -jnp.inf)
-    r_mins = jnp.where(jnp.any(cond_in, axis=1), jnp.min(valid_mins, axis=1), 0.0)
-    r_maxs = jnp.where(jnp.any(cond_in, axis=1), jnp.max(valid_maxs, axis=1), 0.0)
-    # add margin
-    r_mins = jnp.maximum(0.0, r_mins - margin)
-    r_maxs = jnp.where(r_maxs!=0, r_maxs + margin, 0.0)
-    # merge
-    rows = jnp.array([r_mins, r_maxs]).T # (N, 2) shape
-    N = rows.shape[0]
-    rows_new = rows.copy()
-    for i in range(N-1):
-        row_0 = rows_new[i]
-        row_1 = rows_new[i+1]
-        update = row_0[1] > row_1[0]
-        def true_fn(rows):
-            rows = rows.at[i].set(jnp.array([0.0, 0.0]))
-            rows = rows.at[i + 1].set(jnp.array([row_0[0], row_1[1]]))
-            return rows
-        def false_fn(rows):
-            return rows
-        rows_new = lax.cond(update, true_fn, false_fn, rows_new)
-    return rows_new
