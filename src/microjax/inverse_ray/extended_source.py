@@ -169,7 +169,8 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=500, t
 
 #@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
 def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500, 
-                Nlimb=2000, offset_r=0.1, offset_th=0.1, cubic=True, **_params):
+                Nlimb=1000, bins_r=50, bins_th=100, margin_r=0.5, cubic=True, **_params):
+                #Nlimb=1000, offset_r=0.1, offset_th=0.1, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -179,7 +180,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
     #r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
-    r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=50, bins_th=100, margin_r=0.5, nlenses=nlenses)
+    r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, nlenses=nlenses)
     #r_scan, th_scan = grid_intervals(image_limb, mask_limb, rho, bins=50, max_cluster=5, optimize=True)
     
     #@partial(jit, static_argnames=("cubic")) 
@@ -213,6 +214,8 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     
     #@partial(jit, static_argnames=("cubic"))  
     def _compute_for_range(r_range, th_range, cubic=True):
+        #r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=False)
+        #h_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=False)
         r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
         th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
         area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
@@ -263,9 +266,9 @@ if __name__ == "__main__":
     tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 0.3
+    rho = 1e-4
 
-    num_points = 1000
+    num_points = 500
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -274,9 +277,13 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     Nlimb = 500
-    r_resolution  = 500
-    th_resolution = 500
+    r_resolution  = 1000
+    th_resolution = 2000
     cubic = True
+
+    bins_r = 50
+    bins_th = 120
+    margin_r = 0.5
 
     from microjax.caustics.extended_source import mag_extended_source
     import MulensModel as mm
@@ -289,7 +296,7 @@ if __name__ == "__main__":
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
     @jax.jit
     def mag_mj(w):
-        return mag_uniform(w, rho, s=s, q=q, Nlimb=Nlimb,
+        return mag_uniform(w, rho, s=s, q=q, Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th,
                            r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
     def chunked_vmap(func, data, chunk_size):
         results = []
@@ -389,8 +396,8 @@ if __name__ == "__main__":
     ax1.set_yticks(10**jnp.arange(-4, -2, 1))
     ax1.set_ylabel("relative diff")
     ax1.set_yscale("log")
-    ax1.set_ylim(1e-6, 1.0)
     ax1.yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=[1.0, 10**-2, 10**-4, 10**-6], numticks=10))
+    ax1.set_ylim(1e-6, 1e-2)
     ax.legend(loc="upper left")
     ax1.set_xlabel("time (days)")
     plt.show()
@@ -400,6 +407,7 @@ if __name__ == "__main__":
     if(1):
         diff = jnp.abs(magnifications - magnifications2)/magnifications2
         label = diff > 1e-3
-        for i, (r, th) in enumerate(zip(w_points[label], diff[label])):
-            print(i, r, th)
+        for i, (r, th) in enumerate(zip(w_points, diff)):
+        #for i, (r, th) in enumerate(zip(w_points[label], diff[label])):
+            print(i, r, "%.2e"%(th))
         #print("errnous \n", w_points[label], diff[label])
