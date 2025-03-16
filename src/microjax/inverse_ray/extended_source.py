@@ -266,7 +266,7 @@ if __name__ == "__main__":
     tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 1e-4
+    rho = 0.001
 
     num_points = 500
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
@@ -277,12 +277,12 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     Nlimb = 500
-    r_resolution  = 1000
-    th_resolution = 2000
+    r_resolution  = 500
+    th_resolution = 500
     cubic = True
 
     bins_r = 50
-    bins_th = 120
+    bins_th = 360
     margin_r = 0.5
 
     from microjax.caustics.extended_source import mag_extended_source
@@ -342,7 +342,7 @@ if __name__ == "__main__":
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for vmap in microjax"%(end-start, 1000*(end - start)/num_points))
     
-    if(0):
+    if(1):
         print("start computation with lax.scan")
         start = time.time()
         magnifications = scan_mag_mj(w_points).block_until_ready()
@@ -409,5 +409,5 @@ if __name__ == "__main__":
         label = diff > 1e-3
         for i, (r, th) in enumerate(zip(w_points, diff)):
         #for i, (r, th) in enumerate(zip(w_points[label], diff[label])):
-            print(i, r, "%.2e"%(th))
+            print(i, "%.5f"%(th), r)
         #print("errnous \n", w_points[label], diff[label])

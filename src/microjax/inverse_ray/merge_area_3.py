@@ -39,11 +39,19 @@ def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, nl
     r_excess   = r_masked[jnp.argsort(jnp.isclose(r_masked[:, 1], 0.0))][:nimages_init]
     th_excess  = th_masked[jnp.argsort(jnp.isclose(th_masked[:, 1], 0.0))][:nimages_init]
     r_scan, th_scan = _merge_final(r_excess, th_excess)
-    return r_scan[:nimage_real], th_scan[:nimage_real]
+    r_scan, th_scan = r_scan[:nimage_real], th_scan[:nimage_real]
+    # refine intervals  
 
+    return r_scan, th_scan
+
+def _refine_final(r_limb, th_limb, r_scan, th_scan):
+    for r_inteval, th_interval in zip(r_scan, th_scan):
+        r_min, r_max = r_inteval
+        th_min, th_max = th_interval
+    return 0.0
+    #return r_scan_refine, th_scan_refine
 
 def cluster_1d(arr, bins=100, max_cluster=5, mode_r=True):
-    # This might cause the gradient error.
     if mode_r:
         bin_min = jnp.min(jnp.where(arr == 0, jnp.inf, arr))
         bin_max = jnp.max(jnp.where(arr == 0, -jnp.inf, arr))
