@@ -4,7 +4,7 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 
-def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, nlenses=2):
+def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, margin_th=0.5, nlenses=2):
     """
     determine the regions to be grid-spaced for the inverse-ray integration.
     """
@@ -40,16 +40,81 @@ def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, nl
     th_excess  = th_masked[jnp.argsort(jnp.isclose(th_masked[:, 1], 0.0))][:nimages_init]
     r_scan, th_scan = _merge_final(r_excess, th_excess)
     r_scan, th_scan = r_scan[:nimage_real], th_scan[:nimage_real]
-    # refine intervals  
+    # refine intervals
+    r_scan_refine, th_scan_refine = _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=margin_r*rho, margin_th=jnp.deg2rad(0.1))  
 
-    return r_scan, th_scan
+    #return r_scan, th_scan
+    return r_scan_refine, th_scan_refine
 
-def _refine_final(r_limb, th_limb, r_scan, th_scan):
+def _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=0.0, margin_th=0.0):
+    M = r_scan.shape[0] # number of regions
+    N = r_limb.shape[0] # number of image limb points
+
+    arr=[]
+    for r_inteval, th_interval in zip(r_scan, th_scan):
+        r_min, r_max = r_inteval
+        th_min, th_max = th_interval 
+        case_0 = th_min > 0.0 # (N,) shape
+        cond_r = (r_min < r_limb)&(r_limb < r_max) # (N,) shape
+        cond_th = (th_min < th_limb)&(th_limb < th_max)&(th_limb!=0)
+        in_mask = (cond_r)&(cond_th)
+        th_min_   = jnp.min(jnp.where(in_mask, th_limb, 1e+10))  
+        th_max_   = jnp.max(jnp.where(in_mask, th_limb, -1e+10))
+        r_min_new = jnp.min(jnp.where(in_mask, r_limb, 1e+10))
+        r_max_new = jnp.max(jnp.where(in_mask, r_limb, -1e+10))
+        r_min_new  = jnp.maximum(0.0, r_min_new - margin_r)
+        r_max_new  = r_max_new + margin_r 
+        th_min_new = jnp.where(case_0, th_min_, th_min)
+        th_max_new = jnp.where(case_0, th_max_, th_max)
+        th_min_new = th_min_new - margin_th
+        th_max_new = th_max_new + margin_th
+        #arr.append([r_min, r_max, th_min_new, th_max_new])
+        arr.append([r_min_new, r_max_new, th_min_new, th_max_new])
+    arr = jnp.vstack(arr)
+    r_scan_refine = arr[:, :2]
+    th_scan_refine = arr[:, 2:]
+    return r_scan_refine, th_scan_refine
+    """
     for r_inteval, th_interval in zip(r_scan, th_scan):
         r_min, r_max = r_inteval
         th_min, th_max = th_interval
-    return 0.0
-    #return r_scan_refine, th_scan_refine
+        case_0 = th_min > 0.0 # (N,) shape
+        cond_r = (r_min < r_limb)&(r_limb < r_max) # (N,) shape
+        th_max_1 = (0 < th_max)&(th_max < 0.5*jnp.pi)
+        th_max_2 = (0.5*jnp.pi < th_max)&(th_max < jnp.pi)
+        th_max_3 = (jnp.pi < th_max)&(th_max < 1.5*jnp.pi)
+        th_max_4 = (1.5*jnp.pi < th_max)&(th_max < 2*jnp.pi)
+        th_min_1 = (-2*jnp.pi < th_min)&(th_min < -1.5*jnp.pi)
+        th_min_2 = (-1.5*jnp.pi < th_min)&(th_min < -jnp.pi)
+        th_min_3 = (-jnp.pi < th_min)&(th_min < -0.5*jnp.pi)
+        th_min_4 = (-0.5*jnp.pi < th_min)&(th_min < 0.0)
+
+        case_1 = ((th_max_1)&(th_min_4))|((th_max_1)&(th_min_3))|((th_max_2)&(th_min_4))|((th_max_2)&(th_min_3))
+        case_1 = (~case_0)&(case_1)
+        case_2 = (th_max_1)&(th_min_2)
+        case_2 = (~case_0)&(case_2)
+        case_3 = (th_max_3)&(th_min_4)
+        case_3 = (~case_0)&(case_3)
+        th_limb_cor = jnp.where((case_1)&(th_limb > jnp.pi), th_limb - 2*jnp.pi, th_limb)
+        th_limb_cor = jnp.where((case_2)&(th_limb > 0.5*jnp.pi), th_limb_cor - 2*jnp.pi, th_limb_cor)
+        th_limb_cor = jnp.where((case_3)&(1.5*jnp.pi < th_limb)&(th_limb < 2*jnp.pi), th_limb_cor - 2*jnp.pi, th_limb_cor)
+
+        in_mask = (cond_r)&(th_min < th_limb_cor)&(th_limb_cor < th_max)&(th_limb_cor!=0)
+        r_min_new = jnp.min(jnp.where(in_mask, r_limb, jnp.inf))
+        r_max_new = jnp.max(jnp.where(in_mask, r_limb, -jnp.inf))
+        th_min_new = jnp.min(jnp.where(in_mask, th_limb_cor, jnp.inf))
+        th_max_new = jnp.max(jnp.where(in_mask, th_limb_cor, -jnp.inf)) 
+        # add margin
+        r_min_new  = jnp.maximum(0.0, r_min_new - margin_r)
+        r_max_new  = r_max_new + margin_r 
+        th_min_new = th_min_new - margin_th
+        th_max_new = th_max_new + margin_th
+        arr.append([r_min_new, r_max_new, th_min_new, th_max_new])"
+    """
+    arr = jnp.array(arr)
+    r_scan_refine = arr[:, :2]
+    th_scan_refine = arr[:, 2:]
+    return r_scan_refine, th_scan_refine
 
 def cluster_1d(arr, bins=100, max_cluster=5, mode_r=True):
     if mode_r:

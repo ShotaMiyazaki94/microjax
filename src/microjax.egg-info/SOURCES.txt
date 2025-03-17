@@ -2,7 +2,6 @@
 .gitignore
 LICENSE
 README.md
-extended_source.pdf
 setup.py
 test_geo.pdf
 test_r.pdf

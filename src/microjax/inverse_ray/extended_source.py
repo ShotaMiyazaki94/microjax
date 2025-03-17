@@ -266,7 +266,7 @@ if __name__ == "__main__":
     tE = 10 # einstein radius crossing time
     t0 = 0.0 # time of peak magnification
     u0 = 0.1 # impact parameter
-    rho = 0.001
+    rho = 1e-4
 
     num_points = 500
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
@@ -278,7 +278,7 @@ if __name__ == "__main__":
 
     Nlimb = 500
     r_resolution  = 500
-    th_resolution = 500
+    th_resolution = 2000
     cubic = True
 
     bins_r = 50
