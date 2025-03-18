@@ -45,9 +45,10 @@ caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
 r_resolution  = 500
-th_resolution = 500
+th_resolution = 1000
 Nlimb = 500
 cubic = False
+
 mags_vbb_list = []
 mags_list = []
 w_test_list = []
@@ -69,9 +70,14 @@ for i, rho in enumerate(rho_list):
                           for w in w_test
                           ])
     #margin_th = [0.1, 1.0, 10.0, 100.0]
-    mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
-                                    th_resolution=th_resolution, cubic=cubic, 
-                                    Nlimb=Nlimb, offset_r=0.1, offset_th=0.1)
+    mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, 
+                                    r_resolution=r_resolution, 
+                                    th_resolution=th_resolution, 
+                                    Nlimb=Nlimb, bins_r=50, bins_th=120, 
+                                    margin_r=0.5, margin_th=0.5, cubic=cubic)
+    #mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
+    #                                th_resolution=th_resolution, cubic=cubic, 
+    #                                Nlimb=Nlimb, offset_r=0.1, offset_th=0.1)
     #magn    = jax.jit(jax.vmap(mag_mj, in_axes=(0,)))
     def chunked_vmap(func, data, chunk_size):
         results = []

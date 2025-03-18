@@ -4,7 +4,7 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 
-def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, margin_th=0.5, nlenses=2):
+def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, margin_th=0.1, nlenses=2):
     """
     determine the regions to be grid-spaced for the inverse-ray integration.
     """
@@ -41,7 +41,7 @@ def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, ma
     r_scan, th_scan = _merge_final(r_excess, th_excess)
     r_scan, th_scan = r_scan[:nimage_real], th_scan[:nimage_real]
     # refine intervals
-    r_scan_refine, th_scan_refine = _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=margin_r*rho, margin_th=jnp.deg2rad(0.1))  
+    r_scan_refine, th_scan_refine = _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=margin_r*rho, margin_th=jnp.deg2rad(margin_th))  
     #return r_scan, th_scan
     return r_scan_refine, th_scan_refine
 
@@ -52,13 +52,13 @@ def _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=0.0, margin_th=0.0)
     th_min, th_max = th_scan[:, 0], th_scan[:, 1]
     
     cond_r = (r_min[:, None] < r_limb) & (r_limb < r_max[:, None])  # (M, N)
-    cond_th = (th_min[:, None] < th_limb) & (th_limb < th_max[:, None]) & (th_limb != 0)  # (M, N)
+    cond_th = (th_min[:, None] < th_limb) & (th_limb < th_max[:, None]) & (th_limb != 0) & (r_limb != 0)  # (M, N)
     in_mask = cond_r & cond_th  # (M, N)
     # r refine
     r_min_ref  = jnp.min(jnp.where(in_mask, r_limb[None, :], 1e+10), axis=1)
-    r_max_ref  = jnp.max(jnp.where(in_mask, r_limb[None, :], -1e+10), axis=1)
+    r_max_ref  = jnp.max(jnp.where(in_mask, r_limb[None, :], 0.0), axis=1)
     r_min_ref  = jnp.maximum(0.0, r_min_ref - margin_r)
-    r_max_ref  = r_max_ref + margin_r
+    r_max_ref  = jnp.where(r_max_ref != 0, r_max_ref + margin_r, 0.0)
     # theta refine
     th_min_ref = jnp.min(jnp.where(in_mask, th_limb[None, :], 1e+10), axis=1)
     th_max_ref = jnp.max(jnp.where(in_mask, th_limb[None, :], -1e+10), axis=1)

@@ -169,7 +169,7 @@ def mag_binary(w_center, rho, nlenses=2, cubic=True, u1=0.0, r_resolution=500, t
 
 #@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
 def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500, 
-                Nlimb=1000, bins_r=50, bins_th=100, margin_r=0.5, cubic=True, **_params):
+                Nlimb=1000, bins_r=50, bins_th=120, margin_r=0.5, cubic=True, **_params):
                 #Nlimb=1000, offset_r=0.1, offset_th=0.1, cubic=True, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
@@ -234,7 +234,6 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     # vmap case
     #total_areas = vmap(_compute_for_range, in_axes=(0, 0, None))(r_scan, th_scan, cubic)
     #magnification_unnorm = jnp.sum(total_areas)
-    
     magnification = magnification_unnorm / rho**2 / jnp.pi
     return magnification 
 
@@ -282,7 +281,7 @@ if __name__ == "__main__":
     cubic = True
 
     bins_r = 50
-    bins_th = 360
+    bins_th = 120
     margin_r = 0.5
 
     from microjax.caustics.extended_source import mag_extended_source
