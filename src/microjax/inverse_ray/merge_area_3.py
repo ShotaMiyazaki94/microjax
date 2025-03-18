@@ -42,14 +42,40 @@ def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, ma
     r_scan, th_scan = r_scan[:nimage_real], th_scan[:nimage_real]
     # refine intervals
     r_scan_refine, th_scan_refine = _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=margin_r*rho, margin_th=jnp.deg2rad(0.1))  
-
     #return r_scan, th_scan
     return r_scan_refine, th_scan_refine
 
+import jax.numpy as jnp
+
 def _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=0.0, margin_th=0.0):
+    r_min, r_max = r_scan[:, 0], r_scan[:, 1]
+    th_min, th_max = th_scan[:, 0], th_scan[:, 1]
+    
+    cond_r = (r_min[:, None] < r_limb) & (r_limb < r_max[:, None])  # (M, N)
+    cond_th = (th_min[:, None] < th_limb) & (th_limb < th_max[:, None]) & (th_limb != 0)  # (M, N)
+    in_mask = cond_r & cond_th  # (M, N)
+    # r refine
+    r_min_ref  = jnp.min(jnp.where(in_mask, r_limb[None, :], 1e+10), axis=1)
+    r_max_ref  = jnp.max(jnp.where(in_mask, r_limb[None, :], -1e+10), axis=1)
+    r_min_ref  = jnp.maximum(0.0, r_min_ref - margin_r)
+    r_max_ref  = r_max_ref + margin_r
+    # theta refine
+    th_min_ref = jnp.min(jnp.where(in_mask, th_limb[None, :], 1e+10), axis=1)
+    th_max_ref = jnp.max(jnp.where(in_mask, th_limb[None, :], -1e+10), axis=1)
+    # apply or not 
+    case_org = th_min > 0.0 
+    r_min_new  = jnp.where(case_org, r_min_ref, r_min)
+    r_max_new  = jnp.where(case_org, r_max_ref, r_max) 
+    th_min_new = jnp.where(case_org, th_min_ref, th_min) - margin_th
+    th_max_new = jnp.where(case_org, th_max_ref, th_max) + margin_th
+    r_scan_refine = jnp.stack([r_min_new, r_max_new], axis=1)
+    th_scan_refine = jnp.stack([th_min_new, th_max_new], axis=1)
+
+    return r_scan_refine, th_scan_refine
+
+def refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=0.0, margin_th=0.0):
     M = r_scan.shape[0] # number of regions
     N = r_limb.shape[0] # number of image limb points
-
     arr=[]
     for r_inteval, th_interval in zip(r_scan, th_scan):
         r_min, r_max = r_inteval
@@ -110,11 +136,11 @@ def _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=0.0, margin_th=0.0)
         th_min_new = th_min_new - margin_th
         th_max_new = th_max_new + margin_th
         arr.append([r_min_new, r_max_new, th_min_new, th_max_new])"
-    """
     arr = jnp.array(arr)
     r_scan_refine = arr[:, :2]
     th_scan_refine = arr[:, 2:]
     return r_scan_refine, th_scan_refine
+    """
 
 def cluster_1d(arr, bins=100, max_cluster=5, mode_r=True):
     if mode_r:

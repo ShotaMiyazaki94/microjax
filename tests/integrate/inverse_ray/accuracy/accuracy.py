@@ -44,9 +44,10 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 1000
-th_resolution = 1000
-Nlimb = 2000
+r_resolution  = 500
+th_resolution = 500
+Nlimb = 500
+cubic = False
 mags_vbb_list = []
 mags_list = []
 w_test_list = []
@@ -54,7 +55,6 @@ w_test_list = []
 #rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
 rho_list = [1e-01, 1e-02, 1e-03]
 #rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
-cubic = True
 
 for i, rho in enumerate(rho_list):
     print(f"rho = {rho}")
@@ -127,7 +127,7 @@ ax[-1].set_aspect('equal')
 ax[-1].legend()
 ax[0].set_ylabel("Relative error")
 if cubic:
-    fig.savefig("tests/integrate/inverse_ray/accuracy/accuracy_r%d_th%d_Nl%d_cub.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
+    fig.savefig("tests/integrate/inverse_ray/accuracy/accuracy_r%d_th%d_Nl%d_cub2.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
 else:
-    fig.savefig("tests/integrate/inverse_ray/accuracy/accuracy_r%d_th%d_Nl%d_lin.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
+    fig.savefig("tests/integrate/inverse_ray/accuracy/accuracy_r%d_th%d_Nl%d_lin2.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
 plt.show()
