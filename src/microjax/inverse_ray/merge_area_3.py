@@ -4,7 +4,7 @@ from jax import jit, lax, vmap
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
 
-def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, margin_th=0.1, nlenses=2):
+def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, margin_th=0.5, nlenses=2):
     """
     determine the regions to be grid-spaced for the inverse-ray integration.
     """
@@ -57,7 +57,7 @@ def _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=0.0, margin_th=0.0)
                             jnp.where(th_limb[None, :] > jnp.pi, th_limb[None, :] - 2*jnp.pi, th_limb[None, :]), 
                             th_limb[None, :]) # (M, N) shape
     
-    cond_th = (th_min[:, None] < th_limb_new) & (th_limb_new < th_max[:, None]) & (th_limb_new != 0) & (r_limb != 0)  # (M, N)
+    cond_th = (th_min[:, None] < th_limb_new) & (th_limb_new < th_max[:, None]) & (th_limb_new != 0) & (r_limb[None, :] != 0)  # (M, N)
     in_mask = cond_r & cond_th  # (M, N)
     # r refine
     r_min_ref  = jnp.min(jnp.where(in_mask, r_limb[None, :], 1e+10), axis=1) # (M,)

@@ -20,21 +20,6 @@ def mag_vbb_binary(w0, rho, s, q, u1=0.0, accuracy=1e-05):
         w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1
     )
 
-def mag_microjax(w_points, rho, s, q, r_resolution=200, th_resolution=200):
-    def body_fn(_, w):
-        mag = mag_uniform(w, rho, s=s, q=q, 
-                          r_resolution=r_resolution, 
-                          th_resolution=th_resolution)
-        return 0, mag
-    _, mags = lax.scan(body_fn, 0, w_points)
-    return mags
-
-def mag_microjax_vmap(w_points, rho, s, q, r_resolution=200, th_resolution=200):
-    magn = jax.vmap(lambda w: mag_uniform(w, rho, s=s, q=q, 
-                                          r_resolution=r_resolution, 
-                                          th_resolution=th_resolution))
-    return magn(w_points)
-
 s, q = 1.0, 0.1
 # 1000  points on caustic curve
 npts = 250
@@ -45,9 +30,9 @@ caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
 r_resolution  = 500
-th_resolution = 1000
+th_resolution = 2000
 Nlimb = 500
-cubic = False
+cubic = True
 
 mags_vbb_list = []
 mags_list = []
@@ -86,7 +71,7 @@ for i, rho in enumerate(rho_list):
             results.append(jax.vmap(func)(chunk))
         return jnp.concatenate(results)
 
-    chunk_size = 1000  # メモリ消費を調整するため適宜変更
+    chunk_size = 2000  # メモリ消費を調整するため適宜変更
     mags = chunked_vmap(mag_mj, w_test, chunk_size)
 
     w_test_list.append(w_test) 
