@@ -277,7 +277,7 @@ if __name__ == "__main__":
 
     Nlimb = 500
     r_resolution  = 500
-    th_resolution = 500
+    th_resolution = 1000
     cubic = True
 
     bins_r = 50

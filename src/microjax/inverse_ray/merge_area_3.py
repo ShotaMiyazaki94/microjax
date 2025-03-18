@@ -48,22 +48,27 @@ def define_regions(image_limb, mask_limb, rho, bins_r, bins_th, margin_r=0.5, ma
 import jax.numpy as jnp
 
 def _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=0.0, margin_th=0.0):
-    r_min, r_max = r_scan[:, 0], r_scan[:, 1]
-    th_min, th_max = th_scan[:, 0], th_scan[:, 1]
+    r_min, r_max = r_scan[:, 0], r_scan[:, 1] # (M,) shape
+    th_min, th_max = th_scan[:, 0], th_scan[:, 1] # (M,) shape
+    cond_r = (r_min[:, None] < r_limb) & (r_limb < r_max[:, None])  # (M, N) shape
+    cond_flip = (-jnp.pi < th_min) & (th_min < 0.0) & (0.0 < th_max) & (th_max < jnp.pi) # (M,) shape
+    cond_flip_ex = cond_flip[:, None]
+    th_limb_new = jnp.where(cond_flip_ex, 
+                            jnp.where(th_limb[None, :] > jnp.pi, th_limb[None, :] - 2*jnp.pi, th_limb[None, :]), 
+                            th_limb[None, :]) # (M, N) shape
     
-    cond_r = (r_min[:, None] < r_limb) & (r_limb < r_max[:, None])  # (M, N)
-    cond_th = (th_min[:, None] < th_limb) & (th_limb < th_max[:, None]) & (th_limb != 0) & (r_limb != 0)  # (M, N)
+    cond_th = (th_min[:, None] < th_limb_new) & (th_limb_new < th_max[:, None]) & (th_limb_new != 0) & (r_limb != 0)  # (M, N)
     in_mask = cond_r & cond_th  # (M, N)
     # r refine
-    r_min_ref  = jnp.min(jnp.where(in_mask, r_limb[None, :], 1e+10), axis=1)
+    r_min_ref  = jnp.min(jnp.where(in_mask, r_limb[None, :], 1e+10), axis=1) # (M,)
     r_max_ref  = jnp.max(jnp.where(in_mask, r_limb[None, :], 0.0), axis=1)
     r_min_ref  = jnp.maximum(0.0, r_min_ref - margin_r)
     r_max_ref  = jnp.where(r_max_ref != 0, r_max_ref + margin_r, 0.0)
     # theta refine
-    th_min_ref = jnp.min(jnp.where(in_mask, th_limb[None, :], 1e+10), axis=1)
-    th_max_ref = jnp.max(jnp.where(in_mask, th_limb[None, :], -1e+10), axis=1)
+    th_min_ref = jnp.min(jnp.where(in_mask, th_limb_new, 1e+10), axis=1)
+    th_max_ref = jnp.max(jnp.where(in_mask, th_limb_new, -1e+10), axis=1)
     # apply or not 
-    case_org = th_min > 0.0 
+    case_org = (th_min > 0.0)|(cond_flip)
     r_min_new  = jnp.where(case_org, r_min_ref, r_min)
     r_max_new  = jnp.where(case_org, r_max_ref, r_max) 
     th_min_new = jnp.where(case_org, th_min_ref, th_min) - margin_th
