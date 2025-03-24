@@ -261,11 +261,11 @@ if __name__ == "__main__":
     #jax.config.update("jax_debug_nans", True)
     q = 0.5
     s = 0.9
-    alpha = jnp.deg2rad(30) # angle between lens axis and source trajectory
-    tE = 10 # einstein radius crossing time
-    t0 = 0.0 # time of peak magnification
-    u0 = 0.1 # impact parameter
-    rho = 1e-3
+    alpha = jnp.deg2rad(30) 
+    tE = 10 
+    t0 = 0.0 
+    u0 = 0.1 
+    rho = 0.02
 
     num_points = 1000
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
@@ -276,7 +276,7 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     Nlimb = 500
-    r_resolution  = 500
+    r_resolution  = 1000
     th_resolution = 1000
     cubic = True
 
@@ -406,7 +406,7 @@ if __name__ == "__main__":
     if(1):
         diff = jnp.abs(magnifications - magnifications2)/magnifications2
         label = diff > 1e-3
-        for i, (r, th) in enumerate(zip(w_points, diff)):
-        #for i, (r, th) in enumerate(zip(w_points[label], diff[label])):
+        #for i, (r, th) in enumerate(zip(w_points, diff)):
+        for i, (r, th) in enumerate(zip(w_points[label], diff[label])):
             print(i, "%.5f"%(th), r)
         #print("errnous \n", w_points[label], diff[label])

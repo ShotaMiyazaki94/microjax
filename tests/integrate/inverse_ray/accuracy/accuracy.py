@@ -32,7 +32,11 @@ acc_vbb = 1e-05
 r_resolution  = 500
 th_resolution = 2000
 Nlimb = 500
-cubic = True
+margin_r = 0.5
+margin_th = 0.5
+bins_r  = 50
+bins_th = 120
+cubic = False
 
 mags_vbb_list = []
 mags_list = []
@@ -59,7 +63,7 @@ for i, rho in enumerate(rho_list):
                                     r_resolution=r_resolution, 
                                     th_resolution=th_resolution, 
                                     Nlimb=Nlimb, bins_r=50, bins_th=120, 
-                                    margin_r=0.5, margin_th=0.5, cubic=cubic)
+                                    margin_r=margin_r, margin_th=margin_th, cubic=cubic)
     #mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
     #                                th_resolution=th_resolution, cubic=cubic, 
     #                                Nlimb=Nlimb, offset_r=0.1, offset_th=0.1)
