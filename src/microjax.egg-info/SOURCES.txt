@@ -3,9 +3,6 @@
 LICENSE
 README.md
 setup.py
-test_geo.pdf
-test_r.pdf
-test_th.pdf
 .github/workflows/main.yml
 documents/Makefile
 documents/conf.py

@@ -28,7 +28,7 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 )
 caustic_curves = caustic_curves.reshape(-1)
 
-acc_vbb = 1e-05
+acc_vbb = 1e-04
 r_resolution  = 500
 th_resolution = 2000
 Nlimb = 500

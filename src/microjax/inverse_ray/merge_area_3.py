@@ -73,6 +73,8 @@ def _refine_final(r_limb, th_limb, r_scan, th_scan, margin_r=0.0, margin_th=0.0)
     r_max_new  = jnp.where(case_org, r_max_ref, r_max) 
     th_min_new = jnp.where(case_org, th_min_ref, th_min) - margin_th
     th_max_new = jnp.where(case_org, th_max_ref, th_max) + margin_th
+    th_min_new = jnp.where((r_min_new==0)&(r_max_new==0), 0.0, th_min_new)
+    th_max_new = jnp.where((r_min_new==0)&(r_max_new==0), 0.0, th_max_new)
     r_scan_refine = jnp.stack([r_min_new, r_max_new], axis=1)
     th_scan_refine = jnp.stack([th_min_new, th_max_new], axis=1)
 
