@@ -215,7 +215,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     #@partial(jit, static_argnames=("cubic"))  
     def _compute_for_range(r_range, th_range, cubic=True):
         #r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=False)
-        #h_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=False)
+        #th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=False)
         r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
         th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
         area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
@@ -259,13 +259,13 @@ if __name__ == "__main__":
     import time
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
-    q = 0.5
-    s = 0.9
+    q = 0.1
+    s = 1.0
     alpha = jnp.deg2rad(30) 
     tE = 10 
     t0 = 0.0 
     u0 = 0.1 
-    rho = 0.02
+    rho = 0.001
 
     num_points = 1000
     t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
@@ -276,17 +276,18 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     Nlimb = 500
-    r_resolution  = 1000
-    th_resolution = 1000
+    r_resolution  = 500
+    th_resolution = 2000
     cubic = True
 
     bins_r = 50
     bins_th = 120
     margin_r = 0.5
+    margin_th= 0.5
 
     from microjax.caustics.extended_source import mag_extended_source
     import MulensModel as mm
-    def mag_vbbl(w0, rho, u1=0., accuracy=1e-03):
+    def mag_vbbl(w0, rho, u1=0.0, accuracy=5e-05):
         a  = 0.5 * s
         e1 = 1.0 / (1.0 + q)
         e2 = 1.0 - e1  
@@ -296,7 +297,8 @@ if __name__ == "__main__":
     @jax.jit
     def mag_mj(w):
         return mag_uniform(w, rho, s=s, q=q, Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th,
-                           r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
+                           r_resolution=r_resolution, th_resolution=th_resolution, 
+                           margin_r = margin_r, margin_th=margin_th, cubic=cubic)
     def chunked_vmap(func, data, chunk_size):
         results = []
         for i in range(0, len(data), chunk_size):
@@ -341,7 +343,7 @@ if __name__ == "__main__":
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for vmap in microjax"%(end-start, 1000*(end - start)/num_points))
     
-    if(1):
+    if(0):
         print("start computation with lax.scan")
         start = time.time()
         magnifications = scan_mag_mj(w_points).block_until_ready()
@@ -400,7 +402,7 @@ if __name__ == "__main__":
     ax.legend(loc="upper left")
     ax1.set_xlabel("time (days)")
     plt.show()
-    plt.savefig("extended_source.pdf", bbox_inches="tight")
+    plt.savefig("extended_source_rho%.3f_r%d_th%d.pdf"%(rho, r_resolution, th_resolution), bbox_inches="tight")
     plt.close()
 
     if(1):

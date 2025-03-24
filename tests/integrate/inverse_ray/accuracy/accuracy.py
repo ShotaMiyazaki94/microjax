@@ -28,9 +28,9 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 )
 caustic_curves = caustic_curves.reshape(-1)
 
-acc_vbb = 1e-04
+acc_vbb = 1e-05
 r_resolution  = 500
-th_resolution = 2000
+th_resolution = 500
 Nlimb = 500
 margin_r = 0.5
 margin_th = 0.5
@@ -49,7 +49,7 @@ rho_list = [1e-01, 1e-02, 1e-03]
 for i, rho in enumerate(rho_list):
     print(f"rho = {rho}")
     # Generate 1000 random test points within 2 source radii away from the caustic points 
-    key = random.PRNGKey(1)
+    key = random.PRNGKey(0)
     key, subkey1, subkey2 = random.split(key, num=3)
     phi = random.uniform(subkey1, caustic_curves.shape, minval=-jnp.pi, maxval=jnp.pi)
     r = random.uniform(subkey2, caustic_curves.shape, minval=0., maxval=1.5*rho)
@@ -62,7 +62,7 @@ for i, rho in enumerate(rho_list):
     mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, 
                                     r_resolution=r_resolution, 
                                     th_resolution=th_resolution, 
-                                    Nlimb=Nlimb, bins_r=50, bins_th=120, 
+                                    Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th, 
                                     margin_r=margin_r, margin_th=margin_th, cubic=cubic)
     #mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
     #                                th_resolution=th_resolution, cubic=cubic, 
