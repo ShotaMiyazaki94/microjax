@@ -18,13 +18,13 @@ alpha = jnp.deg2rad(60) # angle between lens axis and source trajectory
 tE = 10.0 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
 u0 = 0.0 # impact parameter
-rho = 0.05
+rho = 0.005
 
 a  = 0.5 * s
 e1 = q / (1.0 + q)
 
 # Position of the center of the source with respect to the center of mass.
-t  =  jnp.linspace(-22, 12, 2000)
+t  =  jnp.linspace(-22, 12, 500)
 
 r_resolution  = 500
 th_resolution = 500

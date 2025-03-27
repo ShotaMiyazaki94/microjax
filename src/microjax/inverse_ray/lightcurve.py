@@ -137,7 +137,7 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, Nlimb=
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", 
                               "Nlimb", "MAX_FULL_CALLS", "cubic"))
 def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, 
-                   Nlimb=500, MAX_FULL_CALLS = 500, cubic=True, **params):
+                   Nlimb=500, MAX_FULL_CALLS = 100, cubic=True, **params):
 
     s = params.get("s", None)
     q = params.get("q", None)
@@ -199,39 +199,25 @@ def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500
                                      **_params)
 
     mag_full = jit(mag_full)
-    if(0):
-        N = w_points.shape[0]
-        needs_full = (~test).astype(jnp.int_)  # shape (N,)
-        num_full_required = jnp.sum(needs_full)
-
-        candidates = jnp.arange(N) * needs_full
-        
-        def body_fun(i, carry):
-            count, idxs = carry
-            is_valid = needs_full[i] == 1
-            new_count = count + is_valid
-            idxs = idxs.at[count].set(candidates[i])
-            return new_count, idxs
-        
-        def get_full_idx(candidates, needs_full, max_k):
-            init = (0, jnp.zeros((max_k,), dtype=jnp.int_))
-            _, full_idx = lax.fori_loop(0, N, body_fun, init)
-            return full_idx
-        
-        full_idx = get_full_idx(candidates, needs_full, MAX_FULL_CALLS)
-        full_w = w_points[full_idx]
-        full_result = vmap(mag_full)(full_w)
-        output = mu_multi.at[full_idx].set(full_result)
-        return output
-    
-    if(0):
+    if(1): # padding 
+        idx_sorted = jnp.argsort(test)
+        idx_full = idx_sorted[:MAX_FULL_CALLS]
+        mag_extended = jit(vmap(mag_full))(w_points[idx_full])
+        #def scan_body(carry, w):
+        #    out = mag_full(w)
+        #    return carry, out
+        #_, mag_extended = lax.scan(scan_body, None, w_points[idx_full])
+        mags = mu_multi.at[idx_full].set(mag_extended)
+        mags = jnp.where(test, mu_multi, mags)
+        return mags
+    if(0): # lax.scan and lax.cond
         def scan_body(carry, xs):
             test_i, mu_i, w_i = xs
             out = lax.cond(test_i, lambda _: mu_i, mag_full, w_i)
             return carry, out
         _, result = lax.scan(scan_body, None, (test, mu_multi, w_points))
         return result
-    if(1):
+    if(0): # lax.map and lax.cond
         return lax.map(lambda xs: lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],),
                    [test, mu_multi, w_points])
 
@@ -244,12 +230,18 @@ if __name__ == "__main__":
     q = 0.05
     s = 1.0
     alpha = jnp.deg2rad(20) 
-    tE = 10 
+    tE = 30 
     t0 = 0.0 
     u0 = 0.1 
-    rho = 5e-3
+    rho = 5e-2
 
-    num_points = 1000
+    nlenses = 2
+    a = 0.5 * s
+    e1 = q / (1.0 + q)
+    _params = {"a": a, "e1": e1}
+    x_cm = a * (1 - q) / (1 + q)
+
+    num_points = 500
     t  =  jnp.linspace(-0.5*tE, 0.5*tE, num_points)
     #t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
@@ -260,7 +252,9 @@ if __name__ == "__main__":
 
     Nlimb = 500
     r_resolution  = 500
-    th_resolution = 2000
+    th_resolution = 500
+    MAX_FULL_CALLS = 300
+
     cubic = True
     bins_r = 50
     bins_th = 120
@@ -284,6 +278,7 @@ if __name__ == "__main__":
     
     #magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
     
+    print("number of data points: %d"%(num_points))
     from microjax.point_source import mag_point_source, critical_and_caustic_curves
     mag_point_source(w_points, s=s, q=q)
     start = time.time()
@@ -292,19 +287,31 @@ if __name__ == "__main__":
     end = time.time()
     print("computation time: %.3f sec (%.3f ms) per points for point-source in microjax"%(end-start, 1000*(end - start)/num_points)) 
 
+    from microjax.multipole import _mag_hexadecapole
+    z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
+    _, _ = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params) 
+    start = time.time()
+    z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
+    mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+    mu_multi.block_until_ready()
+    end = time.time()
+    print("computation time: %.3f sec (%.3f ms per points) for hexadecapole in microjax"%(end-start, 1000*(end - start)/num_points)) 
+
+
     start = time.time()
     magnifications2, y1, y2 = jnp.array(VBBL.BinaryLightCurve(params_VBBL, t))
-    #magnifications2 = magn2(w_points)
     magnifications2.block_until_ready() 
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
 
-    _ = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
+    _ = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
     print("start computation with mag_lc_uniform")
     start = time.time()
-    magnifications = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
+    magnifications = mag_lc_uniform(w_points, rho, s=s, q=q, 
+                                    r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic,
+                                    Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
     end = time.time()
-    print("computation time: %.3f sec (%.3f ms per points) for mag_uniform in microjax"%(end-start, 1000*(end - start)/num_points))
+    print("computation time: %.3f sec (%.3f ms per points) for mag_lc_uniform in microjax"%(end-start, 1000*(end - start)/num_points))
     
    
     # Print out the result
@@ -356,6 +363,21 @@ if __name__ == "__main__":
     ax1.set_ylim(1e-6, 1e-2)
     ax.legend(loc="upper left")
     ax1.set_xlabel("time (days)")
+    
+    mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+    test1 = _caustics_proximity_test(
+        w_points - x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params 
+    )
+    test2 = _planetary_caustic_test(w_points - x_cm, rho, **_params)
+
+    test = lax.cond(
+        q < 0.01, 
+        lambda:test1 & test2,
+        lambda:test1,
+    )
+    ax.plot(t[~test], magnifications[~test], ".", color="red", zorder=20)
+    print("full num: %d"%jnp.sum(~test))
     plt.show()
     plt.savefig("mag_lc.pdf", bbox_inches="tight")
+    print("mag_lc.pdf")
     plt.close()

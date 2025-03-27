@@ -154,7 +154,8 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     if(0): # vmap case. subtle improvement in speed but worse in memory.
         total_areas = vmap(_compute_for_range, in_axes=(0, 0, None))(r_scan, th_scan, cubic)
         magnification_unnorm = jnp.sum(total_areas)
-        magnification = magnification_unnorm / rho**2 / jnp.pi
+    
+    magnification = magnification_unnorm / rho**2 / jnp.pi
     return magnification 
 
 def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
@@ -187,8 +188,14 @@ if __name__ == "__main__":
     u0 = 0.1 
     rho = 0.01
 
-    num_points = 2000
-    t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
+    nlenses = 2
+    a = 0.5 * s
+    e1 = q / (1.0 + q)
+    _params = {"a": a, "e1": e1}
+    x_cm = a * (1 - q) / (1 + q)
+
+    num_points = 1000
+    t  =  jnp.linspace(-0.5*tE, 0.5*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
@@ -245,7 +252,17 @@ if __name__ == "__main__":
     mags_poi = mag_point_source(w_points, s=s, q=q)
     mags_poi.block_until_ready()
     end = time.time()
-    print("computation time: %.3f sec (%.3f ms) per points for point-source in microjax"%(end-start, 1000*(end - start)/num_points)) 
+    print("computation time: %.3f sec (%.3f ms per points) for point-source in microjax"%(end-start, 1000*(end - start)/num_points)) 
+
+    from microjax.multipole import _mag_hexadecapole
+    z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
+    _, _ = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params) 
+    start = time.time()
+    z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
+    mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+    mu_multi.block_until_ready()
+    end = time.time()
+    print("computation time: %.3f sec (%.3f ms per points) for hexadecapole in microjax"%(end-start, 1000*(end - start)/num_points)) 
 
     start = time.time()
     magnifications2 = magn2(w_points)
