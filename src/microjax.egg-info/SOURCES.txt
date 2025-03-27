@@ -78,6 +78,7 @@ src/microjax/fastlens/__pycache__/mag_fft.cpython-310.pyc
 src/microjax/fastlens/__pycache__/special.cpython-310.pyc
 src/microjax/inverse_ray/__init__.py
 src/microjax/inverse_ray/boundary.py
+src/microjax/inverse_ray/cond_extended.py
 src/microjax/inverse_ray/extended_source.py
 src/microjax/inverse_ray/lightcurve.py
 src/microjax/inverse_ray/limb_darkening.py

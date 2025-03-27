@@ -15,9 +15,10 @@ from jax import config
 config.update('jax_enable_x64', True) 
 import jax.numpy as jnp
 from jax import grad, jit, vmap, random
-from microjax.inverse_ray.lightcurve import mag_lc
+from microjax.inverse_ray.lightcurve import mag_lc, mag_lc_uniform
 from microjax.inverse_ray.extended_source import mag_uniform
 from microjax.trajectory import dtn_dum_parallax, _get_info_parallax
+from microjax.point_source import mag_point_source
 
 data = pd.read_csv("example/data/ogle-2014-blg-0124/phot.dat", 
                    delim_whitespace=True,header=None, names=["HJD", "mag", "mage", "seeing", "sky"])
@@ -70,7 +71,9 @@ def model(t, y, yerr):
     #chunk_size = 100
     #mags = chunked_vmap(mag_f, w_points, chunk_size)
     #mags = vmap(mag_func)(w_points)
-    mags = mag_lc(w_points, rho, s=s, q=q, nlenses=2, cubic=True, r_resolution=1000, th_resolution=1000)
+    mags = mag_point_source(w_points, s=s, q=q, nlenses=2)
+    #mags = mag_lc_uniform(w_points, rho, s=s, q=q, nlenses=2, cubic=True, r_resolution=500, th_resolution=2000)
+    #mags = mag_lc(w_points, rho, s=s, q=q, nlenses=2, cubic=True, r_resolution=500, th_resolution=2000)
     fs = numpyro.sample("fs", dist.Uniform(_fs - 1.0, _fs + 1.0))
     f_sum = numpyro.sample("f_sum", dist.Uniform(_f_sum - 1.0, _f_sum + 1.0))
     fb = f_sum - fs
@@ -90,7 +93,7 @@ init_params = {'t0': _t_0, 'lntE': jnp.log(_t_E), 'u0': _u_0,
                'alpha': _alpha, 'lnrho': jnp.log(_rho),
                'k_norm': 1.0, 'fs': _fs, 'f_sum': _f_sum}
 kernel = numpyro.infer.NUTS(model, forward_mode_differentiation=True, init_strategy=numpyro.infer.init_to_value(values=init_params))
-mcmc = MCMC(kernel, num_warmup=500, num_samples=1000)
+mcmc = MCMC(kernel, num_warmup=1000, num_samples=1000)
 rng_key = random.PRNGKey(0)
 mcmc.run(rng_key, data.HJD.values, data.flux.values, data.fluxe.values)
 mcmc.print_summary()

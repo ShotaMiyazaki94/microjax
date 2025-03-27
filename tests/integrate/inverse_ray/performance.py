@@ -1,5 +1,5 @@
 import numpy as np
-import jax.config as config
+from jax import config
 config.update("jax_enable_x64", True)
 config.update('jax_platform_name', 'cpu')
 from jax import random
@@ -60,7 +60,7 @@ if(0):
     plt.close()
 
 # Adjusted such that all codes are roughly equivalent in terms of accuracy
-acc_vbb = 6e-03
+acc_vbb = 1e-03
 npts_limb = 500
 npts_ld = 100
 

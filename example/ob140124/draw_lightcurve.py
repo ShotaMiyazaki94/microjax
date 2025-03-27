@@ -8,7 +8,7 @@ from microjax.inverse_ray.lightcurve import mag_lc, mag_lc_vmap
 from microjax.trajectory import dtn_dum_parallax, _get_info_parallax
 
 data = pd.read_csv("example/data/ogle-2014-blg-0124/phot.dat", 
-                   delim_whitespace=True,header=None, names=["HJD", "mag", "mage", "seeing", "sky"])
+                   sep='\s+', header=None, names=["HJD", "mag", "mage", "seeing", "sky"])
 data = data[(data.HJD>2.4563e+6)&(data.mage<0.4)]
 #data = data[(data.HJD>2.4566e+6)&(data.mage<0.4)]
 data["HJD"] -= 2450000

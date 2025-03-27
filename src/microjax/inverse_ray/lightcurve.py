@@ -14,71 +14,7 @@ from microjax.inverse_ray.extended_source import mag_uniform, mag_binary
 from microjax.point_source import _images_point_source
 from microjax.multipole import _mag_hexadecapole
 from microjax.utils import *
-
-
-@partial(jit, static_argnames=("nlenses"))
-def _caustics_proximity_test(
-    w, z, z_mask, rho, delta_mu_multi, nlenses=2, c_m=1e-02, gamma=0.02, c_f=4., rho_min=1e-03, **params
-):
-    if nlenses == 2:
-        a, e1 = params["a"], params["e1"]
-        e2 = 1.0 - e1
-        # Derivatives
-        f = lambda z: - e1 / (z - a) - e2 / (z + a)
-        f_p = lambda z: e1 / (z - a) ** 2 + e2 / (z + a) ** 2
-        f_pp = lambda z: 2 * (e1 / (a - z) ** 3 - e2 / (a + z) ** 3)
-
-    elif nlenses == 3:
-        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
-        # Derivatives
-        f = lambda z: - e1 / (z - a) - e2 / (z + a) - (1 - e1 - e2) / (z + r3)
-        f_p = (
-            lambda z: e1 / (z - a) ** 2
-            + e2 / (z + a) ** 2
-            + (1 - e1 - e2) / (z + r3) ** 2
-        )
-        f_pp = (
-            lambda z: 2 * (e1 / (a - z) ** 3 - e2 / (a + z) ** 3)
-            + (1 - e1 - e2) / (z + r3) ** 3
-        )
-    zbar = jnp.conjugate(z)
-    zhat = jnp.conjugate(w) - f(z)
-
-    # Derivatives
-    fp_z     = f_p(z)
-    fpp_z    = f_pp(z)
-    fp_zbar  = f_p(zbar)
-    fp_zhat  = f_p(zhat)
-    fpp_zbar = f_pp(zbar)
-    J        = 1.0 - jnp.abs(fp_z * fp_zbar)
-
-    # Multipole test and cusp test
-    mu_cusp = 6 * jnp.imag(3 * fp_zbar**3.0 * fpp_z**2.0) / J**5 * (rho + rho_min)**2
-    mu_cusp = jnp.sum(jnp.abs(mu_cusp) * z_mask, axis=0)
-    test_multipole_and_cusp = gamma * mu_cusp + delta_mu_multi < c_m
-
-    # False images test
-    Jhat = 1 - jnp.abs(fp_z * fp_zhat)
-    factor = jnp.abs(J * Jhat**2 / 
-                     (Jhat*fpp_zbar*fp_z - jnp.conjugate(Jhat)  * fpp_z * fp_zbar * fp_zhat)
-                     )
-    test_false_images = 0.5 * (~z_mask * factor).sum(axis=0) > c_f * (rho + rho_min)
-    test_false_images = jnp.where((~z_mask).sum(axis=0)==0, 
-                                  jnp.ones_like(test_false_images, dtype=jnp.bool_), 
-                                  test_false_images
-                                  )
-    return test_false_images & test_multipole_and_cusp
-
-
-def _planetary_caustic_test(w, rho, c_p=2., **params):
-    e1, a = params["e1"], params["a"]
-    s = 2 * a
-    q = e1 / (1.0 - e1)
-    x_cm = (2*e1 - 1)*a
-    w_pc = -1/s 
-    delta_pc = 3*jnp.sqrt(q)/s
-    return (w_pc - w).real**2 + (w_pc - w).imag**2 > c_p*(rho**2 + delta_pc**2)
-
+from microjax.inverse_ray.cond_extended import _caustics_proximity_test, _planetary_caustic_test
 
 def mag_lc_vmap(w_points, rho, nlenses=2, batch_size=400,
                 r_resolution=1000, th_resolution=4000, Nlimb=1000, u1=0.0, **params):
@@ -198,31 +134,40 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, Nlimb=
                                 None), 
                             map_input)
 
-@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "cubic"))
-def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, Nlimb=2000, cubic=True, **params):
+@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", 
+                              "Nlimb", "MAX_FULL_CALLS", "cubic"))
+def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, 
+                   Nlimb=500, MAX_FULL_CALLS = 500, cubic=True, **params):
+
+    s = params.get("s", None)
+    q = params.get("q", None)
+    
     if nlenses == 1:
         _params = {}
-        x_cm = 0 # miyazaki
+        x_cm = 0.0
     elif nlenses == 2:
-        s, q = params["s"], params["q"]
+        if s is None or q is None:
+            raise ValueError("For nlenses=2, 's' and 'q' must be provided.")
         a = 0.5 * s
-        e1 = q / (1.0 + q) 
+        e1 = q / (1.0 + q)
         _params = {"a": a, "e1": e1}
-        x_cm = a*(1 - q)/(1 + q)
-
-    # Trigger the full calculation everywhere because I haven't figured out 
-    # how to implement the ghost image test for nlenses > 2 yet
+        x_cm = a * (1 - q) / (1 + q)
     elif nlenses == 3:
-        s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
+        q3 = params["q3"]
+        r3 = params["r3"]
+        psi = params["psi"]
+        if s is None or q is None:
+            raise ValueError("For nlenses=3, 's' and 'q' must be provided.")
         a = 0.5 * s
-        e1 = q / (1.0 + q + q3)
-        e2 = 1.0 / (1.0 + q + q3) #miyazaki
-        r3 = r3*jnp.exp(1j * psi)
+        total_mass = 1.0 + q + q3
+        e1 = q / total_mass
+        e2 = 1.0 / total_mass
+        r3 = r3 * jnp.exp(1j * psi)
         _params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
         x_cm = a * (1.0 - q) / (1.0 + q)
     else:
-        raise ValueError("nlenses must be <= 3")
-
+        raise ValueError("nlenses must be 1, 2, or 3.")
+    
     # Compute point images for a point source
     z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
     if nlenses==1:
@@ -253,9 +198,164 @@ def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500
                                      cubic=cubic, 
                                      **_params)
 
-    # Iterate over w_points and execute either the hexadecapole  approximation
-    # or the full extended source calculation. `vmap` cannot be used here because
-    # `lax.cond` executes both branches within vmap.
-    #jnp.stack([mask_test, mu_approx,  w_points]).T,
-    return lax.map(lambda xs: lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],),
+    mag_full = jit(mag_full)
+    if(0):
+        N = w_points.shape[0]
+        needs_full = (~test).astype(jnp.int_)  # shape (N,)
+        num_full_required = jnp.sum(needs_full)
+
+        candidates = jnp.arange(N) * needs_full
+        
+        def body_fun(i, carry):
+            count, idxs = carry
+            is_valid = needs_full[i] == 1
+            new_count = count + is_valid
+            idxs = idxs.at[count].set(candidates[i])
+            return new_count, idxs
+        
+        def get_full_idx(candidates, needs_full, max_k):
+            init = (0, jnp.zeros((max_k,), dtype=jnp.int_))
+            _, full_idx = lax.fori_loop(0, N, body_fun, init)
+            return full_idx
+        
+        full_idx = get_full_idx(candidates, needs_full, MAX_FULL_CALLS)
+        full_w = w_points[full_idx]
+        full_result = vmap(mag_full)(full_w)
+        output = mu_multi.at[full_idx].set(full_result)
+        return output
+    
+    if(0):
+        def scan_body(carry, xs):
+            test_i, mu_i, w_i = xs
+            out = lax.cond(test_i, lambda _: mu_i, mag_full, w_i)
+            return carry, out
+        _, result = lax.scan(scan_body, None, (test, mu_multi, w_points))
+        return result
+    if(1):
+        return lax.map(lambda xs: lax.cond(xs[0], lambda _: xs[1], mag_full, xs[2],),
                    [test, mu_multi, w_points])
+
+
+if __name__ == "__main__":
+    import time
+    import jax
+    jax.config.update("jax_enable_x64", True)
+    #jax.config.update("jax_debug_nans", True)
+    q = 0.05
+    s = 1.0
+    alpha = jnp.deg2rad(20) 
+    tE = 10 
+    t0 = 0.0 
+    u0 = 0.1 
+    rho = 5e-3
+
+    num_points = 1000
+    t  =  jnp.linspace(-0.5*tE, 0.5*tE, num_points)
+    #t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
+    tau = (t - t0)/tE
+    y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
+    y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
+    w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
+    test_params = {"q": q, "s": s}  # Lens parameters
+
+    Nlimb = 500
+    r_resolution  = 500
+    th_resolution = 2000
+    cubic = True
+    bins_r = 50
+    bins_th = 120
+    margin_r = 0.5
+    margin_th= 0.5
+
+    from microjax.caustics.extended_source import mag_extended_source
+    import MulensModel as mm
+    import VBBinaryLensing
+    VBBL = VBBinaryLensing.VBBinaryLensing()
+    VBBL.a1 = 0.0
+    VBBL.RelTol = 1e-4
+    params_VBBL = [jnp.log(s), jnp.log(q), u0, alpha - jnp.pi, jnp.log(rho), jnp.log(tE), t0]
+
+    def mag_vbbl(w0, rho, u1=0.0, accuracy=5e-05):
+        a  = 0.5 * s
+        e1 = 1.0 / (1.0 + q)
+        e2 = 1.0 - e1  
+        bl = mm.BinaryLens(e1, e2, 2*a)
+        return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
+    
+    #magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])
+    
+    from microjax.point_source import mag_point_source, critical_and_caustic_curves
+    mag_point_source(w_points, s=s, q=q)
+    start = time.time()
+    mags_poi = mag_point_source(w_points, s=s, q=q)
+    mags_poi.block_until_ready()
+    end = time.time()
+    print("computation time: %.3f sec (%.3f ms) per points for point-source in microjax"%(end-start, 1000*(end - start)/num_points)) 
+
+    start = time.time()
+    magnifications2, y1, y2 = jnp.array(VBBL.BinaryLightCurve(params_VBBL, t))
+    #magnifications2 = magn2(w_points)
+    magnifications2.block_until_ready() 
+    end = time.time()
+    print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
+
+    _ = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
+    print("start computation with mag_lc_uniform")
+    start = time.time()
+    magnifications = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic)
+    end = time.time()
+    print("computation time: %.3f sec (%.3f ms per points) for mag_uniform in microjax"%(end-start, 1000*(end - start)/num_points))
+    
+   
+    # Print out the result
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    import matplotlib.ticker as ticker
+    import seaborn as sns
+    sns.set_theme(style="ticks")
+
+    critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=100, s=s, q=q)
+
+    fig, ax_ = plt.subplots(2,1,figsize=(8,6), sharex=True, gridspec_kw=dict(hspace=0.1, height_ratios=[4,1]))
+    ax  = ax_[0]
+    ax1 = ax_[1]
+    ax_in = inset_axes(ax,
+        width="60%", height="60%", 
+        bbox_transform=ax.transAxes,
+        bbox_to_anchor=(0.35, 0.35, 0.6, 0.6)
+    )
+    ax_in.set_aspect(1)
+    ax_in.set(xlabel="$\mathrm{Re}(w)$", ylabel="$\mathrm{Im}(w)$")
+    for cc in caustic_curves:
+        ax_in.plot(cc.real, cc.imag, color='red', lw=0.7)
+    circles = [plt.Circle((xi,yi), radius=rho, fill=False, facecolor=None, ec="blue", zorder=2) 
+               for xi, yi in zip(w_points.real, w_points.imag)
+               ]
+    c = mpl.collections.PatchCollection(circles, match_original=True, alpha=0.5)
+    ax_in.add_collection(c)
+    ax_in.set_aspect(1)
+    ax_in.set(xlim=(-1., 1.2), ylim=(-1.0, 1.))
+    ax_in.plot(-q/(1+q) * s, 0 , ".",c="k")
+    ax_in.plot((1.0)/(1+q) * s, 0 ,".",c="k")
+
+    ax.plot(t, magnifications, ".", label="microjax", zorder=1)
+    ax.plot(t, magnifications2, "-", label="VBBinaryLensing", zorder=2)
+    ylim = ax.get_ylim()
+    #ax.plot(t, mags_poi, "--", label="point-source", zorder=-1, color="gray")
+    ax.set_title("mag_lc_uniform")
+    ax.grid(ls=":")
+    ax.set_ylabel("magnification")
+    ax.set_ylim(ylim[0], ylim[1])
+    ax1.plot(t, jnp.abs(magnifications - magnifications2)/magnifications2, "-", ms=1)
+    ax1.grid(ls=":")
+    ax1.set_yticks(10**jnp.arange(-4, -2, 1))
+    ax1.set_ylabel("relative diff")
+    ax1.set_yscale("log")
+    ax1.yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=[1.0, 10**-2, 10**-4, 10**-6], numticks=10))
+    ax1.set_ylim(1e-6, 1e-2)
+    ax.legend(loc="upper left")
+    ax1.set_xlabel("time (days)")
+    plt.show()
+    plt.savefig("mag_lc.pdf", bbox_inches="tight")
+    plt.close()

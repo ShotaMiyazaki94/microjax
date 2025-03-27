@@ -197,7 +197,7 @@ def mag_point_source(w, nlenses=2, **params):
         s, q = params["s"], params["q"]
         a = 0.5 * s
         e1 = q / (1.0 + q) 
-        _params = {"a": a, "e1": e1}
+        _params = {**params, "a": a, "e1": e1}
         x_cm = a * (1.0 - q) / (1.0 + q)
         w   -= x_cm 
     elif nlenses == 3:
@@ -206,7 +206,7 @@ def mag_point_source(w, nlenses=2, **params):
         e1 = q / (1.0 + q + q3) 
         e2 = 1.0/(1.0 + q + q3)
         r3 = r3 * jnp.exp(1j * psi)
-        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
+        _params = {**params, "a": a, "r3": r3, "e1": e1, "e2": e2}
         x_cm = a * (1.0 - q) / (1.0 + q)
         w   -= x_cm
     else:

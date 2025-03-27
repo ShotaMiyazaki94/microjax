@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 
-from microjax.inverse_ray.lightcurve import mag_lc_uniform, mag_lc
+from microjax.inverse_ray.lightcurve import mag_lc
 from microjax.point_source import critical_and_caustic_curves
 
 # Parameters
@@ -24,11 +24,11 @@ a  = 0.5 * s
 e1 = q / (1.0 + q)
 
 # Position of the center of the source with respect to the center of mass.
-t  =  jnp.linspace(-22, 12, 500)
+t  =  jnp.linspace(-22, 12, 2000)
 
 r_resolution  = 500
 th_resolution = 500
-cubic = True
+cubic = False
 
 @jit
 def get_mag(params):
@@ -39,17 +39,26 @@ def get_mag(params):
 
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    return w_points, mag_lc(w_points, rho, nlenses=2, u1=0.5, q=q, s=s, cubic=cubic, Nlimb=2000,
+    return w_points, mag_lc(w_points, rho, nlenses=2, u1=0.5, q=q, s=s, cubic=cubic,
                             r_resolution=r_resolution, th_resolution=th_resolution)
 
+import time
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
+get_mag(params)
+print("start")
+start = time.time()
 w_points, A = get_mag(params)
-print("mag finish")
+end = time.time()
+print("mag finish: %.3f sec"%(end - start))
 
 # Evaluate the Jacobian at every point
 mag_jac = jit(jacfwd(lambda params: get_mag(params)[1]))
+mag_jac(params)
+print("start")
+start = time.time()
 jac_eval = mag_jac(params)
-print("jac finish")
+end = time.time()
+print("jac finish: %.3f sec"%(end - start))
 
 fig, ax = plt.subplots(
     8, 1,
