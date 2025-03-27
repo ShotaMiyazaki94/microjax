@@ -180,13 +180,13 @@ if __name__ == "__main__":
     import time
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
-    q = 0.1
+    q = 0.01
     s = 1.0
-    alpha = jnp.deg2rad(30) 
-    tE = 10 
+    alpha = jnp.deg2rad(10) 
+    tE = 30 
     t0 = 0.0 
-    u0 = 0.1 
-    rho = 0.01
+    u0 = 0.0 
+    rho = 2e-2
 
     nlenses = 2
     a = 0.5 * s
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     _params = {"a": a, "e1": e1}
     x_cm = a * (1 - q) / (1 + q)
 
-    num_points = 1000
+    num_points = 500
     t  =  jnp.linspace(-0.5*tE, 0.5*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -209,8 +209,8 @@ if __name__ == "__main__":
 
     bins_r = 50
     bins_th = 120
-    margin_r = 0.5
-    margin_th= 0.5
+    margin_r = 1.0
+    margin_th= 1.0
 
     from microjax.caustics.extended_source import mag_extended_source
     import MulensModel as mm

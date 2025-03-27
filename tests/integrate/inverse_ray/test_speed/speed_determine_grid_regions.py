@@ -25,13 +25,13 @@ for Nlimb in Nlimbs:
     times = []
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
     image_limb.block_until_ready()
-    r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r=0.1, offset_th=0.1)
+    r_scan, th_scan = jit(determine_grid_regions)(image_limb, mask_limb, rho, offset_r=0.1, offset_th=0.1)
     r_scan.block_until_ready() 
     for _ in range(num_measurements):
         start = time.time()
         #image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
         #image_limb.block_until_ready()
-        r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r=0.1, offset_th=0.1)
+        r_scan, th_scan = jit(determine_grid_regions)(image_limb, mask_limb, rho, offset_r=0.1, offset_th=0.1)
         r_scan.block_until_ready()
         end = time.time()
         times.append(end - start)

@@ -134,10 +134,12 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, Nlimb=
                                 None), 
                             map_input)
 
-@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", 
+@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution",
+                              "bins_r", "bins_th", "margin_r", "margin_th", 
                               "Nlimb", "MAX_FULL_CALLS", "cubic"))
-def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, 
-                   Nlimb=500, MAX_FULL_CALLS=1000, cubic=True, **params):
+def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500,
+                   Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, 
+                   MAX_FULL_CALLS=500, cubic=True, **params):
 
     s = params.get("s", None)
     q = params.get("q", None)
@@ -190,17 +192,14 @@ def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500
         test = jnp.zeros_like(w_points).astype(jnp.bool_)
 
     _params = {"q": q, "s": s} 
-    mag_full = lambda w: mag_uniform(w, rho, 
-                                     nlenses=nlenses, 
-                                     r_resolution=r_resolution,
-                                     th_resolution=th_resolution,
-                                     Nlimb=Nlimb,
-                                     cubic=cubic, 
-                                     **_params)
+    mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, 
+                                     r_resolution=r_resolution,th_resolution=th_resolution,
+                                     bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th,
+                                     Nlimb=Nlimb,cubic=cubic, **_params)
 
     #mag_full = jit(mag_full)
     if(1):
-        chunk_size = 50
+        chunk_size = 100
         idx_sorted = jnp.argsort(test)
         idx_full = idx_sorted[:MAX_FULL_CALLS]
         def chunked_vmap(func, data, chunk_size):
@@ -249,7 +248,7 @@ if __name__ == "__main__":
     tE = 30 
     t0 = 0.0 
     u0 = 0.0 
-    rho = 1e-2
+    rho = 2e-2
 
     nlenses = 2
     a = 0.5 * s
@@ -257,7 +256,7 @@ if __name__ == "__main__":
     _params = {"a": a, "e1": e1}
     x_cm = a * (1 - q) / (1 + q)
 
-    num_points = 1000
+    num_points = 500
     t  =  jnp.linspace(-0.5*tE, 0.5*tE, num_points)
     #t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
@@ -274,8 +273,8 @@ if __name__ == "__main__":
     cubic = True
     bins_r = 50
     bins_th = 120
-    margin_r = 0.5
-    margin_th= 0.5
+    margin_r = 1.0
+    margin_th= 1.0
 
     from microjax.caustics.extended_source import mag_extended_source
     import MulensModel as mm
@@ -320,12 +319,13 @@ if __name__ == "__main__":
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
 
-    _ = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
+    _ = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
+                       Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, MAX_FULL_CALLS=MAX_FULL_CALLS)
     print("start computation with mag_lc_uniform")
     start = time.time()
-    magnifications = mag_lc_uniform(w_points, rho, s=s, q=q, 
-                                    r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic,
-                                    Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
+    magnifications = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution,
+                                    cubic=cubic, Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th, 
+                                    margin_r=margin_r, margin_th=margin_th, MAX_FULL_CALLS=MAX_FULL_CALLS)
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for mag_lc_uniform in microjax"%(end-start, 1000*(end - start)/num_points))
     
