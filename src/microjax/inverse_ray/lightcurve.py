@@ -137,7 +137,7 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, Nlimb=
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", 
                               "Nlimb", "MAX_FULL_CALLS", "cubic"))
 def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, 
-                   Nlimb=500, MAX_FULL_CALLS = 100, cubic=True, **params):
+                   Nlimb=500, MAX_FULL_CALLS=1000, cubic=True, **params):
 
     s = params.get("s", None)
     q = params.get("q", None)
@@ -198,11 +198,27 @@ def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500
                                      cubic=cubic, 
                                      **_params)
 
-    mag_full = jit(mag_full)
-    if(1): # padding 
+    #mag_full = jit(mag_full)
+    if(1):
+        chunk_size = 50
+        idx_sorted = jnp.argsort(test)
+        idx_full = idx_sorted[:MAX_FULL_CALLS]
+        def chunked_vmap(func, data, chunk_size):
+            results = []
+            for i in range(0, len(data), chunk_size):
+                chunk = data[i:i + chunk_size]
+                results.append(vmap(func)(chunk))
+            return jnp.concatenate(results)
+        mag_extended = chunked_vmap(mag_full, w_points[idx_full], chunk_size)
+        mags = mu_multi.at[idx_full].set(mag_extended)
+        mags = jnp.where(test, mu_multi, mags)
+        return mags 
+    
+    if(0): # padding with 
         idx_sorted = jnp.argsort(test)
         idx_full = idx_sorted[:MAX_FULL_CALLS]
         mag_extended = jit(vmap(mag_full))(w_points[idx_full])
+        # scan is useful 
         #def scan_body(carry, w):
         #    out = mag_full(w)
         #    return carry, out
@@ -227,13 +243,13 @@ if __name__ == "__main__":
     import jax
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
-    q = 0.05
+    q = 0.01
     s = 1.0
-    alpha = jnp.deg2rad(20) 
+    alpha = jnp.deg2rad(10) 
     tE = 30 
     t0 = 0.0 
-    u0 = 0.1 
-    rho = 5e-2
+    u0 = 0.0 
+    rho = 1e-2
 
     nlenses = 2
     a = 0.5 * s
@@ -241,7 +257,7 @@ if __name__ == "__main__":
     _params = {"a": a, "e1": e1}
     x_cm = a * (1 - q) / (1 + q)
 
-    num_points = 500
+    num_points = 1000
     t  =  jnp.linspace(-0.5*tE, 0.5*tE, num_points)
     #t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
@@ -253,7 +269,7 @@ if __name__ == "__main__":
     Nlimb = 500
     r_resolution  = 500
     th_resolution = 500
-    MAX_FULL_CALLS = 300
+    MAX_FULL_CALLS = 500
 
     cubic = True
     bins_r = 50

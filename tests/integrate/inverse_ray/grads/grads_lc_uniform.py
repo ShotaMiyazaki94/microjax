@@ -28,6 +28,8 @@ t  =  jnp.linspace(-22, 12, 500)
 
 r_resolution  = 500
 th_resolution = 500
+Nlimb = 500
+MAX_FULL_CALLS = 500
 cubic = True
 
 @jit
@@ -39,8 +41,9 @@ def get_mag(params):
 
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    return w_points, mag_lc_uniform(w_points, rho, nlenses=2, q=q, s=s, cubic=cubic,
-                                    r_resolution=r_resolution, th_resolution=th_resolution)
+    return w_points, mag_lc_uniform(w_points, rho, s=s, q=q, 
+                                    r_resolution=r_resolution, th_resolution=th_resolution, 
+                                    cubic=cubic, Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
 
 import time
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
