@@ -136,10 +136,10 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, Nlimb=
 
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution",
                               "bins_r", "bins_th", "margin_r", "margin_th", 
-                              "Nlimb", "MAX_FULL_CALLS", "cubic"))
+                              "Nlimb", "MAX_FULL_CALLS", "chunk_size", "cubic"))
 def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500,
                    Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, 
-                   MAX_FULL_CALLS=500, cubic=True, **params):
+                   MAX_FULL_CALLS=500, chunk_size=50, cubic=True, **params):
 
     s = params.get("s", None)
     q = params.get("q", None)
@@ -198,8 +198,7 @@ def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500
                                      Nlimb=Nlimb,cubic=cubic, **_params)
 
     #mag_full = jit(mag_full)
-    if(1):
-        chunk_size = 100
+    if(1): # chunk because of the memory save
         idx_sorted = jnp.argsort(test)
         idx_full = idx_sorted[:MAX_FULL_CALLS]
         def chunked_vmap(func, data, chunk_size):
@@ -208,7 +207,19 @@ def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500
                 chunk = data[i:i + chunk_size]
                 results.append(vmap(func)(chunk))
             return jnp.concatenate(results)
-        mag_extended = chunked_vmap(mag_full, w_points[idx_full], chunk_size)
+        
+        def chunked_vmap_map(func, data, chunk_size):
+            N = data.shape[0]
+            pad_len = (-N) % chunk_size
+            padded = jnp.pad(data, [(0, pad_len)] + [(0, 0)] * (data.ndim - 1))
+            chunks = padded.reshape(-1, chunk_size, *data.shape[1:])  # shape = (n_chunks, chunk_size, ...)
+            def apply_vmap(chunk):
+                return vmap(func)(chunk)
+            results = lax.map(apply_vmap, chunks)  # shape = (n_chunks, chunk_size, ...)
+            return results.reshape(-1, *results.shape[2:])[:N]
+        
+        mag_extended = chunked_vmap_map(mag_full, w_points[idx_full], chunk_size)
+        #mag_extended = chunked_vmap(mag_full, w_points[idx_full], chunk_size)
         mags = mu_multi.at[idx_full].set(mag_extended)
         mags = jnp.where(test, mu_multi, mags)
         return mags 
@@ -256,8 +267,8 @@ if __name__ == "__main__":
     _params = {"a": a, "e1": e1}
     x_cm = a * (1 - q) / (1 + q)
 
-    num_points = 500
-    t  =  jnp.linspace(-0.5*tE, 0.5*tE, num_points)
+    num_points = 1000
+    t  =  jnp.linspace(-1.0*tE, 1.0*tE, num_points)
     #t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)

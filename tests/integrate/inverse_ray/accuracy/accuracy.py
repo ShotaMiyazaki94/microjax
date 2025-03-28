@@ -4,6 +4,7 @@ jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from jax import random, lax
 import gc
+from jax import vmap, lax, jit
 
 from microjax.inverse_ray.extended_source import mag_uniform
 from microjax.point_source import critical_and_caustic_curves
@@ -22,29 +23,29 @@ def mag_vbb_binary(w0, rho, s, q, u1=0.0, accuracy=1e-05):
 
 s, q = 1.0, 0.1
 # 1000  points on caustic curve
-npts = 250
+npts = 125
 critical_curves, caustic_curves = critical_and_caustic_curves(
     npts=npts, nlenses=2, s=s, q=q
 )
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 1000
+r_resolution  = 500
 th_resolution = 1000
 Nlimb = 500
-margin_r = 0.5
+margin_r = 1.0
 margin_th = 0.5
 bins_r  = 50
 bins_th = 120
-cubic = True
+cubic = False
 
 mags_vbb_list = []
 mags_list = []
 w_test_list = []
 
 #rho_list = [1e-03, 8e-04, 5e-04, 3e-04, 1e-4]
-rho_list = [1e-01, 1e-02, 1e-03]
-#rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
+#rho_list = [1e-01, 1e-02, 1e-03]
+rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
 
 for i, rho in enumerate(rho_list):
     print(f"rho = {rho}")
@@ -64,19 +65,28 @@ for i, rho in enumerate(rho_list):
                                     th_resolution=th_resolution, 
                                     Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th, 
                                     margin_r=margin_r, margin_th=margin_th, cubic=cubic)
-    #mag_mj  = lambda w: mag_uniform(w, rho, s=s, q=q, r_resolution=r_resolution, 
-    #                                th_resolution=th_resolution, cubic=cubic, 
-    #                                Nlimb=Nlimb, offset_r=0.1, offset_th=0.1)
+    #mag_mj_jit = jit(mag_mj)
     #magn    = jax.jit(jax.vmap(mag_mj, in_axes=(0,)))
+    def chunked_vmap_map(func, data, chunk_size):
+        N = data.shape[0]
+        pad_len = (-N) % chunk_size
+        padded = jnp.pad(data, [(0, pad_len)] + [(0, 0)] * (data.ndim - 1))
+        chunks = padded.reshape(-1, chunk_size, *data.shape[1:])  # shape = (n_chunks, chunk_size, ...)
+        def apply_vmap(chunk):
+            return jit(vmap(func))(chunk)
+        results = lax.map(apply_vmap, chunks)  # shape = (n_chunks, chunk_size, ...)
+        return results.reshape(-1, *results.shape[2:])[:N]
+    
     def chunked_vmap(func, data, chunk_size):
         results = []
         for i in range(0, len(data), chunk_size):
             chunk = data[i:i + chunk_size]
-            results.append(jax.vmap(func)(chunk))
+            results.append(vmap(func)(chunk))
         return jnp.concatenate(results)
 
-    chunk_size = 2000  # メモリ消費を調整するため適宜変更
-    mags = chunked_vmap(mag_mj, w_test, chunk_size)
+    chunk_size = 500  # メモリ消費を調整するため適宜変更
+    mags = chunked_vmap_map(mag_mj, w_test, chunk_size)
+    #mags = chunked_vmap(mag_mj, w_test, chunk_size)
 
     w_test_list.append(w_test) 
     mags_vbb_list.append(mags_vbb)
@@ -94,13 +104,13 @@ ax.set_aspect('equal')
 #fig.savefig("tests/integrate/inverse_ray/figs/accuracy_caustic.pdf",bbox_inches="tight")
 plt.close()
 
-fig, ax = plt.subplots(1,len(rho_list)+1, figsize=(16, 4), gridspec_kw={'wspace':0.2})
+fig, ax = plt.subplots(1,len(rho_list)+1, figsize=(20, 4), gridspec_kw={'wspace':0.2})
 labels = [r"$\rho_\star=0.1$", r"$\rho_\star=0.01$", r"$\rho_\star=10^{-3}$", r"$\rho_\star=10^{-4}$"]
 for i in range(len(rho_list)):
     mags = mags_list[i]
     mags_vbb = mags_vbb_list[i]
     relative_error = jnp.abs((mags - mags_vbb)/mags_vbb) 
-    ax[i].plot(relative_error, 'k-', alpha=0.9, zorder=-1, lw=0.3)
+    ax[i].plot(relative_error, 'k-', alpha=1.0, zorder=-1, lw=0.3)
     ax[i].xaxis.set_minor_locator(AutoMinorLocator())
     ax[i].yaxis.set_minor_locator(AutoMinorLocator())
     ax[i].set_yscale('log')
@@ -122,7 +132,9 @@ ax[-1].set_aspect('equal')
 ax[-1].legend()
 ax[0].set_ylabel("Relative error")
 if cubic:
-    fig.savefig("tests/integrate/inverse_ray/accuracy/accuracy_r%d_th%d_Nl%d_cub2.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
+    fig.savefig("tests/integrate/inverse_ray/accuracy/accuracy_r%d_th%d_Nl%d_mr%.1f_mth%.1f_cub.pdf"
+                %(r_resolution, th_resolution, Nlimb, margin_r, margin_th),bbox_inches="tight")
 else:
-    fig.savefig("tests/integrate/inverse_ray/accuracy/accuracy_r%d_th%d_Nl%d_lin2.pdf"%(r_resolution, th_resolution, Nlimb),bbox_inches="tight")
+    fig.savefig("tests/integrate/inverse_ray/accuracy/accuracy_r%d_th%d_Nl%d_mr%.1f_mth%.1f_lin.pdf"
+                %(r_resolution, th_resolution, Nlimb, margin_r, margin_th),bbox_inches="tight")
 plt.show()
