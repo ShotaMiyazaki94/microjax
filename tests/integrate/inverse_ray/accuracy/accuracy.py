@@ -30,14 +30,14 @@ critical_curves, caustic_curves = critical_and_caustic_curves(
 caustic_curves = caustic_curves.reshape(-1)
 
 acc_vbb = 1e-05
-r_resolution  = 500
+r_resolution  = 250
 th_resolution = 1000
 Nlimb = 500
 margin_r = 1.0
 margin_th = 0.5
 bins_r  = 50
 bins_th = 120
-cubic = False
+cubic = True
 
 mags_vbb_list = []
 mags_list = []

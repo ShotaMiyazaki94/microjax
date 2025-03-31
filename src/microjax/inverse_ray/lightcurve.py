@@ -137,7 +137,7 @@ def mag_lc(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, Nlimb=
 @partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution",
                               "bins_r", "bins_th", "margin_r", "margin_th", 
                               "Nlimb", "MAX_FULL_CALLS", "chunk_size", "cubic"))
-def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500,
+def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=250, th_resolution=1000,
                    Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, 
                    MAX_FULL_CALLS=500, chunk_size=50, cubic=True, **params):
 
@@ -201,12 +201,6 @@ def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500
     if(1): # chunk because of the memory save
         idx_sorted = jnp.argsort(test)
         idx_full = idx_sorted[:MAX_FULL_CALLS]
-        def chunked_vmap(func, data, chunk_size):
-            results = []
-            for i in range(0, len(data), chunk_size):
-                chunk = data[i:i + chunk_size]
-                results.append(vmap(func)(chunk))
-            return jnp.concatenate(results)
         
         def chunked_vmap_map(func, data, chunk_size):
             N = data.shape[0]
@@ -219,7 +213,6 @@ def mag_lc_uniform(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500
             return results.reshape(-1, *results.shape[2:])[:N]
         
         mag_extended = chunked_vmap_map(mag_full, w_points[idx_full], chunk_size)
-        #mag_extended = chunked_vmap(mag_full, w_points[idx_full], chunk_size)
         mags = mu_multi.at[idx_full].set(mag_extended)
         mags = jnp.where(test, mu_multi, mags)
         return mags 
@@ -253,13 +246,20 @@ if __name__ == "__main__":
     import jax
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
-    q = 0.01
-    s = 1.0
-    alpha = jnp.deg2rad(10) 
-    tE = 30 
-    t0 = 0.0 
-    u0 = 0.0 
-    rho = 2e-2
+    
+    if(1):
+        t0, u0, tE = 6.83640951e+03, 2.24211333e-01, 1.33559958e+02 
+        s, q, alpha = 9.16157288e-01, 5.87559438e-04, jnp.deg2rad(1.00066409e+02)
+        rho, pi_EN, pi_EE = 2.44003713e-03, 1.82341182e-01,9.58542572e-02
+
+    if(0):
+        q = 0.01
+        s = 1.0
+        alpha = jnp.deg2rad(10) 
+        tE = 30 
+        t0 = 0.0 
+        u0 = 0.0 
+        rho = 2e-2
 
     nlenses = 2
     a = 0.5 * s
@@ -268,7 +268,7 @@ if __name__ == "__main__":
     x_cm = a * (1 - q) / (1 + q)
 
     num_points = 1000
-    t  =  jnp.linspace(-1.0*tE, 1.0*tE, num_points)
+    t  =  jnp.linspace(-1.0*tE + t0, 1.0*tE + t0, num_points)
     #t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
@@ -278,8 +278,8 @@ if __name__ == "__main__":
 
     Nlimb = 500
     r_resolution  = 500
-    th_resolution = 500
-    MAX_FULL_CALLS = 500
+    th_resolution = 1000
+    MAX_FULL_CALLS = 100
 
     cubic = True
     bins_r = 50
@@ -287,7 +287,6 @@ if __name__ == "__main__":
     margin_r = 1.0
     margin_th= 1.0
 
-    from microjax.caustics.extended_source import mag_extended_source
     import MulensModel as mm
     import VBBinaryLensing
     VBBL = VBBinaryLensing.VBBinaryLensing()
