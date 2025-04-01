@@ -12,7 +12,7 @@ from microjax.inverse_ray.boundary import distance_from_source_adaptive
 
 #@partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
 #                               "offset_r", "offset_th", "delta_c"))
-def mag_binary(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolution=500, cubic=True, 
+def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolution=500, cubic=True, 
                Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, delta_c=0.01, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s

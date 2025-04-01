@@ -1,82 +1,97 @@
-# -*- coding: utf-8 -*-
-"""
-Computing the magnification of an extended source at an arbitrary
-set of points in the source plane.
-"""
-
 from functools import partial
 
 import jax.numpy as jnp
 from jax import jit, lax, vmap 
 
-#from .extended_source import mag_uniform
-from microjax.inverse_ray.extended_source import mag_uniform, mag_binary
+from microjax.inverse_ray.extended_source import mag_uniform, mag_limb_dark
 from microjax.point_source import _images_point_source
 from microjax.multipole import _mag_hexadecapole
 from microjax.utils import *
 from microjax.inverse_ray.cond_extended import _caustics_proximity_test, _planetary_caustic_test
 
-def mag_lc_vmap(w_points, rho, nlenses=2, batch_size=400,
-                r_resolution=1000, th_resolution=4000, Nlimb=1000, u1=0.0, **params):
-    if nlenses == 1:
-        _params = {}
-        x_cm = 0 # miyazaki
-    elif nlenses == 2:
-        s, q = params["s"], params["q"]
-        a = 0.5 * s
-        e1 = q/(1.0 + q) 
-        _params = {"a": a, "e1": e1, "q": q, "s": s}
-        x_cm = a*(1.0 - q)/(1.0 + q)
-    elif nlenses == 3:
-        s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
-        a = 0.5 * s
-        e1 = q / (1.0 + q + q3)
-        e2 = 1.0 / (1.0 + q + q3) #miyazaki
-        r3 = r3 * jnp.exp(1j * psi)
-        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
-        x_cm = a * (1.0 - q) / (1.0 + q)
-    else:
-        raise ValueError("nlenses must be <= 3")
-    
-    # compute quadrupole approximation at every point and a test where it is sufficient 
+@partial(jit,static_argnames=("r_resolution", "th_resolution", "u1",  
+                              "bins_r", "bins_th", "margin_r", "margin_th", 
+                              "Nlimb", "MAX_FULL_CALLS", "chunk_size", "cubic"))
+def mag_binary(w_points, rho, r_resolution=250, th_resolution=1000, u1=0.0,
+               Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, 
+               MAX_FULL_CALLS=500, chunk_size=50, cubic=True, **params):
+    nlenses = 2
+    s = params.get("s", None)
+    q = params.get("q", None)
+    if s is None or q is None:
+        raise ValueError("For nlenses=2, 's' and 'q' must be provided.") 
+    a = 0.5 * s
+    e1 = q / (1.0 + q)
+    _params = {**params, "a": a, "e1": e1}
+    x_cm = a * (1 - q) / (1 + q)
+
     z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
-    if nlenses==1:
-        test = w_points > 2*rho
-        mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params) #miyazaki
-    elif nlenses==2:
-        mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
-        test1 = _caustics_proximity_test(
-            w_points - x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params #miyazaki
-        )
-        test2 = _planetary_caustic_test(w_points - x_cm, rho, **_params)
-
-        test = lax.cond(q < 0.01, lambda:test1 & test2, lambda:test1)
-    elif nlenses == 3:
-        test = jnp.zeros_like(w_points).astype(jnp.bool_)
+    # Compute hexadecapole approximation at every point and a test where it is sufficient
+    mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+    test1 = _caustics_proximity_test(w_points - x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params)
+    test2 = _planetary_caustic_test(w_points - x_cm, rho, **_params)
+    test = lax.cond(q < 0.01, lambda:test1 & test2, lambda:test1,)
+    if u1==0:
+        mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution,
+                                         bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params)
+    else:
+       mag_full = lambda w: mag_limb_dark(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution,
+                                          bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params) 
     
-    mag_full = lambda w: mag_binary(w, rho, nlenses=nlenses, Nlimb=Nlimb, u1=u1, 
-                                     r_resolution=r_resolution, th_resolution=th_resolution, **_params)
-    mag_full_vmap = vmap(mag_full, in_axes=(0,))
+    idx_sorted = jnp.argsort(test)
+    idx_full = idx_sorted[:MAX_FULL_CALLS] 
+    def chunked_vmap_map(func, data, chunk_size):
+        N = data.shape[0]
+        pad_len = (-N) % chunk_size
+        padded = jnp.pad(data, [(0, pad_len)] + [(0, 0)] * (data.ndim - 1))
+        chunks = padded.reshape(-1, chunk_size, *data.shape[1:])  # shape = (n_chunks, chunk_size, ...)
+        def apply_vmap(chunk):
+            return vmap(func)(chunk)
+        results = lax.map(apply_vmap, chunks)  # shape = (n_chunks, chunk_size, ...)
+        return results.reshape(-1, *results.shape[2:])[:N]
+    
+    mag_extended = chunked_vmap_map(mag_full, w_points[idx_full], chunk_size)
+    mags = mu_multi.at[idx_full].set(mag_extended)
+    mags = jnp.where(test, mu_multi, mags)
+    return mags 
 
-    map_input = [test, mu_multi, w_points]
-    result = lax.map(lambda xs: 
-                     lax.cond(xs[0], 
-                              lambda _: xs[1], 
-                              lambda _: mag_full_vmap(xs[2]), 
-                              None), 
-                     map_input)
-    return result
-
-    #def batched_vmap(w_points, batch_size=400):
-    #    results = []
-    #    for i in range(0, len(w_points), batch_size):
-    #        chunk = w_points[i:i + batch_size]
-    #        results.append(vmap(mag_full)(chunk))
-    #    return jnp.concatenate(results)
-    #
-    #return batched_vmap(w_points, batch_size=batch_size)
-
-
+def mag_triple(w_points, rho, r_resolution=250, th_resolution=1000, u1=0.0,
+               Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, 
+               MAX_FULL_CALLS=500, chunk_size=50, cubic=True, **params):
+    nlenses = 3
+    s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
+    a = 0.5 * s
+    e1 = q / (1.0 + q + q3)
+    e2 = 1.0 / (1.0 + q + q3) #miyazaki
+    r3 = r3 * jnp.exp(1j * psi)
+    _params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
+    x_cm = a * (1.0 - q) / (1.0 + q)
+    
+    z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params) 
+    mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+    test = jnp.zeros_like(w_points).astype(jnp.bool_)
+    if u1==0:
+        mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution,
+                                         bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params)
+    else:
+       mag_full = lambda w: mag_limb_dark(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution,
+                                          bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params) 
+    idx_sorted = jnp.argsort(test)
+    idx_full = idx_sorted[:MAX_FULL_CALLS] 
+    def chunked_vmap_map(func, data, chunk_size):
+        N = data.shape[0]
+        pad_len = (-N) % chunk_size
+        padded = jnp.pad(data, [(0, pad_len)] + [(0, 0)] * (data.ndim - 1))
+        chunks = padded.reshape(-1, chunk_size, *data.shape[1:])  # shape = (n_chunks, chunk_size, ...)
+        def apply_vmap(chunk):
+            return vmap(func)(chunk)
+        results = lax.map(apply_vmap, chunks)  # shape = (n_chunks, chunk_size, ...)
+        return results.reshape(-1, *results.shape[2:])[:N]
+    
+    mag_extended = chunked_vmap_map(mag_full, w_points[idx_full], chunk_size)
+    mags = mu_multi.at[idx_full].set(mag_extended)
+    mags = jnp.where(test, mu_multi, mags)
+    return mags 
 
 #@partial(jit,static_argnames=("nlenses","r_resolution", "th_resolution", "Nlimb", "u1"))
 def mag_lc(w_points, rho, nlenses=2, r_resolution=500, th_resolution=500, Nlimb=2000, u1=0.0, **params):
@@ -267,7 +282,7 @@ if __name__ == "__main__":
     _params = {"a": a, "e1": e1}
     x_cm = a * (1 - q) / (1 + q)
 
-    num_points = 1000
+    num_points = 2000
     t  =  jnp.linspace(-1.0*tE + t0, 1.0*tE + t0, num_points)
     #t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
@@ -278,8 +293,8 @@ if __name__ == "__main__":
 
     Nlimb = 500
     r_resolution  = 500
-    th_resolution = 1000
-    MAX_FULL_CALLS = 100
+    th_resolution = 500
+    MAX_FULL_CALLS = 200
 
     cubic = True
     bins_r = 50
@@ -329,11 +344,13 @@ if __name__ == "__main__":
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
 
-    _ = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
+    _ = mag_binary(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
                        Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, MAX_FULL_CALLS=MAX_FULL_CALLS)
+    #_ = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
+    #                   Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, MAX_FULL_CALLS=MAX_FULL_CALLS)
     print("start computation with mag_lc_uniform")
     start = time.time()
-    magnifications = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution,
+    magnifications = mag_binary(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution,
                                     cubic=cubic, Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th, 
                                     margin_r=margin_r, margin_th=margin_th, MAX_FULL_CALLS=MAX_FULL_CALLS)
     end = time.time()
