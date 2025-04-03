@@ -21,7 +21,6 @@ def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolut
     shifted = 0.5 * s * (1 - q) / (1 + q)  
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
-    #r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
     r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=bins_r, bins_th=bins_th, 
                                      margin_r=margin_r, margin_th=margin_th, nlenses=nlenses)
 
@@ -97,8 +96,6 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     shifted = 0.5 * s * (1 - q) / (1 + q)  
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
-    #r_scan, th_scan = determine_grid_regions(image_limb, mask_limb, rho, offset_r, offset_th, nlenses=nlenses)
-    #r_scan, th_scan = grid_intervals(image_limb, mask_limb, rho, bins=50, max_cluster=5, optimize=True)
     r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=bins_r, bins_th=bins_th, 
                                      margin_r=margin_r, margin_th=margin_th, nlenses=nlenses)
     
