@@ -28,7 +28,7 @@ def mag_binary(w_points, rho, r_resolution=250, th_resolution=1000, u1=0.0, delt
     x_cm = a * (1 - q) / (1 + q)
     w_points_shifted = w_points - x_cm
 
-    test = test_full(w_points_shifted, q, rho, nlenses=2, **_params)
+    test = test_full(w_points_shifted, rho, nlenses=2, **_params)
     if u1==0:
         mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution,
                                          bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params)
