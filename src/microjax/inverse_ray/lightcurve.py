@@ -25,10 +25,16 @@ def mag_binary(w_points, rho, r_resolution=250, th_resolution=1000, u1=0.0, delt
     a = 0.5 * s
     e1 = q / (1.0 + q)
     _params = {**params, "a": a, "e1": e1}
-    x_cm = a * (1 - q) / (1 + q)
+    x_cm = a * (1.0 - q) / (1.0 + q)
     w_points_shifted = w_points - x_cm
 
-    test = test_full(w_points_shifted, rho, nlenses=2, **_params)
+    # test whether inverse-ray shooting needed or not. test==False means needed.
+    z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, **_params)
+    mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+    test1 = _caustics_proximity_test(w_points_shifted, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params)
+    test2 = _planetary_caustic_test(w_points_shifted, rho, **_params)
+    test = jnp.where(q < 0.01, test1 & test2, test1)
+
     if u1==0:
         mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution,
                                          bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params)

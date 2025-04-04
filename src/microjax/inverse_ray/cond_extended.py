@@ -9,7 +9,8 @@ from microjax.multipole import _mag_hexadecapole
 #from .extended_source import mag_uniform
 @partial(jit, static_argnames=("nlenses"))
 def test_full(w_points_shifted, rho, nlenses=2, **_params):
-    q = _params["q"]
+    e1 = _params["e1"]
+    q = e1 / (1.0 - e1)
     if nlenses==2:
         z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, **_params)
         # Compute hexadecapole approximation at every point and a test where it is sufficient
