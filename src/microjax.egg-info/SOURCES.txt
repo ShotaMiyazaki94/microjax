@@ -51,6 +51,7 @@ src/.DS_Store
 src/microjax/.DS_Store
 src/microjax/__init__.py
 src/microjax/coeffs.py
+src/microjax/likelihood.py
 src/microjax/multipole.py
 src/microjax/point_source.py
 src/microjax/poly_solver.py

@@ -8,6 +8,7 @@ from microjax.point_source import _images_point_source
 from microjax.multipole import _mag_hexadecapole
 from microjax.utils import *
 from microjax.inverse_ray.cond_extended import _caustics_proximity_test, _planetary_caustic_test
+from microjax.inverse_ray.cond_extended import test_full
 
 @partial(jit,static_argnames=("r_resolution", "th_resolution", "u1", "delta_c", 
                               "bins_r", "bins_th", "margin_r", "margin_th", 
@@ -15,22 +16,19 @@ from microjax.inverse_ray.cond_extended import _caustics_proximity_test, _planet
 def mag_binary(w_points, rho, r_resolution=250, th_resolution=1000, u1=0.0, delta_c=0.01,
                Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, 
                MAX_FULL_CALLS=500, chunk_size=50, cubic=True, **params):
-    nlenses = 2
     s = params.get("s", None)
     q = params.get("q", None)
     if s is None or q is None:
         raise ValueError("For nlenses=2, 's' and 'q' must be provided.") 
+    
+    nlenses = 2
     a = 0.5 * s
     e1 = q / (1.0 + q)
     _params = {**params, "a": a, "e1": e1}
     x_cm = a * (1 - q) / (1 + q)
+    w_points_shifted = w_points - x_cm
 
-    z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
-    # Compute hexadecapole approximation at every point and a test where it is sufficient
-    mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
-    test1 = _caustics_proximity_test(w_points - x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params)
-    test2 = _planetary_caustic_test(w_points - x_cm, rho, **_params)
-    test = lax.cond(q < 0.01, lambda:test1 & test2, lambda:test1,)
+    test = test_full(w_points_shifted, q, rho, nlenses=2, **_params)
     if u1==0:
         mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution,
                                          bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params)
