@@ -5,20 +5,17 @@ from jax import jit, lax, vmap
 from microjax.point_source import _images_point_source
 from microjax.multipole import _mag_hexadecapole
 
-
-#from .extended_source import mag_uniform
 @partial(jit, static_argnames=("nlenses"))
 def test_full(w_points_shifted, rho, nlenses=2, **_params):
     e1 = _params["e1"]
     q = e1 / (1.0 - e1)
     if nlenses==2:
-        z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, **_params)
         # Compute hexadecapole approximation at every point and a test where it is sufficient
+        z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, **_params)
         mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
         test1 = _caustics_proximity_test(w_points_shifted, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params)
         test2 = _planetary_caustic_test(w_points_shifted, rho, **_params)
         test = jnp.where(q < 0.01, test1 & test2, test1)
-        #not_full = lax.cond(q < 0.01, lambda:test1 & test2, lambda:test1,)
     else:
         test = jnp.zeros_like(w_points_shifted).astype(jnp.bool_)
     # test==True means no needs for inverse-ray shooting
