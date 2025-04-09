@@ -34,7 +34,7 @@ def dict_to_array(params_dict):
 def array_to_dict(params_array):
     return {k: v for k, v in zip(param_keys, params_array)}
 
-# --- 初期パラメータ（dict形式とarray形式） ---
+# {'alpha': array(3.94610881), 'log_q': array(-2.34634473), 'log_rho': array(-3.99074251), 'log_s': array(-0.05999554), 't0': array(2848.06685328), 'tE': array(61.54353175), 'u0': array(0.13737328)}
 params_init_dict = {
     "t0": 2848.16048754,
     "tE": 61.61235588,
@@ -61,39 +61,41 @@ def mag_binary_time(time, theta):
     
     magn = mag_binary(
         w_points, rho, s=s, q=q,
-        r_resolution=100, th_resolution=100,
+        r_resolution=500, th_resolution=500,
         cubic=True, Nlimb=500,
         bins_r=50, bins_th=120,
         margin_r=1.0, margin_th=1.0,
-        MAX_FULL_CALLS=30)
+        MAX_FULL_CALLS=50, chunk_size=10)
     return magn
 
 # --- NLL関数（パラメータはarray） ---
 times, fluxs, fluxes = data_input
 
+@jit
 def nll_fn(theta_array):
     mags = mag_binary_time(times, theta_array)
     M = jnp.stack([mags - 1.0, jnp.ones_like(mags)], axis=1)
-    return nll_ulens(fluxs, M, fluxes**2, 1e9, 1e9)
+    return nll_ulens(fluxs, M, fluxes**2, jnp.array(1e9), jnp.array(1e9))
 
 # --- Forward-mode Hessian（jacfwd x2） ---
+from jax import make_jaxpr
 hessian_fn = jacfwd(jacfwd(nll_fn))
+#jaxpr = make_jaxpr(hessian_fn)(params_init)
+#print(jaxpr)
 fisher_matrix = hessian_fn(params_init)
-#jac = jacfwd(nll_fn)(params_init) 
-#fisher_matrix = jnp.outer(jac, jac)
 fisher_cov = jnp.linalg.inv(fisher_matrix)
 param_stddev = jnp.sqrt(jnp.diag(fisher_cov))
-
-print("Fisher matrix:\n", fisher_matrix)
-print("Fisher covariance:\n", fisher_cov)
 print("1 sigma:\n", param_stddev)
 
-# --- Corner plot 用の可視化 ---
-mean = np.array(params_init)
-cov = np.array(fisher_cov)
-samples = np.random.multivariate_normal(mean, cov*10, size=2000)
+fisher_matrix = np.array(fisher_matrix)
+np.save("example/ogle-2003-blg-235/fisher_matrix", fisher_matrix)
 
-labels = [r"$t_0$", r"$t_E$", r"$u_0$", r"$q$", r"$s$", r"$\alpha$", r"$\rho$"]
-fig = corner.corner(samples, labels=labels, truths=mean, show_titles=True, title_fmt=".4f")
-fig.savefig("example/ogle-2003-blg-235/hessian_corner_plot.png", bbox_inches="tight")
-plt.show()
+if(0):
+    mean = np.array(params_init)
+    cov = np.array(fisher_cov)
+    samples = np.random.multivariate_normal(mean, cov*10, size=2000)
+
+    labels = [r"$t_0$", r"$t_E$", r"$u_0$", r"$q$", r"$s$", r"$\alpha$", r"$\rho$"]
+    fig = corner.corner(samples, labels=labels, truths=mean, show_titles=True, title_fmt=".4f")
+    fig.savefig("example/ogle-2003-blg-235/hessian_corner_plot.png", bbox_inches="tight")
+    plt.show()

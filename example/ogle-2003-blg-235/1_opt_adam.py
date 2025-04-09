@@ -74,7 +74,7 @@ def forward_grad(loss_fn, params, data):
     grads = unravel_fn(grad_flat)
     return grads
 
-optimizer = optax.adam(1e-3)
+optimizer = optax.adam(1e-2)
 opt_state = optimizer.init(params_init)
 
 @jit
@@ -87,10 +87,10 @@ def update(params, opt_state, data):
 
 params = params_init
 losses = []
-for step in range(1000):
+for step in range(5000):
     params, opt_state, loss = update(params, opt_state, data_input)
     losses.append(loss)
-    if step % 10 == 0:
+    if step % 5 == 0:
         print(f"Step {step}, Loss: {loss:.3f}")
 
 params_np = {k: np.array(v) for k, v in params.items()}

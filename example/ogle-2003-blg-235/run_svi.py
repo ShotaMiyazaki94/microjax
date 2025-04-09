@@ -34,9 +34,9 @@ def mag_binary_time(time, params):
 
     magn = mag_binary(
         w_points, rho, s=s, q=q,
-        r_resolution=200, th_resolution=200,
+        r_resolution=500, th_resolution=500,
         cubic=True, Nlimb=500, bins_r=50, bins_th=120,
-        margin_r=1.0, margin_th=1.0, MAX_FULL_CALLS=20
+        margin_r=1.0, margin_th=1.0, MAX_FULL_CALLS=50
     )
     return magn
 
@@ -79,10 +79,10 @@ params_init = {
 #guide = AutoBNAFNormal(model_prob, init_loc_fn=init_to_value(values=params_init))
 #guide = AutoLowRankMultivariateNormal(model_prob, init_loc_fn=init_to_value(values=params_init))
 guide = AutoMultivariateNormal(model_prob, init_loc_fn=init_to_value(values=params_init))
-optimizer = optim.Adam(1e-3)
+optimizer = optim.Adam(1e-2)
 svi = SVI(model_prob, guide, optimizer, loss=Trace_ELBO())
 
-num_steps = 5000
+num_steps = 10000
 rng_key = random.PRNGKey(0)
 svi_result = svi.run(rng_key, num_steps, data=data_input, forward_mode_differentiation=True)
 
@@ -91,7 +91,7 @@ print(params_np.keys())
 np.savez("example/ogle-2003-blg-235/svi_params.npz", **params_np)
 
 from numpyro.infer import Predictive
-predictive = Predictive(guide, params=svi_result.params, num_samples=5000)
+predictive = Predictive(guide, params=svi_result.params, num_samples=10000)
 posterior_samples = predictive(random.PRNGKey(1), data=data_input)
 #print_summary(posterior_samples)
 posterior_samples.keys()
