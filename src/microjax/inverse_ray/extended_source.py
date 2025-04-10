@@ -200,8 +200,8 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     Nlimb = 500
-    r_resolution  = 500
-    th_resolution = 500
+    r_resolution  = 1000
+    th_resolution = 1000
     cubic = True
 
     bins_r = 50
@@ -268,7 +268,7 @@ if __name__ == "__main__":
     print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
 
 
-    chunk_size = 2000  # メモリ消費を調整するため適宜変更
+    chunk_size = 1000  # メモリ消費を調整するため適宜変更
     _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
     print("start computation with vmap")
     start = time.time()
@@ -325,8 +325,12 @@ if __name__ == "__main__":
     ax.set_title("mag_uniform")
     ax.grid(ls=":")
     ax.set_ylabel("magnification")
+    ax.plot(t, mags_poi, "--", label="point_source", zorder=-1, color="gray")
+    ax.plot(t, mu_multi, ":", label="hexadecapole", zorder=-2, color="orange")
     ax.set_ylim(ylim[0], ylim[1])
     ax1.plot(t, jnp.abs(magnifications - magnifications2)/magnifications2, "-", ms=1)
+    #ax1.plot(t, jnp.abs(mags_poi - magnifications2)/magnifications2, "-", ms=1)
+    #ax1.plot(t, jnp.abs(mu_multi - magnifications2)/magnifications2, "-", ms=1)
     ax1.grid(ls=":")
     ax1.set_yticks(10**jnp.arange(-4, -2, 1))
     ax1.set_ylabel("relative diff")
@@ -335,6 +339,7 @@ if __name__ == "__main__":
     ax1.set_ylim(1e-6, 1e-2)
     ax.legend(loc="upper left")
     ax1.set_xlabel("time (days)")
+    
     plt.show()
     plt.savefig("mag_uniform.pdf", bbox_inches="tight")
     plt.close()

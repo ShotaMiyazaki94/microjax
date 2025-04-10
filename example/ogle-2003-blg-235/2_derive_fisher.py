@@ -25,7 +25,7 @@ fluxe_data = np.hstack([fluxe_moa, fluxe_ogle])
 data_input = (t_data, flux_data, fluxe_data)
 
 # --- パラメータ名と順序を定義 ---
-param_keys = ["t0", "tE", "u0", "q", "s", "alpha", "rho"]
+param_keys = ["t0", "tE", "u0", "log_q", "log_s", "alpha", "log_rho"]
 
 # --- dict <-> array 変換関数 ---
 def dict_to_array(params_dict):
@@ -39,10 +39,10 @@ params_init_dict = {
     "t0": 2848.16048754,
     "tE": 61.61235588,
     "u0": 0.11760426,
-    "q": 10**-2.3609089,
-    "s": 10**0.0342508,
+    "log_q": -2.3609089,
+    "log_s": 0.0342508,
     "alpha": 4.00180035,
-    "rho": 10**-3.94500971
+    "log_rho": -3.94500971
 }
 params_init = dict_to_array(params_init_dict)
 
@@ -51,9 +51,10 @@ params_init = dict_to_array(params_init_dict)
 def mag_binary_time(time, theta):
     params = array_to_dict(theta)
     t0, tE, u0  = params["t0"], params["tE"], params["u0"]
-    q, s, alpha = params["q"], params["s"], params["alpha"]
-    rho = params["rho"]
-    
+    log_q, log_s, alpha = params["log_q"], params["log_s"], params["alpha"]
+    log_rho = params["log_rho"]
+    q, s, rho = 10**log_q, 10**log_s, 10**log_rho
+
     tau = (time - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
@@ -88,7 +89,7 @@ param_stddev = jnp.sqrt(jnp.diag(fisher_cov))
 print("1 sigma:\n", param_stddev)
 
 fisher_matrix = np.array(fisher_matrix)
-np.save("example/ogle-2003-blg-235/fisher_matrix", fisher_matrix)
+np.save("example/ogle-2003-blg-235/fisher_matrix_log", fisher_matrix)
 
 if(0):
     mean = np.array(params_init)

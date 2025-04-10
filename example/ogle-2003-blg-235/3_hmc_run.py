@@ -29,8 +29,9 @@ data_input = (t_data, flux_data, fluxe_data)
 @jit
 def mag_binary_time(time, params):
     t0, tE, u0  = params[0:3]
-    q, s, alpha = params[3:6]
-    rho = params[6]
+    log_q, log_s, alpha = params[3:6]
+    log_rho = params[6]
+    q, s, rho = 10**log_q, 10**log_s, 10**log_rho
     tau = (time - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
@@ -59,7 +60,7 @@ from numpyro.infer import MCMC, NUTS
 def model(data, L, init_val):
     times, flux, fluxe = data
     param_base = numpyro.sample('param_base', dist.Uniform(-1*jnp.ones(len(init_val)), jnp.ones(len(init_val))))
-    param_true = jnp.dot(L * 100, param_base) + jnp.array(init_val)
+    param_true = jnp.dot(L * 10, param_base) + jnp.array(init_val)
     numpyro.deterministic('param',param_true)
     mags = mag_binary_time(times, param_true)
     M = jnp.stack([mags - 1.0, jnp.ones_like(mags)], axis=1)
@@ -72,10 +73,10 @@ def model(data, L, init_val):
 params_init = np.load("example/ogle-2003-blg-235/adam_fwd_params.npz")
 print(list(params_init.keys()))
 params_init = jnp.array([params_init["t0"], params_init["tE"], params_init["u0"],
-                         10**params_init["log_q"], 10**params_init["log_s"], 
-                         params_init["alpha"], 10**params_init["log_rho"]])
+                         params_init["log_q"], params_init["log_s"], 
+                         params_init["alpha"], params_init["log_rho"]])
 print(params_init)
-fisher_matrix = np.load("example/ogle-2003-blg-235/fisher_matrix.npy")
+fisher_matrix = np.load("example/ogle-2003-blg-235/fisher_matrix_log.npy")
 fisher_cov = jnp.linalg.inv(fisher_matrix)
 L = jnp.linalg.cholesky(fisher_cov + 1e-9 * jnp.eye(fisher_cov.shape[0]) )
 param_stddev = jnp.sqrt(jnp.diag(fisher_cov))
@@ -100,12 +101,12 @@ mcmc.print_summary(exclude_deterministic=False)
 import pandas as pd
 samples = mcmc.get_samples()
 df_samples = pd.DataFrame({k: np.array(v).flatten() for k, v in samples.items()})
-df_samples.to_csv("example/ogle-2003-blg-235/hmc_samples.csv", index=False)
+df_samples.to_csv("example/ogle-2003-blg-235/hmc_samples_log.csv", index=False)
 
 import corner
 hmc_sample = mcmc.get_samples()['param']
 print(hmc_sample.shape)
-corner_params = ["t0", "u0", "tE", "q", "s", "alpha", "rho"]
+corner_params = ["t0", "u0", "tE", "log_q", "log_s", "alpha", "log_rho"]
 fig = corner.corner(np.array(hmc_sample), labels=corner_params, show_titles=True, title_fmt=".3f", title_kwargs={"fontsize": 12})
-fig.savefig("example/ogle-2003-blg-235/hmc_corner_plot.png", bbox_inches="tight")
+fig.savefig("example/ogle-2003-blg-235/hmc_corner_plot_log.png", bbox_inches="tight")
 plt.close()
