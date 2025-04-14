@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 
-from microjax.inverse_ray.lightcurve import mag_lc_uniform
+from microjax.inverse_ray.lightcurve import mag_binary
 from microjax.point_source import critical_and_caustic_curves
 
 # Parameters
@@ -18,7 +18,7 @@ alpha = jnp.deg2rad(60) # angle between lens axis and source trajectory
 tE = 10.0 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
 u0 = 0.0 # impact parameter
-rho = 0.05
+rho = 0.03
 
 a  = 0.5 * s
 e1 = q / (1.0 + q)
@@ -41,9 +41,9 @@ def get_mag(params):
 
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    return w_points, mag_lc_uniform(w_points, rho, s=s, q=q, 
-                                    r_resolution=r_resolution, th_resolution=th_resolution, 
-                                    cubic=cubic, Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
+    return w_points, mag_binary(w_points, rho, s=s, q=q, 
+                                r_resolution=r_resolution, th_resolution=th_resolution, 
+                                cubic=cubic, Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
 
 import time
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])

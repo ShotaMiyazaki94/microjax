@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 
-from microjax.inverse_ray.lightcurve import mag_lc
+from microjax.inverse_ray.lightcurve import mag_binary
 from microjax.point_source import critical_and_caustic_curves
 
 # Parameters
@@ -28,7 +28,9 @@ t  =  jnp.linspace(-22, 12, 2000)
 
 r_resolution  = 500
 th_resolution = 500
-cubic = False
+Nlimb = 500
+MAX_FULL_CALLS = 500
+cubic = True
 
 @jit
 def get_mag(params):
@@ -39,8 +41,9 @@ def get_mag(params):
 
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    return w_points, mag_lc(w_points, rho, nlenses=2, u1=0.5, q=q, s=s, cubic=cubic,
-                            r_resolution=r_resolution, th_resolution=th_resolution)
+    return w_points, mag_binary(w_points, rho, u1=0.5, q=q, s=s, cubic=cubic, 
+                                r_resolution=r_resolution, th_resolution=th_resolution,
+                                Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
 
 import time
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
