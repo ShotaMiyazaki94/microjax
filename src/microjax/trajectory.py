@@ -133,3 +133,78 @@ def compute_parallax(t, piEN, piEE, parallax_params):
     dtn = piEN * qne_delta[0] + piEE * qne_delta[1]
     dum = piEN * qne_delta[1] - piEE * qne_delta[0]
     return dtn, dum
+
+
+if __name__ == "__main__":
+    import numpy as np
+    import jax.numpy as jnp
+    import jax
+    jax.config.update('jax_enable_x64', True)
+    import matplotlib.pyplot as plt
+    import VBMicrolensing
+
+    from astropy.coordinates import SkyCoord
+    import astropy.units as u
+    coords = "17:45:40 -29:00:28"
+    c = SkyCoord(coords, frame="icrs", unit=(u.hourangle, u.deg),)
+    RA = c.ra.deg
+    Dec = c.dec.deg
+
+    u0 = 0.1
+    log_tE = np.log(100.0)
+    t0 = 8000.0 
+    piEN = 0.1
+    piEE = 0.1
+    tE = np.exp(log_tE)
+    t = t0 + np.linspace(-5.0*tE, 5.0*tE, 1000)
+
+    # VBM
+    VBM = VBMicrolensing.VBMicrolensing()
+    VBM.parallaxsystem = 1
+    VBM.t0_par_fixed = 1
+    VBM.t0_par = t0
+    VBM.SetObjectCoordinates(coords)
+    VBM.RelTol = 1e-03
+    VBM.Tol=1e-03
+    param = [u0, log_tE, t0, piEN, piEE]
+    mag_vbbl, x, y = VBM.PSPLLightCurveParallax(param, t)
+
+    # MulensModel
+    import MulensModel as mm
+    params = dict()
+    params['t_0'] = t0 + 2450000
+    params['t_0_par'] = t0 + 2450000
+    params['u_0'] = u0
+    params['t_E'] = tE
+    params['pi_E_N'] = piEN
+    params['pi_E_E'] = piEE
+    my_model = mm.Model(params, coords=coords)
+    my_model.parallax(earth_orbital=True, satellite=False)
+    mag_mulens = my_model.get_magnification(time=t+2450000,)
+
+    # microJAX
+    tref = t0
+    tperi, tvernal = peri_vernal(tref)
+    parallax_params = set_parallax(tref, tperi, tvernal, RA, Dec)
+    dtn, dum = compute_parallax(t, piEN, piEE, parallax_params)
+    tau = (t - t0)/tE
+    um  = u0 + dum
+    tm  = tau + dtn
+    u2  = um**2 + tm**2
+    u   = jnp.sqrt(u2)
+    mag_jax = (u2 + 2.0) / (u * jnp.sqrt(u2 + 4.0))
+
+    diff_vbbl_jax    = jnp.array(mag_vbbl) - jnp.array(mag_jax)
+    diff_mulens_jax  = jnp.array(mag_mulens) - jnp.array(mag_jax)
+
+    print("mag diff max VBM - MicroJAX:    ", jnp.max(diff_vbbl_jax))
+    print("mag diff max Mulens - microJAX: ", jnp.max(diff_mulens_jax))
+
+    trajectory_mulens = my_model.get_trajectory(times= t + 2450000.0)
+    x_vbbl, y_vbbl = -jnp.array(x), -jnp.array(y)
+
+    diff_vbbl_jax_xy = jnp.array([x_vbbl, y_vbbl]) - jnp.array([tm, um])
+    diff_mulens_jax_xy = jnp.array([trajectory_mulens.x, trajectory_mulens.y]) - jnp.array([tm, um])
+    print("diff pos max VBM - MicroJAX:    ", jnp.max(jnp.sqrt(diff_vbbl_jax_xy[0]**2 + diff_vbbl_jax_xy[1]**2)))
+    print("diff pos max Mulens - microJAX: ", jnp.max(jnp.sqrt(diff_mulens_jax_xy[0]**2 + diff_mulens_jax_xy[1]**2)))
+    exit(1)
