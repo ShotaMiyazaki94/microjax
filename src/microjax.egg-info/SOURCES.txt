@@ -162,6 +162,7 @@ tests/integrate/inverse_ray/dusts/uniform_grads.py
 tests/integrate/inverse_ray/grads/grad_check_simple.py
 tests/integrate/inverse_ray/grads/grads_lc_limb.py
 tests/integrate/inverse_ray/grads/grads_lc_limb_r500_500_cub.pdf
+tests/integrate/inverse_ray/grads/grads_lc_limb_r500_500_lin.pdf
 tests/integrate/inverse_ray/grads/grads_lc_uniform.py
 tests/integrate/inverse_ray/grads/grads_lc_uniform_r500_500_cub.pdf
 tests/integrate/inverse_ray/profiler/profile_determine_region.py

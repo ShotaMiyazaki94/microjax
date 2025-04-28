@@ -107,12 +107,12 @@ if __name__ == "__main__":
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
     
-    if(1):
+    if(0):
         t0, u0, tE = 6.83640951e+03, 2.24211333e-01, 1.33559958e+02 
         s, q, alpha = 9.16157288e-01, 5.87559438e-04, jnp.deg2rad(1.00066409e+02)
         rho, pi_EN, pi_EE = 2.44003713e-03, 1.82341182e-01,9.58542572e-02
 
-    if(0):
+    if(1):
         q = 0.01
         s = 1.0
         alpha = jnp.deg2rad(10) 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     _params = {"a": a, "e1": e1}
     x_cm = a * (1 - q) / (1 + q)
 
-    num_points = 2000
+    num_points = 500
     t  =  jnp.linspace(-1.0*tE + t0, 1.0*tE + t0, num_points)
     #t  =  jnp.linspace(-0.8*tE, 0.8*tE, num_points)
     tau = (t - t0)/tE
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     Nlimb = 500
     r_resolution  = 500
     th_resolution = 1000
-    MAX_FULL_CALLS = 100
+    MAX_FULL_CALLS = 500
 
     cubic = True
     bins_r = 50
@@ -186,7 +186,7 @@ if __name__ == "__main__":
                        Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, MAX_FULL_CALLS=MAX_FULL_CALLS)
     #_ = mag_lc_uniform(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution, cubic=cubic, 
     #                   Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, MAX_FULL_CALLS=MAX_FULL_CALLS)
-    print("start computation with mag_lc_uniform, %d full calculation"%(MAX_FULL_CALLS))
+    print("start computation with mag_lc_uniform, %d full calculation, %d rbin, %d thbin"%(MAX_FULL_CALLS, r_resolution, th_resolution))
     start = time.time()
     magnifications = mag_binary(w_points, rho, s=s, q=q, r_resolution=r_resolution, th_resolution=th_resolution,
                                     cubic=cubic, Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th, 
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     )
     ax.plot(t[~test], magnifications[~test], ".", color="red", zorder=20)
     print("full num: %d"%jnp.sum(~test))
-    plt.show()
-    plt.savefig("mag_lc.pdf", bbox_inches="tight")
+    #plt.show()
+    plt.savefig("z_fig/mag_lc.png", bbox_inches="tight", dpi=300)
     print("mag_lc.pdf")
     plt.close()

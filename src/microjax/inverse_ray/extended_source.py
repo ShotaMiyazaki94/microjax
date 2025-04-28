@@ -243,6 +243,7 @@ if __name__ == "__main__":
         _, results = lax.scan(body_fun, None, w_points)
         return results
 
+    print("number of data points: %d"%(num_points))
     from microjax.point_source import mag_point_source, critical_and_caustic_curves
     mag_point_source(w_points, s=s, q=q)
     start = time.time()
@@ -339,9 +340,8 @@ if __name__ == "__main__":
     ax1.set_ylim(1e-6, 1e-2)
     ax.legend(loc="upper left")
     ax1.set_xlabel("time (days)")
-    
-    plt.show()
-    plt.savefig("mag_uniform.pdf", bbox_inches="tight")
+    #plt.show()
+    plt.savefig("z_fig/mag_uniform.png", bbox_inches="tight", dpi=300)
     plt.close()
 
     if(1):
