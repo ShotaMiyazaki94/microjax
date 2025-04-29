@@ -4,8 +4,8 @@ import pandas as pd
 import numpy as np
 import jax.numpy as jnp
 from jax import grad, jit, vmap, random
-from microjax.inverse_ray.lightcurve import mag_lc, mag_lc_vmap
-from microjax.trajectory import dtn_dum_parallax, _get_info_parallax
+from microjax.inverse_ray.lightcurve import mag_binary
+#from microjax.trajectory import dtn_dum_parallax, _get_info_parallax
 
 data = pd.read_csv("example/data/ogle-2014-blg-0124/phot.dat", 
                    sep='\s+', header=None, names=["HJD", "mag", "mage", "seeing", "sky"])
@@ -26,8 +26,8 @@ from astropy.coordinates import SkyCoord
 coords = SkyCoord("18:02:29.21 −28:23:46.5", unit=("hourangle", "deg"))
 coords_deg = (coords.ra.deg, coords.dec.deg)
 tref = 6836.0
-info_parallax = _get_info_parallax(RA=coords_deg[0], Dec=coords_deg[1], tref=tref)
-t_peri, qne0, vne0, xpos, ypos, north, east = info_parallax
+#info_parallax = _get_info_parallax(RA=coords_deg[0], Dec=coords_deg[1], tref=tref)
+#t_peri, qne0, vne0, xpos, ypos, north, east = info_parallax
 
 t = jnp.linspace(6650, 7000, 1000)
 _alpha_rad = jnp.deg2rad(_alpha)
@@ -40,7 +40,7 @@ um  = _u_0
 y1 = -um*jnp.sin(_alpha_rad) + tau*jnp.cos(_alpha_rad)
 y2 = um*jnp.cos(_alpha_rad) + tau*jnp.sin(_alpha_rad)
 w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-mags = mag_lc(w_points, _rho, s=_s, q=_q, nlenses=2, cubic=True, r_resolution=500, th_resolution=500)
+mags = mag_binary(w_points, _rho, s=_s, q=_q, cubic=True, r_resolution=500, th_resolution=500)
 _f = _fs * mags + _fb
 
 import matplotlib.pyplot as plt

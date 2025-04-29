@@ -1,6 +1,14 @@
 import jax.numpy as jnp
 
 def peri_vernal(tref):
+    """
+    Calculate the time of perihelion and vernal equinox for a given reference time.
+    Parameters:
+        tref : float - reference time [JD]
+    Returns:
+        tperi : float - time of perihelion [JD]
+        tvernal : float - time of vernal equinox [JD]
+    """
     tref = jnp.where(tref > 2_450_000.0, tref - 2_450_000.0, tref)
     peris = jnp.array([
         1546.70833, 1913.87500, 2277.08333, 2643.70833, 3009.25000, 3372.54167,
@@ -19,7 +27,14 @@ def peri_vernal(tref):
     return peris[imin], vernals[imin]
 
 def getpsi(phi, ecc):
-    """Solve Kepler's equation using Newton-Raphson method."""
+    """
+    Solve Kepler's equation using Newton-Raphson method.
+    Parameters:
+        phi : float - mean anomaly [rad]
+        ecc : float - orbital eccentricity
+    Returns:
+        psi : float - eccentric anomaly [rad]
+    """
     psi = phi + jnp.sign(jnp.sin(phi)) * 0.85 * ecc # empirical init
     for _ in range(5):
         f = psi - ecc * jnp.sin(psi) - phi
@@ -108,6 +123,22 @@ def project_earth_position(t, tperi, period, ecc, R, north, east):
 
 def set_parallax(tref, tperi, tvernal, RA, Dec,
                  rotaxis_deg=23.44, ecc=0.0167, period=365.25636, dt=0.1):
+    """
+    Set up the parallax parameters for a given time reference.
+    Parameters:
+        tref : float - reference time [JD]
+        tperi : float - time of perihelion [JD]
+        tvernal : float - time of vernal equinox [JD]
+        RA : float - right ascension of target [deg]
+        Dec : float - declination of target [deg]
+        rotaxis_deg : float - obliquity of the ecliptic [deg]
+        ecc : float - orbital eccentricity
+        period : float - orbital period [days]
+        dt : float - time step for numerical differentiation [days]
+    Returns:
+        parallax_params : tuple - parameters for parallax calculation
+            (qne0, vne0, R, north, east, tref, tperi, period, ecc)
+    """
     info_0 = peri_vernal(tref)
     info = jnp.where(tperi * tvernal == 0,
                      jnp.array(info_0),
@@ -127,6 +158,18 @@ def set_parallax(tref, tperi, tvernal, RA, Dec,
     return parallax_params
 
 def compute_parallax(t, piEN, piEE, parallax_params):
+    """
+    Compute the parallax effect for a given time t.
+    dtn and dum are to be added to tau and u0 respectively.
+    Parameters:
+        t : jnp.array or float - observation time [JD]
+        piEN : float - parallax parameter in the north direction
+        piEE : float - parallax parameter in the east direction
+        parallax_params : tuple - parameters for parallax calculation
+            (qne0, vne0, R, north, east, tref, tperi, period, ecc)
+    Returns:
+        dtn, dum : jnp.array - parallax effect in north and east directions
+    """
     qne0, vne0, R, north, east, tref, tperi, period, ecc = parallax_params
     qne = project_earth_position(t, tperi, period, ecc, R, north, east)
     qne_delta = jnp.array([qne[i] - qne0[i] - vne0[i] * (t - tref) for i in range(2)])
@@ -150,7 +193,7 @@ if __name__ == "__main__":
     RA = c.ra.deg
     Dec = c.dec.deg
 
-    u0 = 0.1
+    u0 = 0.01
     log_tE = np.log(100.0)
     t0 = 8000.0 
     piEN = 0.1
@@ -164,8 +207,8 @@ if __name__ == "__main__":
     VBM.t0_par_fixed = 1
     VBM.t0_par = t0
     VBM.SetObjectCoordinates(coords)
-    VBM.RelTol = 1e-03
-    VBM.Tol=1e-03
+    VBM.RelTol = 1e-04
+    VBM.Tol=1e-04
     param = [u0, log_tE, t0, piEN, piEE]
     mag_vbbl, x, y = VBM.PSPLLightCurveParallax(param, t)
 

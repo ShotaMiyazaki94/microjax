@@ -3,12 +3,9 @@ import jax.numpy as jnp
 from jax import jit, lax, vmap, custom_jvp
 from functools import partial
 from microjax.point_source import lens_eq, _images_point_source
-from microjax.inverse_ray.merge_area import calc_source_limb, determine_grid_regions
-from microjax.inverse_ray.merge_area_3 import define_regions
-from microjax.inverse_ray.merge_area_2 import grid_intervals
+from microjax.inverse_ray.merge_area import calc_source_limb, define_regions
 from microjax.inverse_ray.limb_darkening import Is_limb_1st
 from microjax.inverse_ray.boundary import in_source, distance_from_source, calc_facB
-from microjax.inverse_ray.boundary import distance_from_source_adaptive
 
 #@partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
 #                               "offset_r", "offset_th", "delta_c"))
@@ -191,8 +188,8 @@ if __name__ == "__main__":
     _params = {"a": a, "e1": e1}
     x_cm = a * (1 - q) / (1 + q)
 
-    num_points = 500
-    t  =  jnp.linspace(-0.5*tE, 0.5*tE, num_points)
+    num_points = 2000
+    t  =  jnp.linspace(-1.0*tE, 1.0*tE, num_points)
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
@@ -200,12 +197,12 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     Nlimb = 500
-    r_resolution  = 1000
-    th_resolution = 1000
+    r_resolution  = 500
+    th_resolution = 500
     cubic = True
 
-    bins_r = 50
-    bins_th = 120
+    bins_r = 100
+    bins_th = 360
     margin_r = 1.0
     margin_th= 1.0
 

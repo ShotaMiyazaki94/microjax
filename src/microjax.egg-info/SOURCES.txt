@@ -2,9 +2,6 @@
 .gitignore
 LICENSE
 README.md
-mag_lc.pdf
-mag_uniform.pdf
-mag_uniform_.pdf
 nohup.out
 setup.py
 .github/workflows/main.yml
@@ -82,7 +79,6 @@ src/microjax/likelihood.py
 src/microjax/multipole.py
 src/microjax/point_source.py
 src/microjax/poly_solver.py
-src/microjax/trajectory.py
 src/microjax/utils.py
 src/microjax.egg-info/PKG-INFO
 src/microjax.egg-info/SOURCES.txt
@@ -108,13 +104,11 @@ src/microjax/inverse_ray/__init__.py
 src/microjax/inverse_ray/boundary.py
 src/microjax/inverse_ray/cond_extended.py
 src/microjax/inverse_ray/extended_source.py
-src/microjax/inverse_ray/extended_source.py.bak
 src/microjax/inverse_ray/lightcurve.py
 src/microjax/inverse_ray/limb_darkening.py
 src/microjax/inverse_ray/merge_area.py
-src/microjax/inverse_ray/merge_area_2.py
-src/microjax/inverse_ray/merge_area_3.py
-src/microjax/inverse_ray/merge_area_3.py.bak
+src/microjax/trajectory/__init__.py
+src/microjax/trajectory/parallax.py
 tests/.DS_Store
 tests/integrate/.DS_Store
 tests/integrate/ESPL.tbl
@@ -239,3 +233,7 @@ tests/unittests/empty_test.py
 tests/unittests/special/ellip_test.py
 tests/unittests/special/gamma_test.py
 tests/unittests/special/j_test.py
+z_fig/amplification.png
+z_fig/mag_lc.png
+z_fig/mag_uniform.png
+z_fig/parallax_shift.png

@@ -29,8 +29,8 @@ def magd_scaler(u,rho):
 magl_grad = jit(vmap(grad(magl_scaler,argnums=(0,1))))
 magd_grad = jit(vmap(grad(magd_scaler,argnums=(0,1))))
 
-rho_value = 1.0
-u   = jnp.linspace(1e-3,3,1000)
+rho_value = 0.5
+u   = jnp.linspace(1e-4,1,1000)
 rho = jnp.ones(1000) * rho_value
 magd_plot = vmap(magd)(u,rho) 
 magl_plot = vmap(magl)(u,rho) 
@@ -59,7 +59,7 @@ ax["C"].plot(u,magl_plot_grad[1].ravel(),"-")
 ax["B"].set_ylabel("dA/du")
 ax["C"].set_ylabel("dA/drho")
 ax["C"].set_xlabel("u")
-plt.savefig("tests/magfft/test_grad_1.png",dpi=200,bbox_inches="tight")
+plt.savefig("tests/integrate/magfft/test_grad_1.png",dpi=200,bbox_inches="tight")
 plt.close()
 
 u_grid = jnp.logspace(-5,0,50)
@@ -86,7 +86,7 @@ ax[0].set_xlabel("u")
 ax[0].set_ylabel("rho")
 ax[1].set_xlabel("u")
 ax[1].set_ylabel("rho")
-plt.savefig("tests/magfft/test_grad_2.png",dpi=200,bbox_inches="tight")
+plt.savefig("tests/integrate/magfft/test_grad_2.png",dpi=200,bbox_inches="tight")
 plt.close()
 
 
