@@ -69,12 +69,14 @@ from numpyro.infer import MCMC, NUTS
 
 def model(data, L, init_val):
     times, flux, fluxe, RA, Dec = data
+    log_fac_err = numpyro.sample('fac_err', dist.Uniform(-0.5, 0.5))
+    fac_err = 10**log_fac_err
     param_base = numpyro.sample('param_base', dist.Uniform(-1*jnp.ones(len(init_val)), jnp.ones(len(init_val))))
     param_true = jnp.dot(L * 10, param_base) + jnp.array(init_val)
     numpyro.deterministic('param',param_true)
     mags = mag_time(times, param_true, RA, Dec)
     M = jnp.stack([mags - 1.0, jnp.ones_like(mags)], axis=1)
-    sigma2_obs = fluxe ** 2
+    sigma2_obs = (fac_err * fluxe) ** 2
     sigma2_fs = 1e9
     sigma2_fb = 1e9
     nll = nll_ulens(flux, M, sigma2_obs, sigma2_fs, sigma2_fb)
@@ -97,7 +99,7 @@ kernel = NUTS(model,
               #dense_mass=True,
               )
 
-mcmc = MCMC(kernel, num_warmup=500, num_samples=1000, num_chains=1, progress_bar=True)
+mcmc = MCMC(kernel, num_warmup=500, num_samples=5000, num_chains=1, progress_bar=True)
 mcmc.run(jax.random.PRNGKey(0), data=data_input, L=L, init_val=params_adam_np)
 mcmc.print_summary(exclude_deterministic=False)
 
