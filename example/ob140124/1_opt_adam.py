@@ -62,7 +62,7 @@ def mag_time(time, params, RA, Dec):
         w_points, rho=rho, s=s, q=q,
         r_resolution=500, th_resolution=500,
         cubic=True, Nlimb=500, bins_r=100, bins_th=360,
-        margin_r=1.0, margin_th=1.0, MAX_FULL_CALLS=100
+        margin_r=1.0, margin_th=1.0, MAX_FULL_CALLS=100,
     )
     return magn
 
