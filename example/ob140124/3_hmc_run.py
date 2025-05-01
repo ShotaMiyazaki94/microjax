@@ -52,8 +52,8 @@ def mag_time(time, params, RA, Dec):
     th_resolution = 500
     MAX_FULL_CALLS = 100
     cubic = True
-    bins_r = 100
-    bins_th = 360
+    bins_r = 50
+    bins_th = 120
     margin_r = 1.0
     margin_th= 1.0
     
@@ -69,8 +69,9 @@ from numpyro.infer import MCMC, NUTS
 
 def model(data, L, init_val):
     times, flux, fluxe, RA, Dec = data
-    log_fac_err = numpyro.sample('fac_err', dist.Uniform(-0.5, 0.5))
+    log_fac_err = numpyro.sample('log_fac_err', dist.Uniform(-0.5, 0.5))
     fac_err = 10**log_fac_err
+    numpyro.deterministic('fac_err', fac_err)
     param_base = numpyro.sample('param_base', dist.Uniform(-1*jnp.ones(len(init_val)), jnp.ones(len(init_val))))
     param_true = jnp.dot(L * 10, param_base) + jnp.array(init_val)
     numpyro.deterministic('param',param_true)
@@ -86,27 +87,45 @@ fisher_matrix = np.load("example/ob140124/fisher_matrix.npy")
 fisher_cov = jnp.linalg.inv(fisher_matrix)
 L = jnp.linalg.cholesky(fisher_cov + 1e-9 * jnp.eye(fisher_cov.shape[0]) )
 param_stddev = jnp.sqrt(jnp.diag(fisher_cov))
-print("1 sigma:\n", param_stddev)
-print("fisher_cov:", fisher_cov)
-print("cholesky:", L)
+#print("1 sigma:\n", param_stddev)
+#print("fisher_cov:", fisher_cov)
+#print("cholesky:", L)
 
 init_strategy=numpyro.infer.init_to_value(values={'param_base':jnp.zeros(len(params_adam_np))})
 kernel = NUTS(model,
               init_strategy=init_strategy, 
               forward_mode_differentiation=True,
-              target_accept_prob=0.8,
+              target_accept_prob=0.75,
               #inverse_mass_matrix=fisher_matrix,
               #dense_mass=True,
               )
 
-mcmc = MCMC(kernel, num_warmup=500, num_samples=5000, num_chains=1, progress_bar=True)
+mcmc = MCMC(kernel, num_warmup=500, num_samples=3000, num_chains=1, progress_bar=True)
 mcmc.run(jax.random.PRNGKey(0), data=data_input, L=L, init_val=params_adam_np)
 mcmc.print_summary(exclude_deterministic=False)
 
 import pandas as pd
 samples = mcmc.get_samples()
-df_samples = pd.DataFrame({k: np.array(v).flatten() for k, v in samples.items()})
-df_samples.to_csv("example/ob140124/hmc_samples_log.csv", index=False)
+df = pd.DataFrame()
+for k, v in samples.items():
+    v_np = np.array(v)
+    if v_np.ndim == 1:
+        df[k] = v_np
+    elif v_np.ndim == 2:
+        for i in range(v_np.shape[1]):
+            df[f"{k}_{i}"] = v_np[:, i]
+    else:
+        raise ValueError(f"Unsupported shape for key {k}: {v_np.shape}")
+param_labels = ["t0", "tE", "u0", "log_q", "log_s", "alpha", "log_rho", "piEE", "piEN"]
+for i, label in enumerate(param_labels):
+    df[label] = np.array(samples["param"])[:, i]
+df.drop(columns=[col for col in df.columns if col == "param"], inplace=True)
+#df.drop(columns=[col for col in df.columns if col.startswith("param_")], inplace=True)    
+df.to_csv("example/ob140124/hmc_samples.csv", index=False)
+
+#df_samples = pd.DataFrame({k: np.array(v).flatten() for k, v in samples.items()})
+#df_samples = pd.DataFrame({k: np.array(v) for k, v in samples.items()})
+#df_samples.to_csv("example/ob140124/hmc_samples.csv", index=False)
 
 import corner
 hmc_sample = mcmc.get_samples()['param']
@@ -114,5 +133,5 @@ print(hmc_sample.shape)
 #corner_params = ["t0", "u0", "tE", "log_q", "log_s", "alpha", "log_rho", "piEE", "piEN"]
 corner_params = [r"$t_0$", r"$u_0$", r"$t_E$", r"$\log q$", r"$\log s$", r"$\alpha$ (deg)", r"$\log \rho$", r"$\pi_{EE}$", r"$\pi_{EN}$"]
 fig = corner.corner(np.array(hmc_sample), labels=corner_params, show_titles=True, title_fmt=".3f", title_kwargs={"fontsize": 12})
-fig.savefig("example/ob140124/hmc_corner_plot_log.png", bbox_inches="tight")
+fig.savefig("example/ob140124/hmc_corner_plot.png", bbox_inches="tight")
 plt.close()

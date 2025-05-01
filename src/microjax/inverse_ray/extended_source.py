@@ -186,7 +186,7 @@ if __name__ == "__main__":
     a = 0.5 * s
     e1 = q / (1.0 + q)
     _params = {"a": a, "e1": e1}
-    x_cm = a * (1 - q) / (1 + q)
+    x_cm = a * (1.0 - q) / (1.0 + q)
 
     num_points = 2000
     t  =  jnp.linspace(-1.0*tE, 1.0*tE, num_points)
@@ -201,8 +201,8 @@ if __name__ == "__main__":
     th_resolution = 500
     cubic = True
 
-    bins_r = 100
-    bins_th = 360
+    bins_r = 50
+    bins_th = 120
     margin_r = 1.0
     margin_th= 1.0
 
