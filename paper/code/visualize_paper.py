@@ -7,6 +7,7 @@ from microjax.inverse_ray.merge_area import calc_source_limb, define_regions
 from microjax.point_source import critical_and_caustic_curves
 import matplotlib.pyplot as plt
 plt.rcParams["figure.figsize"] = [6,6.0]
+#plt.rcParams['text.usetex'] = True
 import seaborn as sns
 sns.set_theme(font="serif", font_scale=1.2,style="ticks")
 jax.config.update("jax_enable_x64", True)
