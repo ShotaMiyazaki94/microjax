@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax import lax, jit, vmap
 from functools import partial
-jax.config.update("jax_enable_x64", True)
+#jax.config.update("jax_enable_x64", True)
 from microjax.poly_solver import poly_roots_EA_multi
 from microjax.poly_solver import poly_roots
 import timeit
@@ -11,14 +11,17 @@ import time
 import matplotlib.pyplot as plt
 
 def generate_coeffs(key, num_coeffs, num_eqs):#, dtype=jnp.complex128):
-    real_part = jax.random.uniform(key, (num_eqs, num_coeffs), dtype=jnp.float64, minval=-1, maxval=1)
-    imag_part = jax.random.uniform(key, (num_eqs, num_coeffs), dtype=jnp.float64, minval=-1, maxval=1)
+    real_part = jax.random.uniform(key, (num_eqs, num_coeffs), dtype=jnp.float32, minval=-1, maxval=1)
+    imag_part = jax.random.uniform(key, (num_eqs, num_coeffs), dtype=jnp.float32, minval=-1, maxval=1)
     return jnp.array(real_part + 1j * imag_part)
 
 def measure_time(degree, lengths):
     key = jax.random.PRNGKey(0)
     times = []
     for l in lengths:
+        key, subkey = jax.random.split(key)
+        coeffs_multi = generate_coeffs(subkey, degree, int(l))
+        poly_roots(coeffs_multi) 
         key, subkey = jax.random.split(key)
         coeffs_multi = generate_coeffs(subkey, degree, int(l))
         start = time.time()
@@ -31,7 +34,7 @@ def measure_time(degree, lengths):
         times.append(end - start)
     return times
 
-lengths = 10**np.arange(3, 7.25, 0.125)
+lengths = 10**np.arange(2.0, 7.25, 0.125)
 
 #polyjit(poly_roots_EA_multi)
 time6 = measure_time(6, lengths)

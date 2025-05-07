@@ -180,7 +180,7 @@ if __name__ == "__main__":
     tE = 30 
     t0 = 0.0 
     u0 = 0.0 
-    rho = 2e-2
+    rho = 0.01
 
     nlenses = 2
     a = 0.5 * s
@@ -208,7 +208,7 @@ if __name__ == "__main__":
 
     from microjax.caustics.extended_source import mag_extended_source
     import MulensModel as mm
-    def mag_vbbl(w0, rho, u1=0.0, accuracy=5e-05):
+    def mag_vbbl(w0, rho, u1=0.0, accuracy=1e-4):
         a  = 0.5 * s
         e1 = 1.0 / (1.0 + q)
         e2 = 1.0 - e1  

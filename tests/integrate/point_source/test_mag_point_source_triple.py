@@ -18,7 +18,7 @@ alpha = jnp.deg2rad(40) # angle between lens axis and source trajectory
 tE = 10 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
 u0 = 0.2 # impact parameter
-t  =  t0 + jnp.linspace(-tE, tE, 500)
+t  =  t0 + jnp.linspace(-tE, tE, 1000)
 
 # Position of the center of the source with respect to the center of mass.
 tau = (t - t0)/tE
@@ -26,7 +26,9 @@ y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
 y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
 
 w = jnp.array(y1 + 1j * y2, dtype=complex)
+print("mag start")
 mag_tri = mag_point_source(w, q=q, s=s, q3=q3, r3=jnp.abs(r3), psi=psi, nlenses=3)
+print("mag finish")
 crit_tri, cau_tri = critical_and_caustic_curves(npts=1000, q=q, s=s, q3=q3, r3=jnp.abs(r3), psi=psi, nlenses=3)
 
 def get_mag_triple(params):
@@ -39,7 +41,10 @@ def get_mag_triple(params):
 
 params_triple = jnp.array([u0, t0, tE, s, q, alpha, q3, jnp.abs(r3), psi])
 mag_jac_tri = jit(jacfwd(lambda params: get_mag_triple(params)[1])) 
-jac_eval_tri = mag_jac_tri(jnp.array([u0, t0, tE, s, q, alpha, q3, jnp.abs(r3), psi]))
+print("jac start")
+jac_eval_tri = mag_jac_tri(params_triple)
+print("jac finish")
+#jac_eval_tri = mag_jac_tri(jnp.array([u0, t0, tE, s, q, alpha, q3, jnp.abs(r3), psi]))
 
 mosaic="""
 AJ

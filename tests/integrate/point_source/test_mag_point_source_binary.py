@@ -29,7 +29,9 @@ y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
 w = jnp.array(y1 + 1j * y2, dtype=complex)
 
 _params = {"q": q, "s": s}
+print("mag start")
 mag_binary = mag_point_source(w, nlenses=2, **_params) 
+print("mag finish")
 #mag_binary = mag_point_source_binary(w, s=s, q=q) 
 crit_bin, cau_bin = critical_and_caustic_curves(npts=1000, nlenses=2, **_params)
 #crit_bin, cau_bin = critical_and_caustic_curves_binary(npts=1000,)
@@ -44,9 +46,13 @@ def get_mag_binary(params):
     return w_points, mag_point_source(w_points, nlenses=2, **_params) 
     #return w_points, mag_point_source_binary(w_points, s=s, q=q) 
 
+from jax import jacrev
 params_binary = jnp.array([u0, t0, tE, s, q, alpha])
-mag_jac_bin = jit(jacfwd(lambda params: get_mag_binary(params)[1]))
+mag_jac_bin = jit(jacrev(lambda params: get_mag_binary(params)[1]))
+#mag_jac_bin = jit(jacfwd(lambda params: get_mag_binary(params)[1]))
+print("jac start")
 jac_eval_bin = mag_jac_bin(params_binary)
+print("jac finish")
 
 mosaic="""
 AG

@@ -82,7 +82,7 @@ ax.grid(ls="--")
 ax.axis("equal")
 ax.legend(loc="lower right", fontsize=9)
 
-axins = inset_axes(ax, width="30%", height="30%", loc="upper right")
+axins = inset_axes(ax, width="25%", height="25%", loc="upper right")
 for x_grid, y_grid, in_source in zip(x_grids, y_grids, in_sources):
     axins.scatter(x_grid.ravel(), y_grid.ravel(), c='lightgray', s=0.5, zorder=0)
     axins.scatter(x_grid[in_source].ravel(), y_grid[in_source].ravel(), c='orange', s=0.5, zorder=1)
