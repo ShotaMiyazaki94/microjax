@@ -25,8 +25,8 @@ for i, (rho, group) in enumerate(df.groupby("rho")):
 
 ax[0].set_xscale("log")
 ax[0].set_yscale("log")
-ax[0].set_xlabel("Number of points")
-ax[1].set_xlabel("Number of points")
+ax[0].set_xlabel("number of points")
+ax[1].set_xlabel("number of points")
 ax[0].set_xticks([10, 30, 100, 300], [str(x) for x in [10, 30, 100, 300]])
 ax[0].set_yticks([0.01, 0.1, 1, 10], [str(y) for y in [0.01, 0.1, 1, 10]])
 ax[0].set_ylabel("evaluation time [s]")
