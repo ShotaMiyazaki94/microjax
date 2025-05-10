@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 s  = 1.1  # separation between the two lenses in units of total ang. Einstein radii
 q  = 0.1  # mass ratio: mass of the lens on the right divided by mass of the lens on the left
 q3 = 5e-3
-r3 = 0.3+1.2j 
-psi = jnp.arctan2(r3.imag, r3.real)
+r3_complex = 0.3 + 1.2j 
+psi = jnp.arctan2(r3_complex.imag, r3_complex.real)
 
 alpha = jnp.deg2rad(40) # angle between lens axis and source trajectory
 tE = 10 # einstein radius crossing time
@@ -27,7 +27,7 @@ y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
 w = jnp.array(y1 + 1j * y2, dtype=complex)
 
 import time
-_params = {"q": q, "s": s, "q3": q3, "r3": jnp.abs(r3), "psi": psi}
+_params = {"q": q, "s": s, "q3": q3, "r3": jnp.abs(r3_complex), "psi": psi}
 _ = mag_point_source(w, nlenses=3, **_params)
 print("mag start")
 start = time.time()
@@ -42,10 +42,11 @@ def get_mag_triple(params):
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
-    w_points = jnp.array(y1 + 1j * y2, dtype=complex)    
-    return w_points, mag_point_source(w_points, q=q, s=s, q3=q3, r3=jnp.abs(r3), psi=psi, nlenses=3) 
+    w_points = jnp.array(y1 + 1j * y2, dtype=complex)
+    _params = {"q": q, "s": s, "q3": q3, "r3": r3, "psi": psi}    
+    return w_points, mag_point_source(w_points, nlenses=3, **_params) 
 
-params_triple = jnp.array([u0, t0, tE, s, q, alpha, q3, jnp.abs(r3), psi])
+params_triple = jnp.array([u0, t0, tE, s, q, alpha, q3, jnp.abs(r3_complex), psi])
 mag_jac_tri = jit(jacfwd(lambda params: get_mag_triple(params)[1])) 
 _ = mag_jac_tri(params_triple)
 print("jac start")

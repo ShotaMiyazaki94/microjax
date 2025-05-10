@@ -21,12 +21,13 @@ def lens_eq(z, nlenses=2, **params):
         return z - e1 / (zbar - a) - (1.0 - e1) / (zbar + a)
 
     elif nlenses == 3:
-        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
+        a, r3, psi, e1, e2 = params["a"], params["r3"], params["psi"], params["e1"], params["e2"]
+        r3_complex = r3 * jnp.exp(1j * psi)
         return (
             z
             - e1 / (zbar - a)
             - e2 / (zbar + a)
-            - (1.0 - e1 - e2) / (zbar - jnp.conjugate(r3))
+            - (1.0 - e1 - e2) / (zbar - jnp.conjugate(r3_complex))
         )
 
     else:
@@ -44,13 +45,14 @@ def lens_eq_det_jac(z, nlenses=2, **params):
         return 1.0 - jnp.abs(e1 / (zbar - a) ** 2 + (1.0 - e1) / (zbar + a) ** 2) ** 2
 
     elif nlenses == 3:
-        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
+        a, r3, psi, e1, e2 = params["a"], params["r3"], params["psi"], params["e1"], params["e2"]
+        r3_complex = r3 * jnp.exp(1j * psi)
         return (
             1.0
             - jnp.abs(
                 e1 / (zbar - a) ** 2
                 + e2 / (zbar + a) ** 2
-                + (1.0 - e1 - e2) / (zbar - jnp.conjugate(r3)) ** 2
+                + (1.0 - e1 - e2) / (zbar - jnp.conjugate(r3_complex)) ** 2
             )
             ** 2
         )
@@ -80,9 +82,9 @@ def critical_and_caustic_curves(npts=200, nlenses=2, **params):
         a  = 0.5 * s
         e1 = q / (1.0 + q + q3)  
         e2 = 1.0 / (1.0 + q + q3) 
-        r3 = r3*jnp.exp(1j*psi)
-        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
-        coeffs = jnp.moveaxis(_poly_coeffs_critical_triple(phi, a, r3, e1, e2), 0, -1)
+        r3_complex = r3 * jnp.exp(1j * psi)
+        _params = {**params, "a": a, "e1": e1, "e2": e2, "r3": r3, "psi": psi}
+        coeffs = jnp.moveaxis(_poly_coeffs_critical_triple(phi, a, r3_complex, e1, e2), 0, -1)
 
     else:
         raise ValueError("`nlenses` has to be set to be <= 3.")
@@ -144,8 +146,9 @@ def _images_point_source(w, nlenses=2, custom_init=False, z_init=None, **params)
         coeffs = _poly_coeffs_binary(w, a, e1)
     
     elif nlenses == 3:
-        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
-        coeffs = _poly_coeffs_triple(w, a, r3, e1, e2)
+        a, r3, psi, e1, e2 = params["a"], params["r3"], params["psi"], params["e1"], params["e2"]
+        r3_complex = r3 * jnp.exp(1j * psi)
+        coeffs = _poly_coeffs_triple(w, a, r3_complex, e1, e2)
 
     else:
         raise ValueError("`nlenses` has to be set to be <= 3.")
@@ -201,12 +204,12 @@ def mag_point_source(w, nlenses=2, **params):
         x_cm = a * (1.0 - q) / (1.0 + q)
         w   -= x_cm 
     elif nlenses == 3:
-        s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
+        s, q, q3 = params["s"], params["q"], params["q3"]
         a = 0.5 * s
         e1 = q / (1.0 + q + q3) 
         e2 = 1.0/(1.0 + q + q3)
-        r3 = r3 * jnp.exp(1j * psi)
-        _params = {**params, "a": a, "r3": r3, "e1": e1, "e2": e2}
+        #r3 = r3 * jnp.exp(1j * psi)
+        _params = {**params, "a": a, "e1": e1, "e2": e2}
         x_cm = a * (1.0 - q) / (1.0 + q)
         w   -= x_cm
     else:

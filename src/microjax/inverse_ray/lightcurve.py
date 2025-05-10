@@ -66,13 +66,13 @@ def mag_triple(w_points, rho, r_resolution=500, th_resolution=500, u1=0.0, delta
                Nlimb=500, bins_r=50, bins_th=120, margin_r=1.0, margin_th=1.0, 
                MAX_FULL_CALLS=500, chunk_size=50, cubic=True, **params):
     nlenses = 3
-    s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
+    s, q, q3 = params["s"], params["q"], params["q3"]
     a = 0.5 * s
     e1 = q / (1.0 + q + q3) 
     e2 = 1.0/(1.0 + q + q3)
-    r3 = r3 * jnp.exp(1j * psi)
+    #r3 = r3 * jnp.exp(1j * psi)
     #_params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
-    _params = {**params, "a": a, "r3": r3, "e1": e1, "e2": e2}
+    _params = {**params, "a": a, "e1": e1, "e2": e2}
     #_params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
     x_cm = a * (1.0 - q) / (1.0 + q)
     w_points_shifted = w_points - x_cm
