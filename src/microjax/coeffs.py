@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import jax.numpy as jnp
+from jax import jit
 
 def _poly_coeffs_binary(w, a, e1):
     """

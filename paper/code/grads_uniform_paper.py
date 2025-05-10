@@ -7,46 +7,57 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 
-from microjax.inverse_ray.lightcurve import mag_binary
+from microjax.inverse_ray.lightcurve import mag_binary, mag_triple
+from microjax.inverse_ray.extended_source import mag_uniform
 from microjax.point_source import critical_and_caustic_curves
 
 # Parameters
 s  = 1.1  # separation between the two lenses in units of total ang. Einstein radii
-q  = 0.5  # mass ratio: mass of the lens on the right divided by mass of the lens on the left
+q  = 0.1  # mass ratio: mass of the lens on the right divided by mass of the lens on the left
+q3 = 5e-3
+r3_pos = 0.3+1.2j 
+psi = jnp.arctan2(r3_pos.imag, r3_pos.real)
 
-alpha = jnp.deg2rad(60) # angle between lens axis and source trajectory
-tE = 10.0 # einstein radius crossing time
+alpha = jnp.deg2rad(40) # angle between lens axis and source trajectory
+tE = 10 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
-u0 = 0.0 # impact parameter
-rho = 0.03
+u0 = 0.2 # impact parameter
+rho = 0.01
 
-a  = 0.5 * s
-e1 = q / (1.0 + q)
+t  =  t0 + jnp.linspace(-tE, tE, 500)
 
-# Position of the center of the source with respect to the center of mass.
-t  =  jnp.linspace(-22, 12, 1000)
-
-r_resolution  = 500
-th_resolution = 500
+r_resolution  = 1000
+th_resolution = 1000
 Nlimb = 500
 MAX_FULL_CALLS = 500
 cubic = True
 
+def chunked_vmap(func, data, chunk_size):
+    results = []
+    for i in range(0, len(data), chunk_size):
+        chunk = data[i:i + chunk_size]
+        results.append(jax.vmap(func)(chunk))
+    return jnp.concatenate(results)
+
 @jit
 def get_mag(params):
-    s, q, rho, alpha, u0, t0, tE = params
+    t0, tE, u0, q, s, alpha, rho, q3, r3, psi = params
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
-    y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha) 
-
-    _params = {"q": q, "s": s}
-    w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    return w_points, mag_binary(w_points, rho, s=s, q=q, 
-                                r_resolution=r_resolution, th_resolution=th_resolution, 
-                                cubic=cubic, Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
+    y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
+    w_points = jnp.array(y1 + 1j * y2, dtype=complex)
+    _params = {"q": q, "s": s, "q3": q3, "r3": r3, "psi": psi}
+    def mag_mj(w):
+        return mag_uniform(w, rho, nlenses=3, **_params, cubic=cubic, 
+                           r_resolution=r_resolution, th_resolution=th_resolution)
+    magnifications = chunked_vmap(mag_mj, w_points, chunk_size=50)
+    return w_points, magnifications
+    #return w_points, mag_triple(w_points, rho, **_params, 
+    #                            r_resolution=r_resolution, th_resolution=th_resolution, 
+    #                            cubic=cubic, Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
 
 import time
-params = jnp.array([s, q, rho, alpha, u0, t0, tE])
+params = jnp.array([t0, tE, u0, q, s, alpha, rho, q3, jnp.abs(r3_pos), psi])
 get_mag(params)
 print("start")
 start = time.time()
@@ -62,6 +73,14 @@ jac_eval = mag_jac(params)
 end = time.time()
 print("jac finish: %.3f sec"%(end - start))
 
+import pandas as pd
+import numpy as np
+t_np = np.array([t, A]).T
+jac_np = np.array(jac_eval)
+np.savetxt("paper/time_mag.csv", t_np, delimiter=",")
+np.save("paper/jacobian.npy", jac_np) 
+
+exit(1)
 
 fig, ax = plt.subplots(
     8, 1,

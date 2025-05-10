@@ -62,23 +62,25 @@ def mag_binary(w_points, rho, r_resolution=250, th_resolution=1000, u1=0.0, delt
 @partial(jit,static_argnames=("r_resolution", "th_resolution", "u1", "delta_c",
                               "bins_r", "bins_th", "margin_r", "margin_th", 
                               "Nlimb", "MAX_FULL_CALLS", "chunk_size", "cubic"))
-def mag_triple(w_points, rho, r_resolution=250, th_resolution=1000, u1=0.0, delta_c=0.01,
-               Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, 
+def mag_triple(w_points, rho, r_resolution=500, th_resolution=500, u1=0.0, delta_c=0.01,
+               Nlimb=500, bins_r=50, bins_th=120, margin_r=1.0, margin_th=1.0, 
                MAX_FULL_CALLS=500, chunk_size=50, cubic=True, **params):
     nlenses = 3
     s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
     a = 0.5 * s
-    total_mass = 1.0 + q + q3
-    e1 = q / total_mass
-    e2 = 1.0 / total_mass #miyazaki
+    e1 = q / (1.0 + q + q3) 
+    e2 = 1.0/(1.0 + q + q3)
     r3 = r3 * jnp.exp(1j * psi)
-    _params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
+    #_params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
+    _params = {**params, "a": a, "r3": r3, "e1": e1, "e2": e2}
+    #_params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
     x_cm = a * (1.0 - q) / (1.0 + q)
+    w_points_shifted = w_points - x_cm
     
-    z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params) 
+    z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, **_params) 
     mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
     test = jnp.zeros_like(w_points).astype(jnp.bool_)
-    if u1==0:
+    if u1 == 0:
         mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, r_resolution=r_resolution, th_resolution=th_resolution,
                                          bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params)
     else:

@@ -209,12 +209,28 @@ def _refine_addmargin_merge_r(r_limb, r_ranges, margin=0.0):
     return rows_new
 
 def calc_source_limb(w_center, rho, Nlimb=100, nlenses=2, **_params):
-    s, q = _params["s"], _params["q"]
-    a = 0.5 * s
-    e1 = q / (1.0 + q)
+    if nlenses == 2:
+        s, q = _params["s"], _params["q"]
+        a = 0.5 * s
+        e1 = q / (1.0 + q)
+        w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, Nlimb)), dtype=complex)
+        x_cm = a * (1.0 - q) / (1.0 + q)
+        w_limb_shift = w_limb - x_cm
+        _params = {"q": q, "s": s, "a": a, "e1": e1}
+    elif nlenses == 3:
+        s, q, q3, r3, psi = _params["s"], _params["q"], _params["q3"], _params["r3"], _params["psi"]
+        a = 0.5 * s
+        total_mass = 1.0 + q + q3
+        e1 = q / total_mass
+        e2 = 1.0 / total_mass 
+        #r3 = r3 * jnp.exp(1j * psi)
+        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
+    else:
+        raise ValueError("Only 2 or 3 lenses are supported.")
+    
     w_limb = w_center + jnp.array(rho * jnp.exp(1.0j * jnp.linspace(0.0, 2*jnp.pi, Nlimb)), dtype=complex)
-    w_limb_shift = w_limb - 0.5 * s * (1 - q) / (1 + q)
-    _params = {"q": q, "s": s, "a": a, "e1": e1}
+    x_cm = a * (1.0 - q) / (1.0 + q)
+    w_limb_shift = w_limb - x_cm
     image, mask = _images_point_source(w_limb_shift, nlenses=nlenses, **_params)
-    image_limb = image + 0.5 * s * (1 - q) / (1 + q)
+    image_limb = image + x_cm
     return image_limb, mask

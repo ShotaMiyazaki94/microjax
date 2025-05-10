@@ -85,14 +85,24 @@ def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolut
 #@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
 def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500, 
                 Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, cubic=True, **_params):
-    q, s = _params["q"], _params["s"]
-    a  = 0.5 * s
-    e1 = q / (1.0 + q)
-    _params = {"q": q, "s": s, "a": a, "e1": e1}
     
-    shifted = 0.5 * s * (1 - q) / (1 + q)  
+    if nlenses == 2:
+        q, s = _params["q"], _params["s"]
+        a  = 0.5 * s
+        e1 = q / (1.0 + q)
+        _params = {"q": q, "s": s, "a": a, "e1": e1}
+    elif nlenses == 3:
+        s, q, q3, r3, psi = _params["s"], _params["q"], _params["q3"], _params["r3"], _params["psi"]
+        a = 0.5 * s
+        total_mass = 1.0 + q + q3
+        e1 = q / total_mass
+        e2 = 1.0 / total_mass 
+        r3 = r3 * jnp.exp(1j * psi)
+        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
+    
+    shifted = a * (1.0 - q) / (1.0 + q)  
     w_center_shifted = w_center - shifted
-    image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
+    image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params, nlenses=nlenses)
     r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=bins_r, bins_th=bins_th, 
                                      margin_r=margin_r, margin_th=margin_th, nlenses=nlenses)
     

@@ -28,16 +28,21 @@ y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
 
 w = jnp.array(y1 + 1j * y2, dtype=complex)
 
+import time
 _params = {"q": q, "s": s}
+mag_point_source(w, nlenses=2, **_params) 
 print("mag start")
+start = time.time()
 mag_binary = mag_point_source(w, nlenses=2, **_params) 
-print("mag finish")
+mag_binary.block_until_ready()
+end = time.time()
+print("mag finish: ", end-start, "sec")
 #mag_binary = mag_point_source_binary(w, s=s, q=q) 
 crit_bin, cau_bin = critical_and_caustic_curves(npts=1000, nlenses=2, **_params)
 #crit_bin, cau_bin = critical_and_caustic_curves_binary(npts=1000,)
 
 def get_mag_binary(params):
-    u0, t0, tE, s, q, alpha = params
+    u0, t0, tE, q, s, alpha = params
     tau = (t - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
@@ -47,12 +52,16 @@ def get_mag_binary(params):
     #return w_points, mag_point_source_binary(w_points, s=s, q=q) 
 
 from jax import jacrev
-params_binary = jnp.array([u0, t0, tE, s, q, alpha])
-mag_jac_bin = jit(jacrev(lambda params: get_mag_binary(params)[1]))
-#mag_jac_bin = jit(jacfwd(lambda params: get_mag_binary(params)[1]))
+params_binary = jnp.array([u0, t0, tE, q, s, alpha])
+#mag_jac_bin = jit(jacrev(lambda params: get_mag_binary(params)[1]))
+mag_jac_bin = jit(jacfwd(lambda params: get_mag_binary(params)[1]))
+_ = mag_jac_bin(params_binary)
 print("jac start")
+start = time.time()
 jac_eval_bin = mag_jac_bin(params_binary)
-print("jac finish")
+jac_eval_bin.block_until_ready()
+end = time.time()
+print("jac finish:", end-start, "sec")
 
 mosaic="""
 AG
