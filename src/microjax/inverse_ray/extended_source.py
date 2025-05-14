@@ -97,7 +97,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
         total_mass = 1.0 + q + q3
         e1 = q / total_mass
         e2 = 1.0 / total_mass 
-        r3 = r3 * jnp.exp(1j * psi)
+        #r3 = r3 * jnp.exp(1j * psi)
         _params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
     
     shifted = a * (1.0 - q) / (1.0 + q)  

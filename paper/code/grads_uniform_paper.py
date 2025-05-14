@@ -14,17 +14,16 @@ from microjax.point_source import critical_and_caustic_curves
 # Parameters
 s  = 1.1  # separation between the two lenses in units of total ang. Einstein radii
 q  = 0.1  # mass ratio: mass of the lens on the right divided by mass of the lens on the left
-q3 = 5e-3
-r3_pos = 0.3+1.2j 
-psi = jnp.arctan2(r3_pos.imag, r3_pos.real)
+q3 = 0.03
+r3_complex = 0.3 + 1.2j 
+psi = jnp.arctan2(r3_complex.imag, r3_complex.real)
 
-alpha = jnp.deg2rad(40) # angle between lens axis and source trajectory
+alpha = jnp.deg2rad(50) # angle between lens axis and source trajectory
 tE = 10 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
-u0 = 0.2 # impact parameter
-rho = 0.01
-
-t  =  t0 + jnp.linspace(-tE, tE, 500)
+u0 = 0.1 # impact parameter
+t  =  t0 + jnp.linspace(-0.5*tE, tE, 500)
+rho = 0.02
 
 r_resolution  = 1000
 th_resolution = 1000
@@ -57,7 +56,7 @@ def get_mag(params):
     #                            cubic=cubic, Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
 
 import time
-params = jnp.array([t0, tE, u0, q, s, alpha, rho, q3, jnp.abs(r3_pos), psi])
+params = jnp.array([t0, tE, u0, q, s, alpha, rho, q3, jnp.abs(r3_complex), psi])
 get_mag(params)
 print("start")
 start = time.time()

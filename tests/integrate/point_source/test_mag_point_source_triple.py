@@ -10,15 +10,15 @@ import matplotlib.pyplot as plt
 
 s  = 1.1  # separation between the two lenses in units of total ang. Einstein radii
 q  = 0.1  # mass ratio: mass of the lens on the right divided by mass of the lens on the left
-q3 = 5e-3
+q3 = 0.03
 r3_complex = 0.3 + 1.2j 
 psi = jnp.arctan2(r3_complex.imag, r3_complex.real)
 
-alpha = jnp.deg2rad(40) # angle between lens axis and source trajectory
+alpha = jnp.deg2rad(50) # angle between lens axis and source trajectory
 tE = 10 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
-u0 = 0.2 # impact parameter
-t  =  t0 + jnp.linspace(-tE, tE, 500)
+u0 = 0.1 # impact parameter
+t  =  t0 + jnp.linspace(-0.5*tE, tE, 500)
 
 # Position of the center of the source with respect to the center of mass.
 tau = (t - t0)/tE

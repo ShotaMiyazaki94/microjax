@@ -24,10 +24,6 @@ jax.numpy.set_printoptions(precision=3, suppress=True)
 
 coeff_new = coeff_tri_new(w_center, a, r3, e1, e2)
 coeff_old = coeff_tri_old(w_center, a, r3, e1, e2)
-#print("coeff_new: ", coeff_new)
-#print("coeff_old: ", coeff_old)
-diff = coeff_new - coeff_old
-print(jnp.abs(jnp.sum(diff)))
 roots_new = poly_roots(coeff_new)
 roots_old = poly_roots(coeff_old)
 coeff_CM, shift = _poly_coeffs_triple_CM(w_center, a, r3, e1, e2)
