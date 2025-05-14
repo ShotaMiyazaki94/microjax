@@ -6,7 +6,8 @@ import jax.numpy as jnp
 from jax import jit, lax
 from .poly_solver import poly_roots
 from .utils import match_points
-from .coeffs import _poly_coeffs_binary, _poly_coeffs_triple 
+from .coeffs import _poly_coeffs_binary#, _poly_coeffs_triple 
+from .coeffs_triple import _poly_coeffs_triple 
 from .coeffs import _poly_coeffs_critical_triple, _poly_coeffs_critical_binary
 
 #@partial(jit, static_argnames=("nlenses"))

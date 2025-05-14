@@ -86,10 +86,14 @@ example/ogle-2003-blg-235/svi_loss_trace.png
 example/ogle-2003-blg-235/svi_params.npz
 example/ogle-2003-blg-235/svi_samples.csv
 example/ogle-2003-blg-235/test_nfull.py
+paper/full_jacobian_plot.pdf
+paper/jacobian.npy
 paper/speed_comparison_limbdark.csv
 paper/speed_comparison_uniform.csv
+paper/time_mag.csv
 paper/code/accuracy_paper.py
 paper/code/grads_uniform_paper.py
+paper/code/plot_grads_paper.py
 paper/code/plot_speed_paper.py
 paper/code/speed_limbdark_paper.py
 paper/code/speed_uniform_paper.py
@@ -104,6 +108,7 @@ src/.DS_Store
 src/microjax/.DS_Store
 src/microjax/__init__.py
 src/microjax/coeffs.py
+src/microjax/coeffs_triple.py
 src/microjax/likelihood.py
 src/microjax/multipole.py
 src/microjax/point_source.py

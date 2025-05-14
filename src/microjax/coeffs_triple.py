@@ -17,45 +17,6 @@ def _poly_coeffs_triple(w, a, r3, e1, e2):
     p = jnp.stack([p_0, p_1, p_2, p_3, p_4, p_5, p_6, p_7, p_8, p_9, p_10])
     return jnp.moveaxis(p, 0, -1)
 
-def _poly_coeffs_critical_triple(phi, a, r3, e1, e2):
-    x = jnp.exp(-1j * phi)
-
-    p_0 = x
-    p_1 = -2 * x * r3
-    p_2 = -2 * a**2 * x - 1 + x * r3**2
-    p_3 = 4 * a**2 * x * r3 - 2 * a * e1 + 2 * a * e2 + 2 * e1 * r3 + 2 * e2 * r3
-    p_4 = (
-        a**4 * x
-        - 3 * a**2 * e1
-        - 3 * a**2 * e2
-        + 2 * a**2
-        - 2 * a**2 * x * r3**2
-        + 4 * a * e1 * r3
-        - 4 * a * e2 * r3
-        - e1 * r3**2
-        - e2 * r3**2
-    )
-    p_5 = (
-        -2 * a**4 * x * r3
-        + 2 * a**2 * e1 * r3
-        + 2 * a**2 * e2 * r3
-        - 2 * a * e1 * r3**2
-        + 2 * a * e2 * r3**2
-    )
-    p_6 = (
-        a**4 * e1
-        + a**4 * e2
-        - a**4
-        + a**4 * x * r3**2
-        - a**2 * e1 * r3**2
-        - a**2 * e2 * r3**2
-    )
-
-    p = jnp.stack([p_0, p_1, p_2, p_3, p_4, p_5, p_6])
-
-    return p
-
-
 def _poly_coeffs_triple_p0(w, a, r3, e1, e2):
     wbar = jnp.conjugate(w)
     r3bar = jnp.conjugate(r3)

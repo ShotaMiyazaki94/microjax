@@ -90,7 +90,7 @@ for i, l in enumerate(lists):
 ax["J"].plot(w.real, w.imag,)
 ax["J"].plot(-q*s, 0 ,".",c="k")
 ax["J"].plot((1.0-q)*s, 0 ,".",c="k")
-ax["J"].plot(r3.real - (0.5*s - s/(1 + q)), r3.imag ,".",c="k")
+ax["J"].plot(r3_complex.real - (0.5*s - s/(1 + q)), r3_complex.imag ,".",c="k")
 ax["J"].scatter(cau_tri.ravel().real, cau_tri.ravel().imag,   marker=".", color="red", s=1)
 ax["J"].scatter(crit_tri.ravel().real, crit_tri.ravel().imag, marker=".", color="green", s=1)
 ax["J"].axis("equal")
