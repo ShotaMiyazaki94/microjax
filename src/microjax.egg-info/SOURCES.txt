@@ -151,6 +151,7 @@ tests/.DS_Store
 tests/integrate/.DS_Store
 tests/integrate/ESPL.tbl
 tests/integrate/Pk_test
+tests/integrate/JIT/test_jit.py
 tests/integrate/caustics/check_cond.pdf
 tests/integrate/caustics/check_cond.py
 tests/integrate/caustics/lightcurve_cond.pdf

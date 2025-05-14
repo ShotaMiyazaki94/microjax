@@ -82,7 +82,7 @@ fig,ax = plt.subplot_mosaic(mosaic=mosaic,figsize=(12,6))
 ax["A"].plot(t, mag_tri,c="red",label="triple-lens")
 ax["K"].set_xlabel("time (day)")
 ax["A"].set_ylabel("magnification")
-ax["A"].set_yscale("log")
+#ax["A"].set_yscale("log")
 lists=["B","C","D","E","F","G","H","I","K"]
 for i, l in enumerate(lists):
     ax[l].plot(t,jac_eval_tri[:,i])

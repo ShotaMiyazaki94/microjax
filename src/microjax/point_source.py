@@ -7,7 +7,7 @@ from jax import jit, lax
 from .poly_solver import poly_roots
 from .utils import match_points
 from .coeffs import _poly_coeffs_binary#, _poly_coeffs_triple 
-from .coeffs_triple import _poly_coeffs_triple 
+from .coeffs_triple import _poly_coeffs_triple , _poly_coeffs_triple_CM
 from .coeffs import _poly_coeffs_critical_triple, _poly_coeffs_critical_binary
 
 #@partial(jit, static_argnames=("nlenses"))
@@ -149,7 +149,14 @@ def _images_point_source(w, nlenses=2, custom_init=False, z_init=None, **params)
     elif nlenses == 3:
         a, r3, psi, e1, e2 = params["a"], params["r3"], params["psi"], params["e1"], params["e2"]
         r3_complex = r3 * jnp.exp(1j * psi)
-        coeffs = _poly_coeffs_triple(w, a, r3_complex, e1, e2)
+        coeffs, shift_cm = _poly_coeffs_triple_CM(w, a, r3_complex, e1, e2)
+        #coeffs = _poly_coeffs_triple(w, a, r3_complex, e1, e2)
+        z = poly_roots(coeffs)
+        z += shift_cm
+        z = jnp.moveaxis(z, -1, 0)
+        lens_eq_eval = lens_eq(z, nlenses=3, **params) - w
+        z_mask = jnp.abs(lens_eq_eval) < 1e-3
+        return z, z_mask 
 
     else:
         raise ValueError("`nlenses` has to be set to be <= 3.")
