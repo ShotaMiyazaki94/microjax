@@ -1,6 +1,6 @@
-# microJAX
+# microjax
 
-`microJAX` is a code for computing microlensing light curves of single, binary, and triple lens systems using the image-centered inverse-ray shooting (ICIRS) method [(Bennett 2010)](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract). 
+`microjax` is a code for computing microlensing light curves of single, binary, and triple lens systems using the image-centered inverse-ray shooting (ICIRS) method [(Bennett 2010)](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract). 
 
 It is built using the [JAX](https://github.com/google/jax) library which enables the computation of *exact* gradients of the code outputs with respect to all input parameters through the use of [automatic differentiation](https://jax.readthedocs.io/en/latest/notebooks/autodiff_cookbook.html). 
 
