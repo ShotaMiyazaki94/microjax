@@ -8,9 +8,9 @@ import matplotlib as mpl
 import seaborn as sns
 sns.set_theme(font="serif", font_scale=1.0,style="ticks")
 
-file = np.loadtxt("paper/time_mag.csv", delimiter=",")
+file = np.loadtxt("paper/data/time_mag.csv", delimiter=",")
 t, A = file.T[0], file.T[1]
-jac = np.load("paper/jacobian.npy").T
+jac = np.load("paper/data/jacobian.npy").T
 
 param_names = ['t0', 'tE', 'u0', 'q', 's', 'alpha', 'rho', 'q3', 'r3', 'psi']
 

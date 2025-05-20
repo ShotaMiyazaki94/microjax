@@ -10,7 +10,7 @@ rho_order = [0.1, 0.01, 0.001]
 rho_labels = [r"$\rho=0.1$", r"$\rho=0.01$", r"$\rho=10^{-3}$"]
 
 # --- uniform brightness source ---
-df = pd.read_csv("paper/speed_comparison_uniform.csv")
+df = pd.read_csv("paper/data/speed_comparison_uniform.csv")
 df = df.sort_values("npts")
 
 # VBBinaryLensing を先にプロット
@@ -28,7 +28,7 @@ for i, rho in enumerate(rho_order):
                color=colors[i % len(colors)], ms=10)
 
 # --- limb-darkening source ---
-df = pd.read_csv("paper/speed_comparison_limbdark.csv")
+df = pd.read_csv("paper/data/speed_comparison_limbdark.csv")
 df = df.sort_values("npts")
 
 # VBBinaryLensing を先にプロット

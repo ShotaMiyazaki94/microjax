@@ -17,7 +17,7 @@ alpha = np.deg2rad(65) # angle between lens axis and source trajectory
 tE = 10 # einstein radius crossing time
 t0 = 0.0 # time of peak magnification
 u0 = 0.0 # impact parameter
-rho = 0.2
+rho = 0.05
 
 a  = 0.5 * s
 e1 = q/(1 + q + q3)
@@ -41,7 +41,8 @@ def plot(frame):
     plt.scatter(cau.ravel().real, cau.ravel().imag, s=1, color="red", label="caustic")
     w_limb       = w[frame,:]                         # center-of-mass coordinate
     w_limb_shift = w[frame,:] - 0.5*s*(1 - q)/(1 + q) # half-axis coordinate
-    image, mask = _images_point_source(w_limb_shift, a=a, e1=e1, e2=e2, r3=r3, nlenses=3) # half-axis coordinate
+    image, mask = _images_point_source(w_limb_shift, a=a, e1=e1, e2=e2,
+                                       r3=jnp.abs(r3), psi=psi, nlenses=3) # half-axis coordinate
     image_shift = image + 0.5*s*(1 - q)/(1 + q)       # center-of-mass coordinate
     plt.scatter(w_limb.real, w_limb.imag, s=1, color="blue",label="source limb")
     plt.scatter(image_shift[mask].ravel().real, image_shift[mask].ravel().imag, s=1,color="purple",label="image limb")
@@ -59,5 +60,5 @@ def plot(frame):
 from matplotlib import animation
 fig = plt.figure(figsize=(6,6))
 ani = animation.FuncAnimation(fig, plot, interval=1.0, frames=100, blit=False)
-ani.save('tests/point_source/animation_triple.mp4', writer='ffmpeg', fps=10)
+ani.save('tests/integrate/point_source/animation_triple.mp4', writer='ffmpeg', fps=10)
 plt.show()

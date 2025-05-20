@@ -1,3 +1,7 @@
+import os
+os.environ["OMP_DISPLAY_ENV"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
@@ -78,5 +82,5 @@ for i, rho in enumerate(rho_list):
         })
 
 df_results = pd.DataFrame(results)
-df_results.to_csv("paper/speed_comparison_limbdark.csv", index=False)
+df_results.to_csv("paper/data/speed_comparison_limbdark.csv", index=False)
 print(df_results)

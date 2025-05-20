@@ -1,6 +1,38 @@
 import jax.numpy as jnp
 from jax.scipy.linalg import solve
 
+def linear_chi2(x, y, err=0.0):
+    """
+    Linear least squares fit y = a + b x with weights from independent gaussian errors.
+    Args:
+        x: jnp.ndarray, shape (n,)
+        y: jnp.ndarray, shape (n,)
+        err: jnp.ndarray, shape (n,). If err[i] == 0, treat as unweighted (w=1).
+    Returns:
+        b: slope
+        be: slope error
+        a: intercept
+        ae: intercept error
+        chi2: chi-squared of the fit
+    """
+    wt = jnp.where(err > 0, 1.0 / (err ** 2), 1.0)
+    sumw = jnp.sum(wt)
+    sumx = jnp.sum(wt * x)
+    sumy = jnp.sum(wt * y)
+    sumxx = jnp.sum(wt * x * x)
+    sumxy = jnp.sum(wt * x * y)
+    det = sumw * sumxx - sumx * sumx
+
+    a = (sumxx * sumy - sumx * sumxy) / det
+    b = (sumw * sumxy - sumx * sumy) / det
+
+    residual = y - a - b * x
+    chi2 = jnp.sum(wt * residual ** 2)
+    ae = jnp.sqrt(sumxx / det)
+    be = jnp.sqrt(sumw / det)
+    return b, be, a, ae, chi2
+
+
 def nll_ulens(flux, M, sigma2_obs, sigma2_fs, sigma2_fb):
     """
     Calculate the simplified negative log-likelihood (NLL) for a microlensing model

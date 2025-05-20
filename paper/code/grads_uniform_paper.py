@@ -25,8 +25,8 @@ u0 = 0.1 # impact parameter
 t  =  t0 + jnp.linspace(-0.5*tE, tE, 500)
 rho = 0.02
 
-r_resolution  = 1000
-th_resolution = 1000
+r_resolution  = 500
+th_resolution = 500
 Nlimb = 500
 MAX_FULL_CALLS = 500
 cubic = True
