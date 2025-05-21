@@ -134,15 +134,20 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
             frac = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
             area_crossing  = r0 * dth * (num_in2out * frac + num_out2in * (1.0 - frac))
         return jnp.sum(area_inside + area_crossing)  
-    
+
+    _process_r = jax.checkpoint(_process_r, static_argnums=(2,), prevent_cse=True)
+
     #@partial(jit, static_argnames=("cubic"))  
     def _compute_for_range(r_range, th_range, cubic=True):
         r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
         th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
-        area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
+        #area_r = jax.checkpoint(vmap(lambda r: _process_r(r, th_values, cubic)))(r_values)
+        area_r = vmap(lambda r: _process_r(r, th_values, cubic))(r_values)
         dr = r_values[1] - r_values[0]
         total_area = dr * jnp.sum(area_r) # trapezoidal integration
         return total_area
+    
+    _compute_for_range = jax.checkpoint(_compute_for_range, static_argnums=(2,), prevent_cse=True)
     
     # these stop functons do not make speed up in grad calc.
     #r_scan = lax.stop_gradient(r_scan)
@@ -151,7 +156,8 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     if(1):
         def scan_images(carry, inputs):
             r_range, th_range = inputs
-            total_area = _compute_for_range(r_range, th_range, cubic=cubic)
+            total_area = _compute_for_range(r_range, th_range, cubic)
+            #total_area = _compute_for_range(r_range, th_range, cubic=cubic)
             return carry + total_area, None
         magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
     

@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 from jax.test_util import check_grads
 import matplotlib.pyplot as plt
-from jax import jit, vmap, grad, jacfwd
+from jax import jit, vmap, grad, jacfwd, jacrev
 from microjax.point_source import mag_point_source, critical_and_caustic_curves
 import MulensModel as mm
 jax.config.update("jax_enable_x64", True)
@@ -47,7 +47,8 @@ def get_mag_triple(params):
     return w_points, mag_point_source(w_points, nlenses=3, **_params) 
 
 params_triple = jnp.array([u0, t0, tE, s, q, alpha, q3, jnp.abs(r3_complex), psi])
-mag_jac_tri = jit(jacfwd(lambda params: get_mag_triple(params)[1])) 
+mag_jac_tri = jit(jacrev(lambda params: get_mag_triple(params)[1])) 
+#mag_jac_tri = jit(jacfwd(lambda params: get_mag_triple(params)[1])) 
 _ = mag_jac_tri(params_triple)
 print("jac start")
 start = time.time()

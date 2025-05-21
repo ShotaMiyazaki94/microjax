@@ -1,5 +1,6 @@
 from functools import partial
 
+import jax
 import jax.numpy as jnp
 from jax import jit, lax, vmap 
 
@@ -29,32 +30,71 @@ def mag_binary(w_points, rho, r_resolution=250, th_resolution=1000, u1=0.0, delt
     w_points_shifted = w_points - x_cm
 
     # test whether inverse-ray shooting needed or not. test==False means needed.
-    z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, **_params)
+    z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, a=a, e1=e1)
     mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
     test1 = _caustics_proximity_test(w_points_shifted, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params)
     test2 = _planetary_caustic_test(w_points_shifted, rho, **_params)
     test = jnp.where(q < 0.01, test1 & test2, test1)
 
-    if u1==0:
-        mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution,
-                                         bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params)
+    if u1 == 0.0:
+        def _mag_full(w):
+            return mag_uniform(
+                w, rho,
+                nlenses      = nlenses,
+                r_resolution = r_resolution,
+                th_resolution= th_resolution,
+                bins_r       = bins_r,
+                bins_th      = bins_th,
+                margin_r     = margin_r,
+                margin_th    = margin_th,
+                Nlimb        = Nlimb,
+                cubic        = cubic,
+                **_params
+            )
     else:
-       mag_full = lambda w: mag_limb_dark(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution, u1=u1, delta_c=delta_c,
-                                          bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params) 
+        def _mag_full(w):
+            return mag_limb_dark(
+                w, rho,
+                nlenses      = nlenses,
+                r_resolution = r_resolution,
+                th_resolution= th_resolution,
+                u1           = u1,
+                delta_c      = delta_c,
+                bins_r       = bins_r,
+                bins_th      = bins_th,
+                margin_r     = margin_r,
+                margin_th    = margin_th,
+                Nlimb        = Nlimb,
+                cubic        = cubic,
+                **_params
+            )
+    
+    #if u1==0:
+    #    mag_full = lambda w: mag_uniform(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution,
+    #                                     bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params)
+    #else:
+    #   mag_full = lambda w: mag_limb_dark(w, rho, nlenses=nlenses, r_resolution=r_resolution,th_resolution=th_resolution, u1=u1, delta_c=delta_c,
+    #                                      bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, Nlimb=Nlimb, cubic=cubic, **_params) 
     
     idx_sorted = jnp.argsort(test)
     idx_full = idx_sorted[:MAX_FULL_CALLS] 
+    
     def chunked_vmap_map(func, data, chunk_size):
         N = data.shape[0]
         pad_len = (-N) % chunk_size
         padded = jnp.pad(data, [(0, pad_len)] + [(0, 0)] * (data.ndim - 1))
         chunks = padded.reshape(-1, chunk_size, *data.shape[1:])  # shape = (n_chunks, chunk_size, ...)
+        #@jax.checkpoint
         def apply_vmap(chunk):
             return vmap(func)(chunk)
         results = lax.map(apply_vmap, chunks)  # shape = (n_chunks, chunk_size, ...)
         return results.reshape(-1, *results.shape[2:])[:N]
-    
+
+    mag_full = jax.checkpoint(_mag_full)
+    #mag_extended = jax.checkpoint(chunked_vmap_map)(_mag_full, w_points[idx_full], chunk_size)
+    #mag_extended = chunked_vmap_map(_mag_full, w_points[idx_full], chunk_size)
     mag_extended = chunked_vmap_map(mag_full, w_points[idx_full], chunk_size)
+    #mag_extended = chunked_vmap_map(mag_full, w_points[idx_full], chunk_size)
     mags = mu_multi.at[idx_full].set(mag_extended)
     mags = jnp.where(test, mu_multi, mags)
     return mags 

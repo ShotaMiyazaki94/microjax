@@ -53,8 +53,8 @@ def get_mag_binary(params):
 
 from jax import jacrev
 params_binary = jnp.array([u0, t0, tE, q, s, alpha])
-#mag_jac_bin = jit(jacrev(lambda params: get_mag_binary(params)[1]))
-mag_jac_bin = jit(jacfwd(lambda params: get_mag_binary(params)[1]))
+mag_jac_bin = jit(jacrev(lambda params: get_mag_binary(params)[1]))
+#mag_jac_bin = jit(jacfwd(lambda params: get_mag_binary(params)[1]))
 _ = mag_jac_bin(params_binary)
 print("jac start")
 start = time.time()
