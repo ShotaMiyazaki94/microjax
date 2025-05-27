@@ -27,6 +27,10 @@ dusts/caustics/utils.py
 dusts/extended_source/test_image_area0_binary.png
 dusts/extended_source/test_image_area0_binary.py
 dusts/extended_source/tmp.py
+example/MB14171/.DS_Store
+example/MB14171/MOARed.dat
+example/MB14171/OGLEI.dat
+example/MB14171/norm_model
 example/data/ogle-2014-blg-0124/fchart.fts
 example/data/ogle-2014-blg-0124/fchart.jpg
 example/data/ogle-2014-blg-0124/fchart.ps
@@ -86,6 +90,11 @@ example/ogle-2003-blg-235/svi_loss_trace.png
 example/ogle-2003-blg-235/svi_params.npz
 example/ogle-2003-blg-235/svi_samples.csv
 example/ogle-2003-blg-235/test_nfull.py
+example/wfirst_095/plot.pdf
+example/wfirst_095/plot.py
+paper/WFIRST/full_magnitude_error.csv
+paper/WFIRST/obstime_W149.dat
+paper/WFIRST/obstime_Z087.dat
 paper/code/accuracy_paper.py
 paper/code/grads_uniform_paper.py
 paper/code/plot_grads_paper.py
@@ -105,7 +114,7 @@ paper/data/data-challenge-1/ulwdc1_045_Z087.txt
 paper/data/data-challenge-1/wfirstColumnNumbers.txt
 paper/data/data-challenge-1/wfirst_ephemeris_W149.txt
 paper/data/data-challenge-1/wfirst_ephemeris_Z087.txt
-paper/figure/accuracy_compare_r1000_Nl500_mr1.0_mth1.0_cub.pdf
+paper/figure/accuracy_compare_r1000_Nl500_mr1.0_mth1.0_cub_.pdf
 paper/figure/accuracy_compare_r500_Nl500_mr1.0_mth1.0_cub.pdf
 paper/figure/full_jacobian_plot.pdf
 paper/figure/grads_lc_uniform_r500_500_cub.pdf
@@ -206,6 +215,8 @@ tests/integrate/inverse_ray/grads/grads_lc_limb_r500_500_cub.pdf
 tests/integrate/inverse_ray/grads/grads_lc_limb_r500_500_lin.pdf
 tests/integrate/inverse_ray/grads/grads_lc_uniform.py
 tests/integrate/inverse_ray/grads/grads_lc_uniform_r500_500_cub.pdf
+tests/integrate/inverse_ray/grads/grads_lc_uniform_reverse.py
+tests/integrate/inverse_ray/grads/grads_lc_uniform_reverse_uni.py
 tests/integrate/inverse_ray/profiler/profile_determine_region.py
 tests/integrate/inverse_ray/profiler/profile_mag_lc.py
 tests/integrate/inverse_ray/profiler/profile_vmap_all.py

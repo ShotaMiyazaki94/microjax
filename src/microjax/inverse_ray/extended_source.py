@@ -153,7 +153,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     #r_scan = lax.stop_gradient(r_scan)
     #th_scan = lax.stop_gradient(th_scan)
     inputs = (r_scan, th_scan)
-    if(1):
+    if(0): 
         def scan_images(carry, inputs):
             r_range, th_range = inputs
             total_area = _compute_for_range(r_range, th_range, cubic)
@@ -161,7 +161,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
             return carry + total_area, None
         magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
     
-    if(0): # vmap case. subtle improvement in speed but worse in memory.
+    if(1): # vmap case. subtle improvement in speed but worse in memory. More careful for chunking size.
         total_areas = vmap(_compute_for_range, in_axes=(0, 0, None))(r_scan, th_scan, cubic)
         magnification_unnorm = jnp.sum(total_areas)
     
@@ -213,8 +213,8 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     Nlimb = 500
-    r_resolution  = 500
-    th_resolution = 500
+    r_resolution  = 1000
+    th_resolution = 1000
     cubic = True
 
     bins_r = 50
@@ -231,7 +231,7 @@ if __name__ == "__main__":
         bl = mm.BinaryLens(e1, e2, 2*a)
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
-    @jax.jit
+    @jit
     def mag_mj(w):
         return mag_uniform(w, rho, s=s, q=q, Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th,
                            r_resolution=r_resolution, th_resolution=th_resolution, 
@@ -282,7 +282,7 @@ if __name__ == "__main__":
     print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
 
 
-    chunk_size = 1000  # メモリ消費を調整するため適宜変更
+    chunk_size = 500  # メモリ消費を調整するため適宜変更
     _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
     print("start computation with vmap")
     start = time.time()
