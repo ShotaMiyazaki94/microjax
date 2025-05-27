@@ -194,7 +194,7 @@ if __name__ == "__main__":
     Dec = c.dec.deg
 
     u0 = 0.01
-    log_tE = np.log(100.0)
+    log_tE = np.log(30.0)
     t0 = 8000.0 
     piEN = 0.1
     piEE = 0.1

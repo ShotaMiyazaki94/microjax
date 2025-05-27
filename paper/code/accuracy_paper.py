@@ -30,7 +30,7 @@ cubic = True
 
 # Lists
 rho_list = [1e-01, 1e-02, 1e-03, 1e-04]
-th_res_list = [500, 1000, 8000]
+th_res_list = [500, 1000, 2000, 4000]
 colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k']  # 拡張しておく
 
 # Caustic curves
@@ -69,8 +69,11 @@ for i, rho in enumerate(rho_list):
             pad_len = (-N) % chunk_size
             padded = jnp.pad(data, [(0, pad_len)] + [(0, 0)] * (data.ndim - 1))
             chunks = padded.reshape(-1, chunk_size, *data.shape[1:])
+            vmapped_func = jit(vmap(mag_mj))  # 事前JIT
             def apply_vmap(chunk):
-                return jit(vmap(func))(chunk)
+                return vmapped_func(chunk)
+            #def apply_vmap(chunk):
+            #    return jit(vmap(func))(chunk)
             results = lax.map(apply_vmap, chunks)
             return results.reshape(-1, *results.shape[2:])[:N]
 
@@ -104,7 +107,7 @@ for i in range(len(rho_list)):
     ax[i].set_yscale('log')
     ax[i].yaxis.set_minor_locator(LogLocator(base=10.0, subs='auto', numticks=10))
     ax[i].set_title(labels[i])
-    ax[i].set_ylim(1e-5, 1e-2)
+    ax[i].set_ylim(1e-5, 1)
     ax[i].set_xlabel("Point index")
     ax[i].set_ylabel("Relative error" if i % 3 == 0 else "")
     ax[i].legend(loc="upper right", markerscale=2)
