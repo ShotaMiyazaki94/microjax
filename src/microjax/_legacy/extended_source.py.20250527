@@ -9,8 +9,8 @@ from microjax.inverse_ray.boundary import in_source, distance_from_source, calc_
 
 #@partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
 #                               "offset_r", "offset_th", "delta_c"))
-def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolution=500, 
-                  Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, delta_c=0.01, **_params):
+def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolution=500, cubic=True, 
+               Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, delta_c=0.01, **_params):
     q, s = _params["q"], _params["s"]
     a  = 0.5 * s
     e1 = q / (1.0 + q)
@@ -21,53 +21,70 @@ def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolut
     r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=bins_r, bins_th=bins_th, 
                                      margin_r=margin_r, margin_th=margin_th, nlenses=nlenses)
 
-    def _process_r(r0, th_values):
+    @partial(jit, static_argnames=("cubic")) 
+    def _process_r(r0, th_values, cubic=True):
         dth = (th_values[1] - th_values[0])
         distances = distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=nlenses, **_params)
         in_num = in_source(distances, rho)
         Is     = Is_limb_1st(distances / rho, u1=u1)
         zero_term = 1e-10
-        in0_num, in1_num, in2_num, in3_num, in4_num = in_num[:-4], in_num[1:-3], in_num[2:-2], in_num[3:-1], in_num[4:]
-        d0, d1, d2, d3, d4 = distances[:-4], distances[1:-3], distances[2:-2], distances[3:-1], distances[4:]
-        th0, th1, th2, th3 = jnp.arange(4)
-        num_inside  = in1_num * in2_num * in3_num
-        num_B1      = (1.0 - in1_num) * in2_num * in3_num
-        num_B2      = in1_num * in2_num * (1.0 - in3_num)
-        th_est_B1   = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
-        th_est_B2   = cubic_interp(rho, d1, d2, d3, d4, th0, th1, th2, th3, epsilon=zero_term)
-        delta_B1    = jnp.clip(th2 - th_est_B1, 0.0, 1.0) + zero_term
-        delta_B2    = jnp.clip(th_est_B2 - th1, 0.0, 1.0) + zero_term
-        fac_B1 = calc_facB(delta_B1, delta_c)
-        fac_B2 = calc_facB(delta_B2, delta_c)
-        area_inside = r0 * dth * Is[2:-2] * num_inside
-        area_B1     = r0 * dth * Is[2:-2] * fac_B1 * num_B1
-        area_B2     = r0 * dth * Is[2:-2] * fac_B2 * num_B2
+        if cubic:
+            in0_num, in1_num, in2_num, in3_num, in4_num = in_num[:-4], in_num[1:-3], in_num[2:-2], in_num[3:-1], in_num[4:]
+            d0, d1, d2, d3, d4 = distances[:-4], distances[1:-3], distances[2:-2], distances[3:-1], distances[4:]
+            th0, th1, th2, th3 = jnp.arange(4)
+            num_inside  = in1_num * in2_num * in3_num
+            num_B1      = (1.0 - in1_num) * in2_num * in3_num
+            num_B2      = in1_num * in2_num * (1.0 - in3_num)
+            th_est_B1   = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
+            th_est_B2   = cubic_interp(rho, d1, d2, d3, d4, th0, th1, th2, th3, epsilon=zero_term)
+            delta_B1    = jnp.clip(th2 - th_est_B1, 0.0, 1.0) + zero_term
+            delta_B2    = jnp.clip(th_est_B2 - th1, 0.0, 1.0) + zero_term
+            #fac_B1      = step_smooth(delta_B1 - delta_c) * ((2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B1) * (0.5 + delta_B1)) \
+            #    + step_smooth(delta_c - delta_B1) * ((2.0 / 3.0) * delta_B1 + 0.5) 
+            #fac_B2      = step_smooth(delta_B2 - delta_c) * ((2.0 / 3.0) * jnp.sqrt(1.0 + 0.5 / delta_B2) * (0.5 + delta_B2)) \
+            #    + step_smooth(delta_c - delta_B2) * ((2.0 / 3.0) * delta_B2 + 0.5)  
+            fac_B1 = calc_facB(delta_B1, delta_c)
+            fac_B2 = calc_facB(delta_B2, delta_c)
+            area_inside = r0 * dth * Is[2:-2] * num_inside
+            area_B1     = r0 * dth * Is[2:-2] * fac_B1 * num_B1
+            area_B2     = r0 * dth * Is[2:-2] * fac_B2 * num_B2
+        else:
+            in0_num, in1_num, in2_num = in_num[:-2], in_num[1:-1], in_num[2:]
+            d0, d1, d2 = distances[:-2], distances[1:-1], distances[2:]
+            num_inside     = in0_num * in1_num * in2_num
+            num_B1         = (1.0 - in0_num) * in1_num * in2_num 
+            num_B2         = in0_num * in1_num * (1.0 - in2_num)
+            delta_B1   = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0) 
+            delta_B2   = jnp.clip((d2 - rho) / (d2 - d1 + zero_term), 0.0, 1.0)
+            fac_B1     = calc_facB(delta_B1, delta_c)
+            fac_B2     = calc_facB(delta_B2, delta_c) 
+            area_inside = r0 * dth * Is[1:-1] * num_inside
+            area_B1     = r0 * dth * Is[1:-1] * fac_B1 * num_B1
+            area_B2     = r0 * dth * Is[1:-1] * fac_B2 * num_B2
         return jnp.sum(area_inside + area_B1 + area_B2)
     
-    def _compute_for_range(r_range, th_range):
+    @partial(jit, static_argnames=("cubic"))  
+    def _compute_for_range(r_range, th_range, cubic=True):
         r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
         th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
-        area_r = vmap(lambda r: _process_r(r, th_values))(r_values)
+        area_r = vmap(lambda r: _process_r(r, th_values, cubic=cubic))(r_values)
         dr = r_values[1] - r_values[0]
         total_area = dr * jnp.sum(area_r) # trapezoidal integration
         return total_area
     
+    def scan_images(carry, inputs):
+        r_range, th_range = inputs
+        total_area = _compute_for_range(r_range, th_range, cubic=cubic)
+        return carry + total_area, None
+
     inputs = (r_scan, th_scan)
-    if(0): # memory efficient but seems complex implementation for jax.checkpoint.
-        def scan_images(carry, inputs):
-            r_range, th_range = inputs
-            total_area = _compute_for_range(r_range, th_range)
-            return carry + total_area, None
-        magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
-    if(1): # vmap case. subtle improvement in speed but worse in memory. More careful for chunking size.
-        total_areas = vmap(_compute_for_range, in_axes=(0, 0))(r_scan, th_scan)
-        magnification_unnorm = jnp.sum(total_areas)
+    magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
     magnification = magnification_unnorm / rho**2 
     return magnification 
 
 #@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
 def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500, 
-                Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, **_params):
+                Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, cubic=True, **_params):
     
     if nlenses == 2:
         q, s = _params["q"], _params["s"]
@@ -80,6 +97,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
         total_mass = 1.0 + q + q3
         e1 = q / total_mass
         e2 = 1.0 / total_mass 
+        #r3 = r3 * jnp.exp(1j * psi)
         _params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
     
     shifted = a * (1.0 - q) / (1.0 + q)  
@@ -88,47 +106,59 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=bins_r, bins_th=bins_th, 
                                      margin_r=margin_r, margin_th=margin_th, nlenses=nlenses)
     
-    def _process_r(r0, th_values):
+    #@partial(jit, static_argnames=("cubic")) 
+    def _process_r(r0, th_values, cubic=True):
         dth = (th_values[1] - th_values[0])
         distances = distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=nlenses, **_params)
         in_num = in_source(distances, rho)
         zero_term = 1e-10
-        in0_num, in1_num, in2_num, in3_num = in_num[:-3], in_num[1:-2], in_num[2:-1], in_num[3:]
-        d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
-        th0, th1, th2, th3 = jnp.arange(4)
-        num_inside  = in1_num * in2_num
-        num_in2out  = in1_num * (1.0 - in2_num)
-        num_out2in  = (1.0 - in1_num) * in2_num
-        th_est      = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
-        frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
-        frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
-        area_inside = r0 * dth * num_inside
-        area_crossing = r0 * dth * (num_in2out * frac_in2out + num_out2in * frac_out2in)
+        if cubic:
+            in0_num, in1_num, in2_num, in3_num = in_num[:-3], in_num[1:-2], in_num[2:-1], in_num[3:]
+            d0, d1, d2, d3 = distances[:-3], distances[1:-2], distances[2:-1], distances[3:]
+            th0, th1, th2, th3 = jnp.arange(4)
+            num_inside  = in1_num * in2_num
+            num_in2out  = in1_num * (1.0 - in2_num)
+            num_out2in  = (1.0 - in1_num) * in2_num
+            th_est      = cubic_interp(rho, d0, d1, d2, d3, th0, th1, th2, th3, epsilon=zero_term)
+            frac_in2out = jnp.clip((th_est - th1), 0.0, 1.0)
+            frac_out2in = jnp.clip((th2 - th_est), 0.0, 1.0)
+            area_inside = r0 * dth * num_inside
+            area_crossing = r0 * dth * (num_in2out * frac_in2out + num_out2in * frac_out2in)
+        else:
+            in0_num, in1_num = in_num[:-1], in_num[1:]
+            d0, d1   = distances[:-1], distances[1:]
+            num_inside     = in0_num * in1_num
+            area_inside    = r0 * dth * num_inside
+            num_in2out = in0_num * (1.0 - in1_num)
+            num_out2in = (1.0 - in0_num) * in1_num
+            frac = jnp.clip((rho - d0) / (d1 - d0 + zero_term), 0.0, 1.0)
+            area_crossing  = r0 * dth * (num_in2out * frac + num_out2in * (1.0 - frac))
         return jnp.sum(area_inside + area_crossing)  
 
-    @jax.checkpoint
-    def _compute_for_range(r_range, th_range):
+    #_process_r = jax.checkpoint(_process_r, static_argnums=(2,), prevent_cse=True)
+
+    #@partial(jit, static_argnames=("cubic"))  
+    def _compute_for_range(r_range, th_range, cubic=True):
         r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
         th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
         #area_r = jax.checkpoint(vmap(lambda r: _process_r(r, th_values, cubic)))(r_values)
-        area_r = vmap(lambda r: _process_r(r, th_values))(r_values)
+        area_r = vmap(lambda r: _process_r(r, th_values, cubic))(r_values)
         dr = r_values[1] - r_values[0]
         total_area = dr * jnp.sum(area_r) # trapezoidal integration
         return total_area
     
-    #_process_r = jax.checkpoint(_process_r, static_argnums=(2,), prevent_cse=True)
     #_compute_for_range = jax.checkpoint(_compute_for_range, static_argnums=(2,), prevent_cse=True)
     
     inputs = (r_scan, th_scan)
     if(0): # memory efficient but seems complex implementation for jax.checkpoint.
         def scan_images(carry, inputs):
             r_range, th_range = inputs
-            total_area = _compute_for_range(r_range, th_range)
+            total_area = _compute_for_range(r_range, th_range, cubic)
             #total_area = _compute_for_range(r_range, th_range, cubic=cubic)
             return carry + total_area, None
         magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
     if(1): # vmap case. subtle improvement in speed but worse in memory. More careful for chunking size.
-        total_areas = vmap(_compute_for_range, in_axes=(0, 0))(r_scan, th_scan)
+        total_areas = vmap(_compute_for_range, in_axes=(0, 0, None))(r_scan, th_scan, cubic)
         magnification_unnorm = jnp.sum(total_areas)
     
     magnification = magnification_unnorm / rho**2 / jnp.pi
