@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 
-from microjax.inverse_ray.lightcurve import mag_uniform
+from microjax.inverse_ray.lightcurve import mag_binary
 from microjax.point_source import critical_and_caustic_curves
 
 # Parameters
@@ -24,7 +24,7 @@ a  = 0.5 * s
 e1 = q / (1.0 + q)
 
 # Position of the center of the source with respect to the center of mass.
-t  =  jnp.linspace(-22, 12, 500)
+t  =  jnp.linspace(-22, 12, 2000)
 
 r_resolution  = 500
 th_resolution = 500
@@ -32,7 +32,7 @@ Nlimb = 500
 MAX_FULL_CALLS = 500
 cubic = True
 
-@jit
+#@jit
 def get_mag(params):
     s, q, rho, alpha, u0, t0, tE = params
     tau = (t - t0)/tE
@@ -41,23 +41,27 @@ def get_mag(params):
 
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    mag_func = lambda w: mag_uniform(w, rho, s=s, q=q, 
-                          r_resolution=r_resolution, th_resolution=th_resolution, 
-                          cubic=cubic, Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
-    #mags_func = jax.checkpoint(mag_func)
-    return w_points, jax.vmap(jax.checkpoint(mag_func))(w_points)
-    #return w_points, mags_func(w_points)
+    mag_func = lambda w: mag_binary(w, rho, **_params, chunk_size=100,
+                                    r_resolution=r_resolution, th_resolution=th_resolution,
+                                    Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
+    return w_points, mag_func(w_points)
 
 import time
+import jax.profiler
 params = jnp.array([s, q, rho, alpha, u0, t0, tE])
-get_mag(params)
+_, _ = get_mag(params)
+_.block_until_ready()
+jax.profiler.save_device_memory_profile("memory.prof", backend="gpu")
 print("start")
 start = time.time()
 w_points, A = get_mag(params)
+A.block_until_ready()
 end = time.time()
 print("mag finish: %.3f sec"%(end - start))
+exit(1)
+
 from jax.ad_checkpoint import print_saved_residuals
-#print_saved_residuals(get_mag, params)
+print_saved_residuals(get_mag, params)
 
 # Evaluate the Jacobian at every point
 from jax import grad, jit

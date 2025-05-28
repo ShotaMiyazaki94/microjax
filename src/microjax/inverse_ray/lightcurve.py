@@ -13,7 +13,7 @@ from microjax.inverse_ray.cond_extended import test_full
 
 @partial(jit,static_argnames=("r_resolution", "th_resolution", "u1", "delta_c", 
                               "bins_r", "bins_th", "margin_r", "margin_th", 
-                              "Nlimb", "MAX_FULL_CALLS", "chunk_size", "cubic"))
+                              "Nlimb", "MAX_FULL_CALLS", "chunk_size"))
 def mag_binary(w_points, rho, r_resolution=1000, th_resolution=1000, u1=0.0, delta_c=0.01,
                Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, 
                MAX_FULL_CALLS=500, chunk_size=100, **params):
@@ -55,9 +55,22 @@ def mag_binary(w_points, rho, r_resolution=1000, th_resolution=1000, u1=0.0, del
         pad_len = (-N) % chunk_size
         chunks = jnp.pad(data, [(0, pad_len)] + [(0, 0)] * (data.ndim - 1)).reshape(-1, chunk_size, *data.shape[1:])
         return lax.map(lambda c: vmap(func)(c), chunks).reshape(-1, *data.shape[2:])[:N]
+    
+    def chunked_vmap_scan(func, data, chunk_size):
+        N = data.shape[0]
+        pad_len  = (-N) % chunk_size
+        chunks   = jnp.pad(data, [(0, pad_len)] + [(0, 0)] * (data.ndim - 1)).reshape(-1, chunk_size, *data.shape[1:]) 
+        #@jax.checkpoint
+        def body(carry, chunk):
+            #out = vmap(jax.checkpoint(func))(chunk)             
+            out = vmap(func)(chunk)                            
+            return carry, out               
+        _, outs = lax.scan(body, None, chunks)   # outs → (T, chunk_size, ...)
+        return outs.reshape(-1, *data.shape[2:])[:N]
 
-    mag_full = jax.checkpoint(_mag_full)
-    mag_extended = chunked_vmap(mag_full, w_points[idx_full], chunk_size)
+    _mag_full = jax.checkpoint(_mag_full, policy=jax.checkpoint_policies.nothing_saveable, prevent_cse=False)
+    mag_extended = chunked_vmap(_mag_full, w_points[idx_full], chunk_size)
+    #mag_extended = chunked_vmap_scan(_mag_full, w_points[idx_full], chunk_size)
     mags = mu_multi.at[idx_full].set(mag_extended)
     mags = jnp.where(test, mu_multi, mags)
     return mags 
@@ -104,8 +117,8 @@ def mag_triple(w_points, rho, r_resolution=1000, th_resolution=1000, u1=0.0, del
         chunks = jnp.pad(data, [(0, pad_len)] + [(0, 0)] * (data.ndim - 1)).reshape(-1, chunk_size, *data.shape[1:])
         return lax.map(lambda c: vmap(func)(c), chunks).reshape(-1, *data.shape[2:])[:N]
 
-    mag_full = jax.checkpoint(_mag_full)
-    mag_extended = chunked_vmap(mag_full, w_points[idx_full], chunk_size)
+    _mag_full = jax.checkpoint(_mag_full)
+    mag_extended = chunked_vmap(_mag_full, w_points[idx_full], chunk_size)
     mags = mu_multi.at[idx_full].set(mag_extended)
     mags = jnp.where(test, mu_multi, mags)
     return mags 
@@ -129,7 +142,7 @@ if __name__ == "__main__":
         tE = 30 
         t0 = 0.0 
         u0 = 0.0 
-        rho = 2e-2
+        rho = 0.02
 
     nlenses = 2
     a = 0.5 * s
@@ -152,8 +165,8 @@ if __name__ == "__main__":
     MAX_FULL_CALLS = 1000
 
     cubic = True
-    bins_r = 120
-    bins_th = 360
+    bins_r = 50
+    bins_th = 120
     margin_r = 1.0
     margin_th= 1.0
 
@@ -161,7 +174,7 @@ if __name__ == "__main__":
     import VBBinaryLensing
     VBBL = VBBinaryLensing.VBBinaryLensing()
     VBBL.a1 = 0.0
-    VBBL.RelTol = 1e-4
+    VBBL.RelTol = 1e-5
     params_VBBL = [jnp.log(s), jnp.log(q), u0, alpha - jnp.pi, jnp.log(rho), jnp.log(tE), t0]
 
     #magn2  = lambda w0: jnp.array([mag_vbbl(w, rho) for w in w0])

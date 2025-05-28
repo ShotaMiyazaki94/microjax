@@ -92,9 +92,6 @@ example/ogle-2003-blg-235/svi_samples.csv
 example/ogle-2003-blg-235/test_nfull.py
 example/wfirst_095/plot.pdf
 example/wfirst_095/plot.py
-paper/WFIRST/full_magnitude_error.csv
-paper/WFIRST/obstime_W149.dat
-paper/WFIRST/obstime_Z087.dat
 paper/code/accuracy_paper.py
 paper/code/grads_uniform_paper.py
 paper/code/plot_grads_paper.py
@@ -137,6 +134,7 @@ src/microjax.egg-info/dependency_links.txt
 src/microjax.egg-info/requires.txt
 src/microjax.egg-info/top_level.txt
 src/microjax/__pycache__/point_source.cpython-39.pyc
+src/microjax/_legacy/extended_source.py.20250527
 src/microjax/_legacy/extended_source.py.bak
 src/microjax/_legacy/merge_area.py
 src/microjax/_legacy/merge_area_2.py

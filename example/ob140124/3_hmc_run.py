@@ -1,3 +1,6 @@
+import os
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+
 import numpy as np
 import VBBinaryLensing
 import matplotlib.pyplot as plt
@@ -22,6 +25,8 @@ fluxe_data = jnp.array(fluxe_data)
 from astropy.coordinates import SkyCoord
 coords = SkyCoord("18:02:29.21 −28:23:46.5", unit=("hourangle", "deg"))
 data_input = (t_data, flux_data, fluxe_data, coords.ra.deg, coords.dec.deg)
+
+print(data_input[0].shape)
 
 param_adam = np.load("example/ob140124/adam_fwd_params.npz")
 param_dict = {key: param_adam[key] for key in param_adam.files}
@@ -60,7 +65,7 @@ def mag_time(time, params, RA, Dec):
     magn = mag_binary(w_points, rho, s=s, q=q, r_resolution=r_resolution, 
                       th_resolution=th_resolution,cubic=cubic, Nlimb=Nlimb, 
                       bins_r=bins_r, bins_th=bins_th, margin_r=margin_r, margin_th=margin_th, 
-                      MAX_FULL_CALLS=MAX_FULL_CALLS)
+                      chunk_size=10, MAX_FULL_CALLS=MAX_FULL_CALLS)
     return magn
 
 import numpyro

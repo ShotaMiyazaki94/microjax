@@ -1,10 +1,13 @@
 """
 Hexadecapole approximation for the extended source magnification. 
 """
+import jax
+from functools import partial
 import jax.numpy as jnp
 from jax import vmap
 from jax.scipy.special import gammaln
 
+@jax.checkpoint
 def _mag_hexadecapole_cassan(W, rho, u1=0.0):
     """
     Adapted from
@@ -203,7 +206,6 @@ def _mag_hexadecapole_cassan(W, rho, u1=0.0):
     delta_mu_hex  = 1.0 / 24.0 * mu4 * (1.0 - 11.0 / 35.0 * Gamma) * rho**4
     
     return mu_ps, delta_mu_quad, delta_mu_hex
-
 
 def _mag_hexadecapole(z, z_mask, rho, u1=0.0, nlenses=2, **params):
     # Wk from Cassan et. al. 2017

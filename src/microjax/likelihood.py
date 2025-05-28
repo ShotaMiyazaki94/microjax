@@ -46,10 +46,56 @@ def nll_ulens(flux, M, sigma2_obs, sigma2_fs, sigma2_fb):
     Returns:
         scalar : negative log-likelihood
     """
-    # Inverse prior covariances (regularization terms)
+    # Prior precision matrix Lambda^{-1} = diag(1/sigma2_fs, 1/sigma2_fb)
+    lambda_fs = 1.0 / sigma2_fs
+    lambda_fb = 1.0 / sigma2_fb
+    #Lambda_inv = jnp.diag(jnp.array([lambda_fs, lambda_fb]))  # shape (2, 2)
+
+    # Compute C^{-1} @ M, using element-wise division since C is diagonal
+    Cinv_M = M / sigma2_obs[:, None]  # shape (n, 2)
+
+    # Compute matrix A = M^T @ C^{-1} @ M + Lambda^{-1}
+    # A is 2x2 symmetric matrix
+    a11 = lambda_fs + jnp.dot(M[:, 0], Cinv_M[:, 0])
+    a22 = lambda_fb + jnp.dot(M[:, 1], Cinv_M[:, 1])
+    a12 = jnp.dot(M[:, 0], Cinv_M[:, 1])  # same as a21
+
+    # Compute vector b = M^T @ C^{-1} @ flux
+    Cinv_flux = flux / sigma2_obs
+    b1 = jnp.dot(M[:, 0], Cinv_flux)
+    b2 = jnp.dot(M[:, 1], Cinv_flux)
+
+    # Solve A @ mu = b for posterior mean mu = (mu_fs, mu_fb)
+    detA = a11 * a22 - a12 * a12
+    invA00 =  a22 / detA
+    invA11 =  a11 / detA
+    invA01 = -a12 / detA
+    mu_fs = invA00 * b1 + invA01 * b2
+    mu_fb = invA01 * b1 + invA11 * b2
+
+    # Compute Mahalanobis part: flux^T @ C^{-1} @ flux - b^T @ A^{-1} @ b
+    # Compute log-determinant terms
+    mahalanobis = jnp.dot(flux, Cinv_flux) - (mu_fs * b1 + mu_fb * b2)
+    logdet_C = jnp.sum(jnp.log(sigma2_obs))               # log|C|
+    logdet_Lambda = jnp.log(sigma2_fs) + jnp.log(sigma2_fb)  # log|Lambda|
+    logdet_A = jnp.log(detA)                             # log|A|
+
+    # Final NLL value
+    nll = 0.5 * (mahalanobis + logdet_C + logdet_Lambda + logdet_A)
+    return nll
+
+"""
+def nll_ulens_simple(flux, M, sigma2_obs, sigma2_fs, sigma2_fb):
+
+    # Prior precision matrix Lambda^{-1} = diag(1/sigma2_fs, 1/sigma2_fb)
     lambda_fs = 1.0 / sigma2_fs
     lambda_fb = 1.0 / sigma2_fb
     Lambda_inv = jnp.diag(jnp.array([lambda_fs, lambda_fb]))  # shape (2, 2)
+
+    # Compute vector b = M^T @ C^{-1} @ flux
+    Cinv_flux = flux / sigma2_obs
+    b1 = jnp.dot(M[:, 0], Cinv_flux)
+    b2 = jnp.dot(M[:, 1], Cinv_flux)
     
     # Inverse observational covariance applied to design matrix
     Cinv_M = M / sigma2_obs[:, None]            # shape (n, 2)
@@ -74,7 +120,8 @@ def nll_ulens(flux, M, sigma2_obs, sigma2_fs, sigma2_fb):
     # Final negative log-likelihood
     nll = 0.5 * (mahal_term + logdet_C + logdet_Lambda + logdet_A)
     return nll
-
+"""
+    
 def nll_ulens_general(flux, M, C, mu, Lambda):
     """
     Calculate the negative log-likelihood (NLL) for a microlensing model

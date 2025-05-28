@@ -43,7 +43,8 @@ def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolut
         area_B1     = r0 * dth * Is[2:-2] * fac_B1 * num_B1
         area_B2     = r0 * dth * Is[2:-2] * fac_B2 * num_B2
         return jnp.sum(area_inside + area_B1 + area_B2)
-    
+
+    #@jax.checkpoint 
     def _compute_for_range(r_range, th_range):
         r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
         th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
@@ -87,7 +88,8 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params, nlenses=nlenses)
     r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=bins_r, bins_th=bins_th, 
                                      margin_r=margin_r, margin_th=margin_th, nlenses=nlenses)
-    
+
+    #@jax.checkpoint 
     def _process_r(r0, th_values):
         dth = (th_values[1] - th_values[0])
         distances = distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=nlenses, **_params)
@@ -106,7 +108,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
         area_crossing = r0 * dth * (num_in2out * frac_in2out + num_out2in * frac_out2in)
         return jnp.sum(area_inside + area_crossing)  
 
-    @jax.checkpoint
+    #@jax.checkpoint
     def _compute_for_range(r_range, th_range):
         r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
         th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
@@ -116,18 +118,18 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
         total_area = dr * jnp.sum(area_r) # trapezoidal integration
         return total_area
     
-    #_process_r = jax.checkpoint(_process_r, static_argnums=(2,), prevent_cse=True)
-    #_compute_for_range = jax.checkpoint(_compute_for_range, static_argnums=(2,), prevent_cse=True)
+    #_process_r = jax.checkpoint(_process_r, prevent_cse=True)
+    #_compute_for_range = jax.checkpoint(_compute_for_range, prevent_cse=True)
     
     inputs = (r_scan, th_scan)
-    if(0): # memory efficient but seems complex implementation for jax.checkpoint.
+    if(1): # memory efficient but seems complex implementation for jax.checkpoint.
         def scan_images(carry, inputs):
             r_range, th_range = inputs
             total_area = _compute_for_range(r_range, th_range)
             #total_area = _compute_for_range(r_range, th_range, cubic=cubic)
             return carry + total_area, None
         magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
-    if(1): # vmap case. subtle improvement in speed but worse in memory. More careful for chunking size.
+    if(0): # vmap case. subtle improvement in speed but worse in memory. More careful for chunking size.
         total_areas = vmap(_compute_for_range, in_axes=(0, 0))(r_scan, th_scan)
         magnification_unnorm = jnp.sum(total_areas)
     
@@ -162,7 +164,7 @@ if __name__ == "__main__":
     tE = 30 
     t0 = 0.0 
     u0 = 0.0 
-    rho = 0.01
+    rho = 0.02
 
     nlenses = 2
     a = 0.5 * s
