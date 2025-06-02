@@ -41,7 +41,7 @@ def get_mag(params):
 
     _params = {"q": q, "s": s}
     w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-    mag_func = lambda w: mag_binary(w, rho, **_params, chunk_size=100,
+    mag_func = lambda w: mag_binary(w, rho, **_params, chunk_size=1,
                                     r_resolution=r_resolution, th_resolution=th_resolution,
                                     Nlimb=Nlimb, MAX_FULL_CALLS=MAX_FULL_CALLS)
     return w_points, mag_func(w_points)
@@ -58,7 +58,7 @@ w_points, A = get_mag(params)
 A.block_until_ready()
 end = time.time()
 print("mag finish: %.3f sec"%(end - start))
-exit(1)
+#exit(1)
 
 from jax.ad_checkpoint import print_saved_residuals
 print_saved_residuals(get_mag, params)

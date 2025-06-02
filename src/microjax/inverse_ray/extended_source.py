@@ -128,7 +128,7 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
             total_area = _compute_for_range(r_range, th_range)
             #total_area = _compute_for_range(r_range, th_range, cubic=cubic)
             return carry + total_area, None
-        magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
+        magnification_unnorm, _ = lax.scan(jax.checkpoint(scan_images), 0.0, inputs, unroll=1)
     if(0): # vmap case. subtle improvement in speed but worse in memory. More careful for chunking size.
         total_areas = vmap(_compute_for_range, in_axes=(0, 0))(r_scan, th_scan)
         magnification_unnorm = jnp.sum(total_areas)

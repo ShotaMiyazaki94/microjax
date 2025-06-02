@@ -24,6 +24,7 @@ t0 = 0.0
 tE = 25.52
 alpha = 2.340
 W149s = 25.1
+#fs0 = 0.8
 fs0 = 0.104
 mag0 = 25.0
 Fs = 10**(-0.4 * (W149s - mag0))
@@ -58,14 +59,26 @@ mock_data.to_csv("example/synthetic_roman/mock_data.csv", index=False)
 
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 fig, ax = plt.subplots()
-ax.plot(t, Flux_obs, ".", label="Observed")
-ax.plot(t, Flux_model, "-", label="Model")
+ax.plot(t, W149_obs, ".", ms=2, label="Observed")
+ax.plot(t, W149_model, "-", label="Model")
+ylim = ax.get_ylim()
+ax.set_ylim(ylim[1], ylim[0])
+#ax.plot(t, Flux_obs, ".", label="Observed")
+#ax.plot(t, Flux_model, "-", label="Model")
 axins = inset_axes(ax, width="30%", height="30%", loc='upper right')
-axins.plot(t, Flux_obs, ".", ms=2)
-axins.plot(t, Flux_model, "-", lw=1)
+xmin, xmax = 0, 3
+axins.set_xlim(xmin, xmax)
+ymin = W149_obs[(t > xmin)&(t < xmax)].min()
+ymax = W149_obs[(t > xmin)&(t < xmax)].max()
+axins.plot(t, W149_obs, ".", ms=2)
+axins.plot(t, W149_model, "-", lw=1)
+axins.set_ylim(ymax, ymin)
+#axins.set_ylim(22.3, ylim[0])
+#axins.plot(t, Flux_obs, ".", ms=2)
+#axins.plot(t, Flux_model, "-", lw=1)
 axins.set_xlim(0, 3)
 ax.set_xlabel("Time (days)")
-ax.set_ylabel("Flux (arbitrary units)")
+ax.set_ylabel("W149 (mag)")
 ax.legend(loc="upper left")
 #plt.plot(t, Flux_obs, ".", label="Model")
 #plt.plot(t, Flux_model, "k-", label="Observed")

@@ -7,7 +7,7 @@ import jax.numpy as jnp
 from jax import vmap
 from jax.scipy.special import gammaln
 
-@jax.checkpoint
+#@jax.checkpoint
 def _mag_hexadecapole_cassan(W, rho, u1=0.0):
     """
     Adapted from
@@ -207,6 +207,7 @@ def _mag_hexadecapole_cassan(W, rho, u1=0.0):
     
     return mu_ps, delta_mu_quad, delta_mu_hex
 
+#@jax.checkpoint
 def _mag_hexadecapole(z, z_mask, rho, u1=0.0, nlenses=2, **params):
     # Wk from Cassan et. al. 2017
     factorial = lambda n: jnp.exp(gammaln(n + 1))
@@ -233,7 +234,8 @@ def _mag_hexadecapole(z, z_mask, rho, u1=0.0, nlenses=2, **params):
     Ws = vmap(W)(jnp.arange(2, 7))
 
     # Multipole terms per image, signed
-    mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
+    mu_ps, delta_mu_quad, delta_mu_hex = jax.checkpoint(lambda Ws_: _mag_hexadecapole_cassan(Ws_, rho, u1=u1))(Ws)
+    #mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
 
     # Sum over images
     mu_multi = jnp.sum(z_mask*jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex), axis=0)

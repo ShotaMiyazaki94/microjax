@@ -15,7 +15,7 @@ from microjax.inverse_ray.cond_extended import test_full
                               "bins_r", "bins_th", "margin_r", "margin_th", 
                               "Nlimb", "MAX_FULL_CALLS", "chunk_size"))
 def mag_binary(w_points, rho, r_resolution=1000, th_resolution=1000, u1=0.0, delta_c=0.01,
-               Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, 
+               Nlimb=500, bins_r=50, bins_th=120, margin_r=1.0, margin_th=1.0, 
                MAX_FULL_CALLS=500, chunk_size=100, **params):
     s = params.get("s", None)
     q = params.get("q", None)
@@ -77,7 +77,7 @@ def mag_binary(w_points, rho, r_resolution=1000, th_resolution=1000, u1=0.0, del
 
 @partial(jit,static_argnames=("r_resolution", "th_resolution", "u1", "delta_c",
                               "bins_r", "bins_th", "margin_r", "margin_th", 
-                              "Nlimb", "MAX_FULL_CALLS", "chunk_size", "cubic"))
+                              "Nlimb", "MAX_FULL_CALLS", "chunk_size"))
 def mag_triple(w_points, rho, r_resolution=1000, th_resolution=1000, u1=0.0, delta_c=0.01,
                Nlimb=500, bins_r=50, bins_th=120, margin_r=1.0, margin_th=1.0, 
                MAX_FULL_CALLS=500, chunk_size=50, **params):
@@ -282,5 +282,5 @@ if __name__ == "__main__":
     print("full num: %d"%jnp.sum(~test))
     #plt.show()
     plt.savefig("z_fig/mag_lc.png", bbox_inches="tight", dpi=300)
-    print("mag_lc.pdf")
+    print("z_fig/mag_lc.png")
     plt.close()

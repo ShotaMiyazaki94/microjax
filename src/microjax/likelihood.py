@@ -49,7 +49,6 @@ def nll_ulens(flux, M, sigma2_obs, sigma2_fs, sigma2_fb):
     # Prior precision matrix Lambda^{-1} = diag(1/sigma2_fs, 1/sigma2_fb)
     lambda_fs = 1.0 / sigma2_fs
     lambda_fb = 1.0 / sigma2_fb
-    #Lambda_inv = jnp.diag(jnp.array([lambda_fs, lambda_fb]))  # shape (2, 2)
 
     # Compute C^{-1} @ M, using element-wise division since C is diagonal
     Cinv_M = M / sigma2_obs[:, None]  # shape (n, 2)
@@ -76,9 +75,9 @@ def nll_ulens(flux, M, sigma2_obs, sigma2_fs, sigma2_fb):
     # Compute Mahalanobis part: flux^T @ C^{-1} @ flux - b^T @ A^{-1} @ b
     # Compute log-determinant terms
     mahalanobis = jnp.dot(flux, Cinv_flux) - (mu_fs * b1 + mu_fb * b2)
-    logdet_C = jnp.sum(jnp.log(sigma2_obs))               # log|C|
-    logdet_Lambda = jnp.log(sigma2_fs) + jnp.log(sigma2_fb)  # log|Lambda|
-    logdet_A = jnp.log(detA)                             # log|A|
+    logdet_C = jnp.sum(jnp.log(sigma2_obs))                     # log|C|
+    logdet_Lambda = jnp.log(sigma2_fs) + jnp.log(sigma2_fb)     # log|Lambda|
+    logdet_A = jnp.log(detA)                                    # log|A|
 
     # Final NLL value
     nll = 0.5 * (mahalanobis + logdet_C + logdet_Lambda + logdet_A)
