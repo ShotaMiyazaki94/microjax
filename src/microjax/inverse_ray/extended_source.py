@@ -11,10 +11,19 @@ from microjax.inverse_ray.boundary import in_source, distance_from_source, calc_
 #                               "offset_r", "offset_th", "delta_c"))
 def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolution=500, 
                   Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, delta_c=0.01, **_params):
-    q, s = _params["q"], _params["s"]
-    a  = 0.5 * s
-    e1 = q / (1.0 + q)
-    _params = {"q": q, "s": s, "a": a, "e1": e1}
+    if nlenses == 2:
+        q, s = _params["q"], _params["s"]
+        a  = 0.5 * s
+        e1 = q / (1.0 + q)
+        _params = {"q": q, "s": s, "a": a, "e1": e1}
+    elif nlenses == 3:
+        s, q, q3, r3, psi = _params["s"], _params["q"], _params["q3"], _params["r3"], _params["psi"]
+        a = 0.5 * s
+        total_mass = 1.0 + q + q3
+        e1 = q / total_mass
+        e2 = 1.0 / total_mass 
+        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2, "q": q, "s": s, "q3": q3, "psi": psi}
+    
     shifted = 0.5 * s * (1 - q) / (1 + q)  
     w_center_shifted = w_center - shifted
     image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
@@ -54,13 +63,14 @@ def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolut
         return total_area
     
     inputs = (r_scan, th_scan)
-    if(0): # memory efficient but seems complex implementation for jax.checkpoint.
+    if(1): # memory efficient but seems complex implementation for jax.checkpoint.
+        #@jax.checkpoint
         def scan_images(carry, inputs):
             r_range, th_range = inputs
             total_area = _compute_for_range(r_range, th_range)
             return carry + total_area, None
         magnification_unnorm, _ = lax.scan(scan_images, 0.0, inputs, unroll=1)
-    if(1): # vmap case. subtle improvement in speed but worse in memory. More careful for chunking size.
+    if(0): # vmap case. subtle improvement in speed but worse in memory. More careful for chunking size.
         total_areas = vmap(_compute_for_range, in_axes=(0, 0))(r_scan, th_scan)
         magnification_unnorm = jnp.sum(total_areas)
     magnification = magnification_unnorm / rho**2 

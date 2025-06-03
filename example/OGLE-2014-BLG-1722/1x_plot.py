@@ -110,6 +110,7 @@ ax.errorbar(data_moa[:, 0], magn_moa, yerr=magne_moa, fmt=".", label="MOA data",
 ax.errorbar(data_ogle[:, 0], magn_ogle, yerr=magne_ogle, fmt=".", label="OGLE data", color="r", capsize=3)
 ax.plot(time, magn, label="Model", color="k", zorder=10)
 ax.set_xlim(6860, 6940)
+ax.set_ylim(0, 8.3)
 ax.set_xlabel("Time (HJD - 2450000)")
 ax.set_ylabel("Magnification")
 
