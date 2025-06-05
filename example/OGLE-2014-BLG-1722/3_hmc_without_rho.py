@@ -100,16 +100,16 @@ def model(data_moa, data_ogle, parallax_params):
                        -3.21033816, 0.04717417, -2.46430115,  
                        0.42313965, 0.05500704], dtype=jnp.float64)
     t0_diff_d = numpyro.sample('t0_diff_d',   dist.Uniform(-0.1,  0.1))
-    log_tE_d  = numpyro.sample('log_tE_d',  dist.Uniform(-0.25,  0.25))
+    log_tE_d  = numpyro.sample('log_tE_d',  dist.Uniform(-0.1,  0.1))
     u0_diff   = numpyro.sample('u0_diff',   dist.Uniform(-0.01, 0.01))
     log_q_d   = numpyro.sample('log_q_d',   dist.Uniform(-0.5,  0.5))
     log_s_d   = numpyro.sample('log_s_d',   dist.Uniform(-0.5,  0.5))
     alpha_d   = numpyro.sample('alpha_d',   dist.Uniform(-0.1, 0.1))
     log_q3_d  = numpyro.sample('log_q3_d',  dist.Uniform(-0.5,  0.5))
-    log_s2_d  = numpyro.sample('log_s2_d',  dist.Uniform(-0.5,  0.5))
-    psi_d     = numpyro.sample('psi_d',     dist.Uniform(-0.1, 0.1))
-    piEN      = numpyro.sample('piEN',   dist.Uniform(-1.0, 1.0))
-    piEE      = numpyro.sample('piEE',   dist.Uniform(-1.0, 1.0))
+    log_s2_d  = numpyro.sample('log_s2_d',  dist.Uniform(-0.1,  0.1))
+    psi_d     = numpyro.sample('psi_d',     dist.Uniform(-0.2, 0.2))
+    piEN      = numpyro.sample('piEN',   dist.Uniform(-0.5, 0.5))
+    piEE      = numpyro.sample('piEE',   dist.Uniform(-0.5, 0.5))
 
     t0_diff = inits[0] + t0_diff_d
     log_tE  = inits[1] + log_tE_d
@@ -147,25 +147,10 @@ def model(data_moa, data_ogle, parallax_params):
 #print(diag_variances)
 #inv_mass_matrix = 1.0 / diag_variances
 
-inv_mass_matrix = jnp.array([
-    1.0 / 0.0001**2,  # t0_diff
-    1.0 / 0.01**2,    # log_tE
-    1.0 / 0.001**2,   # u0
-    1.0 / 0.01**2,    # log_q
-    1.0 / 0.01**2,    # log_s
-    1.0 / 0.01**2,    # alpha
-    1.0 / 0.01**2,    # log_q3
-    1.0 / 0.01**2,    # log_s2
-    1.0 / 0.01**2,    # psi
-    1.0 / 0.1**2,     # piEN
-    1.0 / 0.1**2,     # piEE
-    ], dtype=jnp.float64)
-
-
 init_strategy=numpyro.infer.init_to_median()
 kernel = NUTS(model, init_strategy=init_strategy,
-              dense_mass=False,  # ← Fisher行列は dense
-              inverse_mass_matrix=inv_mass_matrix,
+              dense_mass=True,  # ← Fisher行列は dense
+              #inverse_mass_matrix=inv_mass_matrix,
               regularize_mass_matrix=True,
               adapt_mass_matrix=True,
               adapt_step_size=True,  
