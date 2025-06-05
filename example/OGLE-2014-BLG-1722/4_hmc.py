@@ -101,28 +101,22 @@ def model(data_moa, data_ogle, parallax_params):
                        -3.21033816, 0.04717417, -2.46430115,  
                        0.42313965, 0.05500704, -3.0], dtype=jnp.float64)
     
-    t0_diff_d = numpyro.sample('t0_diff_d',   dist.Uniform(-0.1,  0.1))
-    log_tE_d  = numpyro.sample('log_tE_d',  dist.Uniform(-0.1,  0.1))
-    u0_diff   = numpyro.sample('u0_diff',   dist.Uniform(-0.01, 0.01))
-    log_q_d   = numpyro.sample('log_q_d',   dist.Uniform(-0.5,  0.5))
-    log_s_d   = numpyro.sample('log_s_d',   dist.Uniform(-0.5,  0.5))
-    alpha_d   = numpyro.sample('alpha_d',   dist.Uniform(-0.1, 0.1))
-    log_q3_d  = numpyro.sample('log_q3_d',  dist.Uniform(-0.5,  0.5))
-    log_s2_d  = numpyro.sample('log_s2_d',  dist.Uniform(-0.1,  0.1))
-    psi_d     = numpyro.sample('psi_d',     dist.Uniform(-0.2, 0.2))
-    piEN      = numpyro.sample('piEN',   dist.Uniform(-1.0, 1.0))
-    piEE      = numpyro.sample('piEE',   dist.Uniform(-1.0, 1.0))
-    log_rho   = numpyro.sample('log_rho', dist.Uniform(-4.0, -2.0))
+    t0_diff = numpyro.sample('t0_diff', dist.Normal(inits[0], 0.1))    
+    log_tE  = numpyro.sample('log_tE',  dist.Normal(inits[1], 0.1))    
+    u0      = numpyro.sample('u0',      dist.Normal(inits[2], 0.01))   
+    log_q   = numpyro.sample('log_q',   dist.Normal(inits[3], 0.5))
+    log_s   = numpyro.sample('log_s',   dist.Normal(inits[4], 0.5))
+    alpha   = numpyro.sample('alpha',   dist.Normal(inits[5], 0.1))
+    log_q3  = numpyro.sample('log_q3',  dist.Normal(inits[6], 0.5))
+    log_s2  = numpyro.sample('log_s2',  dist.Normal(inits[7], 0.1))
+    psi     = numpyro.sample('psi',     dist.Normal(inits[8], 0.2))
+    piEN    = numpyro.sample('piEN',    dist.Normal(0.0, 1.0))        
+    piEE    = numpyro.sample('piEE',    dist.Normal(0.0, 1.0))
+    delta = numpyro.sample("delta_log_rho", dist.HalfNormal(1.0))
+    log_rho = numpyro.deterministic("log_rho", -4.0 + delta)
+    #log_rho = numpyro.sample('log_rho', dist.Normal(-3.0, 1.0))       
 
-    t0_diff = inits[0] + t0_diff_d
-    log_tE  = inits[1] + log_tE_d
-    u0      = inits[2] + u0_diff
-    log_q   = inits[3] + log_q_d
-    log_s   = inits[4] + log_s_d
-    alpha   = inits[5] + alpha_d
-    log_q3  = inits[6] + log_q3_d
-    log_s2  = inits[7] + log_s2_d
-    psi     = inits[8] + psi_d
+    # deterministic 出力
     numpyro.deterministic("t0_diff", t0_diff)
     numpyro.deterministic("log_tE",  log_tE)
     numpyro.deterministic("u0",      u0)
