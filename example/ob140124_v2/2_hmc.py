@@ -68,6 +68,11 @@ import arviz as az
 import corner
 idata = az.from_numpyro(mcmc)
 idata.to_netcdf("example/ob140124_v2/mcmc_full.nc")
+posterior = idata.posterior
+print(posterior)
+
+exit(1)
+
 
 param_labels = ["t0_diff", "log_tE", "u0", "log_q", "log_s", "alpha", "log_rho", "piEN", "piEE"]
 import corner

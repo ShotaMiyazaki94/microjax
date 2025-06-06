@@ -31,4 +31,4 @@ labels = [
 figure = corner.corner(samples, labels=labels, show_titles=True,
                        title_kwargs={"fontsize": 12}, label_kwargs={"fontsize": 14})
 
-figure.savefig("example/OGLE-2014-BLG-1722/corner_plot.png", dpi=300)
+figure.savefig("example/OGLE-2014-BLG-1722/corner_plot.pdf", dpi=300)

@@ -145,7 +145,7 @@ axins2.set_ylim(y3, y4)
 mark_inset(ax, axins2, loc1=2, loc2=4, fc="none", ec="0.5")
 
 ax.legend(loc="lower right", fontsize=12)
-plt.savefig("example/OGLE-2014-BLG-1722/model_light_curve.png", dpi=200, bbox_inches="tight")
+plt.savefig("example/OGLE-2014-BLG-1722/model_light_curve.pdf", dpi=200, bbox_inches="tight")
 plt.close()
 
 from microjax.point_source import critical_and_caustic_curves
