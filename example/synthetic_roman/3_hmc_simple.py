@@ -1,7 +1,7 @@
 import os
-os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
-os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.60"
-os.environ["XLA_PYTHON_CLIENT_TRACE_ALLOCATOR"] = "1"
+#os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
+#os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.60"
+#os.environ["XLA_PYTHON_CLIENT_TRACE_ALLOCATOR"] = "1"
 #os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
 import jax.numpy as jnp
