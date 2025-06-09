@@ -2,7 +2,6 @@ import jax
 import jax.numpy as jnp
 jax.config.update("jax_enable_x64", True)
 from model import mag_time, wpoints_time
-from microjax.likelihood import linear_chi2 
 import pandas as pd
 import numpy as np
 from microjax.likelihood import linear_chi2, nll_ulens
