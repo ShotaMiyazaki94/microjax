@@ -40,7 +40,7 @@ L = jnp.linalg.cholesky(fisher_cov)
 init_strategy=numpyro.infer.init_to_value(values={'param_base':jnp.zeros(len(params_best))})
 kernel = NUTS(model,
               init_strategy=init_strategy, 
-              dense_mass=True,  # ← Fisher行列は dense
+              dense_mass=True, 
               regularize_mass_matrix=True,
               adapt_mass_matrix=True,
               adapt_step_size=True, 

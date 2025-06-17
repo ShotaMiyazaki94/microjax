@@ -19,8 +19,8 @@ def mag_vbb_binary(w0, rho, s, q, u1=0.0, accuracy=1e-05):
 # Parameters
 s, q = 1.0, 0.1
 acc_vbb = 1e-05
-#r_resolution = 500
-r_resolution = 1000
+r_resolution = 500
+#r_resolution = 1000
 Nlimb = 500
 margin_r = 1.0
 margin_th = 1.0

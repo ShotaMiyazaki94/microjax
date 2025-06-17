@@ -69,7 +69,7 @@ if(0):
 
 best_param = np.load("example/synthetic_roman/adam_fwd_params.npy")
 
-if(1):
+if(0):
     magn = mag_time(time_lc, best_param)
     Fs, Fse, Fb, Fbe, chi2 = linear_chi2(magn, flux_lc, fluxe_lc)
     def model_flux(theta):
@@ -90,4 +90,4 @@ fisher_cov = np.linalg.inv(fisher_matrix_pd)
 print(fisher_cov)
 print(np.sqrt(np.diag(fisher_cov)))
 L = jnp.linalg.cholesky(fisher_cov)
-print(L)
+#print(L)
