@@ -28,7 +28,7 @@ def mag_time(time, params, chunk_size=50):
     magn = mag_binary(w_points, rho=rho, **_params, chunk_size=chunk_size,
                       r_resolution=1000, th_resolution=1000,
                       Nlimb=500, bins_r=100, bins_th=360,
-                      margin_r=1.0, margin_th=1.0, MAX_FULL_CALLS=100)
+                      margin_r=1.0, margin_th=1.0, MAX_FULL_CALLS=50)
     return magn
 
 #@partial(jit, static_argnums=(3,))
