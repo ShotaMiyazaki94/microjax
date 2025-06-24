@@ -1,5 +1,5 @@
 <p align="center">
-  <img width = "500" src="figs/microjax.pdf"/>
+  <img width = "500" src="figs/microjax.png"/>
   <br>
 </p>
 
