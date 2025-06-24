@@ -6,7 +6,7 @@ jax.config.update("jax_enable_x64", True)
 from microjax.point_source import critical_and_caustic_curves
 import matplotlib as mpl
 import seaborn as sns
-sns.set_theme(font="serif", font_scale=1.0,style="ticks")
+sns.set_theme(font="serif", font_scale=1.2,style="ticks")
 
 file = np.loadtxt("paper/data/time_mag.csv", delimiter=",")
 t, A = file.T[0], file.T[1]
@@ -16,15 +16,8 @@ param_names = ['t0', 'tE', 'u0', 'q', 's', 'alpha', 'rho', 'q3', 'r3', 'psi']
 
 n_params = jac.shape[0]
 
-fig, ax = plt.subplots(
-    8, 1,
-    figsize=(14, 10),
-    gridspec_kw={'height_ratios': [4, 1, 1, 1, 1, 1, 1, 1], 'wspace':0.3},
-    sharex=True,
-)
-
-fig, axes = plt.subplots(11, 1, figsize=(12, 8), sharex=True,
-                         gridspec_kw={'height_ratios': [6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 'wspace':0.3}) 
+fig, axes = plt.subplots(11, 1, figsize=(12, 10), sharex=True,
+                         gridspec_kw={'height_ratios': [8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 'wspace':0.3}) 
                          #gridspec_kw={'hspace': 0.1, 'height_ratios': [2] + [1]*n_params})
 
 # 増光率
@@ -35,11 +28,17 @@ axes[0].set_ylabel('Magnification')
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
 ax_in = inset_axes(axes[0],
-    width="60%", # 
-    height="60%", 
+    width="70%", # 
+    height="70%", 
     bbox_transform=axes[0].transAxes,
-    bbox_to_anchor=(-0.5, 0.05, .9, .9),
+    bbox_to_anchor=(0.05, 0.05, .9, .9),
+    #bbox_to_anchor=(-0.45, 0.05, .9, .9),
 )
+ax_in.set_aspect(1)
+ax_in.set_aspect(1)
+ax_in.set(xlabel="Re$(w)$", ylabel="Im$(w)$")
+
+s  = 1.1  # separation between the two lenses in units of total ang. Einstein radii
 ax_in.set_aspect(1)
 ax_in.set_aspect(1)
 ax_in.set(xlabel="Re$(w)$", ylabel="Im$(w)$")
@@ -104,7 +103,7 @@ for i, l in enumerate(labels):
     #axes[i + 1].legend(loc='upper right')
     #axes[i + 1].grid(True)
 
-axes[-1].set_xlabel('Time [t]')
+axes[-1].set_xlabel('Time (day)')
 
 plt.tight_layout()
 plt.savefig("paper/figure/full_jacobian_plot.pdf", dpi=300)
