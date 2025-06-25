@@ -44,15 +44,26 @@ sampler = emcee.EnsembleSampler(nwalkers, ndim,
                                 log_prob_z,
                                 args=(mu, sigma, data))
 
-nsteps     = 12000
+nsteps     = 45000
 nburn_frac = 0.2
 sampler.run_mcmc(z0, nsteps, progress=True)
 
-samples = sampler.get_chain(discard=int(nburn_frac*nsteps), flat=True) # shape (nwalkers*(1-burn)*nsteps, ndim)
-tau   = sampler.get_autocorr_time(discard=int(nburn_frac*nsteps))
-ess   = samples.shape[0] / tau
-print("tau =", tau)
-print("ESS ≈", ess)
-
-idata_emcee = az.convert_to_inference_data({"param": mu + sigma * samples})
-idata_emcee.to_netcdf("example/synthetic_roman/emcee_full.nc")
+samples_z = sampler.get_chain(discard=0, flat=False)
+samples_param = mu + sigma * samples_z  # same shape
+np.save("example/synthetic_roman/samples_z.npy",      samples_z)
+np.save("example/synthetic_roman/samples_param.npy",  samples_param)
+try:
+    tau = sampler.get_autocorr_time(discard=int(nburn_frac * nsteps))
+    ess = samples_param.size / tau.sum()       
+    print("τ (per dim) =", tau)
+    print("ESS (total) ≈", ess)
+except emcee.autocorr.AutocorrError as e:
+    print("AutocorrError:", e)
+    print("ESS skip...")
+idata = az.from_dict(
+    posterior={f"param_{i}": samples_param[:, :, i]        # (chain, draw)
+               for i in range(samples_param.shape[2])}
+)
+path_nc = "example/synthetic_roman/emcee_full.nc"
+idata.to_netcdf(path_nc)
+print(f"Save: {path_nc}")
