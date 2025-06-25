@@ -50,8 +50,8 @@ sampler.run_mcmc(z0, nsteps, progress=True)
 
 samples_z = sampler.get_chain(discard=0, flat=False)
 samples_param = mu + sigma * samples_z  # same shape
-np.save("example/synthetic_roman/samples_z.npy",      samples_z)
-np.save("example/synthetic_roman/samples_param.npy",  samples_param)
+#np.save("example/synthetic_roman/samples_z.npy",      samples_z)
+#np.save("example/synthetic_roman/samples_param.npy",  samples_param)
 try:
     tau = sampler.get_autocorr_time(discard=int(nburn_frac * nsteps))
     ess = samples_param.size / tau.sum()       
