@@ -1,0 +1,73 @@
+import jax
+import jax.numpy as jnp
+jax.config.update("jax_enable_x64", True)
+from model import mag_time, wpoints_time
+import pandas as pd
+import numpy as np
+from microjax.likelihood import linear_chi2, nll_ulens
+
+params_best = np.load("example/synthetic_roman/adam_fwd_params.npy")
+
+file = pd.read_csv("example/synthetic_roman/mock_data.csv")
+time_lc = jnp.array(file.t.values)
+flux_lc = jnp.array(file.Flux_obs.values)
+fluxe_lc = jnp.array(file.Flux_err.values)
+data_input = (time_lc, flux_lc, fluxe_lc)
+
+import numpyro
+import numpyro.distributions as dist
+from numpyro.infer import MCMC, NUTS
+
+def model(data, mu, sigma):
+    times, flux, fluxe = data
+    z = numpyro.sample('param_base', dist.Normal(jnp.zeros(len(mu)), jnp.ones(len(mu))))
+    param_true = mu + sigma * z 
+    numpyro.deterministic("param", param_true)
+    mags = mag_time(times, param_true)
+    #M = jnp.stack([mags - 1.0, jnp.ones_like(mags)], axis=1)
+    #sigma2_obs = fluxe ** 2
+    #sigma2_fs = 1e9
+    #sigma2_fb = 1e9
+    #nll = nll_ulens(flux, M, sigma2_obs, sigma2_fs, sigma2_fb)
+    Fs, Fse, Fb, Fbe, chi2 = linear_chi2(mags, flux, fluxe)
+    #numpyro.deterministic("chi2", chi2)
+    #numpyro.deterministic("loglike", -nll)
+    numpyro.deterministic("Fs", Fs)
+    numpyro.deterministic("Fb", Fb) 
+    numpyro.factor("log_likelihood", -0.5*chi2)
+    numpyro.deterministic("loglike", -0.5*chi2)
+
+mu = params_best 
+fisher_matrix_np = np.load("example/synthetic_roman/FM_approx_v2.npy")
+fisher_matrix = jnp.array(fisher_matrix_np)
+fisher_cov = jnp.linalg.inv(fisher_matrix_np)
+sigma = 30 * jnp.sqrt(jnp.diag(fisher_cov)) 
+
+init_strategy = numpyro.infer.init_to_value(values={'param_base': jnp.zeros(len(mu))})
+kernel = NUTS(model,
+              init_strategy=init_strategy,
+              dense_mass=True,
+              #inverse_mass_matrix = fisher_matrix, 
+              regularize_mass_matrix=True,
+              adapt_mass_matrix=True,
+              adapt_step_size=True,
+              forward_mode_differentiation=True,
+              target_accept_prob=0.8)
+
+mcmc = MCMC(kernel, num_warmup=500, num_samples=5000, num_chains=1, progress_bar=True)
+mcmc.run(jax.random.PRNGKey(0), data=data_input, mu=mu, sigma=sigma)
+mcmc.print_summary(exclude_deterministic=False)
+
+import arviz as az
+import corner
+idata = az.from_numpyro(mcmc)
+idata.to_netcdf("example/synthetic_roman/mcmc_full_v4.nc")
+
+param_labels = ["t0_diff", "log_tE", "u0", "log_q", "log_s", "alpha", "log_rho"]
+import corner
+import matplotlib.pyplot as plt
+hmc_sample = mcmc.get_samples()['param']
+corner_params = [r"$t_0^\prime$", r"$\log t_E$", r"$u_0$", r"$\log q$", r"$\log s$", r"$\alpha$", r"$\log \rho$"]
+fig = corner.corner(np.array(hmc_sample), labels=corner_params, show_titles=True, title_fmt=".3f", title_kwargs={"fontsize": 12})
+fig.savefig("example/synthetic_roman/corner_plot_v4.png", bbox_inches="tight")
+plt.close()
