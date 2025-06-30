@@ -40,7 +40,7 @@ pip install -e .[dev]
 ## 📚 References
 * [Bennett 2010](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract): Image-centred ray shooting (ICRS) method   
 * [Cassan 2017](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true): Quadrupole & hexadecapole approximations
-* [Sugiyama 2022](https://ui.adsabs.harvard.edu/abs/2022ApJ...937...63S/abstract): Fast FFT-Based Evaluation of Microlensing Magnification with Single-lens Extended Source 
+* [Sugiyama 2022](https://ui.adsabs.harvard.edu/abs/2022ApJ...937...63S/abstract): Fast FFT-based magnification evaluation with a single-lens extended source model
 
 - `microJAX` paper coming soon (assumed within 2025)!
 - [FFT based evaluation of microlensing magnification with extended source](https://ui.adsabs.harvard.edu/abs/2022ApJ...937...63S/abstract)
