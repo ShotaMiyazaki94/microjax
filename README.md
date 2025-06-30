@@ -43,6 +43,10 @@ pip install -e .[dev]
 - [VBBINARYLENSING: a public package for microlensing light-curve computation](https://ui.adsabs.harvard.edu/abs/2018MNRAS.479.5157B/abstract)
 - [Fast computation of quadrupole and hexadecapole approximations in microlensing with a single point-source evaluation](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true)
 
+## 🤝 Contributing
+
+Pull requests are welcome!  Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for coding style, test suite, and CI guidelines.  Bug reports can be filed via GitHub Issues.
+
 ## 📜 License
 
 This project is licensed under the [MIT License](LICENSE).  If you use `microJAX` in academic work, please cite the upcoming Miyazaki et al. (2025) methods paper.
