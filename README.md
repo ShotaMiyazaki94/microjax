@@ -7,7 +7,6 @@
 
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![JAX](https://img.shields.io/badge/built_with-JAX-blue)](https://github.com/google/jax)
-[![JAX](https://img.shields.io/badge/JAX-%F0%9F%A6%81-lightgrey)](https://github.com/google/jax)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
