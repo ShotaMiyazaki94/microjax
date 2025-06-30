@@ -10,7 +10,7 @@
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-**microJAX** is a fully‑differentiable, GPU‑/TPU‑accelerated toolkit for modelling gravitational microlensing light curves produced by **single**, **binary**, and **triple** lens systems.
+**microJAX** is a fully‑differentiable, GPU‑/TPU‑accelerated software for modelling gravitational microlensing light curves produced by **single**, **binary**, and **triple** lens systems, using the image-centered ray shooting (ICRS) method [(Bennett 2010)](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract).  
 
 
 ---
