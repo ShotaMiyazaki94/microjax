@@ -1,0 +1,11 @@
+astropy==5.1
+jax==0.6.1
+matplotlib==3.5.1
+MulensModel==2.8.1
+numpy==1.26.0
+scipy==1.15.3
+seaborn==0.13.2
+setuptools==65.5.0
+sphinx_rtd_theme==1.0.0
+VBBinaryLensing==3.7.0
+VBMicrolensing==5.0
