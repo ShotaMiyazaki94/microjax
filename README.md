@@ -1,5 +1,5 @@
 <p align="center">
-  <img width = "500" src="logo/microjax.png"/>
+  <img width = "500" src="figs/microjax.png"/>
   <br>
 </p>
 
@@ -40,6 +40,12 @@ pip install -e .[dev]
 > occur before the first stable (v1.0) release.
 
 ---
+
+## Example output
+
+| Triple-lens magnification and gradients | Visualization of the ICRS method           |
+| --------------------------------------- | --------------------------------------------- |
+| ![Triple-lens](figs/full_jacobian_plot.png) | ![ICRS](figs/example.png) |
 
 ## 📚 References
 * [Miyazaki & Kawahara (in prep.)](): `microjax` paper (expected within 2025!)
