@@ -33,7 +33,7 @@ git clone https://github.com/ShotaMiyazaki94/microjax.git
 cd microjax
 
 # editable install with all extras (GPU/TPU support depends on your JAX wheel)
-pip install -e .[dev]
+pip install -e .
 ```
 
 > **Note** : microJAX is in active development and not yet on PyPI.  API changes may still occur before the first stable (v1.0) release.
