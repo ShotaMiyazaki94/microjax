@@ -20,7 +20,7 @@
 | Category                | Description                                                                                                              |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | **Lens Systems**        | Supports point-source and finite-source magnification calculations for binary and triple lens systems                    |
-| **Extended Sources**    | Models uniform and limb-darkened source profiles with high precision                                                     |
+| **Extended Sources**    | Models uniform and limb-darkened source profiles                                                     |
 | **Computational Core**  | Implements the Image-Centered Ray Shooting (ICRS) algorithm in JAX, fully optimized for GPU acceleration                 |
 | **Root-Finding Engine** | Uses a differentiable Ehrlich-Aberth method for complex polynomial roots with [implicit gradients](http://implicit-layers-tutorial.org/implicit_functions/) for stable optimization |
 | **Bayesian Inference**  | Provides a ready-to-use likelihood function compatible with NumPyro's HMC and variational inference frameworks           |
