@@ -44,9 +44,9 @@ pip install -e .[dev]
 
 Refer to the [example](example/) directory for code that creates these plots.
 
-| Triple-lens magnification and its gradients | Visualization of the ICRS method (binary-lens)          |
+| Visualization of the ICRS method (binary-lens) | Triple-lens magnification and its gradients |
 | --------------------------------------- | --------------------------------------------- |
-| ![Triple-lens](example/triple-lens-jacobian/full_jacobian_plot.png) | ![ICRS](example/visualize-icrs/visualize_example.png) |
+| ![ICRS](example/visualize-icrs/visualize_example.png) | ![Triple-lens](example/triple-lens-jacobian/full_jacobian_plot.png) |
 
 ## 📚 References
 * [Miyazaki & Kawahara (in prep.)](): `microjax` paper (expected within 2025!)
