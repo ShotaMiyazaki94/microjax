@@ -10,7 +10,7 @@
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-**microJAX** is a fully‑differentiable, GPU‑/TPU‑accelerated software for modelling gravitational microlensing light curves produced by **single**, **binary**, and **triple** lens systems, using the image-centered ray shooting (ICRS) method [(Bennett 2010)](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract). Written entirely in [JAX](https://github.com/google/jax), it delivers millisecond‑level evaluations of extended-source magnifications *and* exact gradients for every model parameter through the use of [automatic differentiation](https://jax.readthedocs.io/en/latest/notebooks/autodiff_cookbook.html), enabling gradient‑based Bayesian inference workflows such as Hamiltonian Monte Carlo (HMC) and variational inference. 
+**microJAX** is a fully‑differentiable, GPU‑/TPU‑accelerated software for modelling gravitational microlensing light curves produced by **single**, **binary**, and **triple** lens systems, using the **image-centered ray shooting (ICRS)** method [(Bennett 2010)](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract). Written entirely in [JAX](https://github.com/google/jax), it delivers millisecond‑level evaluations of extended-source magnifications *and* exact gradients for every model parameter through the use of [automatic differentiation](https://jax.readthedocs.io/en/latest/notebooks/autodiff_cookbook.html), enabling gradient‑based Bayesian inference workflows such as Hamiltonian Monte Carlo (HMC) and variational inference. 
 
 
 ---
@@ -45,6 +45,6 @@ pip install -e .[dev]
 
 ## 📜 License
 
-This project is licensed under the [MIT License](LICENSE).  If you use microJAX in academic work, please cite the upcoming Miyazaki et al. (2025) methods paper.
+This project is licensed under the [MIT License](LICENSE).  If you use `microJAX` in academic work, please cite the upcoming Miyazaki et al. (2025) methods paper.
 
 ---
