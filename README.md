@@ -20,9 +20,9 @@
 |----------|------------|
 | **Lens types** | Point‑source and finite‑source magnifications for binary and triple lenses |
 | **Extended sources** | Uniform & limb‑darkened source profiles |
-| **Core engine** | Image‑Centred Inverse Ray Shooting (ICIRS; Bennett 2010) rewritten in JAX |
-
-
+| **Core engine** | Modified Image‑Centred Ray Shooting (ICRS) rewritten in JAX |
+| **Root solver** | Differentiable Ehrlich-Aberth polynomial solver with implicit gradients |
+| **Inference ready** | Drop‑in likelihood for NumPyro HMC & VI pipelines |
 
 
 ## 📦 Installation
