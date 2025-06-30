@@ -3,8 +3,9 @@
   <br>
 </p>
 
-
 # microjax
+
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 
 `microjax` is a code for computing microlensing light curves of single, binary, and triple lens systems using the image-centered inverse-ray shooting (ICIRS) method [(Bennett 2010)](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract). 
 
