@@ -46,7 +46,7 @@ See the [examples](examples/) directory for codes creating these plots.
 
 | Triple-lens magnification and its gradients | Visualization of the ICRS method (binary-lens)          |
 | --------------------------------------- | --------------------------------------------- |
-| ![Triple-lens](example/triple-lens-jacobian/full_jacobian_plot.png) | ![ICRS](example/visualize-icrs/example.png) |
+| ![Triple-lens](example/triple-lens-jacobian/full_jacobian_plot.png) | ![ICRS](example/visualize-icrs/visualize_example.png) |
 
 ## 📚 References
 * [Miyazaki & Kawahara (in prep.)](): `microjax` paper (expected within 2025!)
