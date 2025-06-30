@@ -22,42 +22,25 @@ jobs:
         with:
           python-version: '3.10'
 
-      # install package	  
-      - name: Install dependencies
+      - name: Install project and test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install .
-          #python setup.py install
+          pip install . pytest
 
-      # install pytest
-      - name: Install dependencies
+      - name: Run Pytest and generate JUnit report
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest
-
-      # pytest -> JUnit xml
-      - name: PyTest
-        run: |
-          python -m pytest tests/unittests --junit-xml results/pytest.xml
+          pytest tests/unittests --junit-xml=results/pytest.xml
         continue-on-error: true
 
-      # show the results
-      - name: Upload Unit Test Results
-        if: ${{ always() }}
+      - name: Upload Pytest Results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Unit Test Results (Python 3.10)
-          path: results/*.xml
+          path: results/pytest.xml
 
-      - name: Download Artifacts
-        if: success() || failure()
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Publish Unit Test Results
+      - name: Publish Unit Test Summary
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
-          files: artifacts/**/*.xml
-
-      
+          files: results/pytest.xml
+  
