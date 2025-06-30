@@ -20,7 +20,7 @@
 |----------|------------|
 | **Lens types** | Point‑source and finite‑source magnifications for binary and triple lenses |
 | **Extended sources** | Uniform & limb‑darkened source profiles |
-| **Core engine** | GPU-Modified Image‑Centred Ray Shooting (ICRS) rewritten in JAX |
+| **Core engine** | Image-Centred Ray Shooting (ICRS), rewritten in JAX and optimized for GPU computation. |
 | **Root solver** | Differentiable Ehrlich-Aberth polynomial solver with [implicit gradients](http://implicit-layers-tutorial.org/implicit_functions/) |
 | **Inference ready** | Drop‑in likelihood for NumPyro HMC & VI pipelines |
 
