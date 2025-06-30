@@ -42,7 +42,7 @@ pip install -e .[dev]
 
 ## Example output
 
-See the [example](example/) directory for codes creating these plots.
+Refer to the [example](example/) directory for code that creates these plots.
 
 | Triple-lens magnification and its gradients | Visualization of the ICRS method (binary-lens)          |
 | --------------------------------------- | --------------------------------------------- |
