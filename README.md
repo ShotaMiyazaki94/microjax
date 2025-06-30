@@ -42,11 +42,11 @@ pip install -e .[dev]
 
 ## Example output
 
-Refer to the [example](example/) directory for code that creates these plots.
-
 | Visualization of the ICRS method (binary-lens) | Triple-lens magnification and its gradients |
 | --------------------------------------- | --------------------------------------------- |
 | ![ICRS](example/visualize-icrs/visualize_example.png) | ![Triple-lens](example/triple-lens-jacobian/full_jacobian_plot.png) |
+
+Refer to the [example](example/) directory for code that creates these plots.
 
 ## 📚 References
 * [Miyazaki & Kawahara (in prep.)](): `microjax` paper (expected within 2025!)
