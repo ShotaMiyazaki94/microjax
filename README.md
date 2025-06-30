@@ -36,16 +36,17 @@ cd microjax
 pip install -e .[dev]
 ```
 
-> **Note** : microJAX is in active development and not yet on PyPI.  API changes may still
-> occur before the first stable (v1.0) release.
+> **Note** : microJAX is in active development and not yet on PyPI.  API changes may still occur before the first stable (v1.0) release.
 
 ---
 
 ## Example output
 
+See the [examples](examples/) directory for codes creating these plots.
+
 | Triple-lens magnification and its gradients | Visualization of the ICRS method (binary-lens)          |
 | --------------------------------------- | --------------------------------------------- |
-| ![Triple-lens](figs/full_jacobian_plot.png) | ![ICRS](figs/example.png) |
+| ![Triple-lens](example/triple-lens-jacobian/full_jacobian_plot.png) | ![ICRS](example/visualize-icrs/example.png) |
 
 ## 📚 References
 * [Miyazaki & Kawahara (in prep.)](): `microjax` paper (expected within 2025!)
