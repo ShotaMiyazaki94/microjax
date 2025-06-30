@@ -43,7 +43,7 @@ pip install -e .[dev]
 
 ## Example output
 
-| Triple-lens magnification and gradients | Visualization of the ICRS method           |
+| Triple-lens magnification and its gradients | Visualization of the ICRS method (binary-lens)          |
 | --------------------------------------- | --------------------------------------------- |
 | ![Triple-lens](figs/full_jacobian_plot.png) | ![ICRS](figs/example.png) |
 
