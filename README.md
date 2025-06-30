@@ -37,10 +37,11 @@ pip install -e .[dev]
 - A differentiable JAX version of a complex polynomial root solver which uses the Aberth-Ehrlich method to obtain all roots of a complex polynomial at once using an implicit deflation strategy. The gradient of the solutions with respect to the polynomial coefficients is obtained through [implicit differentiation](http://implicit-layers-tutorial.org/implicit_functions/).
 - Hexadecapole approximation from [Cassan 2017](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true) is used to substantially speed up the computation of the magnification everywhere except near the caustics.
 
-## References
+## 📚 References
+* Quadrupole & hexadecapole approximations [Cassan 2017](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true)
+
 - `microJAX` paper coming soon (assumed within 2025)!
 - [FFT based evaluation of microlensing magnification with extended source](https://ui.adsabs.harvard.edu/abs/2022ApJ...937...63S/abstract)
-- [VBBINARYLENSING: a public package for microlensing light-curve computation](https://ui.adsabs.harvard.edu/abs/2018MNRAS.479.5157B/abstract)
 - [Fast computation of quadrupole and hexadecapole approximations in microlensing with a single point-source evaluation](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true)
 
 ## 🤝 Contributing
