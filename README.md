@@ -38,6 +38,7 @@ pip install -e .[dev]
 - Hexadecapole approximation from [Cassan 2017](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true) is used to substantially speed up the computation of the magnification everywhere except near the caustics.
 
 ## 📚 References
+* [Miyazaki & Kawahara in prep.](): `microjax` paper (expected within 2025!)
 * [Bennett 2010](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract): Image-centred ray shooting (ICRS) method   
 * [Cassan 2017](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true): Quadrupole & hexadecapole approximations
 * [Sugiyama 2022](https://ui.adsabs.harvard.edu/abs/2022ApJ...937...63S/abstract): Fast FFT-based magnification evaluation with a single-lens extended source model
