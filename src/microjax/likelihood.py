@@ -82,44 +82,6 @@ def nll_ulens(flux, M, sigma2_obs, sigma2_fs, sigma2_fb):
     # Final NLL value
     nll = 0.5 * (mahalanobis + logdet_C + logdet_Lambda + logdet_A)
     return nll
-
-"""
-def nll_ulens_simple(flux, M, sigma2_obs, sigma2_fs, sigma2_fb):
-
-    # Prior precision matrix Lambda^{-1} = diag(1/sigma2_fs, 1/sigma2_fb)
-    lambda_fs = 1.0 / sigma2_fs
-    lambda_fb = 1.0 / sigma2_fb
-    Lambda_inv = jnp.diag(jnp.array([lambda_fs, lambda_fb]))  # shape (2, 2)
-
-    # Compute vector b = M^T @ C^{-1} @ flux
-    Cinv_flux = flux / sigma2_obs
-    b1 = jnp.dot(M[:, 0], Cinv_flux)
-    b2 = jnp.dot(M[:, 1], Cinv_flux)
-    
-    # Inverse observational covariance applied to design matrix
-    Cinv_M = M / sigma2_obs[:, None]            # shape (n, 2)
-    Mt_Cinv_M = Cinv_M.T @ M                    # shape (2, 2)
-
-    # Posterior precision matrix
-    A = Lambda_inv + Mt_Cinv_M                  # shape (2, 2)
-
-    # Data term: M.T @ C^-1 @ flux
-    Cinv_flux = flux / sigma2_obs               # shape (n,)
-    Mt_Cinv_flux = M.T @ Cinv_flux              # shape (2,)
-
-    # Mahalanobis term (residual quadratic form)
-    posterior_mean = jnp.linalg.solve(A, Mt_Cinv_flux)  # shape (2,)
-    mahal_term = jnp.dot(flux, Cinv_flux) - Mt_Cinv_flux @ posterior_mean 
-
-    # Log-determinant terms
-    logdet_C = jnp.sum(jnp.log(sigma2_obs))                     # log|C|, scalar
-    logdet_Lambda = jnp.log(sigma2_fs) + jnp.log(sigma2_fb)     # log|Λ|, scalar
-    _, logdet_A = jnp.linalg.slogdet(A)                         # log|A|, scalar
-
-    # Final negative log-likelihood
-    nll = 0.5 * (mahal_term + logdet_C + logdet_Lambda + logdet_A)
-    return nll
-"""
     
 def nll_ulens_general(flux, M, C, mu, Lambda):
     """

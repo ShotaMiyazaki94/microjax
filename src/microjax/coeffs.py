@@ -1,4 +1,14 @@
-# -*- coding: utf-8 -*-
+# This file is a modified and extended version of code from the `caustics` package:
+#   https://github.com/fbartolic/caustics
+# Originally developed by Fran Bartolic under the MIT License.
+#
+# modifications and extensions have been made by Shota Miyazaki for the `microjax` project.
+#
+# SPDX-FileCopyrightText: 2022 Fran Bartolic
+# SPDX-FileCopyrightText: 2025 Shota Miyazaki
+# SPDX-License-Identifier: MIT
+
+
 import jax.numpy as jnp
 from jax import jit
 
@@ -39,7 +49,6 @@ def _poly_coeffs_critical_triple(phi, a, r3, e1, e2):
     p = jnp.stack([p_0, p_1, p_2, p_3, p_4, p_5, p_6])
 
     return p
-
 
 def _poly_coeffs_triple_CM(w, a, r3, e1, e2):
     eps1 = e2 # primary lens
@@ -137,8 +146,6 @@ def _poly_coeffs_triple_CM(w, a, r3, e1, e2):
     p = jnp.stack([p_10, p_9, p_8, p_7, p_6, p_5, p_4, p_3, p_2, p_1, p_0])
     
     return jnp.moveaxis(p, 0, -1), shift_cm
-
-
 
 def _poly_coeffs_binary(w, a, e1):
     """

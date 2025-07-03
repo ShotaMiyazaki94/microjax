@@ -1,8 +1,13 @@
-# -*- coding: utf-8 -*-
-"""
-Computing the magnification of an extended source at an arbitrary
-set of points in the source plane.
-"""
+# This file is a modified and extended version of code from the `caustics` package:
+#   https://github.com/fbartolic/caustics
+# Originally developed by Fran Bartolic under the MIT License.
+#
+# modifications and extensions have been made by Shota Miyazaki for the `microjax` project.
+#
+# SPDX-FileCopyrightText: 2022 Fran Bartolic
+# SPDX-FileCopyrightText: 2025 Shota Miyazaki
+# SPDX-License-Identifier: MIT
+
 __all__ = [
     "magnifications",
 ]
