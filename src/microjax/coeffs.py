@@ -2,6 +2,144 @@
 import jax.numpy as jnp
 from jax import jit
 
+def _poly_coeffs_critical_triple(phi, a, r3, e1, e2):
+    x = jnp.exp(-1j * phi)
+
+    p_0 = x
+    p_1 = -2 * x * r3
+    p_2 = -2 * a**2 * x - 1 + x * r3**2
+    p_3 = 4 * a**2 * x * r3 - 2 * a * e1 + 2 * a * e2 + 2 * e1 * r3 + 2 * e2 * r3
+    p_4 = (
+        a**4 * x
+        - 3 * a**2 * e1
+        - 3 * a**2 * e2
+        + 2 * a**2
+        - 2 * a**2 * x * r3**2
+        + 4 * a * e1 * r3
+        - 4 * a * e2 * r3
+        - e1 * r3**2
+        - e2 * r3**2
+    )
+    p_5 = (
+        -2 * a**4 * x * r3
+        + 2 * a**2 * e1 * r3
+        + 2 * a**2 * e2 * r3
+        - 2 * a * e1 * r3**2
+        + 2 * a * e2 * r3**2
+    )
+    p_6 = (
+        a**4 * e1
+        + a**4 * e2
+        - a**4
+        + a**4 * x * r3**2
+        - a**2 * e1 * r3**2
+        - a**2 * e2 * r3**2
+    )
+
+    p = jnp.stack([p_0, p_1, p_2, p_3, p_4, p_5, p_6])
+
+    return p
+
+
+def _poly_coeffs_triple_CM(w, a, r3, e1, e2):
+    eps1 = e2 # primary lens
+    eps2 = e1 # secondary lens
+    eps3 = 1.0 - e1 - e2 # third lens
+    shift_cm = (eps1 * (-a) + eps2 * a + eps3 * r3.real) \
+    + 1j*(r3.imag * eps3) # mid-point to center of mass
+    w_cm = w - shift_cm 
+    r1 = -a - shift_cm
+    r2 = +a - shift_cm
+    r3 = r3 - shift_cm
+
+    cc1 = r1
+    cc2 = r2
+    cc3 = r3
+    aa = -(cc1+cc2+cc3)
+    bb = cc1*cc2 + cc1*cc3 + cc2*cc3
+    cc = -cc1*cc2*cc3
+    dd = eps1*cc2*cc3 + eps2*cc1*cc3 + eps3*cc1*cc2
+
+    hh39 = 1.0
+    hh38 = 3.0*aa
+    hh37 = 3.0*bb + 3.0*aa*aa
+    hh36 = 3.0*cc + 6.0*aa*bb + aa*aa*aa
+    hh35 = 6.0*aa*cc + 3.0*bb*bb + 3.0*aa*aa*bb
+    hh34 = 6.0*bb*cc + 3.0*aa*aa*cc + 3.0*aa*bb*bb
+    hh33 = 3.0*cc*cc + 6.0*aa*bb*cc + bb*bb*bb
+    hh32 = 3.0*aa*cc*cc + 3.0*bb*bb*cc
+    hh31 = 3.0*bb*cc*cc
+    hh30 = cc*cc*cc
+
+    hh28 = 1.0
+    hh27 = 3.0*aa
+    hh26 = dd + 2.0*bb + 3.0*aa*aa
+    hh25 = 2.0*aa*dd + 4.0*aa*bb + aa*aa*aa + 2.0*cc
+    hh24 = 2.0*dd*bb + dd*aa*aa + 4.0*aa*cc +2.0*aa*aa*bb + bb*bb
+    hh23 = 2.0*dd*cc + 2.0*dd*aa*bb + 2.0*aa*aa*cc +aa*bb*bb + 2.0*bb*cc
+    hh22 = 2.0*cc*aa*dd + dd*bb*bb + 2.0*aa*bb*cc + cc*cc
+    hh21 = 2.0*bb*cc*dd + aa*cc*cc
+    hh20 = cc*cc*dd
+
+    hh17 = 1.0
+    hh16 = 3.0*aa
+    hh15 = 2.0*dd + 3.0*aa*aa + bb
+    hh14 = 4.0*aa*dd + aa*aa*aa + 2.0*aa*bb + cc
+    hh13 = dd*dd + 2.0*aa*aa*dd + 2.0*bb*dd + bb*aa*aa + 2.0*aa*cc
+    hh12 = aa*dd*dd + 2.0*aa*bb*dd + 2.0*cc*dd + cc*aa*aa
+    hh11 = bb*dd*dd + 2.0*aa*cc*dd
+    hh10 = cc*dd*dd
+
+    hh06 = 1.0
+    hh05 = 3.0*aa
+    hh04 = 3.0*dd + 3.0*aa*aa
+    hh03 = 6.0*aa*dd + aa*aa*aa
+    hh02 = 3.0*dd*dd + 3.0*aa*aa*dd
+    hh01 = 3.0*aa*dd*dd
+    hh00 = dd*dd*dd
+
+    ww = w_cm
+    ww1 = ww - cc1
+    ww2 = ww - cc2
+    ww3 = ww - cc3
+    
+    wwbar  = jnp.conjugate(ww)
+    ww1bar = jnp.conjugate(ww1)
+    ww2bar = jnp.conjugate(ww2)
+    ww3bar = jnp.conjugate(ww3)
+
+    wwaa = ww1bar+ww2bar+ww3bar
+    wwbb = ww1bar*ww2bar + ww2bar*ww3bar + ww1bar*ww3bar
+    wwcc = ww1bar*ww2bar*ww3bar
+    wwdd = eps1*ww2bar*ww3bar + eps2*ww1bar*ww3bar + eps3*ww1bar*ww2bar
+
+    p_10 = hh39*wwcc 
+    p_9  = hh38*wwcc + hh28*wwbb - (ww*wwcc+wwdd)*hh39
+    p_8  = hh37*wwcc + hh27*wwbb + hh17*wwaa - (ww*wwcc + wwdd)*hh38 \
+    - (ww*wwbb + wwaa - wwbar)*hh28
+    
+    p_7  = hh36*wwcc + hh26*wwbb + hh16*wwaa + hh06 - (ww*wwcc + wwdd)*hh37 \
+    - (ww*wwbb + wwaa-wwbar)*hh27 - (ww*wwaa + 1.0)*hh17
+    p_6  = hh35*wwcc + hh25*wwbb + hh15*wwaa + hh05 - (ww*wwcc + wwdd)*hh36 \
+    - (ww*wwbb + wwaa-wwbar)*hh26 - (ww*wwaa + 1.0)*hh16  - ww*hh06
+    p_5  = hh34*wwcc + hh24*wwbb + hh14*wwaa + hh04 - (ww*wwcc + wwdd)*hh35 \
+    - (ww*wwbb + wwaa-wwbar)*hh25 - (ww*wwaa + 1.0)*hh15  - ww*hh05
+    p_4  = hh33*wwcc + hh23*wwbb + hh13*wwaa + hh03 - (ww*wwcc + wwdd)*hh34 \
+    - (ww*wwbb + wwaa-wwbar)*hh24 - (ww*wwaa + 1.0)*hh14  - ww*hh04
+    p_3  = hh32*wwcc + hh22*wwbb + hh12*wwaa + hh02 - (ww*wwcc + wwdd)*hh33 \
+    - (ww*wwbb + wwaa-wwbar)*hh23 - (ww*wwaa + 1.0)*hh13  - ww*hh03
+    p_2  = hh31*wwcc + hh21*wwbb + hh11*wwaa + hh01 - (ww*wwcc + wwdd)*hh32 \
+    - (ww*wwbb + wwaa-wwbar)*hh22 - (ww*wwaa + 1.0)*hh12  - ww*hh02
+    p_1  = hh30*wwcc + hh20*wwbb + hh10*wwaa + hh00 - (ww*wwcc + wwdd)*hh31 \
+    - (ww*wwbb + wwaa-wwbar)*hh21 - (ww*wwaa + 1.0)*hh11  - ww*hh01
+    p_0 = - (ww*wwcc + wwdd)*hh30 - (ww*wwbb + wwaa-wwbar)*hh20 - (ww*wwaa + 1)*hh10  - ww*hh00;
+
+    p = jnp.stack([p_10, p_9, p_8, p_7, p_6, p_5, p_4, p_3, p_2, p_1, p_0])
+    
+    return jnp.moveaxis(p, 0, -1), shift_cm
+
+
+
 def _poly_coeffs_binary(w, a, e1):
     """
     Compute the coefficients of the complex polynomial equation corresponding
@@ -1453,41 +1591,3 @@ def _poly_coeffs_triple(w, a, r3, e1, e2):
     p = jnp.stack([p_0, p_1, p_2, p_3, p_4, p_5, p_6, p_7, p_8, p_9, p_10])
 
     return jnp.moveaxis(p, 0, -1)
-
-def _poly_coeffs_critical_triple(phi, a, r3, e1, e2):
-    x = jnp.exp(-1j * phi)
-
-    p_0 = x
-    p_1 = -2 * x * r3
-    p_2 = -2 * a**2 * x - 1 + x * r3**2
-    p_3 = 4 * a**2 * x * r3 - 2 * a * e1 + 2 * a * e2 + 2 * e1 * r3 + 2 * e2 * r3
-    p_4 = (
-        a**4 * x
-        - 3 * a**2 * e1
-        - 3 * a**2 * e2
-        + 2 * a**2
-        - 2 * a**2 * x * r3**2
-        + 4 * a * e1 * r3
-        - 4 * a * e2 * r3
-        - e1 * r3**2
-        - e2 * r3**2
-    )
-    p_5 = (
-        -2 * a**4 * x * r3
-        + 2 * a**2 * e1 * r3
-        + 2 * a**2 * e2 * r3
-        - 2 * a * e1 * r3**2
-        + 2 * a * e2 * r3**2
-    )
-    p_6 = (
-        a**4 * e1
-        + a**4 * e2
-        - a**4
-        + a**4 * x * r3**2
-        - a**2 * e1 * r3**2
-        - a**2 * e2 * r3**2
-    )
-
-    p = jnp.stack([p_0, p_1, p_2, p_3, p_4, p_5, p_6])
-
-    return p
