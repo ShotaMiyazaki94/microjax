@@ -3,6 +3,7 @@ from jax import jit, jacfwd
 import jax
 from functools import partial
 jax.config.update("jax_enable_x64", True)
+jax.config.update('jax_platform_name', 'cpu')
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -131,5 +132,5 @@ ax[1].plot(t, jnp.abs(mag_points - mag_ext) / mag_ext, "--", c="k", alpha=1.0)
 ax[1].set_yscale("log")
 ax[1].set(ylim=(1e-4,1e-2))
 ax[1].grid(ls="--")
-fig.savefig("tests/caustics/lightcurve_cond.pdf", bbox_inches="tight")
+fig.savefig("tests/integrate/caustics/lightcurve_cond.pdf", bbox_inches="tight")
 plt.show()
