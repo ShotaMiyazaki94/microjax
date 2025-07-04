@@ -1,4 +1,4 @@
-# How to contribute to ExoJAX
+# How to contribute to microJAX
 
 ## Branch model and pull-request (PR)
 We adopt a simple git-flow model, consisting of master, develop, contributor-defined, and release branches. PR by contributors via a folked repository is always welcome.
