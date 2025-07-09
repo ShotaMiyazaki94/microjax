@@ -31,8 +31,6 @@
 # clone the repository
 git clone https://github.com/ShotaMiyazaki94/microjax.git
 cd microjax
-
-# editable install with all extras (GPU/TPU support depends on your JAX wheel)
 pip install -e .
 ```
 
@@ -49,7 +47,7 @@ pip install -e .
 Refer to the [example](example/) directory for code that creates these plots.
 
 ## 📚 References
-* [Miyazaki & Kawahara (in prep.)](): `microjax` paper (expected within 2025!)
+* [Miyazaki & Kawahara (2025)](): `microjax` paper (expected within 2025!)
 * [Bennett (2010)](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract): Image-centred ray shooting (ICRS) method   
 * [Cassan (2017)](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true): Hexadecapole approximations
 * [Sugiyama (2022)](https://ui.adsabs.harvard.edu/abs/2022ApJ...937...63S/abstract): Fast FFT-based magnification evaluation with a single-lens extended source model
