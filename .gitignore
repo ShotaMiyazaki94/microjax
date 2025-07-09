@@ -6,3 +6,4 @@ dust/
 __pycache__
 .DS_Store
 src/microjax/_legacy/
+tests/integrate
