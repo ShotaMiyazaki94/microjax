@@ -1,4 +1,7 @@
-![logo](logo/microjax.png)
+<p align="center">
+  <img src="logo/microjax.png" width="50%">
+</p>
+
 
 **microJAX is a GPU-accelerated, differentiable microlensing modeling library written in JAX.**
 
