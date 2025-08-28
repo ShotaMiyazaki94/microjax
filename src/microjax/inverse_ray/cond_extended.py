@@ -1,12 +1,28 @@
+"""Conditions to decide when full inverse-ray integration is needed.
+
+This module provides tests that determine whether the hexadecapole approximation
+is sufficient for a given source position or whether to fall back to the full
+inverse-ray integration. The logic is designed for binary and triple lenses.
+"""
+
 from functools import partial
 
 import jax.numpy as jnp
 from jax import jit, lax, vmap 
 from microjax.point_source import _images_point_source
 from microjax.multipole import _mag_hexadecapole
+from typing import Tuple
+
+# Consistent array alias used across inverse_ray and trajectory modules
+Array = jnp.ndarray
 
 @partial(jit, static_argnames=("nlenses"))
-def test_full(w_points_shifted, rho, nlenses=2, **_params):
+def test_full(w_points_shifted: Array, rho: float, nlenses: int = 2, **_params) -> Array:
+    """Return a boolean mask where hexadecapole is sufficient (no full solve).
+
+    For nlenses=2, combines a caustic-proximity test and a planetary-caustic
+    exclusion. For other ``nlenses`` values it returns ``False`` everywhere.
+    """
     e1 = _params["e1"]
     q = e1 / (1.0 - e1)
     if nlenses==2:
@@ -23,8 +39,24 @@ def test_full(w_points_shifted, rho, nlenses=2, **_params):
 
 @partial(jit, static_argnames=("nlenses"))
 def _caustics_proximity_test(
-    w, z, z_mask, rho, delta_mu_multi, nlenses=2, c_m=1e-02, gamma=0.02, c_f=4., rho_min=1e-03, **params
-):
+    w: Array,
+    z: Array,
+    z_mask: Array,
+    rho: float,
+    delta_mu_multi: Array,
+    nlenses: int = 2,
+    c_m: float = 1e-02,
+    gamma: float = 0.02,
+    c_f: float = 4.0,
+    rho_min: float = 1e-03,
+    **params,
+) -> Array:
+    """Multipole accuracy and cusp proximity tests near caustics.
+
+    Combines a magnitude threshold on the hexadecapole correction and a cusp
+    proximity metric. Also checks for false images and filters them with a
+    scale set by ``c_f``.
+    """
     if nlenses == 2:
         a, e1 = params["a"], params["e1"]
         e2 = 1.0 - e1
@@ -74,8 +106,8 @@ def _caustics_proximity_test(
                                   )
     return test_false_images & test_multipole_and_cusp
 
-
-def _planetary_caustic_test(w, rho, c_p=2., **params):
+def _planetary_caustic_test(w: Array, rho: float, c_p: float = 2.0, **params) -> Array:
+    """Exclude regions too close to planetary caustics for small mass ratios."""
     e1, a = params["e1"], params["a"]
     s = 2 * a
     q = e1 / (1.0 - e1)
