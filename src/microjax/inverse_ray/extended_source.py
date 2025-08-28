@@ -191,7 +191,7 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     Nlimb = 500
-    r_resolution  = 1000
+    r_resolution  = 500
     th_resolution = 1000
     cubic = True
 
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
 
 
-    chunk_size = 500  # メモリ消費を調整するため適宜変更
+    chunk_size = 500 
     _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
     print("start computation with vmap")
     start = time.time()
@@ -331,9 +331,9 @@ if __name__ == "__main__":
     ax1.set_ylim(1e-6, 1e-2)
     ax.legend(loc="upper left")
     ax1.set_xlabel("time (days)")
-    #plt.show()
-    plt.savefig("z_fig/mag_uniform.png", bbox_inches="tight", dpi=300)
-    plt.close()
+    plt.show()
+    #plt.savefig("z_fig/mag_uniform.png", bbox_inches="tight", dpi=300)
+    #plt.close()
 
     if(1):
         diff = jnp.abs(magnifications - magnifications2)/magnifications2

@@ -2,7 +2,6 @@
   <img src="logo/microjax.png" width="50%">
 </p>
 
-
 **microJAX is a GPU-accelerated, differentiable microlensing modeling library written in JAX.**
 
 # microjax
@@ -58,6 +57,23 @@ Refer to the [example](example/) directory for code that creates these plots.
 ## 🤝 Contributing
 
 Pull requests are welcome!  Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for coding style, test suite, and CI guidelines.  Bug reports can be filed via GitHub Issues.
+
+### Running Tests
+
+CPU-only tests:
+
+```
+pytest -q
+```
+
+GPU-only (A100) tests are opt-in and skipped by default. To run them on an A100 machine:
+
+```
+export MICROJAX_GPU_TESTS=1
+pytest -m gpu -q
+```
+
+These tests require JAX to detect an NVIDIA A100 (CUDA) device. If not available or the env var is not set, they are skipped.
 
 ## 📜 License
 

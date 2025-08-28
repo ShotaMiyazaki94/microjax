@@ -15,3 +15,32 @@ We adopt a simple git-flow model, consisting of master, develop, contributor-def
 
 ## Tests
 
+### CPU vs GPU tests
+
+The test suite includes both CPU-only tests and GPU-only tests for inverse_ray functionality. GPU tests are designed for NVIDIA A100 and are skipped by default.
+
+- CPU tests: simply run `pytest -q`.
+- GPU tests (A100 only): set an env var and select the marker:
+
+```
+export MICROJAX_GPU_TESTS=1
+pytest -m gpu -q
+```
+
+The GPU tests will run only if:
+- `MICROJAX_GPU_TESTS=1` is set, and
+- JAX detects a CUDA device whose `device_kind` contains `A100`.
+
+### A100 CI runner setup (self-hosted)
+
+If you want to run GPU tests in CI, set up a self-hosted GitHub Actions runner on an A100 machine and label it, e.g., `self-hosted, gpu, a100`. An example workflow is provided in `.github/workflows/gpu-tests.yml`.
+
+Checklist for the runner machine:
+- Install NVIDIA drivers and CUDA compatible with your JAX build.
+- Install JAX with CUDA support and verify `python -c "import jax; print(jax.devices('cuda'))"` lists an A100 device.
+- Optional dependencies (if used in tests): `VBBinaryLensing`, `VBMicrolensing`, `astropy`.
+- Ensure environment variables are set for CI job:
+  - `MICROJAX_GPU_TESTS=1`
+  - `JAX_PLATFORMS=cuda`
+
+With the runner online, you can trigger the provided workflow manually or on a schedule. The workflow runs only tests marked `gpu`.

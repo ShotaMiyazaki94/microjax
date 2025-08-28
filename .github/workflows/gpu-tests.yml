@@ -1,0 +1,36 @@
+name: GPU Tests (A100)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *' # daily at 06:00 UTC
+
+jobs:
+  gpu-tests:
+    # Requires a self-hosted runner with an NVIDIA A100
+    runs-on: [self-hosted, gpu, a100]
+    env:
+      MICROJAX_GPU_TESTS: "1"
+      JAX_PLATFORMS: "cuda"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+          # If needed: install VBBinaryLensing / VBMicrolensing on the runner
+          # pip install VBBinaryLensing VBMicrolensing astropy
+
+      - name: Run GPU test subset
+        run: |
+          pytest -m gpu -q
+
