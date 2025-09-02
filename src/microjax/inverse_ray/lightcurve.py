@@ -174,12 +174,12 @@ if __name__ == "__main__":
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
     
-    if(0):
+    if(1):
         t0, u0, tE = 6.83640951e+03, 2.24211333e-01, 1.33559958e+02 
         s, q, alpha = 9.16157288e-01, 5.87559438e-04, jnp.deg2rad(1.00066409e+02)
         rho, pi_EN, pi_EE = 2.44003713e-03, 1.82341182e-01,9.58542572e-02
 
-    if(1):
+    if(0):
         q = 0.01
         s = 1.0
         alpha = jnp.deg2rad(10) 
@@ -204,9 +204,9 @@ if __name__ == "__main__":
     test_params = {"q": q, "s": s}  # Lens parameters
 
     Nlimb = 500
-    r_resolution  = 500
-    th_resolution = 500
-    MAX_FULL_CALLS = 1000
+    r_resolution  = 1000
+    th_resolution = 1000
+    MAX_FULL_CALLS = 100
 
     cubic = True
     bins_r = 50

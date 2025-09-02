@@ -377,7 +377,7 @@ if __name__ == "__main__":
     tE = 30 
     t0 = 0.0 
     u0 = 0.0 
-    rho = 0.02
+    rho = 0.05
 
     nlenses = 2
     a = 0.5 * s
@@ -476,9 +476,9 @@ if __name__ == "__main__":
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
 
-
     chunk_size = 500 
     _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
+    print("start computation with mag_lc_uniform, %d chunk_size, %d rbin, %d thbin"%(chunk_size, r_resolution, th_resolution))
     print("start computation with vmap")
     start = time.time()
     #magnifications = mag_uniform(w_points, rho, s=s, q=q, Nlimb=2000, r_resolution=r_resolution, th_resolution=th_resolution).block_until_ready()

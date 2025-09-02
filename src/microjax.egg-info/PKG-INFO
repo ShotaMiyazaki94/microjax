@@ -1,4 +1,8 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: microjax
 Version: 0.0.0
 License-File: LICENSE
+Requires-Dist: jax
+Requires-Dist: numpy
+Dynamic: license-file
+Dynamic: requires-dist

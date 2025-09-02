@@ -1,4 +1,4 @@
-astropy==5.1
+astropy==7.1
 jax==0.6.1
 matplotlib==3.5.1
 MulensModel==2.8.1
