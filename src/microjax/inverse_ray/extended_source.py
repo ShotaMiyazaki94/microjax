@@ -371,13 +371,13 @@ if __name__ == "__main__":
     import time
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
-    q = 0.01
+    q = 0.05
     s = 1.0
     alpha = jnp.deg2rad(10) 
     tE = 30 
     t0 = 0.0 
     u0 = 0.0 
-    rho = 0.05
+    rho = 0.06
 
     nlenses = 2
     a = 0.5 * s
