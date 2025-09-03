@@ -39,7 +39,20 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
-dev = ["pytest", "black", "ruff", "build", "twine"]
+# Developer extras: local testing, linting, packaging, and docs build
+dev = [
+  "pytest",
+  "black",
+  "ruff",
+  "build",
+  "twine",
+  # Tests rely on SciPy special functions for cross-checks
+  "scipy>=1.10",
+  # Docs toolchain (kept light; heavy imports are mocked in conf.py)
+  "sphinx>=6",
+  "sphinx_rtd_theme>=1.0.0",
+  "sphinxemoji>=0.2.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/ShotaMiyazaki94/microjax"

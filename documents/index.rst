@@ -5,10 +5,9 @@
    
 microjax
 ==================================
-   
+
 .. toctree::
    :maxdepth: 1
-   :caption: API:
+   :caption: API
 
-   microjax/microjax.rst
-
+   api/reference

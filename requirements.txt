@@ -6,6 +6,8 @@ numpy==1.26.0
 scipy==1.15.3
 seaborn==0.13.2
 setuptools==65.5.0
+Sphinx>=6
 sphinx_rtd_theme==1.0.0
+sphinxemoji>=0.2.0
 VBBinaryLensing==3.7.0
 VBMicrolensing==5.0

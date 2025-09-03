@@ -13,7 +13,9 @@
 import sphinx_rtd_theme
 import os
 import sys
-sys.path.insert(0, os.path.abspath('~/microjax'))
+# Add project root and src to path so autodoc can find the package
+sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../src'))
 
 
 # -- Project information -----------------------------------------------------
@@ -31,8 +33,21 @@ release = '0.0.1'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinxemoji.sphinxemoji',
-              ]
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.napoleon',
+    'sphinx.ext.autosummary',
+    'sphinxemoji.sphinxemoji',
+]
+
+# Generate autosummary stub pages automatically
+autosummary_generate = True
+
+# Relax heavy imports when building docs
+autodoc_mock_imports = [
+    'jax', 'jaxlib', 'MulensModel', 'astropy', 'VBBinaryLensing',
+    'VBMicrolensing', 'scipy'
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -53,7 +68,8 @@ html_theme = 'sphinx_rtd_theme'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-html_logo = '_static/logo.png'
+# Use project logo from the repository
+html_logo = '../logo/microjax.png'
 
 #html_theme_options = {
 #    'style_nav_header_background': '#333',
