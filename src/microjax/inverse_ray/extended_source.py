@@ -1,3 +1,28 @@
+"""Inverse-ray finite-source magnification integrators.
+
+This module provides polar-grid, inverse-ray integrators for extended sources
+subject to gravitational microlensing by multiple lenses. Two brightness
+profiles are implemented:
+
+- ``mag_uniform``: uniform surface brightness disk.
+- ``mag_limb_dark``: linear limb-darkened disk.
+
+The integration domain in image space is seeded using the mapped source limb
+(`calc_source_limb`) and partitioned into radial/azimuthal regions
+(`define_regions`) to concentrate samples near caustics. Boundary crossings in
+angle are handled by a numerically stable 4-point cubic interpolation
+(`cubic_interp`), with optional smoothing factors to reduce aliasing at the
+source limb.
+
+Notes
+- Both routines shift coordinates to the center-of-mass frame for improved
+  stability and consistency with point-source helpers.
+- ``lax.scan`` over regions reduces peak memory usage relative to a full
+  vectorized ``vmap`` across all regions.
+- Increase ``bins_*`` and resolutions when approaching caustics or for larger
+  sources to improve accuracy (with corresponding runtime/memory costs).
+"""
+
 import jax 
 import jax.numpy as jnp
 from jax import jit, lax, vmap, custom_jvp
@@ -6,11 +31,77 @@ from microjax.point_source import lens_eq, _images_point_source
 from microjax.inverse_ray.merge_area import calc_source_limb, define_regions
 from microjax.inverse_ray.limb_darkening import Is_limb_1st
 from microjax.inverse_ray.boundary import in_source, distance_from_source, calc_facB
+from typing import Mapping, Sequence, Tuple, Callable, Optional, Union
+
+# Simple alias for readability in type hints
+Array = jnp.ndarray
 
 #@partial(jit, static_argnames=("nlenses", "cubic", "r_resolution", "th_resolution", "Nlimb", "u1",
 #                               "offset_r", "offset_th", "delta_c"))
-def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolution=500, 
-                  Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, delta_c=0.01, **_params):
+def mag_limb_dark(
+    w_center: complex,
+    rho: float,
+    nlenses: int = 2,
+    u1: float = 0.0,
+    r_resolution: int = 500,
+    th_resolution: int = 500,
+    Nlimb: int = 500,
+    bins_r: int = 50,
+    bins_th: int = 120,
+    margin_r: float = 0.5,
+    margin_th: float = 0.5,
+    delta_c: float = 0.01,
+    **_params: float,
+) -> Array:
+    """Compute finite-source magnification with linear limb darkening.
+
+    This routine evaluates the magnification of a circular source centered at
+    `w_center` with radius `rho` using a polar grid integration in image space
+    and an inverse ray approach. It supports binary (``nlenses=2``) and a
+    specific triple-lens configuration (``nlenses=3``). The surface brightness
+    profile on the source is linear limb-darkened:
+
+        I(r)/I0 = 1 - u1 * (1 - sqrt(1 - (r/rho)^2)),
+
+    implemented via ``Is_limb_1st``. The image-space region to integrate is
+    constructed from points on the mapped source limb using
+    ``calc_source_limb`` and partitioned by ``define_regions`` for better
+    conditioning around caustics. Angular boundary crossings are located with a
+    stable 4-point cubic (Lagrange) interpolant (``cubic_interp``). A smooth
+    transition factor ``calc_facB`` controlled by ``delta_c`` reduces aliasing
+    at the limb.
+
+    Parameters
+    - w_center: complex – Source center in lens plane units (Einstein radius).
+    - rho: float – Source radius (same units as `w_center`).
+    - nlenses: int – Number of lenses (2 supported; 3 supported for provided
+      params).
+    - u1: float – Linear limb-darkening coefficient in [0, 1].
+    - r_resolution: int – Number of radial samples per region.
+    - th_resolution: int – Number of angular samples per region.
+    - Nlimb: int – Number of samples on the source limb used to seed regions.
+    - bins_r: int – Number of radial bins to split regions.
+    - bins_th: int – Number of angular bins to split regions.
+    - margin_r: float – Extra radial margin added to each bin (in units of
+      `rho`).
+    - margin_th: float – Extra angular margin added to each bin (radians).
+    - delta_c: float – Smoothing scale for boundary contribution factor
+      ``calc_facB``; smaller sharpens boundary, larger smooths.
+    - **_params: Mapping of lens parameters depending on ``nlenses``.
+      For nlenses=2 expect ``q`` and ``s``; for nlenses=3 expect ``s``, ``q``,
+      ``q3``, ``r3``, ``psi``.
+
+    Returns
+    - magnification: float – Limb-darkened finite-source magnification.
+
+    Notes
+    - Coordinates are internally shifted by the center-of-mass offset for
+      numerical stability and consistency with point-source helpers.
+    - The result is normalized by ``rho**2`` (no factor of π) because the limb
+      darkening weights are included explicitly in the integrand.
+    - For large ``rho`` or near-caustic configurations, increase ``bins_*`` and
+      ``*_resolution`` to improve accuracy at the cost of memory/runtime.
+    """
     if nlenses == 2:
         q, s = _params["q"], _params["s"]
         a  = 0.5 * s
@@ -30,7 +121,16 @@ def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolut
     r_scan, th_scan = define_regions(image_limb, mask_limb, rho, bins_r=bins_r, bins_th=bins_th, 
                                      margin_r=margin_r, margin_th=margin_th, nlenses=nlenses)
 
-    def _process_r(r0, th_values):
+    def _process_r(r0: float, th_values: Array) -> Array:
+        """Integrand over angle for a fixed radius.
+
+        Computes the limb-darkened contribution for radius ``r0`` by sampling
+        angles ``th_values``. It classifies samples as inside/outside the source
+        disk via ``in_source(distance_from_source(...))`` and adds smoothed
+        boundary terms using ``cubic_interp`` and ``calc_facB``.
+
+        Returns the summed area contribution (not yet multiplied by ``dr``).
+        """
         dth = (th_values[1] - th_values[0])
         distances = distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=nlenses, **_params)
         in_num = in_source(distances, rho)
@@ -54,7 +154,17 @@ def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolut
         return jnp.sum(area_inside + area_B1 + area_B2)
 
     #@jax.checkpoint 
-    def _compute_for_range(r_range, th_range):
+    def _compute_for_range(r_range: Array, th_range: Array) -> Array:
+        """Integrate over a rectangular image-space subregion.
+
+        - r_range: length-2 array giving [r_min, r_max].
+        - th_range: length-2 array giving [theta_min, theta_max].
+
+        Builds uniform 1D grids of sizes ``r_resolution`` and ``th_resolution``
+        and performs a rectangle-rule accumulation over radius with per-radius
+        angular sums from ``_process_r``. Returns the total area contribution
+        of this subregion.
+        """
         r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
         th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
         area_r = vmap(lambda r: _process_r(r, th_values))(r_values)
@@ -77,8 +187,53 @@ def mag_limb_dark(w_center, rho, nlenses=2, u1=0.0, r_resolution=500, th_resolut
     return magnification 
 
 #@partial(jit, static_argnames=("nlenses", "r_resolution", "th_resolution", "Nlimb", "offset_r", "offset_th", "cubic",))
-def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500, 
-                Nlimb=500, bins_r=50, bins_th=120, margin_r=0.5, margin_th=0.5, **_params):
+def mag_uniform(
+    w_center: complex,
+    rho: float,
+    nlenses: int = 2,
+    r_resolution: int = 500,
+    th_resolution: int = 500,
+    Nlimb: int = 500,
+    bins_r: int = 50,
+    bins_th: int = 120,
+    margin_r: float = 0.5,
+    margin_th: float = 0.5,
+    **_params: float,
+) -> Array:
+    """Compute finite-source magnification for a uniform-brightness disk.
+
+    Uses the same region construction and polar-grid integration strategy as
+    ``mag_limb_dark`` but with a uniform surface brightness profile. The
+    integrand is the area fraction inside the source with sub-cell angular
+    crossing handled by a stable cubic interpolation in angle.
+
+    Parameters
+    - w_center: complex – Source center in Einstein-radius units.
+    - rho: float – Source radius.
+    - nlenses: int – Number of lenses (2 supported; 3 supported for provided
+      params).
+    - r_resolution: int – Number of radial samples per region.
+    - th_resolution: int – Number of angular samples per region.
+    - Nlimb: int – Number of samples on the source limb used to seed regions.
+    - bins_r: int – Number of radial bins for region partitioning.
+    - bins_th: int – Number of angular bins for region partitioning.
+    - margin_r: float – Extra radial margin per bin (in units of ``rho``).
+    - margin_th: float – Extra angular margin per bin (radians).
+    - **_params: Lens parameters depending on ``nlenses`` (same as in
+      ``mag_limb_dark``).
+
+    Returns
+    - magnification: float – Uniform finite-source magnification normalized by
+      ``rho**2 * pi``.
+
+    Notes
+    - Internally shifts coordinates by the lens center-of-mass offset.
+    - Region-wise ``lax.scan`` is default for better peak-memory behavior; a
+      fully vectorized alternative via ``vmap`` is available but uses more
+      memory.
+    - Sensitivity near caustics can be improved by increasing ``bins_*`` and
+      ``*_resolution`` or broadening ``margin_*``.
+    """
     
     if nlenses == 2:
         q, s = _params["q"], _params["s"]
@@ -100,7 +255,14 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
                                      margin_r=margin_r, margin_th=margin_th, nlenses=nlenses)
 
     #@jax.checkpoint 
-    def _process_r(r0, th_values):
+    def _process_r(r0: float, th_values: Array) -> Array:
+        """Angular accumulation at fixed radius for a uniform source.
+
+        Classifies points as inside/outside the source and corrects the two
+        nearest angular cells that cross the source limb using a cubic estimate
+        of the crossing angle. Returns the summed (angular) area at radius
+        ``r0`` (prior to multiplying by ``dr``).
+        """
         dth = (th_values[1] - th_values[0])
         distances = distance_from_source(r0, th_values, w_center_shifted, shifted, nlenses=nlenses, **_params)
         in_num = in_source(distances, rho)
@@ -119,7 +281,12 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
         return jnp.sum(area_inside + area_crossing)  
 
     #@jax.checkpoint
-    def _compute_for_range(r_range, th_range):
+    def _compute_for_range(r_range: Array, th_range: Array) -> Array:
+        """Integrate over a given ``(r, theta)`` rectangle using uniform grids.
+
+        Returns the area contribution of the subregion via a rectangle-rule
+        sum across the per-radius angular integrals from ``_process_r``.
+        """
         r_values = jnp.linspace(r_range[0], r_range[1], r_resolution, endpoint=True)
         th_values = jnp.linspace(th_range[0], th_range[1], th_resolution, endpoint=True)
         #area_r = jax.checkpoint(vmap(lambda r: _process_r(r, th_values, cubic)))(r_values)
@@ -146,9 +313,45 @@ def mag_uniform(w_center, rho, nlenses=2, r_resolution=500, th_resolution=500,
     magnification = magnification_unnorm / rho**2 / jnp.pi
     return magnification 
 
-def cubic_interp(x, x0, x1, x2, x3, y0, y1, y2, y3, epsilon=1e-12):
-    # Implemented algebraically, much faster and memory efficient than polyfit that uses matrix manipulation.
-    # In this case, x is distance, y is coordinate.
+def cubic_interp(
+    x: Union[float, Array],
+    x0: Union[float, Array],
+    x1: Union[float, Array],
+    x2: Union[float, Array],
+    x3: Union[float, Array],
+    y0: Union[float, Array],
+    y1: Union[float, Array],
+    y2: Union[float, Array],
+    y3: Union[float, Array],
+    epsilon: float = 1e-12,
+) -> Union[float, Array]:
+    """Stable 4-point cubic (Lagrange) interpolation with scaling.
+
+    Evaluates the cubic interpolant passing through the four points
+    ``(xk, yk)`` for ``k=0..3`` at position ``x``. To improve numerical
+    stability when the abscissas are nearly collinear or clustered, the
+    abscissa domain is rescaled to ``[0, 1]`` before computing the Lagrange
+    basis. Small ``epsilon`` terms guard against division by zero in degenerate
+    configurations.
+
+    Parameters
+    - x: float/array – Evaluation abscissa.
+    - x0, x1, x2, x3: float/array – Sample abscissas.
+    - y0, y1, y2, y3: float/array – Sample ordinates corresponding to each
+      abscissa.
+    - epsilon: float – Small positive value to avoid division by zero in the
+      basis denominators.
+
+    Returns
+    - y: float/array – Interpolated value at ``x``.
+
+    Notes
+    - This function is used to estimate the angular crossing location of the
+      source limb within a four-cell angular stencil.
+    - For monotonic constraints or fewer samples consider alternative schemes.
+    """
+    # Implemented algebraically; faster and more memory-efficient than a
+    # matrix-based polyfit for JAX transformations.
     x_min = jnp.min(jnp.array([x0, x1, x2, x3]))
     x_max = jnp.max(jnp.array([x0, x1, x2, x3]))
     scale = jnp.maximum(x_max - x_min, epsilon)
@@ -168,13 +371,13 @@ if __name__ == "__main__":
     import time
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
-    q = 0.01
+    q = 0.05
     s = 1.0
     alpha = jnp.deg2rad(10) 
     tE = 30 
     t0 = 0.0 
     u0 = 0.0 
-    rho = 0.02
+    rho = 0.06
 
     nlenses = 2
     a = 0.5 * s
@@ -202,7 +405,18 @@ if __name__ == "__main__":
 
     from microjax.caustics.extended_source import mag_extended_source
     import MulensModel as mm
-    def mag_vbbl(w0, rho, u1=0.0, accuracy=1e-4):
+    def mag_vbbl(w0: complex, rho: float, u1: float = 0.0, accuracy: float = 1e-4) -> Array:
+        """Reference magnification via VBBinaryLensing for benchmarking.
+
+        Parameters
+        - w0: complex – Source center.
+        - rho: float – Source radius.
+        - u1: float – Linear limb-darkening coefficient passed to VBBL.
+        - accuracy: float – Target accuracy for VBBL integration.
+
+        Returns
+        - magnification: float – VBBL magnification for comparison plots.
+        """
         a  = 0.5 * s
         e1 = 1.0 / (1.0 + q)
         e2 = 1.0 - e1  
@@ -210,11 +424,13 @@ if __name__ == "__main__":
         return bl.vbbl_magnification(w0.real, w0.imag, rho, accuracy=accuracy, u_limb_darkening=u1)
     #magn  = lambda w: mag_uniform(w, rho, r_resolution=2000, th_resolution=1000, **test_params, cubic=True)
     @jit
-    def mag_mj(w):
+    def mag_mj(w: complex) -> Array:
+        """JIT-wrapped microjax uniform finite-source magnification."""
         return mag_uniform(w, rho, s=s, q=q, Nlimb=Nlimb, bins_r=bins_r, bins_th=bins_th,
                            r_resolution=r_resolution, th_resolution=th_resolution, 
                            margin_r = margin_r, margin_th=margin_th, cubic=cubic)
-    def chunked_vmap(func, data, chunk_size):
+    def chunked_vmap(func: Callable[[complex], Array], data: Array, chunk_size: int) -> Array:
+        """Apply ``vmap`` in chunks to reduce peak memory usage."""
         results = []
         for i in range(0, len(data), chunk_size):
             chunk = data[i:i + chunk_size]
@@ -227,7 +443,8 @@ if __name__ == "__main__":
 
     #_ = magn(w_points).block_until_ready()
     @jax.jit
-    def scan_mag_mj(w_points):
+    def scan_mag_mj(w_points: Array) -> Array:
+        """Compute magnifications via ``lax.scan`` over input points."""
         def body_fun(carry, w):
             result = mag_mj(w)
             return carry, result
@@ -259,9 +476,9 @@ if __name__ == "__main__":
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for VBBinaryLensing"%(end - start,1000*(end - start)/num_points))
 
-
     chunk_size = 500 
     _ = chunked_vmap(mag_mj, w_points, chunk_size).block_until_ready()
+    print("start computation with mag_lc_uniform, %d chunk_size, %d rbin, %d thbin"%(chunk_size, r_resolution, th_resolution))
     print("start computation with vmap")
     start = time.time()
     #magnifications = mag_uniform(w_points, rho, s=s, q=q, Nlimb=2000, r_resolution=r_resolution, th_resolution=th_resolution).block_until_ready()

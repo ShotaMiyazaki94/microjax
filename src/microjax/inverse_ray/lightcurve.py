@@ -1,3 +1,10 @@
+"""Adaptive lightcurve computation mixing multipole and inverse-ray methods.
+
+This module computes microlensing lightcurves by defaulting to the fast
+hexadecapole approximation and selectively invoking the full inverse-ray
+finite-source integration near caustics or when required by accuracy tests.
+"""
+
 from functools import partial
 
 import jax
@@ -10,13 +17,36 @@ from microjax.multipole import _mag_hexadecapole
 from microjax.utils import *
 from microjax.inverse_ray.cond_extended import _caustics_proximity_test, _planetary_caustic_test
 from microjax.inverse_ray.cond_extended import test_full
+from typing import Tuple
+
+# Consistent array alias used across modules
+Array = jnp.ndarray
 
 @partial(jit,static_argnames=("r_resolution", "th_resolution", "u1", "delta_c", 
                               "bins_r", "bins_th", "margin_r", "margin_th", 
                               "Nlimb", "MAX_FULL_CALLS", "chunk_size"))
-def mag_binary(w_points, rho, r_resolution=1000, th_resolution=1000, u1=0.0, delta_c=0.01,
-               Nlimb=500, bins_r=50, bins_th=120, margin_r=1.0, margin_th=1.0, 
-               MAX_FULL_CALLS=500, chunk_size=100, **params):
+def mag_binary(
+    w_points: Array,
+    rho: float,
+    r_resolution: int = 1000,
+    th_resolution: int = 1000,
+    u1: float = 0.0,
+    delta_c: float = 0.01,
+    Nlimb: int = 500,
+    bins_r: int = 50,
+    bins_th: int = 120,
+    margin_r: float = 1.0,
+    margin_th: float = 1.0,
+    MAX_FULL_CALLS: int = 500,
+    chunk_size: int = 100,
+    **params,
+) -> Array:
+    """Binary-lens lightcurve with adaptive full-solve selection.
+
+    Parameters follow the underlying inverse-ray integrators. The selection
+    uses a proximity test to caustics plus planetary-caustic checks for small
+    mass ratios. Returns magnifications per input time/position.
+    """
     s = params.get("s", None)
     q = params.get("q", None)
     if s is None or q is None:
@@ -78,9 +108,23 @@ def mag_binary(w_points, rho, r_resolution=1000, th_resolution=1000, u1=0.0, del
 @partial(jit,static_argnames=("r_resolution", "th_resolution", "u1", "delta_c",
                               "bins_r", "bins_th", "margin_r", "margin_th", 
                               "Nlimb", "MAX_FULL_CALLS", "chunk_size"))
-def mag_triple(w_points, rho, r_resolution=1000, th_resolution=1000, u1=0.0, delta_c=0.01,
-               Nlimb=500, bins_r=50, bins_th=120, margin_r=1.0, margin_th=1.0, 
-               MAX_FULL_CALLS=500, chunk_size=50, **params):
+def mag_triple(
+    w_points: Array,
+    rho: float,
+    r_resolution: int = 1000,
+    th_resolution: int = 1000,
+    u1: float = 0.0,
+    delta_c: float = 0.01,
+    Nlimb: int = 500,
+    bins_r: int = 50,
+    bins_th: int = 120,
+    margin_r: float = 1.0,
+    margin_th: float = 1.0,
+    MAX_FULL_CALLS: int = 500,
+    chunk_size: int = 50,
+    **params,
+) -> Array:
+    """Triple-lens lightcurve with adaptive full-solve selection."""
     nlenses = 3
     s, q, q3 = params["s"], params["q"], params["q3"]
     a = 0.5 * s
@@ -130,12 +174,12 @@ if __name__ == "__main__":
     jax.config.update("jax_enable_x64", True)
     #jax.config.update("jax_debug_nans", True)
     
-    if(0):
+    if(1):
         t0, u0, tE = 6.83640951e+03, 2.24211333e-01, 1.33559958e+02 
         s, q, alpha = 9.16157288e-01, 5.87559438e-04, jnp.deg2rad(1.00066409e+02)
         rho, pi_EN, pi_EE = 2.44003713e-03, 1.82341182e-01,9.58542572e-02
 
-    if(1):
+    if(0):
         q = 0.01
         s = 1.0
         alpha = jnp.deg2rad(10) 
@@ -162,7 +206,7 @@ if __name__ == "__main__":
     Nlimb = 500
     r_resolution  = 1000
     th_resolution = 1000
-    MAX_FULL_CALLS = 1000
+    MAX_FULL_CALLS = 100
 
     cubic = True
     bins_r = 50

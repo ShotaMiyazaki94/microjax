@@ -1,19 +1,32 @@
+"""Limb-darkening profiles and their JAX-friendly derivatives.
+
+Currently implements a linear limb-darkening law with a custom JVP so that
+gradients remain informative near the limb.
+"""
+
 import jax
 import jax.numpy as jnp
 from jax import jit
 from functools import partial
 from jax import custom_jvp
+from typing import Union
+
+Array = jnp.ndarray
 
 #@partial(jit, static_argnames=("u1"))
 @custom_jvp
-def Is_limb_1st(d, u1=0.0):
-    """
-    Calculate the normalized limb-darkened intensity using a linear limb-darkening law.
-    - The equation implements the linear limb-darkening law:
-      I(r) = I0 * (1 - u1 * (1 - sqrt(1 - r))),
-      where I0 is a normalization constant ensuring that the total flux is conserved.
-    - `d` is normalized by rho.
-    - `u1` should be in the range [0, 1].
+def Is_limb_1st(d: Union[float, Array], u1: float = 0.0) -> Union[float, Array]:
+    """Linear limb-darkening intensity profile, normalized.
+
+    Implements: ``I(d) = I0 * [1 - u1 * (1 - mu)]`` with ``mu = sqrt(1-d^2)``
+    and ``I0 = 3/(pi*(3-u1))`` so that the disk-integrated flux equals 1.
+
+    Parameters
+    - d: float/array – Radial distance normalized by ``rho`` (0 at center, 1 at limb).
+    - u1: float – Linear limb-darkening coefficient in [0, 1].
+
+    Returns
+    - I: float/array – Normalized intensity; zeroed for ``d >= 1``.
     """
     mu = jnp.sqrt(1.0 - d**2)
     I0 = 3.0 / jnp.pi / (3.0 - u1)

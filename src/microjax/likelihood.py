@@ -1,19 +1,60 @@
+"""Likelihood and simple linear fits for microlensing photometry.
+
+This module provides small, JAX-friendly utilities to compute weighted linear
+least-squares fits and negative log-likelihoods (NLL) under Gaussian models.
+Two NLL variants are implemented:
+
+- ``nll_ulens``: fast path with diagonal observational noise and diagonal
+  Gaussian priors on source and blend fluxes.
+- ``nll_ulens_general``: full-rank observational covariance and arbitrary
+  Gaussian priors (mean and covariance).
+
+All routines operate on ``jnp.ndarray`` inputs and are differentiable, making
+them suitable for gradient-based optimization or inference.
+"""
+
+from typing import Tuple, Union
+
 import jax.numpy as jnp
 from jax.scipy.linalg import solve
 
-def linear_chi2(x, y, err=0.0):
-    """
-    Linear least squares fit y = a + b x with weights from independent gaussian errors.
-    Args:
-        x: jnp.ndarray, shape (n,)
-        y: jnp.ndarray, shape (n,)
-        err: jnp.ndarray, shape (n,). If err[i] == 0, treat as unweighted (w=1).
-    Returns:
-        b: slope
-        be: slope error
-        a: intercept
-        ae: intercept error
-        chi2: chi-squared of the fit
+# Consistent array alias used across modules
+Array = jnp.ndarray
+
+def linear_chi2(x: Array, y: Array, err: Union[float, Array] = 0.0) -> Tuple[float, float, float, float, float]:
+    """Weighted linear fit ``y ≈ a + b x`` and chi-squared.
+
+    Performs a closed-form, weighted least-squares fit with independent
+    Gaussian errors. If any entry of ``err`` is 0 (default), that point is
+    treated as unweighted with weight 1.0.
+
+    Parameters
+    ----------
+    x : jnp.ndarray, shape (n,)
+        Predictor values.
+    y : jnp.ndarray, shape (n,)
+        Observed responses.
+    err : float or jnp.ndarray, shape (n,), optional
+        Per-point standard deviation. A scalar broadcasts to all points. Zeros
+        are replaced by 1.0 in the weights.
+
+    Returns
+    -------
+    b : float
+        Best-fit slope.
+    be : float
+        Standard error on the slope.
+    a : float
+        Best-fit intercept.
+    ae : float
+        Standard error on the intercept.
+    chi2 : float
+        Chi-squared of the fit evaluated at the best-fit parameters.
+
+    Notes
+    -----
+    The solution minimizes ``sum_i w_i (y_i - a - b x_i)^2`` with
+    ``w_i = 1/err_i^2`` when ``err_i > 0`` else ``w_i = 1``.
     """
     wt = jnp.where(err > 0, 1.0 / (err ** 2), 1.0)
     sumw = jnp.sum(wt)
@@ -33,18 +74,45 @@ def linear_chi2(x, y, err=0.0):
     return b, be, a, ae, chi2
 
 
-def nll_ulens(flux, M, sigma2_obs, sigma2_fs, sigma2_fb):
-    """
-    Calculate the simplified negative log-likelihood (NLL) for a microlensing model
-    under a Gaussian linear fs and fb with diagonal priors.
-    Parameters:
-        flux       : (n,) array, observed fluxes
-        M          : (n, 2) array, design matrix with columns [fs_model, 1] (fs: source flux, fb: blend flux)
-        sigma2_obs : (n,) array, variance of observational errors
-        sigma2_fs  : float, prior variance for source flux fs
-        sigma2_fb  : float, prior variance for blend flux fb
-    Returns:
-        scalar : negative log-likelihood
+def nll_ulens(
+    flux: Array,
+    M: Array,
+    sigma2_obs: Array,
+    sigma2_fs: float,
+    sigma2_fb: float,
+) -> float:
+    """Negative log-likelihood with diagonal noise and diagonal priors.
+
+    Assumes a linear flux model ``flux ≈ M @ [fs, fb]`` with independent
+    observational errors ``C = diag(sigma2_obs)`` and independent Gaussian
+    priors on ``fs`` and ``fb`` with variances ``sigma2_fs`` and ``sigma2_fb``.
+    All integrals over ``fs, fb`` are done analytically, yielding the standard
+    marginalized Gaussian NLL.
+
+    Parameters
+    ----------
+    flux : jnp.ndarray, shape (n,)
+        Observed fluxes.
+    M : jnp.ndarray, shape (n, 2)
+        Design matrix with columns ``[m_fs, 1]`` where ``m_fs`` is the source
+        model term and the constant column captures blend flux.
+    sigma2_obs : jnp.ndarray, shape (n,)
+        Observational variances (diagonal of the noise covariance).
+    sigma2_fs : float
+        Prior variance for source flux ``fs``.
+    sigma2_fb : float
+        Prior variance for blend flux ``fb``.
+
+    Returns
+    -------
+    nll : float
+        Negative log-likelihood value.
+
+    Notes
+    -----
+    The expression equals 0.5 * (mahalanobis + log|C| + log|Lambda| + log|A|)
+    where ``A = M^T C^{-1} M + Lambda^{-1}`` and ``Lambda`` is diagonal with
+    entries ``[sigma2_fs, sigma2_fb]``.
     """
     # Prior precision matrix Lambda^{-1} = diag(1/sigma2_fs, 1/sigma2_fb)
     lambda_fs = 1.0 / sigma2_fs
@@ -83,18 +151,43 @@ def nll_ulens(flux, M, sigma2_obs, sigma2_fs, sigma2_fb):
     nll = 0.5 * (mahalanobis + logdet_C + logdet_Lambda + logdet_A)
     return nll
     
-def nll_ulens_general(flux, M, C, mu, Lambda):
-    """
-    Calculate the negative log-likelihood (NLL) for a microlensing model
-    with general Gaussian priors and data covariance.
-    Parameters:
-        flux   : (n,) array, observed fluxes
-        M      : (n, 2) array, design matrix (e.g., columns for fs and fb)
-        C      : (n, n) array, data covariance matrix
-        mu     : (2,) array, prior mean for parameters [fs, fb]
-        Lambda : (2, 2) array, prior covariance matrix for [fs, fb]
-    Returns:
-        scalar : negative log-likelihood
+def nll_ulens_general(
+    flux: Array,
+    M: Array,
+    C: Array,
+    mu: Array,
+    Lambda: Array,
+) -> float:
+    """Negative log-likelihood with full-rank noise and Gaussian priors.
+
+    Generalizes :func:`nll_ulens` to non-diagonal observational covariance
+    ``C`` and an arbitrary Gaussian prior ``N(mu, Lambda)`` over ``[fs, fb]``.
+    The result is the marginalized NLL after integrating out the linear
+    parameters analytically.
+
+    Parameters
+    ----------
+    flux : jnp.ndarray, shape (n,)
+        Observed fluxes.
+    M : jnp.ndarray, shape (n, 2)
+        Design matrix mapping ``[fs, fb]`` to the model flux.
+    C : jnp.ndarray, shape (n, n)
+        Observational covariance matrix (symmetric positive definite).
+    mu : jnp.ndarray, shape (2,)
+        Prior mean for ``[fs, fb]``.
+    Lambda : jnp.ndarray, shape (2, 2)
+        Prior covariance for ``[fs, fb]`` (symmetric positive definite).
+
+    Returns
+    -------
+    nll : float
+        Negative log-likelihood value.
+
+    Notes
+    -----
+    Defines ``A = Lambda^{-1} + M^T C^{-1} M`` and posterior mean
+    ``m = A^{-1} M^T C^{-1} (flux - M mu)``. The NLL equals
+    ``0.5 * ( (flux - M mu)^T C^{-1} (flux - M mu) - m^T A m + log|C| + log|Lambda| + log|A| )``.
     """
     # Inverse of prior covariance
     Lambda_inv = jnp.linalg.inv(Lambda)            # shape (2, 2)
