@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "microjaxx"
+description = "GPU-accelerated, differentiable microlensing modeling in JAX"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.9"
+license = "MIT"
+license-files = [
+  "LICENSE",
+  "src/microjax/caustics/LICENSE",
+  "src/microjax/fastlens/LICENSE",
+]
+authors = [
+  { name = "Shota Miyazaki", email = "miyazaki@ir.isas.jaxa.jp" }
+]
+keywords = ["jax", "microlensing", "astronomy", "gpu", "differentiable"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "jax>=0.4",
+  "numpy>=1.26",
+]
+
+# Version is single-sourced from src/microjax/__init__.py (__version__)
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "ruff", "build", "twine"]
+
+[project.urls]
+Homepage = "https://github.com/ShotaMiyazaki94/microjax"
+Repository = "https://github.com/ShotaMiyazaki94/microjax"
+Issues = "https://github.com/ShotaMiyazaki94/microjax/issues"
+Documentation = "https://github.com/ShotaMiyazaki94/microjax#readme"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+microjax = ["**/LICENSE"]
+
+[tool.setuptools.dynamic]
+version = { attr = "microjax.__version__" }

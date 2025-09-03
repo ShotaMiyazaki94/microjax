@@ -8,6 +8,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![JAX](https://img.shields.io/badge/built_with-JAX-blue)](https://github.com/google/jax)
+[![PyPI](https://img.shields.io/pypi/v/microjaxx.svg)](https://pypi.org/project/microjaxx/)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -29,14 +30,28 @@ This software is under active development and not yet feature complete.
 
 ## 📦 Installation
 
+From PyPI (recommended):
+
+```bash
+pip install microjaxx
+```
+
+Import name remains:
+
+```python
+import microjax
+```
+
+Development install (from source):
+
 ```bash
 # clone the repository
 git clone https://github.com/ShotaMiyazaki94/microjax.git
 cd microjax
-pip install -e .
+pip install -e ".[dev]"
 ```
 
-> **Note** : microJAX is in active development and not yet on PyPI.  API changes may still occur before the first stable (v1.0) release.
+GPU support: JAX/JAXLIB with CUDA/ROCm depends on your environment. Please follow the official JAX installation guide to install the appropriate `jaxlib` for your accelerator.
 
 ---
 
