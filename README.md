@@ -4,7 +4,7 @@
 
 **microJAX is a GPU-accelerated, differentiable microlensing modeling library written in JAX.**
 
-# microjax
+# microJAX
 
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![JAX](https://img.shields.io/badge/built_with-JAX-blue)](https://github.com/google/jax)
@@ -36,7 +36,10 @@ From PyPI (recommended):
 pip install microjaxx
 ```
 
-Import name remains:
+Notes:
+
+- PyPI package name: `microjaxx`
+- Python import name: `microjax`
 
 ```python
 import microjax
@@ -51,7 +54,54 @@ cd microjax
 pip install -e ".[dev]"
 ```
 
-GPU support: JAX/JAXLIB with CUDA/ROCm depends on your environment. Please follow the official JAX installation guide to install the appropriate `jaxlib` for your accelerator.
+GPU support: JAX/JAXLIB with CUDA/ROCm depends on your environment. Please follow the official JAX installation guide to install the appropriate `jaxlib` for your accelerator:
+
+- JAX installation (CPU/GPU): https://jax.readthedocs.io/en/latest/installation.html
+
+Tip: for numerical robustness we recommend enabling 64-bit in JAX:
+
+```python
+import jax
+jax.config.update("jax_enable_x64", True)
+```
+
+---
+
+## 🚀 Quickstart
+
+Compute an extended-source binary-lens magnification light curve using the image-centered ray shooting (ICRS) method with a hexadecapole fallback:
+
+```python
+import jax
+import jax.numpy as jnp
+from microjax.caustics.lightcurve import magnifications
+
+jax.config.update("jax_enable_x64", True)  # recommended
+
+# Binary-lens parameters
+s, q = 1.0, 1e-3            # separation and mass ratio (m2/m1)
+rho = 2e-3                  # source radius (Einstein units)
+tE, u0 = 30.0, 0.1          # Einstein time [days], impact parameter
+alpha = jnp.deg2rad(120.0)  # trajectory angle
+t0 = 0.0
+
+N = 1000
+t = jnp.linspace(-2*tE + t0, 2*tE + t0, N)
+tau = (t - t0)/tE
+y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
+y2 =  u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
+w = y1 + 1j*y2
+
+# Extended-source magnification (binary lens)
+mu = magnifications(w, rho, nlenses=2, s=s, q=q)
+```
+
+For point-source magnification, use:
+
+```python
+from microjax.point_source import mag_point_source
+mu_point = mag_point_source(w, nlenses=2, s=s, q=q)
+```
 
 ---
 
@@ -62,6 +112,14 @@ GPU support: JAX/JAXLIB with CUDA/ROCm depends on your environment. Please follo
 | ![ICRS](example/visualize-icrs/visualize_example.png) | ![Triple-lens](example/triple-lens-jacobian/full_jacobian_plot.png) |
 
 Refer to the [example](example/) directory for code that creates these plots.
+
+---
+
+## ⚠️ Known Limitations
+
+- Triple-lens hexadecapole/ghost-image test is not yet implemented: triple-lens calculations fall back to full contour integration everywhere, which can be substantially slower.
+- GPU tests are opt-in and currently targeted at NVIDIA A100. Without an A100 (or `MICROJAX_GPU_TESTS=1`), GPU-marked tests are skipped.
+- For improved numerical stability and agreement across libraries, enable 64-bit precision in JAX (`jax_enable_x64=True`).
 
 ## 📚 References
 * [Miyazaki & Kawahara (in prep.)](): `microjax` paper (expected within 2025!)
