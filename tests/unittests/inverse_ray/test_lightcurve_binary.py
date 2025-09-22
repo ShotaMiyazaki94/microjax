@@ -36,8 +36,8 @@ def test_far_field_uses_multipole_matches_internal():
         rho,
         s=s,
         q=q,
-        r_resolution=1000,
-        th_resolution=1000,
+        r_resolution=500,
+        th_resolution=500,
         Nlimb=500,
         bins_r=120,
         bins_th=360,
@@ -66,7 +66,7 @@ def test_binary_lightcurve_matches_vbbl(s, q, u0, tE, rho, alpha):
     VBBL.RelTol = 1e-5
 
     t0 = 0.0
-    npts = 50
+    npts = 100
     t, w = make_trajectory(u0=u0, tE=tE, t0=t0, alpha=alpha, n=npts, span=2.0)
     params_vb = [jnp.log(s), jnp.log(q), u0, alpha - jnp.pi, jnp.log(rho), jnp.log(tE), t0]
     mag_vb, _, _ = jnp.array(VBBL.BinaryLightCurve(params_vb, t))
