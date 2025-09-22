@@ -103,7 +103,7 @@ Note: `mag_point_source` runs on CPU (and GPU), so it works without a GPU.
 
 ```python
 from microjax.point_source import mag_point_source
-mu_point = mag_point_source(w, nlenses=2, s=s, q=q)
+mu_point = mag_point_source(w_points, nlenses=2, s=s, q=q)
 ```
 
 ---
