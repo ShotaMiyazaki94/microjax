@@ -71,32 +71,35 @@ jax.config.update("jax_enable_x64", True)
 
 Compute an extended-source binary-lens magnification light curve using the image-centered ray shooting (ICRS) method with a hexadecapole fallback:
 
+Note: `mag_binary` currently requires a GPU-enabled JAX runtime (CUDA/ROCm). It does not run on CPU.
+
 ```python
 import jax
 import jax.numpy as jnp
-from microjax.caustics.lightcurve import magnifications
-
-jax.config.update("jax_enable_x64", True)  # recommended
+from microjax.inverse_ray.lightcurve import mag_binary
+jax.config.update("jax_enable_x64", True)
 
 # Binary-lens parameters
-s, q = 1.0, 1e-3            # separation and mass ratio (m2/m1)
-rho = 2e-3                  # source radius (Einstein units)
-tE, u0 = 30.0, 0.1          # Einstein time [days], impact parameter
-alpha = jnp.deg2rad(120.0)  # trajectory angle
+s, q = 1.0, 0.01            # separation and mass ratio (m2/m1)
+rho = 0.02                  # source radius (Einstein units)
+tE, u0 = 30.0, 0.0          # Einstein time [days], impact parameter
+alpha = jnp.deg2rad(10.0)  # trajectory angle
 t0 = 0.0
 
-N = 1000
-t = jnp.linspace(-2*tE + t0, 2*tE + t0, N)
+N_points = 1000
+t = t0 + jnp.linspace(-2*tE, 2*tE, N_points)
 tau = (t - t0)/tE
 y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
 y2 =  u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
-w = y1 + 1j*y2
+w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
 
 # Extended-source magnification (binary lens)
-mu = magnifications(w, rho, nlenses=2, s=s, q=q)
+mu = mag_binary(w_points, rho, s=s, q=q)
 ```
 
 For point-source magnification, use:
+
+Note: `mag_point_source` runs on CPU (and GPU), so it works without a GPU.
 
 ```python
 from microjax.point_source import mag_point_source
