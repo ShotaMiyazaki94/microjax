@@ -122,7 +122,7 @@ Refer to the [example](example/) directory for code that creates these plots.
 
 - Triple-lens hexadecapole/ghost-image test is not yet implemented: triple-lens calculations fall back to full contour integration everywhere, which can be substantially slower.
 - GPU tests are opt-in and currently targeted at NVIDIA A100. Without an A100 (or `MICROJAX_GPU_TESTS=1`), GPU-marked tests are skipped.
-- For improved numerical stability and agreement across libraries, enable 64-bit precision in JAX (`jax_enable_x64=True`).
+- For numerical stability and agreement across libraries, enable 64-bit precision in JAX (`jax_enable_x64=True`).
 
 ## 📚 References
 * [Miyazaki & Kawahara (in prep.)](): `microjax` paper (expected within 2025!)
