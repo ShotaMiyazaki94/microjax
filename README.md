@@ -121,7 +121,7 @@ Refer to the [example](example/) directory for code that creates these plots.
 ## ⚠️ Known Limitations
 
 - Triple-lens hexadecapole/ghost-image test is not yet implemented: triple-lens calculations fall back to full contour integration everywhere, which can be substantially slower.
-- GPU tests are opt-in and currently targeted at NVIDIA A100. Without an A100 (or `MICROJAX_GPU_TESTS=1`), GPU-marked tests are skipped.
+- GPU tests are opt-in. If `MICROJAX_GPU_TESTS=1` is set and JAX detects a CUDA GPU, tests marked `gpu` run; otherwise they are skipped.
 - For numerical stability and agreement across libraries, enable 64-bit precision in JAX (`jax_enable_x64=True`).
 
 ## 📚 References
@@ -142,14 +142,15 @@ CPU-only tests:
 pytest -q
 ```
 
-GPU-only (A100) tests are opt-in and skipped by default. To run them on an A100 machine:
+GPU-only tests are opt-in and skipped by default. To run them on a CUDA-capable machine:
 
 ```
 export MICROJAX_GPU_TESTS=1
+# optionally: export JAX_PLATFORMS=cuda
 pytest -m gpu -q
 ```
 
-These tests require JAX to detect an NVIDIA A100 (CUDA) device. If not available or the env var is not set, they are skipped.
+These tests require JAX to detect a CUDA device. If not available or the env var is not set, they are skipped.
 
 ## 📜 License
 

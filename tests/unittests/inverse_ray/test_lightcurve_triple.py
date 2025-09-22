@@ -1,7 +1,7 @@
 import numpy as np
 import jax.numpy as jnp
 import pytest
-from tests.utils.gpu import gpu_tests_enabled, has_cuda, is_a100
+from tests.utils.gpu import gpu_tests_enabled, has_cuda
 
 from microjax.inverse_ray.lightcurve import mag_triple
 
@@ -17,8 +17,8 @@ def make_trajectory(u0, tE, t0, alpha, n=24, span=2.0):
 
 @pytest.mark.gpu
 def test_triple_shapes_and_finiteness():
-    if not (gpu_tests_enabled() and has_cuda() and is_a100()):
-        pytest.skip("GPU/A100 not available or MICROJAX_GPU_TESTS not enabled")
+    if not (gpu_tests_enabled() and has_cuda()):
+        pytest.skip("CUDA GPU not available or MICROJAX_GPU_TESTS not enabled")
     s, q, q3 = 0.9, 0.2, 0.1
     rho = 0.01
     alpha = jnp.deg2rad(20.0)

@@ -19,11 +19,4 @@ def has_cuda() -> bool:
         return False
 
 
-def is_a100() -> bool:
-    if not has_cuda():
-        return False
-    try:
-        return any("A100" in d.device_kind for d in jax.devices("cuda"))
-    except Exception:
-        return False
-
+## Deprecated: A100-specific checks have been removed. Any CUDA GPU is acceptable.

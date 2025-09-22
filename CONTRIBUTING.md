@@ -17,29 +17,30 @@ We adopt a simple git-flow model, consisting of master, develop, contributor-def
 
 ### CPU vs GPU tests
 
-The test suite includes both CPU-only tests and GPU-only tests for inverse_ray functionality. GPU tests are designed for NVIDIA A100 and are skipped by default.
+The test suite includes both CPU-only tests and GPU-only tests for inverse_ray functionality. GPU tests are opt-in and require a CUDA-capable GPU.
 
 - CPU tests: simply run `pytest -q`.
-- GPU tests (A100 only): set an env var and select the marker:
+- GPU tests: set an env var and select the marker:
 
 ```
 export MICROJAX_GPU_TESTS=1
+# optionally: export JAX_PLATFORMS=cuda
 pytest -m gpu -q
 ```
 
-The GPU tests will run only if:
+The GPU tests run only if:
 - `MICROJAX_GPU_TESTS=1` is set, and
-- JAX detects a CUDA device whose `device_kind` contains `A100`.
+- JAX detects a CUDA device.
 
-### A100 CI runner setup (self-hosted)
+### CUDA CI runner setup (self-hosted)
 
-If you want to run GPU tests in CI, set up a self-hosted GitHub Actions runner on an A100 machine and label it, e.g., `self-hosted, gpu, a100`. An example workflow is provided in `.github/workflows/gpu-tests.yml`.
+If you want to run GPU tests in CI, set up a self-hosted GitHub Actions runner on a CUDA-capable machine and label it, e.g., `self-hosted, gpu`. An example workflow is provided in `.github/workflows/gpu-tests.yml`.
 
 Checklist for the runner machine:
-- Install NVIDIA drivers and CUDA compatible with your JAX build.
-- Install JAX with CUDA support and verify `python -c "import jax; print(jax.devices('cuda'))"` lists an A100 device.
+- Install NVIDIA drivers and a CUDA toolkit compatible with your JAX build.
+- Install JAX with CUDA support and verify `python -c "import jax; print(jax.devices('cuda'))"` lists at least one CUDA device.
 - Optional dependencies (if used in tests): `VBBinaryLensing`, `VBMicrolensing`, `astropy`.
-- Ensure environment variables are set for CI job:
+- Ensure environment variables are set for the CI job:
   - `MICROJAX_GPU_TESTS=1`
   - `JAX_PLATFORMS=cuda`
 

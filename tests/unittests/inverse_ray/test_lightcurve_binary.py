@@ -4,7 +4,7 @@ os.environ.setdefault("JAX_PLATFORMS", "cpu")
 import numpy as np
 import jax.numpy as jnp
 import pytest
-from tests.utils.gpu import gpu_tests_enabled, has_cuda, is_a100
+from tests.utils.gpu import gpu_tests_enabled, has_cuda
 
 from microjax.point_source import _images_point_source
 from microjax.multipole import _mag_hexadecapole
@@ -59,8 +59,8 @@ def test_far_field_uses_multipole_matches_internal():
 )
 @pytest.mark.gpu
 def test_binary_lightcurve_matches_vbbl(s, q, u0, tE, rho, alpha):
-    if not (gpu_tests_enabled() and has_cuda() and is_a100()):
-        pytest.skip("GPU/A100 not available or MICROJAX_GPU_TESTS not enabled")
+    if not (gpu_tests_enabled() and has_cuda()):
+        pytest.skip("CUDA GPU not available or MICROJAX_GPU_TESTS not enabled")
     VB = pytest.importorskip("VBBinaryLensing")
     VBBL = VB.VBBinaryLensing()
     VBBL.a1 = 0.0
