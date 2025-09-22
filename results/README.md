@@ -1,1 +1,0 @@
-# CI results directory

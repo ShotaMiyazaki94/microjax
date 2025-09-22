@@ -1,9 +1,11 @@
 build/
 dist/
 dust/
+results/
 *.ipynb_checkpoints/
 *.egg-info/
 __pycache__
+.pytest_cache/
 .DS_Store
 src/microjax/_legacy/
 tests/integrate

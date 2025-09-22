@@ -29,6 +29,7 @@ jobs:
 
       - name: Run Pytest and generate JUnit report
         run: |
+          mkdir -p results
           pytest tests/unittests --junit-xml=results/pytest.xml
         continue-on-error: true
 
