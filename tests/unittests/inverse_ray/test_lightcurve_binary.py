@@ -1,17 +1,16 @@
 import os
-os.environ.setdefault("JAX_PLATFORMS", "cpu")
 
 import numpy as np
 import jax.numpy as jnp
 import pytest
-from tests.utils.gpu import gpu_tests_enabled, has_cuda
+from tests.utils.gpu import has_cuda
 
 from microjax.point_source import _images_point_source
 from microjax.multipole import _mag_hexadecapole
 from microjax.inverse_ray.lightcurve import mag_binary
 
 
-def make_trajectory(u0, tE, t0, alpha, n=32, span=3.0):
+def make_trajectory(u0, tE, t0, alpha, n=100, span=3.0):
     t = t0 + jnp.linspace(-span * tE, span * tE, n)
     tau = (t - t0) / tE
     y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
@@ -37,15 +36,15 @@ def test_far_field_uses_multipole_matches_internal():
         rho,
         s=s,
         q=q,
-        r_resolution=64,
-        th_resolution=64,
-        Nlimb=64,
-        bins_r=16,
-        bins_th=32,
+        r_resolution=1000,
+        th_resolution=1000,
+        Nlimb=500,
+        bins_r=120,
+        bins_th=360,
         margin_r=0.5,
         margin_th=0.5,
         MAX_FULL_CALLS=0,
-        chunk_size=16,
+        chunk_size=500,
     )
     # With MAX_FULL_CALLS=0, all points should use multipole path
     assert np.allclose(np.array(mags), np.array(mu_multi), rtol=1e-6, atol=1e-8)
@@ -59,8 +58,8 @@ def test_far_field_uses_multipole_matches_internal():
 )
 @pytest.mark.gpu
 def test_binary_lightcurve_matches_vbbl(s, q, u0, tE, rho, alpha):
-    if not (gpu_tests_enabled() and has_cuda()):
-        pytest.skip("CUDA GPU not available or MICROJAX_GPU_TESTS not enabled")
+    if not has_cuda():
+        pytest.skip("CUDA GPU not available")
     VB = pytest.importorskip("VBBinaryLensing")
     VBBL = VB.VBBinaryLensing()
     VBBL.a1 = 0.0
@@ -77,15 +76,15 @@ def test_binary_lightcurve_matches_vbbl(s, q, u0, tE, rho, alpha):
         rho,
         s=s,
         q=q,
-        r_resolution=128,
-        th_resolution=128,
-        Nlimb=128,
-        bins_r=24,
-        bins_th=48,
+        r_resolution=1000,
+        th_resolution=1000,
+        Nlimb=500,
+        bins_r=120,
+        bins_th=360,
         margin_r=0.5,
         margin_th=0.5,
-        MAX_FULL_CALLS=200,
-        chunk_size=25,
+        MAX_FULL_CALLS=1000,
+        chunk_size=500,
     )
 
     diff = np.array(mags) - np.array(mag_vb)

@@ -20,17 +20,14 @@ We adopt a simple git-flow model, consisting of master, develop, contributor-def
 The test suite includes both CPU-only tests and GPU-only tests for inverse_ray functionality. GPU tests are opt-in and require a CUDA-capable GPU.
 
 - CPU tests: simply run `pytest -q`.
-- GPU tests: set an env var and select the marker:
+- GPU tests: select the marker:
 
 ```
-export MICROJAX_GPU_TESTS=1
 # optionally: export JAX_PLATFORMS=cuda
 pytest -m gpu -q
 ```
 
-The GPU tests run only if:
-- `MICROJAX_GPU_TESTS=1` is set, and
-- JAX detects a CUDA device.
+The GPU tests run only if JAX detects a CUDA device.
 
 ### CUDA CI runner setup (self-hosted)
 
@@ -40,8 +37,7 @@ Checklist for the runner machine:
 - Install NVIDIA drivers and a CUDA toolkit compatible with your JAX build.
 - Install JAX with CUDA support and verify `python -c "import jax; print(jax.devices('cuda'))"` lists at least one CUDA device.
 - Optional dependencies (if used in tests): `VBBinaryLensing`, `VBMicrolensing`, `astropy`.
-- Ensure environment variables are set for the CI job:
-  - `MICROJAX_GPU_TESTS=1`
+- Ensure environment variables are set for the CI job (optional but recommended):
   - `JAX_PLATFORMS=cuda`
 
 With the runner online, you can trigger the provided workflow manually or on a schedule. The workflow runs only tests marked `gpu`.

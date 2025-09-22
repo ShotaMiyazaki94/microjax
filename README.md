@@ -116,6 +116,8 @@ mu_point = mag_point_source(w_points, nlenses=2, s=s, q=q)
 
 Refer to the [example](example/) directory for code that creates these plots.
 
+Note: The triple-lens Jacobian example is computationally intensive. On CPU it can be impractically slow; a CUDA-capable GPU with JAX is strongly recommended.
+
 ---
 
 ## ⚠️ Known Limitations
@@ -145,12 +147,11 @@ pytest -q
 GPU-only tests are opt-in and skipped by default. To run them on a CUDA-capable machine:
 
 ```
-export MICROJAX_GPU_TESTS=1
 # optionally: export JAX_PLATFORMS=cuda
 pytest -m gpu -q
 ```
 
-These tests require JAX to detect a CUDA device. If not available or the env var is not set, they are skipped.
+These tests require JAX to detect a CUDA device. If not available, they are skipped.
 
 ## 📜 License
 

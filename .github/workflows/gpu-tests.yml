@@ -10,7 +10,6 @@ jobs:
     # Requires a self-hosted runner with a CUDA-capable GPU
     runs-on: [self-hosted, gpu]
     env:
-      MICROJAX_GPU_TESTS: "1"
       JAX_PLATFORMS: "cuda"
 
     steps:

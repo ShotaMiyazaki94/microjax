@@ -1,8 +1,25 @@
+"""
+Triple‑lens magnification + full Jacobian example.
+
+Note:
+- This script is computationally heavy. On CPU it can take an impractically
+  long time (orders of magnitude slower). A CUDA‑capable GPU with JAX is
+  strongly recommended (e.g., set `JAX_PLATFORMS=cuda`).
+"""
+
 import numpy as np
 import jax.numpy as jnp
 from jax import jit, jacfwd, jacrev 
 import jax
 jax.config.update("jax_enable_x64", True)
+
+# Warn if running without CUDA (CPU run may be extremely slow)
+try:
+    if not jax.devices("cuda"):
+        print("[Warning] No CUDA device detected by JAX.\n"
+              "          This example may be impractically slow on CPU.")
+except Exception:
+    pass
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
