@@ -20,7 +20,7 @@ Highlights
 
 Quick peek
 ----------
-Note: `mag_binary` also works on CPU but is very slow.
+Note: ``mag_binary`` also works on CPU but is very slow.
 
 .. code-block:: python
   
