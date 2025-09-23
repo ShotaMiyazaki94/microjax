@@ -83,7 +83,7 @@
 <h1>microJAX<a class="headerlink" href="#microjax" title="Permalink to this heading"></a></h1>
 <p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax">microJAX</a> is a GPU-aware,
 auto-differentiable microlensing toolkit built on top of JAX.
-The library combines a GPU-optimized image-centered inverse-ray
+The library combines GPU-optimized image-centered inverse-ray
 shooting method and JAX-enabled XLA-acceralation to deliver fast and accurate
 magnifications and gradients for binary and triple lens systems.</p>
 <section id="highlights">
@@ -92,9 +92,9 @@ magnifications and gradients for binary and triple lens systems.</p>
 <li><p><strong>Accelerated finite sources</strong> – image-centered ray shooting (ICRS)
 with CUDA-ready batching.</p></li>
 <li><p><strong>Differentiable everywhere</strong> – gradients flow through polynomial solvers
-and ICRS for use in HMC/VI workflows.</p></li>
-<li><p><strong>Trajectory utilities</strong> – helpers for parallax, limb darkening, and custom
-source motion.</p></li>
+and ICRS for use in optimization and inference (e.g. HMC/VI) workflows.</p></li>
+<li><p><strong>Other Utilities</strong> – helpers for higher-order microlensing effects
+like orbital parallax, limb darkening, custom source motion, and more.</p></li>
 <li><p><strong>Composable likelihoods</strong> – analytic marginalisation utilities for inference.</p></li>
 </ul>
 </section>
