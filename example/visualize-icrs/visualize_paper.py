@@ -98,4 +98,4 @@ ax.set_title(rf"$N_{{\rm limb}} = {Nlimb:d}$, $N_r={r_resolution:d}$, $N_\theta=
 ax.set_xlabel("$x$ [$R_{\\rm E}$]")
 ax.set_ylabel("$y$ [$R_{\\rm E}$]")
 plt.savefig("example/visualize-icrs/visualize_example.png", bbox_inches="tight", dpi=300)
-plt.show()
+plt.close()

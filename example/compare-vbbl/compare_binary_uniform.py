@@ -8,19 +8,20 @@ jax.config.update("jax_enable_x64", True)
 
 q = 0.05
 s = 1.0
-alpha = jnp.deg2rad(10.0)
+alpha = jnp.deg2rad(45.0)
 tE = 30.0
 t0 = 0.0
 u0 = 0.0
-rho = 0.02
+rho = 0.03
 nlenses = 2
 
 a = 0.5 * s
 e1 = q / (1.0 + q)
 _params = {"a": a, "e1": e1}
 x_cm = a * (1.0 - q) / (1.0 + q)
-num_points = 2000
-t = jnp.linspace(-tE, tE, num_points)
+
+num_points = 1000
+t = jnp.linspace(-0.5*tE, 0.5*tE, num_points)
 tau = (t - t0) / tE
 y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
 y2 =  u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
@@ -29,7 +30,7 @@ w_points = (y1 + 1j * y2).astype(jnp.complex128)
 chunk_size = 500 
 Nlimb = 500
 r_resolution = 500
-th_resolution = 1000
+th_resolution = 500
 bins_r = 50
 bins_th = 120
 margin_r = 1.0
@@ -137,7 +138,7 @@ circles = [plt.Circle((xi,yi), radius=rho, fill=False, facecolor=None, ec="blue"
 c = mpl.collections.PatchCollection(circles, match_original=True, alpha=0.5)
 ax_in.add_collection(c)
 ax_in.set_aspect(1)
-ax_in.set(xlim=(-1., 1.2), ylim=(-1.0, 1.))
+ax_in.set(xlim=(-0.5, 0.5), ylim=(-0.5, 0.5))
 ax_in.plot(-q/(1+q) * s, 0 , ".",c="k")
 ax_in.plot((1.0)/(1+q) * s, 0 ,".",c="k")
 

@@ -74,7 +74,7 @@ def get_mag(params):
     magnifications = chunked_vmap(mag_mj, w_points, chunk_size=50)
     return w_points, magnifications
 
-if(1):
+if(0):
     import time
     params = jnp.array([t0, tE, u0, q, s, alpha, rho, q3, jnp.abs(r3_complex), psi])
     get_mag(params)
@@ -169,5 +169,5 @@ for i, l in enumerate(labels):
 axes[-1].set_xlabel('Time (day)')
 
 plt.tight_layout()
-plt.savefig("example/triple-lens-jacobian/full_jacobian_plot.png", dpi=300)
-plt.show()
+plt.savefig("example/triple-lens-jacobian/full_jacobian_plot.png", dpi=300, bbox_inches='tight')
+plt.close()
