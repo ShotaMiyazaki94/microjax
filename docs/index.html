@@ -81,16 +81,16 @@
   <section id="welcome-to-microjax-s-documentation">
 <h1>Welcome to microJAX’s documentation!<a class="headerlink" href="#welcome-to-microjax-s-documentation" title="Permalink to this heading"></a></h1>
 <p><code class="docutils literal notranslate"><span class="pre">microJAX</span></code> is a GPU-aware, auto-differentiable microlensing toolkit built on
-top of JAX.  The library combines fast multipole approximations with adaptive
-inverse-ray contour integration to deliver accurate magnifications and
-gradients for binary and triple lens systems.</p>
+top of JAX.  The library combines a GPU-optimized image-centered inverse-ray
+shooting method and JAX-enabled XLA-acceralation to deliver fast and accurate
+magnifications and gradients for binary and triple lens systems.</p>
 <section id="highlights">
 <h2>Highlights<a class="headerlink" href="#highlights" title="Permalink to this heading"></a></h2>
 <ul class="simple">
-<li><p><strong>Accelerated finite sources</strong> – image-centred ray shooting with CUDA-ready
-batching.</p></li>
-<li><p><strong>Differentiable everywhere</strong> – gradients flow through polynomial solvers and
-contour integrators for use in HMC/VI workflows.</p></li>
+<li><p><strong>Accelerated finite sources</strong> – image-centred inverse-ray shooting (ICRS)
+with CUDA-ready batching.</p></li>
+<li><p><strong>Differentiable everywhere</strong> – gradients flow through polynomial solvers
+and ICIRS for use in HMC/VI workflows.</p></li>
 <li><p><strong>Trajectory utilities</strong> – helpers for parallax, limb darkening, and custom
 source motion.</p></li>
 <li><p><strong>Composable likelihoods</strong> – analytic marginalisation utilities for fast
@@ -102,13 +102,23 @@ photometric inference.</p></li>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray.lightcurve</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_binary</span>
-
 <span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 
-<span class="n">t</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mi">512</span><span class="p">)</span>
-<span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">t</span> <span class="o">/</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># toy trajectory on the complex plane</span>
-
-<span class="n">mags</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span>
+<span class="c1"># Binary-lens parameters</span>
+<span class="n">s</span><span class="p">,</span> <span class="n">q</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.01</span>            <span class="c1"># separation and mass ratio (m2/m1)</span>
+<span class="n">rho</span> <span class="o">=</span> <span class="mf">0.02</span>                  <span class="c1"># source radius (Einstein units)</span>
+<span class="n">tE</span><span class="p">,</span> <span class="n">u0</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span> <span class="mf">0.0</span>          <span class="c1"># Einstein time [days], impact parameter</span>
+<span class="n">alpha</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">10.0</span><span class="p">)</span>   <span class="c1"># trajectory angle in radian</span>
+<span class="n">t0</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="c1"># Source trajectory</span>
+<span class="n">N_points</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">t0</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="o">*</span><span class="n">tE</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">tE</span><span class="p">,</span> <span class="n">N_points</span><span class="p">)</span>
+<span class="n">tau</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span><span class="o">/</span><span class="n">tE</span>
+<span class="n">y1</span> <span class="o">=</span> <span class="o">-</span><span class="n">u0</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+<span class="n">y2</span> <span class="o">=</span>  <span class="n">u0</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+<span class="n">w_points</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y1</span> <span class="o">+</span> <span class="n">y2</span> <span class="o">*</span> <span class="mi">1</span><span class="n">j</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+<span class="c1"># Extended-source magnification (binary lens)</span>
+<span class="n">mags</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Use the sections below to install the package, explore worked examples, and dig

@@ -2,17 +2,17 @@ Welcome to microJAX's documentation!
 ====================================
 
 ``microJAX`` is a GPU-aware, auto-differentiable microlensing toolkit built on
-top of JAX.  The library combines fast multipole approximations with adaptive
-inverse-ray contour integration to deliver accurate magnifications and
-gradients for binary and triple lens systems.
+top of JAX.  The library combines a GPU-optimized image-centered inverse-ray 
+shooting method and JAX-enabled XLA-acceralation to deliver fast and accurate 
+magnifications and gradients for binary and triple lens systems.
 
 Highlights
 ----------
 
-- **Accelerated finite sources** – image-centred ray shooting with CUDA-ready
-  batching.
-- **Differentiable everywhere** – gradients flow through polynomial solvers and
-  contour integrators for use in HMC/VI workflows.
+- **Accelerated finite sources** – image-centred inverse-ray shooting (ICRS) 
+  with CUDA-ready batching.
+- **Differentiable everywhere** – gradients flow through polynomial solvers 
+  and ICIRS for use in HMC/VI workflows.
 - **Trajectory utilities** – helpers for parallax, limb darkening, and custom
   source motion.
 - **Composable likelihoods** – analytic marginalisation utilities for fast
@@ -22,17 +22,28 @@ Quick peek
 ----------
 
 .. code-block:: python
+  
+  import jax
+  import jax.numpy as jnp
+  from microjax.inverse_ray.lightcurve import mag_binary
+  jax.config.update("jax_enable_x64", True)
 
-   import jax
-   import jax.numpy as jnp
-   from microjax.inverse_ray.lightcurve import mag_binary
-
-   jax.config.update("jax_enable_x64", True)
-
-   t = jnp.linspace(-2.0, 2.0, 512)
-   w = jnp.exp(1j * jnp.pi * t / 4)  # toy trajectory on the complex plane
-
-   mags = mag_binary(w, rho=0.01, s=1.0, q=0.001)
+  # Binary-lens parameters
+  s, q = 1.0, 0.01            # separation and mass ratio (m2/m1)
+  rho = 0.02                  # source radius (Einstein units)
+  tE, u0 = 30.0, 0.0          # Einstein time [days], impact parameter
+  alpha = jnp.deg2rad(10.0)   # trajectory angle in radian
+  t0 = 0.0
+  # Source trajectory
+  N_points = 1000
+  t = t0 + jnp.linspace(-2*tE, 2*tE, N_points)
+  tau = (t - t0)/tE
+  y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
+  y2 =  u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
+  w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
+  # Extended-source magnification (binary lens)
+  mags = mag_binary(w_points, rho, s=s, q=q)
+  
 
 Use the sections below to install the package, explore worked examples, and dig
 into the API.
