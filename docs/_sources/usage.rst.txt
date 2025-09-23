@@ -1,36 +1,98 @@
 Usage Guide
 ===========
 
-This chapter presents common workflows, from point-source magnifications to
-adaptive finite-source light curves and gradient-based inference.  All examples
-assume ``import jax``, ``import jax.numpy as jnp``, and
-``jax.config.update("jax_enable_x64", True)`` have already been executed.
+This chapter walks through the most common workflows in microJAX and explains
+what each knob does.  The goal is to provide copy-and-pasteable snippets along
+with the context required to adapt them to your own microlensing problem.
+
+Common setup
+------------
+
+Start every session by enabling 64-bit mode and importing the building blocks
+you intend to use.  Keeping everything in one place makes it easier to reuse the
+same configuration across notebooks or scripts::
+
+   import jax
+   import jax.numpy as jnp
+
+   from microjax.point_source import mag_point_source
+   from microjax.inverse_ray.lightcurve import mag_binary, mag_triple
+
+   jax.config.update("jax_enable_x64", True)  # stabilises the polynomial solver
+
+The snippets below assume this cell has already been run.  If you restart your
+Python session, rerun it before continuing.
 
 Point-source magnification
 --------------------------
 
-``mag_point_source`` handles 1–3 lens configurations.  Provide complex source
-coordinates and the relevant lens parameters::
+Use ``mag_point_source`` when the source can be treated as infinitesimally small
+and you need fast magnifications for one to three lenses.
 
-   from microjax.point_source import mag_point_source
+Step-by-step
+~~~~~~~~~~~~
 
-   w = jnp.array([0.0 + 0.1j, 0.05 + 0.05j])
+1. Assemble the complex source coordinates.  The real part is the x-position,
+   the imaginary part is the y-position in Einstein radii.
+2. Specify the lens configuration via ``nlenses`` and the associated parameters.
+3. Call ``mag_point_source``; the function broadcasts across any leading axes of
+   ``w`` so batches are handled automatically.
+
+Example::
+
+   w = jnp.array([
+       0.00 + 0.10j,
+       0.05 + 0.05j,
+       -0.10 + 0.02j,
+   ])
+
    mu = mag_point_source(w, nlenses=2, s=1.0, q=0.01)
 
-For triple lenses add ``q3``, ``r3`` and ``psi``.  Outputs broadcast across
-leading axes so you can supply batches of trajectories in one call.
+   print("Magnification per sample:", mu)
+
+``nlenses=3`` introduces a third body.  Provide the additional keywords ``q3``
+(mass ratio of lens 3 to lens 1), ``r3`` (distance between lens 1 and 3), and
+``psi`` (position angle of lens 3, in radians).  All other keyword arguments are
+fully broadcastable and can be supplied as arrays if you want to sweep over a
+grid of lens parameters.
+
+.. list-table:: Common ``mag_point_source`` parameters
+   :header-rows: 1
+
+   * - Parameter
+     - Meaning
+     - Typical range
+   * - ``s``
+     - Lens separation in Einstein radii
+     - 0.5–3.0 for planetary lenses
+   * - ``q``
+     - Secondary-to-primary mass ratio
+     - 1e-4–1 for binary lenses
+   * - ``q3`` / ``r3`` / ``psi``
+     - Third-body configuration (only for triples)
+     - Chosen per system
 
 Finite-source binary lenses
 ---------------------------
 
-The adaptive light-curve solver switches between the hexadecapole approximation
-and full inverse-ray integrations as needed::
+``mag_binary`` computes finite-source light curves by combining a fast
+hexadecapole approximation with full inverse-ray integrations when required.
+The workflow is a little longer because you must supply a trajectory for the
+source.
 
-   from microjax.inverse_ray.lightcurve import mag_binary
+1. Build the trajectory
+~~~~~~~~~~~~~~~~~~~~~~~
 
-   s, q = 0.95, 5e-4
-   rho = 0.01
-   tE, u0, alpha, t0 = 40.0, 0.05, jnp.deg2rad(60.0), 0.0
+The helper below constructs a standard rectilinear trajectory.  Feel free to
+replace it with your own sampler if you need orbital motion or parallax.
+
+.. code-block:: python
+
+   tE = 40.0                      # Einstein time (days)
+   u0 = 0.05                      # impact parameter
+   alpha = jnp.deg2rad(60.0)      # trajectory angle in radians
+   t0 = 0.0                       # time of closest approach
+   rho = 0.01                     # source radius in Einstein units
 
    t = t0 + jnp.linspace(-2 * tE, 2 * tE, 1024)
    tau = (t - t0) / tE
@@ -38,74 +100,128 @@ and full inverse-ray integrations as needed::
    y2 =  u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
    w = jnp.array(y1 + 1j * y2, dtype=complex)
 
+2. Evaluate the magnification
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Call ``mag_binary`` with the trajectory, source radius, and lens parameters.  To
+start, stick with the defaults for the optional arguments and only adjust them
+if you hit performance limits.
+
+.. code-block:: python
+
+   s = 0.95                       # projected separation
+   q = 5e-4                       # mass ratio (m2/m1)
+
    mags = mag_binary(
        w,
        rho,
        s=s,
        q=q,
-       MAX_FULL_CALLS=200,
+       MAX_FULL_CALLS=200,        # budget for contour integrations
    )
 
-Key knobs:
+``mag_binary`` returns magnifications aligned with the input trajectory.  If you
+need fluxes, multiply by the intrinsic source flux and add blends or baselines
+as appropriate.
 
-- ``r_resolution`` / ``th_resolution`` – radial grid resolution (default 768).
-- ``Nlimb`` – limb-darkening table size (default 400).
-- ``chunk_size`` – batch size for contour integrations (default 128).
+Fine-tuning parameters
+~~~~~~~~~~~~~~~~~~~~~~
 
-Reduce these values on memory-constrained devices; increasing
-``MAX_FULL_CALLS`` spends more time on contour integrations when needed.
+- ``r_resolution`` / ``th_resolution`` control the radial and angular grid used
+  by the inverse-ray solver.  Defaults (768) balance accuracy and memory usage.
+- ``Nlimb`` sets the number of points in the limb-darkening lookup table.  Lower
+  it (e.g. 256) if you run on memory-constrained GPUs.
+- ``chunk_size`` dictates how many points are processed per device launch.
+  Shrink it when working with long trajectories or lower-end GPUs.
+- ``MAX_FULL_CALLS`` caps how many samples fall back to contour integration.  A
+  higher value yields more accurate peaks at the cost of runtime.
+
+.. note::
+
+   If you see oscillations near caustics, increase ``MAX_FULL_CALLS`` and, if
+   memory allows, raise ``r_resolution``/``th_resolution`` in tandem.
 
 Triple lenses
 -------------
 
-``mag_triple`` mirrors the binary API and accepts the same trajectory ``w`` and
-source size ``rho`` while adding third-body parameters::
+Triple-lens finite-source calculations are handled by ``mag_triple``.  The
+inputs mirror the binary API, but you must describe the third body explicitly.
 
-   from microjax.inverse_ray.lightcurve import mag_triple
+.. code-block:: python
 
-   mags = mag_triple(
+   mags_triple = mag_triple(
        w,
        rho,
-       s=1.1,
+       s=1.10,
        q=0.02,
-       q3=0.5,
-       r3=0.6,
+       q3=0.50,
+       r3=0.60,
        psi=jnp.deg2rad(210.0),
        MAX_FULL_CALLS=400,
    )
 
-As with binaries, raise ``MAX_FULL_CALLS`` or shrink ``chunk_size`` for complex
-caustic structures.
+Guidelines:
+
+- Start with the same trajectory used for the binary case; only the lens system
+  changes.
+- Triple lenses often have more intricate caustics.  Expect to raise
+  ``MAX_FULL_CALLS`` and possibly lower ``chunk_size`` to avoid excessive memory
+  pressure.
+- ``psi`` is measured counter-clockwise from the lens 1–2 axis.
 
 Autodiff and ``jit``
 --------------------
 
-All magnification routines support reverse- and forward-mode AD.  Compile once
-with ``jax.jit`` and differentiate the compiled callable::
+All magnification routines are differentiable.  Wrapping them in ``jax.jit``
+gives you compiled performance, and ``jax.grad`` / ``jax.jacrev`` provide
+derivatives for inference.
+
+.. code-block:: python
 
    from functools import partial
-   from jax import grad, jit
+   from jax import grad, jacrev, jit
 
-   def loglike(q):
+   data_flux = jnp.load("example_lightcurve.npy")
+
+   def forward_model(q):
        mags = mag_binary(w, rho, s=s, q=q)
-       model_flux = mags * 1.0  # toy example
-       return -0.5 * jnp.sum((model_flux - data_flux) ** 2)
+       return mags  # replace with instrument model if needed
 
-   loglike_jit = jit(loglike)
-   dloglike_dq = grad(loglike_jit)(q)
+   forward_jit = jit(forward_model)
+
+   def neg_log_like(q):
+       model = forward_jit(q)
+       resid = model - data_flux
+       return 0.5 * jnp.sum(resid ** 2)
+
+   g = grad(neg_log_like)(q)
+   J = jacrev(forward_jit)(q)
+
+``jacrev`` is especially useful when fitting multiple parameters simultaneously
+or when propagating uncertainties through a light-curve model.
 
 Trajectory helpers
 ------------------
 
-The :mod:`microjax.trajectory.parallax` module offers building blocks for
-annual-parallax trajectories.  Combine them with custom sampling strategies to
-avoid missing peak magnification intervals.
+For trajectories beyond straight lines, the :mod:`microjax.trajectory` package
+provides composable pieces:
+
+- :mod:`microjax.trajectory.parallax` – annual parallax terms.
+- :mod:`microjax.trajectory.keplerian` – Keplerian binary motion (work in
+  progress; check docstrings for up-to-date status).
+- :mod:`microjax.trajectory.utils` – utilities for resampling and interpolation.
+
+These components return arrays compatible with the ``w`` input used above, so
+you can drop them into ``mag_binary`` / ``mag_triple`` without further changes.
 
 Best practices
 --------------
 
-- Enable 64-bit mode for production runs.
-- Batch trajectories to keep GPUs fully utilised.
-- Cache compilation by reusing ``jit``-compiled callables for repeated runs.
-- Use :mod:`microjax.likelihood` to marginalise over flux parameters instead of
-  fitting them manually.
+- Keep 64-bit mode enabled for production runs; it significantly improves the
+  stability of implicit differentiation through the polynomial solver.
+- Batch trajectories by stacking them along a leading dimension and rely on JAX
+  broadcasting to evaluate many light curves in a single call.
+- Cache compiled callables (e.g. store ``forward_jit``) whenever you sweep over
+  parameters; recompiling for every call erodes the benefit of JIT.
+- Use :mod:`microjax.likelihood` to marginalise nuisance flux parameters instead
+  of fitting them manually—this often reduces sampler autocorrelation.

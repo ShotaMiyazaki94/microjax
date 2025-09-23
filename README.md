@@ -69,9 +69,9 @@ jax.config.update("jax_enable_x64", True)
 
 ## 🚀 Quickstart
 
-Compute an extended-source binary-lens magnification light curve using the image-centered ray shooting (ICRS) method with a hexadecapole fallback:
+Compute an extended-source binary-lens magnification light curve using the image-centered ray shooting (ICRS) method:
 
-Note: `mag_binary` also works on CPU but is very slow; a GPU-enabled JAX runtime (CUDA/ROCm) is strongly recommended.
+Note: `mag_binary` also works on CPU but is very slow.
 
 ```python
 import jax
