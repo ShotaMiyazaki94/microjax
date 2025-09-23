@@ -16,8 +16,7 @@ Highlights
   and ICRS for use in HMC/VI workflows.
 - **Trajectory utilities** – helpers for parallax, limb darkening, and custom
   source motion.
-- **Composable likelihoods** – analytic marginalisation utilities for fast
-  photometric inference.
+- **Composable likelihoods** – analytic marginalisation utilities for inference.
 
 Quick peek
 ----------
