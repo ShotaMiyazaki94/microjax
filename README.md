@@ -58,13 +58,6 @@ GPU support: JAX/JAXLIB with CUDA/ROCm depends on your environment. Please follo
 
 - JAX installation (CPU/GPU): https://jax.readthedocs.io/en/latest/installation.html
 
-Tip: for numerical robustness we recommend enabling 64-bit in JAX:
-
-```python
-import jax
-jax.config.update("jax_enable_x64", True)
-```
-
 ---
 
 ## 🚀 Quickstart
