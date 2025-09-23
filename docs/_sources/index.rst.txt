@@ -34,6 +34,7 @@ Quick peek
   tE, u0 = 30.0, 0.0          # Einstein time [days], impact parameter
   alpha = jnp.deg2rad(10.0)   # trajectory angle in radian
   t0 = 0.0
+  
   # Source trajectory
   N_points = 1000
   t = t0 + jnp.linspace(-2*tE, 2*tE, N_points)
@@ -41,6 +42,7 @@ Quick peek
   y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
   y2 =  u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
   w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
+  
   # Extended-source magnification (binary lens)
   mags = mag_binary(w_points, rho, s=s, q=q)
   
