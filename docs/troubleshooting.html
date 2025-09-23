@@ -20,7 +20,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Concepts &amp; Architecture" href="concepts.html" />
+    <link rel="next" title="API Reference" href="modules.html" />
     <link rel="prev" title="Usage Guide" href="usage.html" /> 
 </head>
 
@@ -52,11 +52,6 @@
 <li class="toctree-l2"><a class="reference internal" href="#still-stuck">Still stuck?</a></li>
 </ul>
 </li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Internals &amp; Contribution</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; Architecture</a></li>
-<li class="toctree-l1"><a class="reference internal" href="development.html">Development</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
@@ -105,10 +100,15 @@ or ROCm equivalents).</p></li>
 <section id="mag-binary-is-slow-or-runs-out-of-memory">
 <h2>mag_binary is slow or runs out of memory<a class="headerlink" href="#mag-binary-is-slow-or-runs-out-of-memory" title="Permalink to this heading"></a></h2>
 <ul class="simple">
-<li><p>Reduce <code class="docutils literal notranslate"><span class="pre">r_resolution</span></code>/<code class="docutils literal notranslate"><span class="pre">th_resolution</span></code> and the limb-darkening table size
-<code class="docutils literal notranslate"><span class="pre">Nlimb</span></code>.  Start with 512×512 and scale up only if accuracy requires it.</p></li>
-<li><p>Increase <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> so that more samples are processed per device launch.</p></li>
-<li><p>Decrease <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> if the adaptive trigger upgrades too many points.</p></li>
+<li><p>Trim the inverse-ray grid via <code class="docutils literal notranslate"><span class="pre">r_resolution</span></code> / <code class="docutils literal notranslate"><span class="pre">th_resolution</span></code> when you
+do not need the default 1000×1000 sampling; smaller grids cut both runtime and
+memory pressure.  Increase them only when accuracy demands it.</p></li>
+<li><p>Adjust <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> to fit your device.  Lower values avoid out-of-memory
+crashes; raise it gradually if the GPU remains underutilised.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> to cap how many samples fall back to the full
+image-centred ray shooting routine.  Lowering it keeps runtimes bounded, but
+expect a trade-off in accuracy if many points revert to the hexadecapole
+approximation.</p></li>
 </ul>
 </section>
 <section id="gradient-computations-stall">
@@ -123,8 +123,9 @@ shortens trace lengths and avoids repeated recompilations.</p></li>
 <section id="import-errors-for-optional-dependencies">
 <h2>Import errors for optional dependencies<a class="headerlink" href="#import-errors-for-optional-dependencies" title="Permalink to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">microJAX</span></code> only depends on JAX and NumPy at runtime, but some examples pull in
-<code class="docutils literal notranslate"><span class="pre">matplotlib</span></code> or <code class="docutils literal notranslate"><span class="pre">seaborn</span></code>.  Install extras with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">microjaxx[plot]</span></code>
-(or install the packages manually) if you intend to run the demo scripts.</p>
+<code class="docutils literal notranslate"><span class="pre">matplotlib</span></code> or <code class="docutils literal notranslate"><span class="pre">seaborn</span></code>.  Install the plotting stack you need manually—for
+example <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">matplotlib</span> <span class="pre">seaborn</span></code>—before running the demo
+scripts.</p>
 </section>
 <section id="still-stuck">
 <h2>Still stuck?<a class="headerlink" href="#still-stuck" title="Permalink to this heading"></a></h2>
@@ -143,7 +144,7 @@ shortens trace lengths and avoids repeated recompilations.</p></li>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="usage.html" class="btn btn-neutral float-left" title="Usage Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="concepts.html" class="btn btn-neutral float-right" title="Concepts &amp; Architecture" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="modules.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

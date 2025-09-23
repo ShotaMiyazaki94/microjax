@@ -18,10 +18,15 @@ JAX cannot see my GPU
 mag_binary is slow or runs out of memory
 ----------------------------------------
 
-- Reduce ``r_resolution``/``th_resolution`` and the limb-darkening table size
-  ``Nlimb``.  Start with 512×512 and scale up only if accuracy requires it.
-- Increase ``chunk_size`` so that more samples are processed per device launch.
-- Decrease ``MAX_FULL_CALLS`` if the adaptive trigger upgrades too many points.
+- Trim the inverse-ray grid via ``r_resolution`` / ``th_resolution`` when you
+  do not need the default 1000×1000 sampling; smaller grids cut both runtime and
+  memory pressure.  Increase them only when accuracy demands it.
+- Adjust ``chunk_size`` to fit your device.  Lower values avoid out-of-memory
+  crashes; raise it gradually if the GPU remains underutilised.
+- Use ``MAX_FULL_CALLS`` to cap how many samples fall back to the full
+  image-centred ray shooting routine.  Lowering it keeps runtimes bounded, but
+  expect a trade-off in accuracy if many points revert to the hexadecapole
+  approximation.
 
 Gradient computations stall
 ---------------------------
@@ -35,8 +40,9 @@ Import errors for optional dependencies
 ---------------------------------------
 
 ``microJAX`` only depends on JAX and NumPy at runtime, but some examples pull in
-``matplotlib`` or ``seaborn``.  Install extras with ``pip install microjaxx[plot]``
-(or install the packages manually) if you intend to run the demo scripts.
+``matplotlib`` or ``seaborn``.  Install the plotting stack you need manually—for
+example ``python -m pip install matplotlib seaborn``—before running the demo
+scripts.
 
 Still stuck?
 ------------
