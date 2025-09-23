@@ -1,23 +1,24 @@
 """Adaptive light-curve computation combining multipole and inverse-ray solvers.
 
-This module mixes the fast hexadecapole approximation with selective inverse-ray
+This module couples the hexadecapole approximation with selective inverse-ray
 finite-source integrations to deliver accurate binary- and triple-lens light
-curves while keeping GPU/CPU cost manageable.  The key routines exported here
+curves while keeping GPU/CPU cost manageable. The key routines exported here
 are :func:`mag_binary` and :func:`mag_triple`.
 
 Design highlights
 -----------------
 
-- **Fast-first evaluation**: start from the hexadecapole estimate everywhere
-  and upgrade only the samples that fail accuracy heuristics.
+- **Hexadecapole-first evaluation**: start from the multipole estimate and
+  upgrade only samples that fail the accuracy heuristics.
 - **Hybrid triggers**: combine caustic-proximity and planetary-caustic tests to
   decide when a full inverse-ray solve is required.
-- **Chunked batching**: evaluate expensive inverse-ray calls in configurable
-  chunks to balance memory usage and accelerator occupancy.
-- **Limb-darkening aware**: switch seamlessly between uniform and linear
-  limb-darkened profiles by toggling the ``u1`` parameter.
+- **Chunked batching**: evaluate inverse-ray calls in configurable chunks to
+  balance memory usage and accelerator occupancy.
+- **Limb-darkening aware**: support both uniform and linear limb-darkened
+  profiles through the ``u1`` parameter.
 - **Shared infrastructure**: binary and triple lenses reuse the same chunking
-  and integration utilities, so configuration knobs behave consistently.
+  and integration utilities, so configuration parameters have consistent
+  effects.
 
 Workflow outline
 ----------------
@@ -77,40 +78,36 @@ def mag_binary(
     chunk_size: int = 100,
     **params,
 ) -> Array:
-    """Binary-lens finite-source magnification with adaptive inverse-ray fallback.
+    """Binary-lens finite-source magnification with adaptive inverse-ray refinement.
 
-    The routine expects a 1-D complex trajectory ``w_points`` (Einstein-radius
-    units). Internally it (i) derives the centre-of-mass shift from the supplied
-    separation ``s`` and mass ratio ``q`` and recentres ``w_points``; (ii)
-    evaluates the point-source images with
-    :func:`microjax.point_source._images_point_source` and the corresponding
-    hexadecapole estimate ``mu_multi`` via
-    :func:`microjax.multipole.mag_hexadecapole`; and (iii) applies
-    :func:`microjax.inverse_ray.cond_extended._caustics_proximity_test`—and, for
-    ``q < 0.01``, the additional
-    :func:`microjax.inverse_ray.cond_extended._planetary_caustic_test`—to form a
-    boolean mask ``test`` where ``True`` means the multipole value is trusted.
-    The indices are sorted so that ``False`` entries precede ``True`` ones, up to
-    ``MAX_FULL_CALLS`` of those ``False`` entries are recomputed using
-    :func:`microjax.inverse_ray.extended_source.mag_uniform` (``u1 == 0``) or
-    :func:`microjax.inverse_ray.extended_source.mag_limb_dark`, and the selected
-    samples are spliced back into ``mu_multi``. Any remaining ``False`` entries
-    beyond the ``MAX_FULL_CALLS`` budget stay on the hexadecapole baseline.
+    The input trajectory ``w_points`` is interpreted as one-dimensional complex
+    positions in the source plane (Einstein-radius units). The function recentres
+    these coordinates on the binary centre of mass defined by the supplied
+    separation ``s`` and mass ratio ``q``, evaluates point-source images via
+    :func:`microjax.point_source._images_point_source`, and obtains the
+    hexadecapole approximation with :func:`microjax.multipole.mag_hexadecapole`.
+    The accuracy tests in :mod:`microjax.inverse_ray.cond_extended` provide a
+    boolean mask ``test`` that marks positions where the multipole solution is
+    sufficient. Up to ``MAX_FULL_CALLS`` entries failing the tests are reordered
+    to the front of the array and recomputed with
+    :func:`microjax.inverse_ray.extended_source.mag_uniform` when ``u1 = 0`` or
+    :func:`microjax.inverse_ray.extended_source.mag_limb_dark` otherwise. Entries
+    beyond this budget retain the hexadecapole magnification.
 
     Parameters
     ----------
     w_points : Array
         One-dimensional complex ``jax.Array`` of source-plane coordinates
-        (``x + 1j*y``) sampled along the trajectory. The returned
-        magnifications track this ordering element by element.
+        (``x + 1j*y``) sampled along the trajectory. The returned magnification
+        array preserves the same ordering.
     rho : float
         Angular source radius in Einstein units.
     r_resolution : int, optional
         Number of uniformly spaced radial samples per polar cell used by the
-        inverse-ray integrator (``>= 2``).
+        inverse-ray integrator.
     th_resolution : int, optional
         Number of uniformly spaced angular samples per polar cell used by the
-        inverse-ray integrator (``>= 2``).
+        inverse-ray integrator.
     u1 : float, optional
         Linear limb-darkening coefficient. Use ``0`` for a uniform surface
         brightness.
@@ -123,7 +120,7 @@ def mag_binary(
         region construction.
     bins_r : int, optional
         Number of histogram bins used when clustering limb radii into polar
-        subregions (higher values capture finer radial structure).
+        subregions; larger values resolve smaller radial features.
     bins_th : int, optional
         Number of histogram bins used when clustering limb angles into polar
         subregions.
@@ -133,10 +130,10 @@ def mag_binary(
         Angular margin applied to each subregion, expressed in degrees (converted
         to radians internally).
     MAX_FULL_CALLS : int, optional
-        Maximum number of samples replaced by the inverse-ray finite-source
-        solver. Set to ``0`` to disable the fallback.
+        Maximum number of points replaced by the inverse-ray finite-source
+        solver. Setting ``MAX_FULL_CALLS = 0`` disables the refinement stage.
     chunk_size : int, optional
-        Number of upgraded samples evaluated per :func:`jax.vmap` batch when the
+        Number of refined points evaluated per :func:`jax.vmap` batch when the
         inverse-ray solver is invoked.
     **params
         Lens-configuration keywords forwarded to the point-source and
@@ -151,15 +148,13 @@ def mag_binary(
 
     Notes
     -----
-    - ``test`` is ``True`` where the multipole answer is accepted; the indices of
-      ``False`` entries are ordered so those positions are considered for an
-      upgrade first.
-    - ``MAX_FULL_CALLS`` limits the number of inverse-ray evaluations; set it to
-      ``0`` to obtain a pure hexadecapole light curve.
-    - Source positions are processed in the lens centre-of-mass frame
-      internally, but the public API consumes unshifted coordinates.
-    - Results are produced lazily under JAX; call ``mags.block_until_ready()`` if
-      immediate synchronisation is required.
+    - ``test`` is ``True`` where the multipole solution is accepted; indices with
+      ``False`` are ordered first and considered for refinement in that order.
+    - ``MAX_FULL_CALLS = 0`` produces a purely hexadecapole light curve.
+    - Source positions are shifted internally to the lens centre-of-mass frame,
+      while the public interface accepts unshifted coordinates.
+    - Results are evaluated lazily by JAX; call ``mags.block_until_ready()`` to
+      enforce synchronisation when required.
     """
     s = params.get("s", None)
     q = params.get("q", None)
@@ -173,7 +168,7 @@ def mag_binary(
     x_cm = a * (1.0 - q) / (1.0 + q)
     w_points_shifted = w_points - x_cm
 
-    # test whether inverse-ray shooting needed or not. test==False means needed.
+    # Boolean mask: False indicates that an inverse-ray evaluation is required.
     z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, a=a, e1=e1)
     mu_multi, delta_mu_multi = mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
     test1 = _caustics_proximity_test(w_points_shifted, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params)
@@ -240,32 +235,31 @@ def mag_triple(
 ) -> Array:
     """Triple-lens magnification with a multipole baseline and limited refinement.
 
-    The control flow mirrors :func:`mag_binary`: ``w_points`` is shifted to the
-    binary centre of mass implied by ``s`` and ``q``, point-source images and a
-    hexadecapole baseline are evaluated with ``nlenses=3``, and selected samples
-    can be upgraded with the finite-source solver. A dedicated caustic trigger
-    for triple lenses is not yet available, so ``test`` is ``False`` everywhere.
-    Consequently ``jnp.argsort(test)`` produces the canonical ordering
-    ``[0, 1, ..., N-1]`` and the first ``MAX_FULL_CALLS`` samples in that order
-    are recomputed using :func:`microjax.inverse_ray.extended_source.mag_uniform`
-    (``u1 == 0``) or
-    :func:`microjax.inverse_ray.extended_source.mag_limb_dark`. The remaining
-    samples retain the hexadecapole magnification.
+    The procedure is analogous to :func:`mag_binary`. The trajectory is shifted
+    to the centre of mass implied by ``s`` and ``q``, point-source images are
+    evaluated with ``nlenses = 3``, and the hexadecapole approximation provides
+    the baseline magnification. Because specialised accuracy tests for triple
+    lenses are not yet available, the boolean mask ``test`` is ``False`` at all
+    entries. Consequently ``jnp.argsort(test)`` produces the original ordering
+    and the first ``MAX_FULL_CALLS`` elements are recomputed with
+    :func:`microjax.inverse_ray.extended_source.mag_uniform` for ``u1 = 0`` or
+    :func:`microjax.inverse_ray.extended_source.mag_limb_dark`` otherwise. The
+    remaining points retain their hexadecapole magnifications.
 
     Parameters
     ----------
     w_points : Array
         One-dimensional complex ``jax.Array`` of source-plane coordinates
-        (``x + 1j*y``) sampled along the trajectory. The returned magnifications
-        track this ordering element by element.
+        (``x + 1j*y``) sampled along the trajectory. The returned magnification
+        array preserves the same ordering.
     rho : float
         Angular source radius in Einstein units.
     r_resolution : int, optional
         Number of uniformly spaced radial samples per polar cell used by the
-        inverse-ray integrator (``>= 2``).
+        inverse-ray integrator.
     th_resolution : int, optional
         Number of uniformly spaced angular samples per polar cell used by the
-        inverse-ray integrator (``>= 2``).
+        inverse-ray integrator.
     u1 : float, optional
         Linear limb-darkening coefficient. Use ``0`` for a uniform surface
         brightness.
@@ -278,7 +272,7 @@ def mag_triple(
         region construction.
     bins_r : int, optional
         Number of histogram bins used when clustering limb radii into polar
-        subregions (higher values capture finer radial structure).
+        subregions; larger values resolve smaller radial features.
     bins_th : int, optional
         Number of histogram bins used when clustering limb angles into polar
         subregions.
@@ -288,10 +282,11 @@ def mag_triple(
         Angular margin applied to each subregion, expressed in degrees (converted
         to radians internally).
     MAX_FULL_CALLS : int, optional
-        Maximum number of samples replaced by the inverse-ray finite-source
-        solver. Set to ``0`` to stay on the hexadecapole baseline.
+        Maximum number of points replaced by the inverse-ray finite-source
+        solver. Setting ``MAX_FULL_CALLS = 0`` leaves the hexadecapole baseline
+        unchanged.
     chunk_size : int, optional
-        Number of upgraded samples evaluated per :func:`jax.vmap` batch when the
+        Number of refined points evaluated per :func:`jax.vmap` batch when the
         inverse-ray solver is invoked.
     **params
         Triple-lens configuration keywords forwarded to the low-level solvers.
@@ -312,15 +307,15 @@ def mag_triple(
       ``s`` and ``q`` before invoking
       :func:`microjax.point_source._images_point_source`; the public API uses
       unshifted coordinates.
-    - Because ``test`` is all ``False``, the upgrade set degenerates to the
-      leading ``min(MAX_FULL_CALLS, w_points.size)`` samples. Increase
-      ``MAX_FULL_CALLS`` if more triple-lens samples need the finite-source
-      treatment.
+    - Because the ``test`` mask evaluates to ``False`` for every position, the
+      refinement stage processes the leading
+      ``min(MAX_FULL_CALLS, w_points.size)`` entries. Increasing
+      ``MAX_FULL_CALLS`` expands this subset.
     - ``u1`` selects between
       :func:`microjax.inverse_ray.extended_source.mag_uniform` (``u1 == 0``) and
       :func:`microjax.inverse_ray.extended_source.mag_limb_dark`.
-    - ``chunk_size`` controls how many upgraded samples each :func:`jax.vmap`
-      invocation processes.
+    - ``chunk_size`` specifies the number of refined points handled by each
+      :func:`jax.vmap` invocation.
     """
     nlenses = 3
     s, q, q3 = params["s"], params["q"], params["q3"]
