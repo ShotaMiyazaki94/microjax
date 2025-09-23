@@ -1,4 +1,4 @@
-Welcome to microJAX's documentation!
+microJAX
 ====================================
 
 `microJAX <https://github.com/ShotaMiyazaki94/microjax>`_ is a GPU-aware, 
@@ -84,3 +84,14 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+References 
+---------------------
+
+
+License & Attribution
+---------------------
+
+Copyright 2025, Contributors
+- `Shota Miyazaki <https://sites.google.com/view/shotamiyazaki/english>`_ (@ShotaMiyazaki94, maintainer)
+- `Hajime Kawahara <http://secondearths.sakura.ne.jp/en/index.html>`_ (@HajimeKawahara, co-maintainer)
