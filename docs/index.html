@@ -80,8 +80,9 @@
              
   <section id="welcome-to-microjax-s-documentation">
 <h1>Welcome to microJAX’s documentation!<a class="headerlink" href="#welcome-to-microjax-s-documentation" title="Permalink to this heading"></a></h1>
-<p><code class="docutils literal notranslate"><span class="pre">microJAX</span></code> is a GPU-aware, auto-differentiable microlensing toolkit built on
-top of JAX.  The library combines a GPU-optimized image-centered inverse-ray
+<p><cite>microJAX &lt;https://github.com/ShotaMiyazaki94/microjax&gt;</cite> is a GPU-aware,
+auto-differentiable microlensing toolkit built on top of JAX.
+The library combines a GPU-optimized image-centered inverse-ray
 shooting method and JAX-enabled XLA-acceralation to deliver fast and accurate
 magnifications and gradients for binary and triple lens systems.</p>
 <section id="highlights">
@@ -101,7 +102,9 @@ photometric inference.</p></li>
 <h2>Quick peek<a class="headerlink" href="#quick-peek" title="Permalink to this heading"></a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray.lightcurve</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_binary</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">critical_and_caustic_curves</span>
 <span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 
 <span class="c1"># Binary-lens parameters</span>
@@ -113,14 +116,18 @@ photometric inference.</p></li>
 
 <span class="c1"># Source trajectory</span>
 <span class="n">N_points</span> <span class="o">=</span> <span class="mi">1000</span>
-<span class="n">t</span> <span class="o">=</span> <span class="n">t0</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="o">*</span><span class="n">tE</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">tE</span><span class="p">,</span> <span class="n">N_points</span><span class="p">)</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">t0</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">tE</span><span class="p">,</span> <span class="n">tE</span><span class="p">,</span> <span class="n">N_points</span><span class="p">)</span>
 <span class="n">tau</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span><span class="o">/</span><span class="n">tE</span>
 <span class="n">y1</span> <span class="o">=</span> <span class="o">-</span><span class="n">u0</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
 <span class="n">y2</span> <span class="o">=</span>  <span class="n">u0</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
 <span class="n">w_points</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y1</span> <span class="o">+</span> <span class="n">y2</span> <span class="o">*</span> <span class="mi">1</span><span class="n">j</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
 
-<span class="c1"># Extended-source magnification (binary lens)</span>
-<span class="n">mags</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
+<span class="c1"># Point-source and Extended-source magnifications (binary lens)</span>
+<span class="n">mag_p</span>   <span class="o">=</span> <span class="n">mag_point_source</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">mag_ext</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
+
+<span class="c1"># Critical and caustic curves</span>
+<span class="n">crit</span><span class="p">,</span> <span class="n">cau</span> <span class="o">=</span> <span class="n">critical_and_caustic_curves</span><span class="p">(</span><span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">npts</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Use the sections below to install the package, explore worked examples, and dig
