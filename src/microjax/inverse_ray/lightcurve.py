@@ -1,8 +1,38 @@
-"""Adaptive lightcurve computation mixing multipole and inverse-ray methods.
+"""Adaptive light-curve computation combining multipole and inverse-ray solvers.
 
-This module computes microlensing lightcurves by defaulting to the fast
-hexadecapole approximation and selectively invoking the full inverse-ray
-finite-source integration near caustics or when required by accuracy tests.
+This module mixes the fast hexadecapole approximation with selective inverse-ray
+finite-source integrations to deliver accurate binary- and triple-lens light
+curves while keeping GPU/CPU cost manageable.  The key routines exported here
+are :func:`mag_binary` and :func:`mag_triple`.
+
+Design highlights
+-----------------
+
+- **Fast-first evaluation**: start from the hexadecapole estimate everywhere
+  and upgrade only the samples that fail accuracy heuristics.
+- **Hybrid triggers**: combine caustic-proximity and planetary-caustic tests to
+  decide when a full inverse-ray solve is required.
+- **Chunked batching**: evaluate expensive inverse-ray calls in configurable
+  chunks to balance memory usage and accelerator occupancy.
+- **Limb-darkening aware**: switch seamlessly between uniform and linear
+  limb-darkened profiles by toggling the ``u1`` parameter.
+- **Shared infrastructure**: binary and triple lenses reuse the same chunking
+  and integration utilities, so configuration knobs behave consistently.
+
+Workflow outline
+----------------
+
+1. Build a complex source-plane trajectory ``w_points``.
+2. Call :func:`mag_binary` or :func:`mag_triple` with lens parameters and
+   integration settings.
+3. Feed the returned magnifications into downstream likelihoods (see
+   :mod:`microjax.likelihood`).
+
+References
+----------
+
+- Miyazaki & Kawahara (in prep.) — description of the adaptive microJAX
+  solver stack (forthcoming).
 """
 
 from functools import partial
@@ -41,11 +71,60 @@ def mag_binary(
     chunk_size: int = 100,
     **params,
 ) -> Array:
-    """Binary-lens lightcurve with adaptive full-solve selection.
+    """Compute a binary-lens light curve with adaptive inverse-ray fallback.
 
-    Parameters follow the underlying inverse-ray integrators. The selection
-    uses a proximity test to caustics plus planetary-caustic checks for small
-    mass ratios. Returns magnifications per input time/position.
+    The routine evaluates the fast hexadecapole approximation everywhere and
+    selectively replaces samples with full inverse-ray finite-source results
+    when accuracy tests trigger.  All arguments mirror the lower-level
+    integrators in :mod:`microjax.inverse_ray.extended_source`.
+
+    Parameters
+    ----------
+    w_points : Array
+        Complex array of source-plane coordinates (``x + 1j*y``) along the
+        trajectory.  The trailing shape is preserved in the output.
+    rho : float
+        Angular source radius in Einstein units.
+    r_resolution : int, optional
+        Number of radial quadrature panels for the inverse-ray solver.
+    th_resolution : int, optional
+        Number of azimuthal panels for the inverse-ray solver.
+    u1 : float, optional
+        Linear limb-darkening coefficient. Set to ``0`` for a uniform source.
+    delta_c : float, optional
+        Radial contraction factor used by the limb-darkened integrator.
+    Nlimb : int, optional
+        Number of rings in the limb-darkening interpolation table.
+    bins_r : int, optional
+        Radial bin count for the polar mesh acceleration structure.
+    bins_th : int, optional
+        Azimuthal bin count for the polar mesh acceleration structure.
+    margin_r : float, optional
+        Additional margin (in source radii) added to the radial domain.
+    margin_th : float, optional
+        Additional margin (in radians) added to the azimuthal domain.
+    MAX_FULL_CALLS : int, optional
+        Maximum number of samples upgraded to the full inverse-ray solve.
+    chunk_size : int, optional
+        Batch size fed to ``vmap`` during inverse-ray evaluation.
+    **params
+        Lens configuration parameters.  ``s`` (separation) and ``q`` (mass
+        ratio) are required, and any additional keyword arguments are forwarded
+        to the integrators.
+
+    Returns
+    -------
+    Array
+        Magnification values with the same shape as ``w_points``.
+
+    Notes
+    -----
+    The adaptive trigger combines a caustic proximity test with an additional
+    planetary-caustic guard for very small mass ratios.  When a trigger fires,
+    the corresponding sample is recomputed with :func:`mag_uniform` or
+    :func:`mag_limb_dark`, depending on ``u1``.  The returned array is lazily
+    evaluated; call ``.block_until_ready()`` if you need synchronisation in a
+    JAX-asynchronous context.
     """
     s = params.get("s", None)
     q = params.get("q", None)
@@ -124,7 +203,58 @@ def mag_triple(
     chunk_size: int = 50,
     **params,
 ) -> Array:
-    """Triple-lens lightcurve with adaptive full-solve selection."""
+    """Compute a triple-lens light curve with optional inverse-ray fallback.
+
+    The structure mirrors :func:`mag_binary`, but the trigger logic currently
+    upgrades only the first ``MAX_FULL_CALLS`` samples (the caustic tests have
+    not yet been specialised for triple lenses).
+
+    Parameters
+    ----------
+    w_points : Array
+        Complex array of source-plane coordinates (``x + 1j*y``).
+    rho : float
+        Angular source radius in Einstein units.
+    r_resolution : int, optional
+        Number of radial quadrature panels for the inverse-ray solver.
+    th_resolution : int, optional
+        Number of azimuthal panels for the inverse-ray solver.
+    u1 : float, optional
+        Linear limb-darkening coefficient (``0`` selects a uniform source).
+    delta_c : float, optional
+        Radial contraction factor for the limb-darkened integrator.
+    Nlimb : int, optional
+        Number of rings in the limb-darkening interpolation table.
+    bins_r : int, optional
+        Radial bin count for the polar mesh acceleration structure.
+    bins_th : int, optional
+        Azimuthal bin count for the polar mesh acceleration structure.
+    margin_r : float, optional
+        Additional radial margin (in source radii) for the integration domain.
+    margin_th : float, optional
+        Additional azimuthal margin (in radians) for the integration domain.
+    MAX_FULL_CALLS : int, optional
+        Maximum number of samples that receive the inverse-ray upgrade.
+    chunk_size : int, optional
+        Batch size fed to ``vmap`` during inverse-ray evaluation.
+    **params
+        Triple-lens configuration parameters.  ``s``, ``q``, ``q3``, ``r3`` and
+        ``psi`` must be supplied; any additional keyword arguments are forwarded
+        to the integrators.
+
+    Returns
+    -------
+    Array
+        Magnification values with the same shape as ``w_points``.
+
+    Notes
+    -----
+    The method always evaluates the hexadecapole approximation and patches in
+    full inverse-ray results for the selected samples using
+    :func:`mag_uniform` or :func:`mag_limb_dark` depending on ``u1``.  Triple
+    lenses near cusps or resonant caustics may need higher ``MAX_FULL_CALLS``
+    to reach convergence.
+    """
     nlenses = 3
     s, q, q3 = params["s"], params["q"], params["q3"]
     a = 0.5 * s
