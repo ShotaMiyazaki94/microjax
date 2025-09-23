@@ -12,8 +12,9 @@ alpha = jnp.deg2rad(10.0)
 tE = 30.0
 t0 = 0.0
 u0 = 0.0
-rho = 0.06
+rho = 0.02
 nlenses = 2
+
 a = 0.5 * s
 e1 = q / (1.0 + q)
 _params = {"a": a, "e1": e1}
@@ -64,7 +65,7 @@ def scan_mag_mj(w_points):
     _, out = lax.scan(body, None, w_points)
     return out
 
-def mag_vbbl_(w0, rho, u1=0.0, accuracy=1e-4):
+def mag_vbbl_(w0, rho, u1=0.0, accuracy=5e-4):
     a = 0.5 * s
     e1 = 1.0 / (1.0 + q)
     e2 = 1.0 - e1
@@ -110,3 +111,54 @@ if(0):
     mag_scan = scan_mag_mj(w_points).block_until_ready()
     end = time.time()
     print("computation time: %.3f sec (%.3f ms per points) for lax.scan in microjax"%(end-start, 1000*(end - start)/num_points))
+
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+import matplotlib.ticker as ticker
+
+critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=100, s=s, q=q)
+
+fig, ax_ = plt.subplots(2,1,figsize=(8,6), sharex=True, gridspec_kw=dict(hspace=0.1, height_ratios=[4,1]))
+ax  = ax_[0]
+ax1 = ax_[1]
+ax_in = inset_axes(ax,
+    width="60%", height="60%", 
+    bbox_transform=ax.transAxes,
+    bbox_to_anchor=(0.35, 0.35, 0.6, 0.6)
+)
+ax_in.set_aspect(1)
+ax_in.set(xlabel="$\mathrm{Re}(w)$", ylabel="$\mathrm{Im}(w)$")
+for cc in caustic_curves:
+    ax_in.plot(cc.real, cc.imag, color='red', lw=0.7)
+circles = [plt.Circle((xi,yi), radius=rho, fill=False, facecolor=None, ec="blue", zorder=2) 
+            for xi, yi in zip(w_points.real, w_points.imag)
+            ]
+c = mpl.collections.PatchCollection(circles, match_original=True, alpha=0.5)
+ax_in.add_collection(c)
+ax_in.set_aspect(1)
+ax_in.set(xlim=(-1., 1.2), ylim=(-1.0, 1.))
+ax_in.plot(-q/(1+q) * s, 0 , ".",c="k")
+ax_in.plot((1.0)/(1+q) * s, 0 ,".",c="k")
+
+ax.plot(t, mag_jax, ".", label="microjax", zorder=1)
+ax.plot(t, mag_VB, "-", label="VBBinaryLensing", zorder=2)
+ylim = ax.get_ylim()
+ax.set_title("Uniform source, rho=%.3f, s=%.2f, q=%.3f"%(rho, s, q))
+ax.grid(ls=":")
+ax.set_ylabel("magnification")
+#ax.plot(t, mags_poi, "--", label="point_source", zorder=-1, color="gray")
+#ax.plot(t, mu_multi, ":", label="hexadecapole", zorder=-2, color="orange")
+ax.set_ylim(ylim[0], ylim[1])
+ax1.plot(t, jnp.abs(mag_jax - mag_VB)/mag_VB, "-", ms=1)
+ax1.grid(ls=":")
+ax1.set_yticks(10**jnp.arange(-4, -2, 1))
+ax1.set_ylabel("relative diff")
+ax1.set_yscale("log")
+ax1.yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=[1.0, 10**-2, 10**-4, 10**-6], numticks=10))
+ax1.set_ylim(1e-6, 1e-2)
+ax.legend(loc="upper left")
+ax1.set_xlabel("time (days)")
+fig.savefig("example/compare-vbbl/compare_binary_uniform.png", dpi=200)
+print("output: example/compare-vbbl/compare_binary_uniform.png")
+plt.close()
