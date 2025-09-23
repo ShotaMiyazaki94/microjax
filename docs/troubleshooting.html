@@ -100,6 +100,7 @@ or ROCm equivalents).</p></li>
 <section id="mag-binary-is-slow-or-runs-out-of-memory">
 <h2>mag_binary is slow or runs out of memory<a class="headerlink" href="#mag-binary-is-slow-or-runs-out-of-memory" title="Permalink to this heading"></a></h2>
 <ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> also works on CPU but is very slow.</p></li>
 <li><p>Trim the inverse-ray grid via <code class="docutils literal notranslate"><span class="pre">r_resolution</span></code> / <code class="docutils literal notranslate"><span class="pre">th_resolution</span></code> when you
 do not need the default 1000×1000 sampling; smaller grids cut both runtime and
 memory pressure.  Increase them only when accuracy demands it.</p></li>

@@ -18,6 +18,7 @@ JAX cannot see my GPU
 mag_binary is slow or runs out of memory
 ----------------------------------------
 
+- ``mag_binary`` also works on CPU but is very slow.
 - Trim the inverse-ray grid via ``r_resolution`` / ``th_resolution`` when you
   do not need the default 1000×1000 sampling; smaller grids cut both runtime and
   memory pressure.  Increase them only when accuracy demands it.
