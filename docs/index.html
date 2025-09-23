@@ -19,7 +19,8 @@
         <script src="_static/sphinx_highlight.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Getting Started" href="getting_started.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -37,12 +38,17 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <!-- Local TOC -->
-              <div class="local-toc"><ul>
-<li><a class="reference internal" href="#">Welcome to microJAX’s documentation!</a></li>
-<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development</a></li>
 </ul>
-</div>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
+</ul>
+
         </div>
       </div>
     </nav>
@@ -69,7 +75,53 @@
              
   <section id="welcome-to-microjax-s-documentation">
 <h1>Welcome to microJAX’s documentation!<a class="headerlink" href="#welcome-to-microjax-s-documentation" title="Permalink to this heading"></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">microJAX</span></code> is an auto-differentiable microlensing toolkit built on top of
+JAX. The library provides point-source and finite-source magnification models,
+fast contour integration, and utilities for trajectory generation and
+inference-ready likelihoods.</p>
+<p>Use this documentation as a companion to the project README: the guide sections
+walk through installation and common workflows, while the API reference links
+to detailed, auto-generated documentation for the public modules.</p>
 <div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#first-checks">First checks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#next-steps">Next steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#point-source-magnification">Point-source magnification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#extended-source-light-curves">Extended-source light curves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#trajectory-helpers">Trajectory helpers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#tips">Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="development.html#test-suite">Test suite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html#documentation">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html#coding-style">Coding style</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html#where-to-ask-questions">Where to ask questions</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/point_source.html">Point Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/multipole.html">Multipole</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/poly_solver.html">Polynomial Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/utils.html">Utility Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/likelihood.html">Likelihood Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/trajectory.html">Trajectories</a></li>
+</ul>
+</li>
+</ul>
 </div>
 </section>
 <section id="indices-and-tables">
@@ -84,7 +136,9 @@
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="getting_started.html" class="btn btn-neutral float-right" title="Getting Started" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Point Source &mdash; microJAX  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Multipole" href="multipole.html" />
+    <link rel="prev" title="API Reference" href="../modules.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> microJAX
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Point Source</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#functions">Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#coordinate-conventions">Coordinate conventions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.point_source.critical_and_caustic_curves"><code class="docutils literal notranslate"><span class="pre">critical_and_caustic_curves()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.point_source.lens_eq"><code class="docutils literal notranslate"><span class="pre">lens_eq()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.point_source.lens_eq_det_jac"><code class="docutils literal notranslate"><span class="pre">lens_eq_det_jac()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.point_source.mag_point_source"><code class="docutils literal notranslate"><span class="pre">mag_point_source()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
+<li class="toctree-l2"><a class="reference internal" href="poly_solver.html">Polynomial Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">Utility Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="likelihood.html">Likelihood Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="trajectory.html">Trajectories</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">microJAX</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../modules.html">API Reference</a> &raquo;</li>
+      <li>Point Source</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/point_source.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-microjax.point_source">
+<span id="point-source"></span><h1>Point Source<a class="headerlink" href="#module-microjax.point_source" title="Permalink to this heading"></a></h1>
+<p>Point-source microlensing utilities (JAX).</p>
+<p>This module provides JAX-friendly implementations of core operations for
+point-source gravitational microlensing by up to three point-mass lenses.</p>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">lens_eq</span></code>: complex lens equation mapping image-plane coordinates <code class="docutils literal notranslate"><span class="pre">z</span></code> to
+source-plane coordinates <code class="docutils literal notranslate"><span class="pre">w</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lens_eq_det_jac</span></code>: determinant of the Jacobian of the lens mapping, used to
+compute magnification through <code class="docutils literal notranslate"><span class="pre">|det</span> <span class="pre">J|^{-1}</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">critical_and_caustic_curves</span></code>: critical curves in the image plane and their
+mapped caustics in the source plane.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_images_point_source</span></code>: image positions for given source position(s) by
+solving the corresponding complex polynomial.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_images_point_source_sequential</span></code>: helper that tracks images across a
+sequence of sources by reusing previous roots as initialization.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mag_point_source</span></code>: total point-source magnification (sum over images).</p></li>
+</ul>
+<p>All functions are compatible with <code class="docutils literal notranslate"><span class="pre">jax.jit</span></code> and support batched evaluation
+where appropriate. Complex numbers encode 2D coordinates using the <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">+</span> <span class="pre">i</span> <span class="pre">y</span></code>
+convention.</p>
+</section>
+<section id="coordinate-conventions">
+<h2>Coordinate conventions<a class="headerlink" href="#coordinate-conventions" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Binary/triple lens configurations use the mid-point coordinate system for
+coefficient construction. <code class="docutils literal notranslate"><span class="pre">mag_point_source</span></code> shifts input source-plane
+coordinates to the center of mass when required and handles the inverse shift
+internally.</p></li>
+</ul>
+<p class="rubric">References</p>
+<ul class="simple">
+<li><p>Bartolic, F. <code class="docutils literal notranslate"><span class="pre">caustics</span></code> (MIT License) — original inspiration and some
+coefficient-generation routines, modified here for JAX and extended triple
+lens support.</p></li>
+</ul>
+</section>
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.point_source.critical_and_caustic_curves">
+<span class="sig-prename descclassname"><span class="pre">microjax.point_source.</span></span><span class="sig-name descname"><span class="pre">critical_and_caustic_curves</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">npts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nlenses</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.point_source.critical_and_caustic_curves" title="Permalink to this definition"></a></dt>
+<dd><p>Compute critical curves and mapped caustics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>npts</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of sampling points on the unit circle used to construct the
+critical-curve polynomial. Defaults to 200.</p></li>
+<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (1, 2, or 3). Defaults to 2.</p></li>
+<li><p><strong>params</strong> (<em>dict</em>) – <p>Lens configuration parameters:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">1</span></code>: no additional parameters.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">2</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code> (separation) and <code class="docutils literal notranslate"><span class="pre">q</span></code> (mass ratio <code class="docutils literal notranslate"><span class="pre">m2/m1</span></code>).
+Internally we set <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">=</span> <span class="pre">s</span> <span class="pre">/</span> <span class="pre">2</span></code> and <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">=</span> <span class="pre">q</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">3</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code>, <code class="docutils literal notranslate"><span class="pre">q</span></code>, <code class="docutils literal notranslate"><span class="pre">q3</span></code> (third mass ratio), <code class="docutils literal notranslate"><span class="pre">r3</span></code>
+(radius), <code class="docutils literal notranslate"><span class="pre">psi</span></code> (angle). Internally <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">=</span> <span class="pre">s</span> <span class="pre">/</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">=</span> <span class="pre">q</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span>
+<span class="pre">q</span> <span class="pre">+</span> <span class="pre">q3)</span></code>, <code class="docutils literal notranslate"><span class="pre">e2</span> <span class="pre">=</span> <span class="pre">1</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q</span> <span class="pre">+</span> <span class="pre">q3)</span></code>.</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">(z_cr,</span> <span class="pre">z_ca)</span></code> where <code class="docutils literal notranslate"><span class="pre">z_cr</span></code> contains critical curves and <code class="docutils literal notranslate"><span class="pre">z_ca</span></code>
+the mapped caustics. Both arrays have shape <code class="docutils literal notranslate"><span class="pre">(N_branches,</span> <span class="pre">npts)</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple[jax.Array, jax.Array]</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>For <code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">1</span></code> the critical curve is the unit circle and the caustic
+collapses to the origin.</p></li>
+<li><p>Output is shifted from mid-point to center of mass for consistency with
+the rest of the library.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.point_source.lens_eq">
+<span class="sig-prename descclassname"><span class="pre">microjax.point_source.</span></span><span class="sig-name descname"><span class="pre">lens_eq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nlenses</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.point_source.lens_eq" title="Permalink to this definition"></a></dt>
+<dd><p>Lens equation mapping image-plane <code class="docutils literal notranslate"><span class="pre">z</span></code> to source-plane <code class="docutils literal notranslate"><span class="pre">w</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>z</strong> (<em>jax.Array</em>) – Complex scalar or array of image-plane coordinates.</p></li>
+<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (1, 2, or 3). Defaults to 2.</p></li>
+<li><p><strong>params</strong> (<em>dict</em>) – Lens configuration parameters. For <code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">2</span></code> expect <code class="docutils literal notranslate"><span class="pre">a</span></code> (half
+separation) and <code class="docutils literal notranslate"><span class="pre">e1</span></code> (mass fraction at <code class="docutils literal notranslate"><span class="pre">+a</span></code>). For <code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">3</span></code>
+expect <code class="docutils literal notranslate"><span class="pre">a</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code>, <code class="docutils literal notranslate"><span class="pre">psi</span></code>, <code class="docutils literal notranslate"><span class="pre">e1</span></code> and <code class="docutils literal notranslate"><span class="pre">e2</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Source-plane coordinates with the same shape as <code class="docutils literal notranslate"><span class="pre">z</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>jax.Array</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>All arithmetic is performed in complex form; gradients propagate through
+JAX as expected.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.point_source.lens_eq_det_jac">
+<span class="sig-prename descclassname"><span class="pre">microjax.point_source.</span></span><span class="sig-name descname"><span class="pre">lens_eq_det_jac</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nlenses</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.point_source.lens_eq_det_jac" title="Permalink to this definition"></a></dt>
+<dd><p>Determinant of the Jacobian of the lens mapping at <code class="docutils literal notranslate"><span class="pre">z</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>z</strong> (<em>jax.Array</em>) – Complex scalar or array of image-plane coordinates.</p></li>
+<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (1, 2, or 3). Defaults to 2.</p></li>
+<li><p><strong>params</strong> (<em>dict</em>) – </p></li>
+<li><p><strong>by</strong> (<em>Lens configuration parameters matching those accepted</em>) – <a class="reference internal" href="#microjax.point_source.lens_eq" title="microjax.point_source.lens_eq"><code class="xref py py-func docutils literal notranslate"><span class="pre">lens_eq()</span></code></a>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Real array with the same shape as <code class="docutils literal notranslate"><span class="pre">z</span></code> storing <code class="docutils literal notranslate"><span class="pre">det</span> <span class="pre">J(z)</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>jax.Array</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Point-source magnification is <code class="docutils literal notranslate"><span class="pre">|det</span> <span class="pre">J|^{-1}</span></code> for each image.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.point_source.mag_point_source">
+<span class="sig-prename descclassname"><span class="pre">microjax.point_source.</span></span><span class="sig-name descname"><span class="pre">mag_point_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nlenses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.point_source.mag_point_source" title="Permalink to this definition"></a></dt>
+<dd><p>Total point-source magnification for 1–3 lens configurations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>w</strong> (<em>jax.Array</em>) – Complex scalar or array of source-plane coordinates.</p></li>
+<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (1, 2, or 3). Defaults to 2.</p></li>
+<li><p><strong>params</strong> (<em>dict</em>) – <p>Lens parameters depend on <code class="docutils literal notranslate"><span class="pre">nlenses</span></code>:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">1</span></code>: no additional parameters required.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">2</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code> (separation) and <code class="docutils literal notranslate"><span class="pre">q</span></code> (mass ratio <code class="docutils literal notranslate"><span class="pre">m2/m1</span></code>).
+Internally <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">=</span> <span class="pre">s</span> <span class="pre">/</span> <span class="pre">2</span></code> and <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">=</span> <span class="pre">q</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q)</span></code>; the source is
+shifted to the center of mass for the polynomial construction.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">3</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code>, <code class="docutils literal notranslate"><span class="pre">q</span></code>, <code class="docutils literal notranslate"><span class="pre">q3</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code> and <code class="docutils literal notranslate"><span class="pre">psi</span></code>. Internally
+<code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">=</span> <span class="pre">s</span> <span class="pre">/</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">=</span> <span class="pre">q</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q</span> <span class="pre">+</span> <span class="pre">q3)</span></code>, <code class="docutils literal notranslate"><span class="pre">e2</span> <span class="pre">=</span> <span class="pre">1</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q</span> <span class="pre">+</span> <span class="pre">q3)</span></code>,
+and the same center-of-mass shift is applied.</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Real-valued magnification with the same shape as <code class="docutils literal notranslate"><span class="pre">w</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>jax.Array</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Magnification is computed as the sum of <code class="docutils literal notranslate"><span class="pre">|det</span> <span class="pre">J|^{-1}</span></code> over valid image
+branches returned by <code class="docutils literal notranslate"><span class="pre">_images_point_source</span></code>.</p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../modules.html" class="btn btn-neutral float-left" title="API Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="multipole.html" class="btn btn-neutral float-right" title="Multipole" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

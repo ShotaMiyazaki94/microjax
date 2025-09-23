@@ -1,7 +1,13 @@
-microjax
-========
+API Reference
+=============
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 1
 
-   tests
+   api/point_source
+   api/multipole
+   api/inverse_ray_lightcurve
+   api/poly_solver
+   api/utils
+   api/likelihood
+   api/trajectory

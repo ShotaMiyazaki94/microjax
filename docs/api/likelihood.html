@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Likelihood Utilities &mdash; microJAX  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Trajectories" href="trajectory.html" />
+    <link rel="prev" title="Utility Functions" href="utils.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> microJAX
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="point_source.html">Point Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
+<li class="toctree-l2"><a class="reference internal" href="poly_solver.html">Polynomial Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">Utility Functions</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Likelihood Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.likelihood.linear_chi2"><code class="docutils literal notranslate"><span class="pre">linear_chi2()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.likelihood.nll_ulens"><code class="docutils literal notranslate"><span class="pre">nll_ulens()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.likelihood.nll_ulens_general"><code class="docutils literal notranslate"><span class="pre">nll_ulens_general()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="trajectory.html">Trajectories</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">microJAX</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../modules.html">API Reference</a> &raquo;</li>
+      <li>Likelihood Utilities</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/likelihood.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-microjax.likelihood">
+<span id="likelihood-utilities"></span><h1>Likelihood Utilities<a class="headerlink" href="#module-microjax.likelihood" title="Permalink to this heading"></a></h1>
+<p>Likelihood and simple linear fits for microlensing photometry.</p>
+<p>This module provides small, JAX-friendly utilities to compute weighted linear
+least-squares fits and negative log-likelihoods (NLL) under Gaussian models.
+Two NLL variants are implemented:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">nll_ulens</span></code>: fast path with diagonal observational noise and diagonal
+Gaussian priors on source and blend fluxes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nll_ulens_general</span></code>: full-rank observational covariance and arbitrary
+Gaussian priors (mean and covariance).</p></li>
+</ul>
+<p>All routines operate on <code class="docutils literal notranslate"><span class="pre">jnp.ndarray</span></code> inputs and are differentiable, making
+them suitable for gradient-based optimization or inference.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.likelihood.linear_chi2">
+<span class="sig-prename descclassname"><span class="pre">microjax.likelihood.</span></span><span class="sig-name descname"><span class="pre">linear_chi2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">err</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.likelihood.linear_chi2" title="Permalink to this definition"></a></dt>
+<dd><p>Weighted linear fit <code class="docutils literal notranslate"><span class="pre">y</span> <span class="pre">≈</span> <span class="pre">a</span> <span class="pre">+</span> <span class="pre">b</span> <span class="pre">x</span></code> and chi-squared.</p>
+<p>Performs a closed-form, weighted least-squares fit with independent
+Gaussian errors. If any entry of <code class="docutils literal notranslate"><span class="pre">err</span></code> is 0 (default), that point is
+treated as unweighted with weight 1.0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>,</em><em>)</em>) – Predictor values.</p></li>
+<li><p><strong>y</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>,</em><em>)</em>) – Observed responses.</p></li>
+<li><p><strong>err</strong> (<em>float</em><em> or </em><em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>,</em><em>)</em><em>, </em><em>optional</em>) – Per-point standard deviation. A scalar broadcasts to all points. Zeros
+are replaced by 1.0 in the weights.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>b</strong> (<em>float</em>) – Best-fit slope.</p></li>
+<li><p><strong>be</strong> (<em>float</em>) – Standard error on the slope.</p></li>
+<li><p><strong>a</strong> (<em>float</em>) – Best-fit intercept.</p></li>
+<li><p><strong>ae</strong> (<em>float</em>) – Standard error on the intercept.</p></li>
+<li><p><strong>chi2</strong> (<em>float</em>) – Chi-squared of the fit evaluated at the best-fit parameters.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The solution minimizes <code class="docutils literal notranslate"><span class="pre">sum_i</span> <span class="pre">w_i</span> <span class="pre">(y_i</span> <span class="pre">-</span> <span class="pre">a</span> <span class="pre">-</span> <span class="pre">b</span> <span class="pre">x_i)^2</span></code> with
+<code class="docutils literal notranslate"><span class="pre">w_i</span> <span class="pre">=</span> <span class="pre">1/err_i^2</span></code> when <code class="docutils literal notranslate"><span class="pre">err_i</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> else <code class="docutils literal notranslate"><span class="pre">w_i</span> <span class="pre">=</span> <span class="pre">1</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.likelihood.nll_ulens">
+<span class="sig-prename descclassname"><span class="pre">microjax.likelihood.</span></span><span class="sig-name descname"><span class="pre">nll_ulens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">flux</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_obs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_fb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#microjax.likelihood.nll_ulens" title="Permalink to this definition"></a></dt>
+<dd><p>Negative log-likelihood with diagonal noise and diagonal priors.</p>
+<p>Assumes a linear flux model <code class="docutils literal notranslate"><span class="pre">flux</span> <span class="pre">≈</span> <span class="pre">M</span> <span class="pre">&#64;</span> <span class="pre">[fs,</span> <span class="pre">fb]</span></code> with independent
+observational errors <code class="docutils literal notranslate"><span class="pre">C</span> <span class="pre">=</span> <span class="pre">diag(sigma2_obs)</span></code> and independent Gaussian
+priors on <code class="docutils literal notranslate"><span class="pre">fs</span></code> and <code class="docutils literal notranslate"><span class="pre">fb</span></code> with variances <code class="docutils literal notranslate"><span class="pre">sigma2_fs</span></code> and <code class="docutils literal notranslate"><span class="pre">sigma2_fb</span></code>.
+All integrals over <code class="docutils literal notranslate"><span class="pre">fs,</span> <span class="pre">fb</span></code> are done analytically, yielding the standard
+marginalized Gaussian NLL.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>flux</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>,</em><em>)</em>) – Observed fluxes.</p></li>
+<li><p><strong>M</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>, </em><em>2</em><em>)</em>) – Design matrix with columns <code class="docutils literal notranslate"><span class="pre">[m_fs,</span> <span class="pre">1]</span></code> where <code class="docutils literal notranslate"><span class="pre">m_fs</span></code> is the source
+model term and the constant column captures blend flux.</p></li>
+<li><p><strong>sigma2_obs</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>,</em><em>)</em>) – Observational variances (diagonal of the noise covariance).</p></li>
+<li><p><strong>sigma2_fs</strong> (<em>float</em>) – Prior variance for source flux <code class="docutils literal notranslate"><span class="pre">fs</span></code>.</p></li>
+<li><p><strong>sigma2_fb</strong> (<em>float</em>) – Prior variance for blend flux <code class="docutils literal notranslate"><span class="pre">fb</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>nll</strong> – Negative log-likelihood value.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The expression equals 0.5 * (mahalanobis + log|C| + log|Lambda| + log|A|)
+where <code class="docutils literal notranslate"><span class="pre">A</span> <span class="pre">=</span> <span class="pre">M^T</span> <span class="pre">C^{-1}</span> <span class="pre">M</span> <span class="pre">+</span> <span class="pre">Lambda^{-1}</span></code> and <code class="docutils literal notranslate"><span class="pre">Lambda</span></code> is diagonal with
+entries <code class="docutils literal notranslate"><span class="pre">[sigma2_fs,</span> <span class="pre">sigma2_fb]</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.likelihood.nll_ulens_general">
+<span class="sig-prename descclassname"><span class="pre">microjax.likelihood.</span></span><span class="sig-name descname"><span class="pre">nll_ulens_general</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">flux</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lambda</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#microjax.likelihood.nll_ulens_general" title="Permalink to this definition"></a></dt>
+<dd><p>Negative log-likelihood with full-rank noise and Gaussian priors.</p>
+<p>Generalizes <a class="reference internal" href="#microjax.likelihood.nll_ulens" title="microjax.likelihood.nll_ulens"><code class="xref py py-func docutils literal notranslate"><span class="pre">nll_ulens()</span></code></a> to non-diagonal observational covariance
+<code class="docutils literal notranslate"><span class="pre">C</span></code> and an arbitrary Gaussian prior <code class="docutils literal notranslate"><span class="pre">N(mu,</span> <span class="pre">Lambda)</span></code> over <code class="docutils literal notranslate"><span class="pre">[fs,</span> <span class="pre">fb]</span></code>.
+The result is the marginalized NLL after integrating out the linear
+parameters analytically.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>flux</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>,</em><em>)</em>) – Observed fluxes.</p></li>
+<li><p><strong>M</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>, </em><em>2</em><em>)</em>) – Design matrix mapping <code class="docutils literal notranslate"><span class="pre">[fs,</span> <span class="pre">fb]</span></code> to the model flux.</p></li>
+<li><p><strong>C</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>, </em><em>n</em><em>)</em>) – Observational covariance matrix (symmetric positive definite).</p></li>
+<li><p><strong>mu</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>2</em><em>,</em><em>)</em>) – Prior mean for <code class="docutils literal notranslate"><span class="pre">[fs,</span> <span class="pre">fb]</span></code>.</p></li>
+<li><p><strong>Lambda</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>2</em><em>, </em><em>2</em><em>)</em>) – Prior covariance for <code class="docutils literal notranslate"><span class="pre">[fs,</span> <span class="pre">fb]</span></code> (symmetric positive definite).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>nll</strong> – Negative log-likelihood value.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Defines <code class="docutils literal notranslate"><span class="pre">A</span> <span class="pre">=</span> <span class="pre">Lambda^{-1}</span> <span class="pre">+</span> <span class="pre">M^T</span> <span class="pre">C^{-1}</span> <span class="pre">M</span></code> and posterior mean
+<code class="docutils literal notranslate"><span class="pre">m</span> <span class="pre">=</span> <span class="pre">A^{-1}</span> <span class="pre">M^T</span> <span class="pre">C^{-1}</span> <span class="pre">(flux</span> <span class="pre">-</span> <span class="pre">M</span> <span class="pre">mu)</span></code>. The NLL equals
+<code class="docutils literal notranslate"><span class="pre">0.5</span> <span class="pre">*</span> <span class="pre">(</span> <span class="pre">(flux</span> <span class="pre">-</span> <span class="pre">M</span> <span class="pre">mu)^T</span> <span class="pre">C^{-1}</span> <span class="pre">(flux</span> <span class="pre">-</span> <span class="pre">M</span> <span class="pre">mu)</span> <span class="pre">-</span> <span class="pre">m^T</span> <span class="pre">A</span> <span class="pre">m</span> <span class="pre">+</span> <span class="pre">log|C|</span> <span class="pre">+</span> <span class="pre">log|Lambda|</span> <span class="pre">+</span> <span class="pre">log|A|</span> <span class="pre">)</span></code>.</p>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="utils.html" class="btn btn-neutral float-left" title="Utility Functions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="trajectory.html" class="btn btn-neutral float-right" title="Trajectories" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

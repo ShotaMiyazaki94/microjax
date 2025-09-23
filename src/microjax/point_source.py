@@ -11,32 +11,39 @@
 """Point-source microlensing utilities (JAX).
 
 This module provides JAX-friendly implementations of core operations for
-point-source gravitational microlensing by up to three point-mass lenses:
+point-source gravitational microlensing by up to three point-mass lenses.
 
-- `lens_eq`: complex lens equation mapping image-plane coordinates `z` to
-  source-plane coordinates `w`.
-- `lens_eq_det_jac`: determinant of the Jacobian of the lens mapping, used to
-  compute magnification through `|det J|^{-1}`.
-- `critical_and_caustic_curves`: critical curves in the image plane and their
+Functions
+---------
+
+- ``lens_eq``: complex lens equation mapping image-plane coordinates ``z`` to
+  source-plane coordinates ``w``.
+- ``lens_eq_det_jac``: determinant of the Jacobian of the lens mapping, used to
+  compute magnification through ``|det J|^{-1}``.
+- ``critical_and_caustic_curves``: critical curves in the image plane and their
   mapped caustics in the source plane.
-- `_images_point_source`: image positions for given source position(s) by
+- ``_images_point_source``: image positions for given source position(s) by
   solving the corresponding complex polynomial.
-- `_images_point_source_sequential`: helper that tracks images across a
-  sequence of sources by reusing the previous roots as initialization.
-- `mag_point_source`: total point-source magnification (sum over images).
+- ``_images_point_source_sequential``: helper that tracks images across a
+  sequence of sources by reusing previous roots as initialization.
+- ``mag_point_source``: total point-source magnification (sum over images).
 
-All functions are written to be compatible with `jax.jit` and vectorized
-evaluation over batches of input where appropriate. Complex numbers encode 2D
-coordinates with `x + i y` convention.
+All functions are compatible with ``jax.jit`` and support batched evaluation
+where appropriate. Complex numbers encode 2D coordinates using the ``x + i y``
+convention.
 
 Coordinate conventions
+----------------------
+
 - Binary/triple lens configurations use the mid-point coordinate system for
-  coefficient construction; `mag_point_source` shifts the input source-plane
-  coordinates to the center-of-mass when required and handles the inverse shift
-  internally where necessary.
+  coefficient construction. ``mag_point_source`` shifts input source-plane
+  coordinates to the center of mass when required and handles the inverse shift
+  internally.
 
 References
-- Bartolic, F. "caustics" (MIT License) — original inspiration and some
+----------
+
+- Bartolic, F. ``caustics`` (MIT License) — original inspiration and some
   coefficient-generation routines, modified here for JAX and extended triple
   lens support.
 """
@@ -56,26 +63,28 @@ from .coeffs import _poly_coeffs_critical_triple, _poly_coeffs_triple_CM
 #@partial(jit, static_argnames=("nlenses"))
 @partial(jit, static_argnames=("nlenses",))
 def lens_eq(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
-    """Lens equation mapping image-plane `z` to source-plane `w`.
+    """Lens equation mapping image-plane ``z`` to source-plane ``w``.
 
     Parameters
-    - z: complex scalar or array-like; image-plane coordinate(s).
-    - nlenses: number of point-mass lenses; supported values are 1, 2, or 3.
-    - params: lens parameters, depending on `nlenses`:
-      - nlenses=1: no additional parameters.
-      - nlenses=2: `a` (half-separation), `e1` (mass fraction for lens at `+a`),
-        with the second lens having fraction `1 - e1` at `-a`.
-      - nlenses=3: `a` (half-separation of the binary on real axis), `r3`
-        (distance of third lens), `psi` (angle of the third lens w.r.t. x-axis),
-        `e1`, `e2` (mass fractions at `+a` and `-a` respectively). The third
-        lens fraction is `1 - e1 - e2` at position `r3 * exp(i psi)`.
+    ----------
+    z : jax.Array
+        Complex scalar or array of image-plane coordinates.
+    nlenses : int, optional
+        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
+    params : dict
+        Lens configuration parameters. For ``nlenses = 2`` expect ``a`` (half
+        separation) and ``e1`` (mass fraction at ``+a``). For ``nlenses = 3``
+        expect ``a``, ``r3``, ``psi``, ``e1`` and ``e2``.
 
     Returns
-    - Complex scalar/array with the same shape as `z`, giving `w = w(z)`.
+    -------
+    jax.Array
+        Source-plane coordinates with the same shape as ``z``.
 
     Notes
-    - All arithmetic is performed in complex form; gradients propagate through
-      JAX as expected.
+    -----
+    All arithmetic is performed in complex form; gradients propagate through
+    JAX as expected.
     """
     zbar = jnp.conjugate(z)
 
@@ -107,18 +116,26 @@ def lens_eq(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
 #@partial(jit, static_argnames=("nlenses"))
 @partial(jit, static_argnames=("nlenses",))
 def lens_eq_det_jac(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
-    """Determinant of the Jacobian of the lens mapping at `z`.
+    """Determinant of the Jacobian of the lens mapping at ``z``.
 
     Parameters
-    - z: complex scalar or array-like; image-plane coordinate(s).
-    - nlenses: number of lenses (1, 2, or 3).
-    - params: same as for `lens_eq` for the corresponding configuration.
+    ----------
+    z : jax.Array
+        Complex scalar or array of image-plane coordinates.
+    nlenses : int, optional
+        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
+    params : dict
+    Lens configuration parameters matching those accepted by
+        :func:`lens_eq`.
 
     Returns
-    - Real scalar/array of the same shape as `z` with `det J(z)`.
+    -------
+    jax.Array
+        Real array with the same shape as ``z`` storing ``det J(z)``.
 
     Notes
-    - The point-source magnification is `|det J|^{-1}` for each image.
+    -----
+    Point-source magnification is ``|det J|^{-1}`` for each image.
     """
     zbar = jnp.conjugate(z)
 
@@ -161,26 +178,33 @@ def critical_and_caustic_curves(
     """Compute critical curves and mapped caustics.
 
     Parameters
-    - npts: number of sampling points on the unit circle used to construct the
-      polynomial for the critical curves.
-    - nlenses: number of lenses (1, 2, or 3).
-    - params: lens configuration parameters:
-      - nlenses=1: no additional parameters.
-      - nlenses=2: `s` (separation), `q` (mass ratio m2/m1). Internally, we use
-        `a = s/2` and `e1 = q/(1+q)`.
-      - nlenses=3: `s`, `q`, `q3` (third mass ratio), `r3` (radius), `psi`
-        (angle). Internally `a = s/2`, `e1 = q/(1+q+q3)`, `e2 = 1/(1+q+q3)`.
+    ----------
+    npts : int, optional
+        Number of sampling points on the unit circle used to construct the
+        critical-curve polynomial. Defaults to 200.
+    nlenses : int, optional
+        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
+    params : dict
+        Lens configuration parameters:
+
+        - ``nlenses = 1``: no additional parameters.
+        - ``nlenses = 2``: ``s`` (separation) and ``q`` (mass ratio ``m2/m1``).
+          Internally we set ``a = s / 2`` and ``e1 = q / (1 + q)``.
+        - ``nlenses = 3``: ``s``, ``q``, ``q3`` (third mass ratio), ``r3``
+          (radius), ``psi`` (angle). Internally ``a = s / 2``, ``e1 = q / (1 +
+          q + q3)``, ``e2 = 1 / (1 + q + q3)``.
 
     Returns
-    - z_cr: complex array of shape `(Nbranches, npts)` with critical curves in
-      the image plane; branches are ordered to form contiguous curves.
-    - z_ca: complex array of shape `(Nbranches, npts)` with mapped caustics in
-      the source plane via the lens equation.
+    -------
+    tuple[jax.Array, jax.Array]
+        ``(z_cr, z_ca)`` where ``z_cr`` contains critical curves and ``z_ca``
+        the mapped caustics. Both arrays have shape ``(N_branches, npts)``.
 
     Notes
-    - For `nlenses=1`, the critical curve is the unit circle and the caustic is
-      a single point at the origin.
-    - Output is shifted from mid-point to center-of-mass for consistency with
+    -----
+    - For ``nlenses = 1`` the critical curve is the unit circle and the caustic
+      collapses to the origin.
+    - Output is shifted from mid-point to center of mass for consistency with
       the rest of the library.
     """
     phi = jnp.linspace(-np.pi, np.pi, npts)
@@ -357,23 +381,31 @@ def mag_point_source(w, nlenses=2, **params):
     """Total point-source magnification for 1–3 lens configurations.
 
     Parameters
-    - w: complex scalar or array-like; source-plane coordinate(s).
-    - nlenses: number of lenses (1, 2, or 3).
-    - params: lens parameters by configuration:
-      - nlenses=1: none required.
-      - nlenses=2: `s` (separation), `q` (mass ratio m2/m1). Internally
-        `a = s/2` and `e1 = q/(1+q)`; the source is shifted to the
-        center-of-mass for consistency with the polynomial construction.
-      - nlenses=3: `s`, `q`, `q3`, `r3`, `psi`. Internally `a = s/2`,
-        `e1 = q/(1+q+q3)`, `e2 = 1/(1+q+q3)`; a consistent shift to the COM is
-        applied as required by the coefficient builder.
+    ----------
+    w : jax.Array
+        Complex scalar or array of source-plane coordinates.
+    nlenses : int, optional
+        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
+    params : dict
+        Lens parameters depend on ``nlenses``:
+
+        - ``nlenses = 1``: no additional parameters required.
+        - ``nlenses = 2``: ``s`` (separation) and ``q`` (mass ratio ``m2/m1``).
+          Internally ``a = s / 2`` and ``e1 = q / (1 + q)``; the source is
+          shifted to the center of mass for the polynomial construction.
+        - ``nlenses = 3``: ``s``, ``q``, ``q3``, ``r3`` and ``psi``. Internally
+          ``a = s / 2``, ``e1 = q / (1 + q + q3)``, ``e2 = 1 / (1 + q + q3)``,
+          and the same center-of-mass shift is applied.
 
     Returns
-    - Real scalar/array of the same shape as `w` with the total magnification.
+    -------
+    jax.Array
+        Real-valued magnification with the same shape as ``w``.
 
     Notes
-    - Magnification is computed as the sum of `|det J|^{-1}` over valid image
-      branches returned by `_images_point_source`.
+    -----
+    Magnification is computed as the sum of ``|det J|^{-1}`` over valid image
+    branches returned by ``_images_point_source``.
     """
     if nlenses == 1:
         _params = {}

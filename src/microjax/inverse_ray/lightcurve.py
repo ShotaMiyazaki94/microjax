@@ -280,7 +280,7 @@ if __name__ == "__main__":
         bbox_to_anchor=(0.35, 0.35, 0.6, 0.6)
     )
     ax_in.set_aspect(1)
-    ax_in.set(xlabel="$\mathrm{Re}(w)$", ylabel="$\mathrm{Im}(w)$")
+    ax_in.set(xlabel=r"$\mathrm{Re}(w)$", ylabel=r"$\mathrm{Im}(w)$")
     for cc in caustic_curves:
         ax_in.plot(cc.real, cc.imag, color='red', lw=0.7)
     circles = [plt.Circle((xi,yi), radius=rho, fill=False, facecolor=None, ec="blue", zorder=2) 

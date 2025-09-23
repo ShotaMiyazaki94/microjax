@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Utility Functions &mdash; microJAX  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Likelihood Utilities" href="likelihood.html" />
+    <link rel="prev" title="Polynomial Solver" href="poly_solver.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> microJAX
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="point_source.html">Point Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
+<li class="toctree-l2"><a class="reference internal" href="poly_solver.html">Polynomial Solver</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Utility Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.utils.first_nonzero"><code class="docutils literal notranslate"><span class="pre">first_nonzero()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.utils.first_zero"><code class="docutils literal notranslate"><span class="pre">first_zero()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.utils.last_nonzero"><code class="docutils literal notranslate"><span class="pre">last_nonzero()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.utils.match_points"><code class="docutils literal notranslate"><span class="pre">match_points()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.utils.max_zero_avoiding"><code class="docutils literal notranslate"><span class="pre">max_zero_avoiding()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.utils.mean_zero_avoiding"><code class="docutils literal notranslate"><span class="pre">mean_zero_avoiding()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.utils.min_zero_avoiding"><code class="docutils literal notranslate"><span class="pre">min_zero_avoiding()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.utils.sparse_argsort"><code class="docutils literal notranslate"><span class="pre">sparse_argsort()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="likelihood.html">Likelihood Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="trajectory.html">Trajectories</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">microJAX</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../modules.html">API Reference</a> &raquo;</li>
+      <li>Utility Functions</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/utils.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-microjax.utils">
+<span id="utility-functions"></span><h1>Utility Functions<a class="headerlink" href="#module-microjax.utils" title="Permalink to this heading"></a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.first_nonzero">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">first_nonzero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.first_nonzero" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.first_zero">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">first_zero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.first_zero" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.last_nonzero">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">last_nonzero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.last_nonzero" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.match_points">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">match_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.match_points" title="Permalink to this definition"></a></dt>
+<dd><p>Iterate over elements of a in order and find the index of the closest
+element in b in distance. Return indices which permute b.</p>
+<p>This algorithm is not guaranteed to find a permutation of b which minimizes
+the sum of elementwise distances between every element of a and b
+(linear sum assignment problem).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<em>array_like</em>) – 1D array of complex numbers.</p></li>
+<li><p><strong>b</strong> (<em>array_like</em>) – 1D array of complex numbers.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Indices which specify a permutation of b.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.max_zero_avoiding">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">max_zero_avoiding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.max_zero_avoiding" title="Permalink to this definition"></a></dt>
+<dd><p>Return the maximum  of a 1D array, avoiding 0.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.mean_zero_avoiding">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">mean_zero_avoiding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.mean_zero_avoiding" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.min_zero_avoiding">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">min_zero_avoiding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.min_zero_avoiding" title="Permalink to this definition"></a></dt>
+<dd><p>Return the minimum  of a 1D array, avoiding 0.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.sparse_argsort">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">sparse_argsort</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.sparse_argsort" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="poly_solver.html" class="btn btn-neutral float-left" title="Polynomial Solver" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="likelihood.html" class="btn btn-neutral float-right" title="Likelihood Utilities" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

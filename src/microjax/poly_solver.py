@@ -1,19 +1,23 @@
 """Root finder utilities based on the Ehrlich–Aberth method.
 
 This module implements a JAX-friendly version of the Ehrlich–Aberth (EA)
-iteration to find all complex roots of a polynomial given in `polyval` order.
+iteration to find all complex roots of a polynomial given in ``polyval`` order.
 
 Design highlights
-- Iteration uses `lax.while_loop` for early stopping by tolerance.
-- Gradients are provided via implicit differentiation using `custom_jvp`,
+-----------------
+
+- Iteration uses :func:`jax.lax.while_loop` for early stopping by tolerance.
+- Gradients are provided via implicit differentiation using ``custom_jvp``,
   making reverse/forward AD robust regardless of the number of iterations.
 - The derivative polynomial is precomputed from coefficients to avoid
-  constructing it at every step; no reliance on `jnp.polyder`.
+  constructing it at every step; no reliance on ``jnp.polyder``.
 
 Notes on numerical behavior
+---------------------------
+
 - For nearly real coefficients, tiny imaginary parts in the output roots are
-  zeroed (threshold ~ 10*tol) purely for presentation; the solver remains fully
-  complex and differentiable.
+  zeroed (threshold ~ ``10 * tol``) purely for presentation; the solver remains
+  fully complex and differentiable.
 - For ill-conditioned cases (e.g., near-multiple roots), the method can slow
   down; the implementation falls back to a Newton step when the EA denominator
   gets too small to improve stability.
@@ -130,21 +134,30 @@ def poly_roots_EA(
     """Compute all roots via the Ehrlich–Aberth method with early stopping.
 
     Parameters
-    - coeffs: shape `(n+1,)`, polynomial coefficients `[c0, ..., cn]` with
-      `polyval` order (i.e., `c0*x^n + ... + cn`). Real or complex.
-    - initial_roots: optional, shape `(n,)` complex initial guesses. If not
-      provided, points are placed uniformly on the circle given by a Cauchy
-      bound.
-    - tol: absolute update tolerance per root. A root is considered converged
-      when `|Δ| <= tol`.
-    - max_iter: maximum number of iterations.
+    ----------
+    coeffs : jax.Array
+        Polynomial coefficients with shape ``(n+1,)`` in ``polyval`` order
+        (``c0 * x**n + ... + cn``). Real or complex values are supported.
+    initial_roots : Optional[jax.Array], optional
+        Complex initial guesses with shape ``(n,)``. When ``None`` (default),
+        the solver places points uniformly on the circle defined by a Cauchy
+        bound.
+    tol : float, optional
+        Absolute update tolerance per root. A root is considered converged when
+        ``abs(delta) <= tol``. Defaults to ``1e-12``.
+    max_iter : int, optional
+        Maximum number of iterations. Defaults to ``_DEFAULT_MAX_ITER``.
 
     Returns
-    - roots: shape `(n,)`, complex roots in unspecified order.
+    -------
+    jax.Array
+        Complex roots with shape ``(n,)`` in unspecified order.
 
-    AD behavior
-    - Reverse/forward AD is supported via implicit differentiation (`custom_jvp`).
-      The gradients do not depend on the number of EA iterations.
+    Notes
+    -----
+    Reverse/forward automatic differentiation is supported via implicit
+    differentiation (``custom_jvp``); gradients do not depend on the number of
+    Ehrlich–Aberth iterations executed.
     """
     coeffs = _as_complex(coeffs)
     n = coeffs.shape[0] - 1
@@ -221,13 +234,24 @@ def poly_roots_EA_multi(
     """Vectorized EA solver for batches of polynomials.
 
     Parameters
-    - coeffs_matrix: array with shape `[..., n+1]`.
-    - custom_init: whether to use `initial_roots_matrix` as initial guesses.
-    - initial_roots_matrix: array with shape `[..., n]` if `custom_init=True`.
-    - tol, max_iter: forwarded to `poly_roots_EA`.
+    ----------
+    coeffs_matrix : jax.Array
+        Coefficient array with shape ``[..., n+1]``.
+    custom_init : bool, optional
+        Use ``initial_roots_matrix`` as initial guesses when ``True``.
+    initial_roots_matrix : Optional[jax.Array], optional
+        Initial guesses with shape ``[..., n]`` if ``custom_init`` is ``True``.
+    tol : float, optional
+        Absolute update tolerance per root; forwarded to
+        :func:`poly_roots_EA`. Defaults to ``1e-12``.
+    max_iter : int, optional
+        Maximum number of iterations per root; forwarded to
+        :func:`poly_roots_EA`. Defaults to ``_DEFAULT_MAX_ITER``.
 
     Returns
-    - roots: array with shape `[..., n]`.
+    -------
+    jax.Array
+        Roots with shape ``[..., n]``.
     """
     if custom_init:
         return jax.vmap(lambda c, r: poly_roots_EA(c, r, tol, max_iter))(coeffs_matrix, initial_roots_matrix)
@@ -244,12 +268,20 @@ def poly_roots(
     """Find all roots for a batch of polynomials using EA with early stop.
 
     Parameters
-    - coeffs: array with shape `[..., n+1]` (polyval order). Real/complex.
-    - custom_init: whether to use `roots_init` as initial guesses.
-    - roots_init: array with shape `[..., n]` if `custom_init=True`.
+    ----------
+    coeffs : jax.Array
+        Coefficient array with shape ``[..., n+1]`` in ``polyval`` order. Real
+        or complex values are supported.
+    custom_init : bool, optional
+        Pass ``True`` to feed ``roots_init`` as custom initial guesses.
+    roots_init : Optional[jax.Array], optional
+        Initial guesses with shape ``[..., n]`` used when ``custom_init`` is
+        ``True``.
 
     Returns
-    - roots: array with shape `[..., n]` of complex roots in unspecified order.
+    -------
+    jax.Array
+        Complex roots with shape ``[..., n]`` in unspecified order.
     """
     ncoeffs = coeffs.shape[-1]
     output_shape = coeffs.shape[:-1] + (ncoeffs - 1,)
