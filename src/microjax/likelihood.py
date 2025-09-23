@@ -13,6 +13,12 @@ All routines operate on ``jnp.ndarray`` inputs and are differentiable, making
 them suitable for gradient-based optimization or inference.
 """
 
+__all__ = [
+    "linear_chi2",
+    "nll_ulens",
+    "nll_ulens_general",
+]
+
 from typing import Tuple, Union
 
 import jax.numpy as jnp

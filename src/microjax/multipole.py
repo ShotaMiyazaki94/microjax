@@ -8,17 +8,37 @@
 # SPDX-FileCopyrightText: 2025 Shota Miyazaki
 # SPDX-License-Identifier: MIT
 
+"""Multipole approximations for finite-source magnifications."""
+
+__all__ = ["mag_hexadecapole"]
+
 import jax
 from functools import partial
+from typing import Tuple
+
 import jax.numpy as jnp
 from jax import vmap
 from jax.scipy.special import gammaln
 
 #@jax.checkpoint
 def _mag_hexadecapole_cassan(W, rho, u1=0.0):
-    """
-    Adapted from
-    https://github.com/ArnaudCassan/microlensing/blob/master/microlensing/multipoles/multipoles.py
+    """Evaluate Cassan-style point/quadrupole/hexadecapole contributions.
+
+    Parameters
+    ----------
+    W : jax.Array
+        Stack of complex coefficients ``[W2, W3, W4, W5, W6]`` evaluated at the
+        image locations.
+    rho : float
+        Source radius in Einstein units.
+    u1 : float, optional
+        Linear limb-darkening coefficient. Defaults to ``0``.
+
+    Returns
+    -------
+    tuple[jax.Array, jax.Array, jax.Array]
+        Point-source magnification and the quadrupole/hexadecapole corrections
+        for each image.
     """
     W2, W3, W4, W5, W6 = W
 
@@ -214,9 +234,50 @@ def _mag_hexadecapole_cassan(W, rho, u1=0.0):
     
     return mu_ps, delta_mu_quad, delta_mu_hex
 
-#@jax.checkpoint
-def _mag_hexadecapole(z, z_mask, rho, u1=0.0, nlenses=2, **params):
-    # Wk from Cassan et. al. 2017
+def mag_hexadecapole(
+    z: jax.Array,
+    z_mask: jax.Array,
+    rho: float,
+    u1: float = 0.0,
+    nlenses: int = 2,
+    **params,
+) -> Tuple[jax.Array, jax.Array]:
+    """Evaluate the hexadecapole approximation for finite-source magnification.
+
+    Parameters
+    ----------
+    z : jax.Array
+        Complex image locations with shape ``(N_images, ...)``.
+    z_mask : jax.Array
+        Boolean mask with the same shape as ``z`` selecting valid image
+        branches (typically output of :func:`microjax.point_source._images_point_source`).
+    rho : float
+        Source radius in Einstein units.
+    u1 : float, optional
+        Linear limb-darkening coefficient. Defaults to ``0`` (uniform source).
+    nlenses : int, optional
+        Number of lenses (1, 2, or 3). Defaults to 2.
+    **params
+        Additional lens parameters in the mid-point coordinate system. For
+        binaries this expects ``a`` and ``e1``; for triples ``a``, ``r3``,
+        ``e1`` and ``e2`` in addition to any other configuration details.
+
+    Returns
+    -------
+    mu : jax.Array
+        Finite-source magnification obtained by summing the point-source term
+        with quadrupole and hexadecapole corrections over all valid images.
+    residual : jax.Array
+        Diagnostic amplitude (absolute quadrupole + hexadecapole contribution)
+        that can be used to gauge when the approximation may be insufficient.
+
+    Notes
+    -----
+    The implementation follows Cassan et al. (2017), computing the multipole
+    moments via the complex quantities ``W_k`` and applying limb-darkening
+    corrections through the ``Gamma`` parameter.
+    """
+
     factorial = lambda n: jnp.exp(gammaln(n + 1))
 
     if nlenses == 1:
@@ -233,23 +294,27 @@ def _mag_hexadecapole(z, z_mask, rho, u1=0.0, nlenses=2, **params):
         W = (
             lambda k: (-1) ** (k - 1)
             * factorial(k - 1)
-            * (e1 / (z - a) ** k + e2 / (z + a) ** k + (1.0 - e1 - e2) / (z - r3) ** k)
+            * (
+                e1 / (z - a) ** k
+                + e2 / (z + a) ** k
+                + (1.0 - e1 - e2) / (z - r3) ** k
+            )
         )
     else:
         raise ValueError("`nlenses` has to be set to be <= 3.")
 
     Ws = vmap(W)(jnp.arange(2, 7))
 
-    # Multipole terms per image, signed
-    mu_ps, delta_mu_quad, delta_mu_hex = jax.checkpoint(lambda Ws_: _mag_hexadecapole_cassan(Ws_, rho, u1=u1))(Ws)
-    #mu_ps, delta_mu_quad, delta_mu_hex = _mag_hexadecapole_cassan(Ws, rho, u1=u1)
+    mu_ps, delta_mu_quad, delta_mu_hex = jax.checkpoint(
+        lambda Ws_: _mag_hexadecapole_cassan(Ws_, rho, u1=u1)
+    )(Ws)
 
-    # Sum over images
-    mu_multi = jnp.sum(z_mask*jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex), axis=0)
-
-    # Get magnitude of the quadrupole and hexadecapole terms in units of point
-    # source magnification
-    mu_quad_abs = jnp.sum(z_mask*jnp.abs(delta_mu_quad), axis=0) 
-    mu_hex_abs = jnp.sum(z_mask*jnp.abs(delta_mu_hex), axis=0) 
+    mu_multi = jnp.sum(z_mask * jnp.abs(mu_ps + delta_mu_quad + delta_mu_hex), axis=0)
+    mu_quad_abs = jnp.sum(z_mask * jnp.abs(delta_mu_quad), axis=0)
+    mu_hex_abs = jnp.sum(z_mask * jnp.abs(delta_mu_hex), axis=0)
 
     return mu_multi, mu_quad_abs + mu_hex_abs
+
+
+# Backwards compatibility alias (to be removed in a future release)
+_mag_hexadecapole = mag_hexadecapole

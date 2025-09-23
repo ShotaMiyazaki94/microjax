@@ -5,9 +5,9 @@ import jax.numpy as jnp
 import pytest
 from tests.utils.gpu import has_cuda
 
-from microjax.point_source import _images_point_source
-from microjax.multipole import _mag_hexadecapole
 from microjax.inverse_ray.lightcurve import mag_binary
+from microjax.multipole import mag_hexadecapole
+from microjax.point_source import _images_point_source
 
 
 def make_trajectory(u0, tE, t0, alpha, n=100, span=3.0):
@@ -29,7 +29,7 @@ def test_far_field_uses_multipole_matches_internal():
     _, w = make_trajectory(u0=5.0, tE=10.0, t0=0.0, alpha=jnp.deg2rad(30), n=16, span=1.0)
     w_shift = w - x_cm
     z, z_mask = _images_point_source(w_shift, nlenses=2, a=a, e1=e1)
-    mu_multi, _ = _mag_hexadecapole(z, z_mask, rho, nlenses=2, a=a, e1=e1, s=s, q=q)
+    mu_multi, _ = mag_hexadecapole(z, z_mask, rho, nlenses=2, a=a, e1=e1, s=s, q=q)
 
     mags = mag_binary(
         w,

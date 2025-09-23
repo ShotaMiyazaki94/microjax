@@ -8,10 +8,10 @@ inverse-ray integration. The logic is designed for binary and triple lenses.
 from functools import partial
 
 import jax.numpy as jnp
-from jax import jit, lax, vmap 
+from jax import jit, lax
+
+from microjax.multipole import mag_hexadecapole
 from microjax.point_source import _images_point_source
-from microjax.multipole import _mag_hexadecapole
-from typing import Tuple
 
 # Consistent array alias used across inverse_ray and trajectory modules
 Array = jnp.ndarray
@@ -28,7 +28,7 @@ def test_full(w_points_shifted: Array, rho: float, nlenses: int = 2, **_params) 
     if nlenses==2:
         # Compute hexadecapole approximation at every point and a test where it is sufficient
         z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, **_params)
-        mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+        mu_multi, delta_mu_multi = mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
         test1 = _caustics_proximity_test(w_points_shifted, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params)
         test2 = _planetary_caustic_test(w_points_shifted, rho, **_params)
         test = jnp.where(q < 0.01, test1 & test2, test1)

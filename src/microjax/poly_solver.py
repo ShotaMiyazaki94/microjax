@@ -42,13 +42,17 @@ __all__ = [
 
 
 def _as_complex(x: jax.Array) -> jax.Array:
-    """Ensure complex dtype so real inputs can hold complex roots.
+    """Promote real inputs to a complex dtype compatible with root finding.
 
     Parameters
-    - x: array-like; any real/complex dtype.
+    ----------
+    x : jax.Array
+        Input array with real or complex dtype.
 
     Returns
-    - Complex-typed array with a precision matching the input.
+    -------
+    jax.Array
+        Array with complex dtype matching the precision of ``x``.
     """
     if jnp.iscomplexobj(x):
         return x
@@ -58,13 +62,24 @@ def _as_complex(x: jax.Array) -> jax.Array:
 
 
 def _polyder_coeffs(coeffs: jax.Array) -> jax.Array:
-    """Return derivative coefficients in `polyval` convention.
+    """Return derivative coefficients in ``jnp.polyval`` convention.
 
-    If `coeffs = [c0, c1, ..., cn]` represents `c0*x^n + ... + cn`, then
-    `d/dx coeffs = [c0*n, c1*(n-1), ..., c_{n-1}*1]`.
+    Parameters
+    ----------
+    coeffs : jax.Array
+        Coefficient array ``[c0, c1, ..., cn]`` representing
+        ``c0 * x**n + ... + cn``.
 
-    For constant polynomials (degree 0), returns a zero array broadcast to the
-    input shape.
+    Returns
+    -------
+    jax.Array
+        Derivative coefficients ``[c0 * n, c1 * (n-1), ..., c_{n-1}]`` with the
+        same broadcasted shape as ``coeffs``.
+
+    Notes
+    -----
+    Constant polynomials (degree 0) yield a zero array broadcast to the input
+    shape.
     """
     n = coeffs.shape[-1] - 1
     if n <= 0:
@@ -74,14 +89,18 @@ def _polyder_coeffs(coeffs: jax.Array) -> jax.Array:
 
 
 def _cauchy_radius(coeffs: jax.Array) -> jax.Array:
-    """Cauchy root bound radius using the leading coefficient.
+    """Compute a Cauchy bound for the polynomial roots.
 
     Parameters
-    - coeffs: 1D array `[c0, c1, ..., cn]` in `polyval` order.
+    ----------
+    coeffs : jax.Array
+        Coefficient array ``[c0, c1, ..., cn]`` in ``polyval`` order.
 
     Returns
-    - A non-negative scalar array giving the radius R s.t. all roots lie in
-      `|z| <= R` (simple bound `1 + max |c_i/c0|`).
+    -------
+    jax.Array
+        Non-negative scalar giving the radius ``R`` such that all roots lie
+        within ``|z| <= R`` using the bound ``1 + max |c_i / c0|``.
     """
     c0 = coeffs[..., 0]
     eps = jnp.finfo(coeffs.real.dtype).eps
@@ -100,14 +119,22 @@ def _ea_step(
     """Perform one Ehrlich–Aberth iteration step.
 
     Parameters
-    - roots: shape `(n,)`, current root estimates.
-    - coeffs: shape `(n+1,)`, polynomial coefficients (polyval order).
-    - dcoeffs: shape `(n,)`, derivative coefficients (polyval order).
-    - eps: small positive threshold to guard tiny denominators.
+    ----------
+    roots : jax.Array
+        Current root estimates with shape ``(n,)``.
+    coeffs : jax.Array
+        Polynomial coefficients in ``polyval`` order with shape ``(n+1,)``.
+    dcoeffs : jax.Array
+        Derivative coefficients in ``polyval`` order with shape ``(n,)``.
+    eps : float
+        Small positive threshold used to guard nearly singular denominators.
 
     Returns
-    - new_roots: shape `(n,)`, updated root estimates.
-    - update: shape `(n,)`, the applied update (for convergence checks).
+    -------
+    new_roots : jax.Array
+        Updated root estimates with shape ``(n,)``.
+    update : jax.Array
+        The applied update (``roots - new_roots``) used for convergence tests.
     """
     # Evaluate polynomial and derivative at current roots
     f = jnp.polyval(coeffs, roots)

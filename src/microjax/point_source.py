@@ -48,6 +48,13 @@ References
   lens support.
 """
 
+__all__ = [
+    "lens_eq",
+    "lens_eq_det_jac",
+    "critical_and_caustic_curves",
+    "mag_point_source",
+]
+
 from functools import partial
 from typing import Tuple
 
@@ -125,7 +132,7 @@ def lens_eq_det_jac(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
     nlenses : int, optional
         Number of point-mass lenses (1, 2, or 3). Defaults to 2.
     params : dict
-    Lens configuration parameters matching those accepted by
+        Lens configuration parameters matching those accepted by
         :func:`lens_eq`.
 
     Returns
@@ -269,30 +276,43 @@ def _images_point_source(
     """Solve for image positions for a point source.
 
     Parameters
-    - w: complex scalar or array-like; source-plane coordinate(s). Broadcasting
-      over arrays is supported.
-    - nlenses: number of lenses (1, 2, or 3).
-    - custom_init: if True, use `z_init` as initial guesses for the polynomial
-      root solver.
-    - z_init: complex array of initial roots; must match the trailing shape of
-      the polynomial degree for the given configuration when `custom_init=True`.
-    - params: lens parameters in the mid-point coordinate system:
-      - nlenses=1: no additional parameters.
-      - nlenses=2: `a`, `e1` as in `lens_eq`.
-      - nlenses=3: `a`, `r3`, `psi`, `e1`, `e2` as in `lens_eq`.
+    ----------
+    w : jax.Array
+        Complex scalar or array of source-plane coordinate(s). Broadcasting
+        over arrays is supported.
+    nlenses : int, optional
+        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
+    custom_init : bool, optional
+        When ``True``, reuse ``z_init`` as the initial guess for the root
+        solver. Defaults to ``False``.
+    z_init : jax.Array or None, optional
+        Complex initial guesses with shape matching the trailing dimension of
+        the polynomial degree. Required when ``custom_init`` is ``True``.
+    **params
+        Lens parameters expressed in the mid-point coordinate frame:
+
+        - ``nlenses = 1``: no additional parameters.
+        - ``nlenses = 2``: ``a`` (half-separation) and ``e1`` (mass fraction at
+          ``+a``) as in :func:`lens_eq`.
+        - ``nlenses = 3``: ``a``, ``r3``, ``psi``, ``e1`` and ``e2`` as in
+          :func:`lens_eq`.
 
     Returns
-    - z: complex array with shape `(Nimages, ...)` where `...` matches `w`'s
-      shape; `Nimages` is 2, 5, or 10 for 1-, 2-, or 3-lens cases respectively.
-    - z_mask: boolean array with the same shape as `z` indicating which roots
-      satisfy the lens equation within a tight tolerance.
+    -------
+    z : jax.Array
+        Image locations with shape ``(N_images, ...)`` where ``...`` matches
+        ``w``. ``N_images`` is 2, 5, or 10 for 1-, 2-, or 3-lens systems.
+    z_mask : jax.Array
+        Boolean mask with the same shape as ``z`` indicating which roots
+        satisfy the tolerance criteria.
 
     Notes
-    - For the triple lens, coefficients are constructed in center-of-mass
-      coordinates and shifted back using the value returned from
-      `_poly_coeffs_triple_CM`.
-    - The mask threshold is `1e-6` (`1e-3` for the triple path); callers should
-      treat masked-out roots as non-physical.
+    -----
+    - For triple lenses the polynomial is constructed in center-of-mass
+      coordinates using :func:`_poly_coeffs_triple_CM`; the resulting images are
+      shifted back before being returned.
+    - The mask threshold is ``1e-6`` (``1e-3`` for the triple branch); masked
+      roots should be treated as non-physical solutions.
     """
     if nlenses == 1:
         w_abs_sq = w.real**2 + w.imag**2
@@ -336,22 +356,32 @@ def _images_point_source(
 
 @partial(jit, static_argnames=("nlenses"))
 def _images_point_source_sequential(w, nlenses=2, **params):
-    """Sequential image tracking across a 1D path in `w`.
+    """Sequentially track images along a 1D source trajectory.
 
     Parameters
-    - w: 1D complex array of source positions. The solver computes images for
-      the first element and then reuses each solution as the initial guess for
-      the next element, which helps maintain branch continuity.
-    - nlenses: number of lenses (1, 2, or 3).
-    - params: parameters forwarded to `_images_point_source`.
+    ----------
+    w : jax.Array
+        One-dimensional complex array of source positions. The solver computes
+        images for ``w[0]`` and reuses each solution as the initial guess for
+        the following element, promoting branch continuity.
+    nlenses : int, optional
+        Number of lenses (1, 2, or 3). Defaults to 2.
+    **params
+        Additional keyword arguments forwarded to
+        :func:`_images_point_source`.
 
     Returns
-    - z: complex array of shape `(Nimages, w.size)` with tracked images.
-    - z_mask: boolean array with the same shape as `z`.
+    -------
+    z : jax.Array
+        Complex array of shape ``(N_images, w.size)`` storing the tracked image
+        positions.
+    z_mask : jax.Array
+        Boolean array with the same shape as ``z`` storing the validity mask.
 
     Notes
-    - This is primarily useful for drawing image tracks while a source moves
-      along a curve; it is not a generic batched solver.
+    -----
+    This helper is primarily intended for visualising image tracks along a
+    trajectory rather than as a general batched solver.
     """
     def fn(w, z_init=None, custom_init=False):
         if custom_init:

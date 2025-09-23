@@ -20,7 +20,7 @@ from jax import jit, lax
 from .extended_source import mag_extended_source
 from ..point_source import _images_point_source
 
-from ..multipole import _mag_hexadecapole
+from ..multipole import mag_hexadecapole
 
 from ..utils import *
 
@@ -209,11 +209,11 @@ def magnifications(
 
     if nlenses==1:
         test = w_points > 2*rho
-        mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params) #miyazaki
+        mu_multi, delta_mu_multi = mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)  # miyazaki
     elif nlenses==2:
         # Compute hexadecapole approximation at every point and a test where it is
         # sufficient
-        mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+        mu_multi, delta_mu_multi = mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
         test1 = _caustics_proximity_test(
             w_points - x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params #miyazaki
             #w_points + x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params
