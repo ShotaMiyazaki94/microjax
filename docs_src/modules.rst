@@ -8,6 +8,5 @@ API Reference
    api/multipole
    api/inverse_ray_lightcurve
    api/poly_solver
-   api/utils
    api/likelihood
    api/trajectory

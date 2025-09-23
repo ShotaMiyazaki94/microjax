@@ -1,26 +1,26 @@
 """Inverse-ray finite-source magnification integrators.
 
-This module provides polar-grid, inverse-ray integrators for extended sources
-subject to gravitational microlensing by multiple lenses. Two brightness
-profiles are implemented:
+This module implements polar-grid inverse-ray solvers for extended sources
+subject to microlensing by binary or triple lenses. Two brightness profiles are
+available:
 
-- ``mag_uniform``: uniform surface brightness disk.
-- ``mag_limb_dark``: linear limb-darkened disk.
+* ``mag_uniform`` – uniform surface-brightness disks.
+* ``mag_limb_dark`` – disks with linear limb darkening.
 
-The integration domain in image space is seeded using the mapped source limb
-(`calc_source_limb`) and partitioned into radial/azimuthal regions
-(`define_regions`) to concentrate samples near caustics. Boundary crossings in
-angle are handled by a numerically stable 4-point cubic interpolation
-(`cubic_interp`), with optional smoothing factors to reduce aliasing at the
-source limb.
+Each solver maps uniformly sampled source-limb points to the image plane via
+``calc_source_limb``, partitions the domain with ``define_regions``, and
+evaluates rectangular polar integrations in the lens-centred frame. Angular
+boundary crossings are resolved using the ``cubic_interp`` helper, while
+``calc_facB`` smooths the transition at the source limb.
 
 Notes
-- Both routines shift coordinates to the center-of-mass frame for improved
-  stability and consistency with point-source helpers.
-- ``lax.scan`` over regions reduces peak memory usage relative to a full
-  vectorized ``vmap`` across all regions.
-- Increase ``bins_*`` and resolutions when approaching caustics or for larger
-  sources to improve accuracy (with corresponding runtime/memory costs).
+-----
+- Coordinates are shifted to the lens centre-of-mass to remain consistent with
+  the point-source utilities.
+- ``lax.scan`` over image-space regions limits peak memory relative to a fully
+  vectorised ``vmap``.
+- Increasing the radial/azimuthal resolutions or bin counts trades runtime for
+  accuracy near caustics or for very large sources.
 """
 
 import jax 
@@ -53,54 +53,56 @@ def mag_limb_dark(
     delta_c: float = 0.01,
     **_params: float,
 ) -> Array:
-    """Compute finite-source magnification with linear limb darkening.
-
-    This routine evaluates the magnification of a circular source centered at
-    `w_center` with radius `rho` using a polar grid integration in image space
-    and an inverse ray approach. It supports binary (``nlenses=2``) and a
-    specific triple-lens configuration (``nlenses=3``). The surface brightness
-    profile on the source is linear limb-darkened:
-
-        I(r)/I0 = 1 - u1 * (1 - sqrt(1 - (r/rho)^2)),
-
-    implemented via ``Is_limb_1st``. The image-space region to integrate is
-    constructed from points on the mapped source limb using
-    ``calc_source_limb`` and partitioned by ``define_regions`` for better
-    conditioning around caustics. Angular boundary crossings are located with a
-    stable 4-point cubic (Lagrange) interpolant (``cubic_interp``). A smooth
-    transition factor ``calc_facB`` controlled by ``delta_c`` reduces aliasing
-    at the limb.
+    """Finite-source magnification with linear limb darkening.
 
     Parameters
-    - w_center: complex – Source center in lens plane units (Einstein radius).
-    - rho: float – Source radius (same units as `w_center`).
-    - nlenses: int – Number of lenses (2 supported; 3 supported for provided
-      params).
-    - u1: float – Linear limb-darkening coefficient in [0, 1].
-    - r_resolution: int – Number of radial samples per region.
-    - th_resolution: int – Number of angular samples per region.
-    - Nlimb: int – Number of samples on the source limb used to seed regions.
-    - bins_r: int – Number of radial bins to split regions.
-    - bins_th: int – Number of angular bins to split regions.
-    - margin_r: float – Extra radial margin added to each bin (in units of
-      `rho`).
-    - margin_th: float – Extra angular margin added to each bin (radians).
-    - delta_c: float – Smoothing scale for boundary contribution factor
-      ``calc_facB``; smaller sharpens boundary, larger smooths.
-    - **_params: Mapping of lens parameters depending on ``nlenses``.
-      For nlenses=2 expect ``q`` and ``s``; for nlenses=3 expect ``s``, ``q``,
-      ``q3``, ``r3``, ``psi``.
+    ----------
+    w_center : complex
+        Source-centre position in Einstein-radius units.
+    rho : float
+        Angular source radius in the same units as ``w_center``.
+    nlenses : int, optional
+        Number of lenses in the system. Only binary (``2``) and the supported
+        triple-lens (``3``) configuration are handled.
+    u1 : float, optional
+        Linear limb-darkening coefficient in ``[0, 1]``.
+    r_resolution : int, optional
+        Number of radial samples per image-space region.
+    th_resolution : int, optional
+        Number of azimuthal samples per image-space region.
+    Nlimb : int, optional
+        Number of source-limb samples used to seed the image-plane regions.
+    bins_r : int, optional
+        Radial bin count for region partitioning.
+    bins_th : int, optional
+        Azimuthal bin count for region partitioning.
+    margin_r : float, optional
+        Additional radial margin (in units of ``rho``) attached to each bin.
+    margin_th : float, optional
+        Additional azimuthal margin (in radians) attached to each bin.
+    delta_c : float, optional
+        Smoothing scale supplied to ``calc_facB`` when blending limb crossings.
+    **_params : float
+        Lens parameters forwarded to ``calc_source_limb`` and the underlying
+        lens-equation helpers. For a binary lens provide ``s`` (separation) and
+        ``q`` (mass ratio); for the triple-lens branch also provide ``q3``,
+        ``r3``, and ``psi``.
 
     Returns
-    - magnification: float – Limb-darkened finite-source magnification.
+    -------
+    Array
+        Limb-darkened magnification normalised by ``rho**2``. The value is
+        returned as a scalar ``jax.numpy`` array.
 
     Notes
-    - Coordinates are internally shifted by the center-of-mass offset for
-      numerical stability and consistency with point-source helpers.
-    - The result is normalized by ``rho**2`` (no factor of π) because the limb
-      darkening weights are included explicitly in the integrand.
-    - For large ``rho`` or near-caustic configurations, increase ``bins_*`` and
-      ``*_resolution`` to improve accuracy at the cost of memory/runtime.
+    -----
+    - ``calc_source_limb`` and ``define_regions`` build the polar integration
+      mesh from the mapped source limb.
+    - ``cubic_interp`` locates angular boundary crossings and ``calc_facB``
+      reduces aliasing at the source edge.
+    - Increase ``r_resolution``, ``th_resolution``, or the bin counts near
+      caustics or when modelling large sources. Triple-lens usage remains
+      experimental and mirrors the binary parameterisation.
     """
     if nlenses == 2:
         q, s = _params["q"], _params["s"]
@@ -200,39 +202,53 @@ def mag_uniform(
     margin_th: float = 0.5,
     **_params: float,
 ) -> Array:
-    """Compute finite-source magnification for a uniform-brightness disk.
-
-    Uses the same region construction and polar-grid integration strategy as
-    ``mag_limb_dark`` but with a uniform surface brightness profile. The
-    integrand is the area fraction inside the source with sub-cell angular
-    crossing handled by a stable cubic interpolation in angle.
+    """Finite-source magnification for a uniform-brightness disk.
 
     Parameters
-    - w_center: complex – Source center in Einstein-radius units.
-    - rho: float – Source radius.
-    - nlenses: int – Number of lenses (2 supported; 3 supported for provided
-      params).
-    - r_resolution: int – Number of radial samples per region.
-    - th_resolution: int – Number of angular samples per region.
-    - Nlimb: int – Number of samples on the source limb used to seed regions.
-    - bins_r: int – Number of radial bins for region partitioning.
-    - bins_th: int – Number of angular bins for region partitioning.
-    - margin_r: float – Extra radial margin per bin (in units of ``rho``).
-    - margin_th: float – Extra angular margin per bin (radians).
-    - **_params: Lens parameters depending on ``nlenses`` (same as in
-      ``mag_limb_dark``).
+    ----------
+    w_center : complex
+        Source-centre position in Einstein-radius units.
+    rho : float
+        Angular source radius in the same units as ``w_center``.
+    nlenses : int, optional
+        Number of lenses in the system. Only binary (``2``) and the supported
+        triple-lens (``3``) configuration are handled.
+    r_resolution : int, optional
+        Number of radial samples per image-space region.
+    th_resolution : int, optional
+        Number of azimuthal samples per image-space region.
+    Nlimb : int, optional
+        Number of source-limb samples used to seed the image-plane regions.
+    bins_r : int, optional
+        Radial bin count for region partitioning.
+    bins_th : int, optional
+        Azimuthal bin count for region partitioning.
+    margin_r : float, optional
+        Additional radial margin (in units of ``rho``) attached to each bin.
+    margin_th : float, optional
+        Additional azimuthal margin (in radians) attached to each bin.
+    **_params : float
+        Lens parameters forwarded to ``calc_source_limb`` and the underlying
+        lens-equation helpers. For a binary lens provide ``s`` (separation) and
+        ``q`` (mass ratio); for the triple-lens branch also provide ``q3``,
+        ``r3``, and ``psi``.
 
     Returns
-    - magnification: float – Uniform finite-source magnification normalized by
-      ``rho**2 * pi``.
+    -------
+    Array
+        Uniform-source magnification normalised by ``rho**2 * pi``. The
+        value is returned as a scalar ``jax.numpy`` array.
 
     Notes
-    - Internally shifts coordinates by the lens center-of-mass offset.
-    - Region-wise ``lax.scan`` is default for better peak-memory behavior; a
-      fully vectorized alternative via ``vmap`` is available but uses more
-      memory.
-    - Sensitivity near caustics can be improved by increasing ``bins_*`` and
-      ``*_resolution`` or broadening ``margin_*``.
+    -----
+    - The same region construction as :func:`mag_limb_dark` is used, but with a
+      uniform surface-brightness integrand.
+    - Angular crossings are identified with ``cubic_interp``.
+    - ``lax.scan`` over regions is the default for peak-memory efficiency; a
+      vectorised ``vmap`` alternative is retained for experimentation.
+    - Increase ``r_resolution``, ``th_resolution``, or the bin counts near
+      caustics or when modelling large sources. Triple-lens usage remains
+      experimental and mirrors the binary parameterisation.
     """
     
     if nlenses == 2:
@@ -325,30 +341,35 @@ def cubic_interp(
     y3: Union[float, Array],
     epsilon: float = 1e-12,
 ) -> Union[float, Array]:
-    """Stable 4-point cubic (Lagrange) interpolation with scaling.
+    """Stable four-point cubic (Lagrange) interpolation with scaling.
 
     Evaluates the cubic interpolant passing through the four points
-    ``(xk, yk)`` for ``k=0..3`` at position ``x``. To improve numerical
-    stability when the abscissas are nearly collinear or clustered, the
-    abscissa domain is rescaled to ``[0, 1]`` before computing the Lagrange
-    basis. Small ``epsilon`` terms guard against division by zero in degenerate
-    configurations.
+    ``(x_k, y_k)`` for ``k = 0..3`` at position ``x``. To improve numerical
+    stability when the abscissas are nearly collinear or clustered, the domain
+    is rescaled to ``[0, 1]`` prior to computing the Lagrange basis. The
+    ``epsilon`` guard prevents divisions by zero in degenerate configurations.
 
     Parameters
-    - x: float/array – Evaluation abscissa.
-    - x0, x1, x2, x3: float/array – Sample abscissas.
-    - y0, y1, y2, y3: float/array – Sample ordinates corresponding to each
-      abscissa.
-    - epsilon: float – Small positive value to avoid division by zero in the
-      basis denominators.
+    ----------
+    x : float or Array
+        Evaluation coordinate.
+    x0, x1, x2, x3 : float or Array
+        Sample abscissas defining the interpolant.
+    y0, y1, y2, y3 : float or Array
+        Ordinates associated with ``x0`` – ``x3``.
+    epsilon : float, optional
+        Small positive value added to denominators to avoid division by zero.
 
     Returns
-    - y: float/array – Interpolated value at ``x``.
+    -------
+    float or Array
+        Interpolated value evaluated at ``x``.
 
     Notes
-    - This function is used to estimate the angular crossing location of the
-      source limb within a four-cell angular stencil.
-    - For monotonic constraints or fewer samples consider alternative schemes.
+    -----
+    - Used to estimate the angular crossing location of the source limb within
+      a four-cell stencil.
+    - Consider alternative schemes when monotonicity constraints are required.
     """
     # Implemented algebraically; faster and more memory-efficient than a
     # matrix-based polyfit for JAX transformations.
