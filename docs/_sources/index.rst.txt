@@ -1,7 +1,7 @@
 Welcome to microJAX's documentation!
 ====================================
 
-``microJAX <https://github.com/ShotaMiyazaki94/microjax>`` is a GPU-aware, 
+`microJAX <https://github.com/ShotaMiyazaki94/microjax>`_ is a GPU-aware, 
 auto-differentiable microlensing toolkit built on top of JAX.  
 The library combines a GPU-optimized image-centered inverse-ray 
 shooting method and JAX-enabled XLA-acceralation to deliver fast and accurate 
