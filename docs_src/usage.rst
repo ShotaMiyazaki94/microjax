@@ -56,29 +56,11 @@ Example::
 fully broadcastable and can be supplied as arrays if you want to sweep over a
 grid of lens parameters.
 
-.. list-table:: Common ``mag_point_source`` parameters
-   :header-rows: 1
-
-   * - Parameter
-     - Meaning
-     - Typical range
-   * - ``s``
-     - Lens separation in Einstein radii
-     - 0.5–3.0 for planetary lenses
-   * - ``q``
-     - Secondary-to-primary mass ratio
-     - 1e-4–1 for binary lenses
-   * - ``q3`` / ``r3`` / ``psi``
-     - Third-body configuration (only for triples)
-     - Chosen per system
-
 Finite-source binary lenses
 ---------------------------
 
 ``mag_binary`` computes finite-source light curves by combining a fast
 hexadecapole approximation with full inverse-ray integrations when required.
-The workflow is a little longer because you must supply a trajectory for the
-source.
 
 1. Build the trajectory
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -98,7 +80,7 @@ replace it with your own sampler if you need orbital motion or parallax.
    tau = (t - t0) / tE
    y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
    y2 =  u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
-   w = jnp.array(y1 + 1j * y2, dtype=complex)
+   w = jnp.array(y1 + 1j * y2, dtype=complex)   # source trajectory
 
 2. Evaluate the magnification
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -112,13 +94,7 @@ if you hit performance limits.
    s = 0.95                       # projected separation
    q = 5e-4                       # mass ratio (m2/m1)
 
-   mags = mag_binary(
-       w,
-       rho,
-       s=s,
-       q=q,
-       MAX_FULL_CALLS=200,        # budget for contour integrations
-   )
+   mags = mag_binary(w, rho, s=s, q=q)
 
 ``mag_binary`` returns magnifications aligned with the input trajectory.  If you
 need fluxes, multiply by the intrinsic source flux and add blends or baselines
@@ -127,19 +103,28 @@ as appropriate.
 Fine-tuning parameters
 ~~~~~~~~~~~~~~~~~~~~~~
 
-- ``r_resolution`` / ``th_resolution`` control the radial and angular grid used
-  by the inverse-ray solver.  Defaults (768) balance accuracy and memory usage.
-- ``Nlimb`` sets the number of points in the limb-darkening lookup table.  Lower
-  it (e.g. 256) if you run on memory-constrained GPUs.
-- ``chunk_size`` dictates how many points are processed per device launch.
-  Shrink it when working with long trajectories or lower-end GPUs.
-- ``MAX_FULL_CALLS`` caps how many samples fall back to contour integration.  A
-  higher value yields more accurate peaks at the cost of runtime.
-
-.. note::
-
-   If you see oscillations near caustics, increase ``MAX_FULL_CALLS`` and, if
-   memory allows, raise ``r_resolution``/``th_resolution`` in tandem.
+- ``r_resolution`` / ``th_resolution``  
+  Set the number of grid divisions in the radial and angular directions for the 
+  inverse-ray shooting method. Increasing these values improves the accuracy of 
+  the magnification calculation, but also raises computational and memory costs 
+  on GPUs. Users should adjust them according to their accuracy requirements 
+  and hardware limits.
+- ``MAX_FULL_CALLS``  
+  Determines the maximum number of magnification points that are computed with 
+  the image-centered ray-shooting (ICRS) method. It sets an upper limit on the 
+  points that require finite-source calculations, with the remaining points 
+  evaluated using the hexadecapole approximation.
+- ``chunk_size``  
+  Controls how many points are processed in parallel by the ICRS method via 
+  ``jax.vmap``. A larger value can improve GPU utilization but may exceed 
+  device memory, causing out-of-memory errors. Smaller values are safer but may 
+  slow down the computation. Users should tune this parameter based on their 
+  GPU capacity.
+- ``Nlimb``  
+  Sets the number of source limb points used to construct annular sectors on the 
+  lens plane, where ray-shooting integrations are performed. In most cases, 
+  users do not need to change this value. Adjust it only if catastrophic errors 
+  appear in magnification calculations.
 
 Triple lenses
 -------------
@@ -149,24 +134,13 @@ inputs mirror the binary API, but you must describe the third body explicitly.
 
 .. code-block:: python
 
-   mags_triple = mag_triple(
-       w,
-       rho,
-       s=1.10,
-       q=0.02,
-       q3=0.50,
-       r3=0.60,
-       psi=jnp.deg2rad(210.0),
-       MAX_FULL_CALLS=400,
-   )
+   mags_triple = mag_triple(w, rho, s=1.10, q=0.02, 
+                            q3=0.50, r3=0.60, psi=jnp.deg2rad(210.0))
 
 Guidelines:
 
 - Start with the same trajectory used for the binary case; only the lens system
   changes.
-- Triple lenses often have more intricate caustics.  Expect to raise
-  ``MAX_FULL_CALLS`` and possibly lower ``chunk_size`` to avoid excessive memory
-  pressure.
 - ``psi`` is measured counter-clockwise from the lens 1–2 axis.
 
 Autodiff and ``jit``
@@ -207,9 +181,6 @@ For trajectories beyond straight lines, the :mod:`microjax.trajectory` package
 provides composable pieces:
 
 - :mod:`microjax.trajectory.parallax` – annual parallax terms.
-- :mod:`microjax.trajectory.keplerian` – Keplerian binary motion (work in
-  progress; check docstrings for up-to-date status).
-- :mod:`microjax.trajectory.utils` – utilities for resampling and interpolation.
 
 These components return arrays compatible with the ``w`` input used above, so
 you can drop them into ``mag_binary`` / ``mag_triple`` without further changes.
@@ -219,9 +190,5 @@ Best practices
 
 - Keep 64-bit mode enabled for production runs; it significantly improves the
   stability of implicit differentiation through the polynomial solver.
-- Batch trajectories by stacking them along a leading dimension and rely on JAX
-  broadcasting to evaluate many light curves in a single call.
-- Cache compiled callables (e.g. store ``forward_jit``) whenever you sweep over
-  parameters; recompiling for every call erodes the benefit of JIT.
 - Use :mod:`microjax.likelihood` to marginalise nuisance flux parameters instead
   of fitting them manually—this often reduces sampler autocorrelation.
