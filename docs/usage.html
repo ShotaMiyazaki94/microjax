@@ -91,34 +91,27 @@
   <section id="usage-guide">
 <h1>Usage Guide<a class="headerlink" href="#usage-guide" title="Permalink to this heading"></a></h1>
 <p>This chapter presents common workflows, from point-source magnifications to
-adaptive finite-source light curves and gradient-based inference.</p>
+adaptive finite-source light curves and gradient-based inference.  All examples
+assume <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">jax</span></code>, <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">jax.numpy</span> <span class="pre">as</span> <span class="pre">jnp</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">jax.config.update(&quot;jax_enable_x64&quot;,</span> <span class="pre">True)</span></code> have already been executed.</p>
 <section id="point-source-magnification">
 <h2>Point-source magnification<a class="headerlink" href="#point-source-magnification" title="Permalink to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">mag_point_source</span></code> handles 1–3 lens configurations.  Pass complex source
-coordinates and supply the relevant lens parameters:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
-
-<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<p><code class="docutils literal notranslate"><span class="pre">mag_point_source</span></code> handles 1–3 lens configurations.  Provide complex source
+coordinates and the relevant lens parameters:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
 
 <span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span> <span class="o">+</span> <span class="mf">0.1</span><span class="n">j</span><span class="p">,</span> <span class="mf">0.05</span> <span class="o">+</span> <span class="mf">0.05</span><span class="n">j</span><span class="p">])</span>
 <span class="n">mu</span> <span class="o">=</span> <span class="n">mag_point_source</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>If <code class="docutils literal notranslate"><span class="pre">nlenses</span></code> is 3, provide <code class="docutils literal notranslate"><span class="pre">q3</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code> and <code class="docutils literal notranslate"><span class="pre">psi</span></code> as additional keyword
-arguments.  Outputs broadcast across leading axes so you can pass batches of
-trajectories.</p>
+<p>For triple lenses add <code class="docutils literal notranslate"><span class="pre">q3</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code> and <code class="docutils literal notranslate"><span class="pre">psi</span></code>.  Outputs broadcast across
+leading axes so you can supply batches of trajectories in one call.</p>
 </section>
 <section id="finite-source-binary-lenses">
 <h2>Finite-source binary lenses<a class="headerlink" href="#finite-source-binary-lenses" title="Permalink to this heading"></a></h2>
 <p>The adaptive light-curve solver switches between the hexadecapole approximation
-and full inverse-ray integrations:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray.lightcurve</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_binary</span>
-
-<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+and full inverse-ray integrations as needed:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray.lightcurve</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_binary</span>
 
 <span class="n">s</span><span class="p">,</span> <span class="n">q</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">,</span> <span class="mf">5e-4</span>
 <span class="n">rho</span> <span class="o">=</span> <span class="mf">0.01</span>
@@ -135,23 +128,23 @@ and full inverse-ray integrations:</p>
     <span class="n">rho</span><span class="p">,</span>
     <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span>
     <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span>
-    <span class="n">r_resolution</span><span class="o">=</span><span class="mi">768</span><span class="p">,</span>
-    <span class="n">th_resolution</span><span class="o">=</span><span class="mi">768</span><span class="p">,</span>
-    <span class="n">Nlimb</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
     <span class="n">MAX_FULL_CALLS</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span>
-    <span class="n">chunk_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>Tune <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> to control the budget for contour integrations.  On
-memory-limited devices, drop the resolutions to 512 × 512 and shrink
-<code class="docutils literal notranslate"><span class="pre">chunk_size</span></code>.</p>
+<p>Key knobs:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">r_resolution</span></code> / <code class="docutils literal notranslate"><span class="pre">th_resolution</span></code> – radial grid resolution (default 768).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Nlimb</span></code> – limb-darkening table size (default 400).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> – batch size for contour integrations (default 128).</p></li>
+</ul>
+<p>Reduce these values on memory-constrained devices; increasing
+<code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> spends more time on contour integrations when needed.</p>
 </section>
 <section id="triple-lenses">
 <h2>Triple lenses<a class="headerlink" href="#triple-lenses" title="Permalink to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">mag_triple</span></code> mirrors the binary API but currently upgrades a fixed number of
-samples.  Increase <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> and reduce <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> for challenging
-caustic structures:</p>
+<p><code class="docutils literal notranslate"><span class="pre">mag_triple</span></code> mirrors the binary API and accepts the same trajectory <code class="docutils literal notranslate"><span class="pre">w</span></code> and
+source size <code class="docutils literal notranslate"><span class="pre">rho</span></code> while adding third-body parameters:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray.lightcurve</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_triple</span>
 
 <span class="n">mags</span> <span class="o">=</span> <span class="n">mag_triple</span><span class="p">(</span>
@@ -166,11 +159,13 @@ caustic structures:</p>
 <span class="p">)</span>
 </pre></div>
 </div>
+<p>As with binaries, raise <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> or shrink <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> for complex
+caustic structures.</p>
 </section>
 <section id="autodiff-and-jit">
 <h2>Autodiff and <code class="docutils literal notranslate"><span class="pre">jit</span></code><a class="headerlink" href="#autodiff-and-jit" title="Permalink to this heading"></a></h2>
-<p>All magnification routines support reverse- and forward-mode AD.  Use <code class="docutils literal notranslate"><span class="pre">jax.jit</span></code>
-to compile the forward model once, then differentiate:</p>
+<p>All magnification routines support reverse- and forward-mode AD.  Compile once
+with <code class="docutils literal notranslate"><span class="pre">jax.jit</span></code> and differentiate the compiled callable:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">grad</span><span class="p">,</span> <span class="n">jit</span>
 
