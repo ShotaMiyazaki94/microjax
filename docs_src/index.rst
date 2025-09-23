@@ -93,5 +93,6 @@ License & Attribution
 ---------------------
 
 Copyright 2025, Contributors
+
 - `Shota Miyazaki <https://sites.google.com/view/shotamiyazaki/english>`_ (@ShotaMiyazaki94, maintainer)
 - `Hajime Kawahara <http://secondearths.sakura.ne.jp/en/index.html>`_ (@HajimeKawahara, co-maintainer)
