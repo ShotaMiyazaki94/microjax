@@ -39,16 +39,21 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Getting Started</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#first-checks">First checks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#next-steps">Next steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#verify-the-environment">Verify the environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#up-next">Up next</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Internals &amp; Contribution</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; Architecture</a></li>
 <li class="toctree-l1"><a class="reference internal" href="development.html">Development</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -82,61 +87,73 @@
              
   <section id="getting-started">
 <h1>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this heading"></a></h1>
-<p>Use this section to set up a working <code class="docutils literal notranslate"><span class="pre">microJAX</span></code> environment and ensure the
-package can talk to your available hardware.</p>
-<section id="requirements">
-<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this heading"></a></h2>
+<p>Use this guide to set up a microJAX environment, verify that JAX can see your
+accelerator, and run a sanity check.</p>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading"></a></h2>
 <ul class="simple">
-<li><p>Python 3.9 or newer</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">jax</span></code> / <code class="docutils literal notranslate"><span class="pre">jaxlib</span></code> matching your accelerator (CPU-only or CUDA/ROCm build)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">numpy</span></code> and <code class="docutils literal notranslate"><span class="pre">scipy</span></code> (installed automatically via <code class="docutils literal notranslate"><span class="pre">pip</span></code>)</p></li>
+<li><p>Python 3.9 or newer (3.10/3.11 recommended for the latest JAX wheels)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">jax</span></code>/<code class="docutils literal notranslate"><span class="pre">jaxlib</span></code> compiled for your target platform (CPU, CUDA, or ROCm)</p></li>
+<li><p>Optionally: <code class="docutils literal notranslate"><span class="pre">matplotlib</span></code> and <code class="docutils literal notranslate"><span class="pre">seaborn</span></code> for the plotting utilities</p></li>
+<li><p>A recent <code class="docutils literal notranslate"><span class="pre">pip</span></code> (<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--upgrade</span> <span class="pre">pip</span></code>)</p></li>
 </ul>
 </section>
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
-<p>From PyPI (recommended):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">microjaxx</span>
+<p>Stable releases (PyPI):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">upgrade</span> <span class="n">microjaxx</span>
 </pre></div>
 </div>
-<p>Notes:</p>
-<ul class="simple">
-<li><p>Import name is <code class="docutils literal notranslate"><span class="pre">microjax</span></code> but the package on PyPI is <code class="docutils literal notranslate"><span class="pre">microjaxx</span></code>.</p></li>
-<li><p>Upgrade to the latest release with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">--upgrade</span> <span class="pre">microjaxx</span></code>.</p></li>
-</ul>
-<p>Development install:</p>
+<p>Development version (from source):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">ShotaMiyazaki94</span><span class="o">/</span><span class="n">microjax</span><span class="o">.</span><span class="n">git</span>
 <span class="n">cd</span> <span class="n">microjax</span>
-<span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">e</span> <span class="s2">&quot;.[dev]&quot;</span>
+<span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">e</span> <span class="s2">&quot;.[dev]&quot;</span>
 </pre></div>
 </div>
-<p>GPU support depends on your system. Follow the
-<a class="reference external" href="https://jax.readthedocs.io/en/latest/installation.html">official JAX installation guide</a>
-to install the correct <code class="docutils literal notranslate"><span class="pre">jaxlib</span></code> wheel for CUDA or ROCm.</p>
+<p>The import name is <code class="docutils literal notranslate"><span class="pre">microjax</span></code> even though the wheel on PyPI is published as
+<code class="docutils literal notranslate"><span class="pre">microjaxx</span></code>.</p>
+<p>GPU-aware JAX wheels must be installed separately; follow the <a class="reference external" href="https://jax.readthedocs.io/en/latest/installation.html">official JAX
+installation matrix</a>
+and pick the CUDA/ROCm wheel that matches your drivers.</p>
 </section>
-<section id="first-checks">
-<h2>First checks<a class="headerlink" href="#first-checks" title="Permalink to this heading"></a></h2>
-<p>After installation, verify that JAX detects the expected devices and that core
-modules import correctly:</p>
+<section id="verify-the-environment">
+<h2>Verify the environment<a class="headerlink" href="#verify-the-environment" title="Permalink to this heading"></a></h2>
+<p>Check that JAX detects your devices and that microJAX imports cleanly:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span> <span class="o">&lt;&lt;</span><span class="s1">&#39;PY&#39;</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">microjax</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;JAX devices:&quot;</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">devices</span><span class="p">())</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;microJAX version:&quot;</span><span class="p">,</span> <span class="n">microjax</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;microJAX&quot;</span><span class="p">,</span> <span class="n">microjax</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;JAX devices&quot;</span><span class="p">,</span> <span class="n">jax</span><span class="o">.</span><span class="n">devices</span><span class="p">())</span>
 <span class="n">PY</span>
 </pre></div>
 </div>
-<p>For numerical robustness we recommend enabling 64-bit precision in JAX:</p>
+<p>Enable 64-bit mode for improved numerical stability:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 <span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>Smoke test: point-source magnification:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span> <span class="o">&lt;&lt;</span><span class="s1">&#39;PY&#39;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
+
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+<span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="mf">0.1</span>
+<span class="n">mu</span> <span class="o">=</span> <span class="n">mag_point_source</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mu</span><span class="p">)</span>
+<span class="n">PY</span>
+</pre></div>
+</div>
 </section>
-<section id="next-steps">
-<h2>Next steps<a class="headerlink" href="#next-steps" title="Permalink to this heading"></a></h2>
+<section id="up-next">
+<h2>Up next<a class="headerlink" href="#up-next" title="Permalink to this heading"></a></h2>
 <ul class="simple">
-<li><p>Continue with <a class="reference internal" href="usage.html"><span class="doc">Usage Guide</span></a> for worked examples and snippets.</p></li>
-<li><p>Review <a class="reference internal" href="development.html"><span class="doc">Development</span></a> if you plan to contribute or run the test suite.</p></li>
+<li><p><a class="reference internal" href="usage.html"><span class="doc">Usage Guide</span></a> walks through binary and triple lens examples.</p></li>
+<li><p><a class="reference internal" href="concepts.html"><span class="doc">Concepts &amp; Architecture</span></a> explains how the modules fit together.</p></li>
+<li><p><a class="reference internal" href="troubleshooting.html"><span class="doc">Troubleshooting</span></a> lists common pitfalls and quick fixes.</p></li>
 </ul>
 </section>
 </section>

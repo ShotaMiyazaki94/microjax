@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Troubleshooting &mdash; microJAX  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Concepts &amp; Architecture" href="concepts.html" />
+    <link rel="prev" title="Usage Guide" href="usage.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> microJAX
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Troubleshooting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#jax-cannot-see-my-gpu">JAX cannot see my GPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#mag-binary-is-slow-or-runs-out-of-memory">mag_binary is slow or runs out of memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#gradient-computations-stall">Gradient computations stall</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#import-errors-for-optional-dependencies">Import errors for optional dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#still-stuck">Still stuck?</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Internals &amp; Contribution</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Development</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">microJAX</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Troubleshooting</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/troubleshooting.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="troubleshooting">
+<h1>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this heading"></a></h1>
+<p>The most common issues reported by new users are summarised here together with
+suggested fixes.</p>
+<section id="jax-cannot-see-my-gpu">
+<h2>JAX cannot see my GPU<a class="headerlink" href="#jax-cannot-see-my-gpu" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Ensure you installed a CUDA/ROCm build of <code class="docutils literal notranslate"><span class="pre">jaxlib</span></code> that matches your driver
+version.  Follow the <a class="reference external" href="https://jax.readthedocs.io/en/latest/installation.html">official installation matrix</a>.</p></li>
+<li><p>Double-check the environment variables <code class="docutils literal notranslate"><span class="pre">XLA_PYTHON_CLIENT_PREALLOCATE</span></code> and
+<code class="docutils literal notranslate"><span class="pre">JAX_PLATFORMS</span></code>; temporarily set <code class="docutils literal notranslate"><span class="pre">JAX_PLATFORMS=cuda</span></code> to force GPU usage.</p></li>
+<li><p>On multi-user systems, confirm that you have access to the GPU (<code class="docutils literal notranslate"><span class="pre">nvidia-smi</span></code>
+or ROCm equivalents).</p></li>
+</ul>
+</section>
+<section id="mag-binary-is-slow-or-runs-out-of-memory">
+<h2>mag_binary is slow or runs out of memory<a class="headerlink" href="#mag-binary-is-slow-or-runs-out-of-memory" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Reduce <code class="docutils literal notranslate"><span class="pre">r_resolution</span></code>/<code class="docutils literal notranslate"><span class="pre">th_resolution</span></code> and the limb-darkening table size
+<code class="docutils literal notranslate"><span class="pre">Nlimb</span></code>.  Start with 512×512 and scale up only if accuracy requires it.</p></li>
+<li><p>Increase <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> so that more samples are processed per device launch.</p></li>
+<li><p>Decrease <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> if the adaptive trigger upgrades too many points.</p></li>
+</ul>
+</section>
+<section id="gradient-computations-stall">
+<h2>Gradient computations stall<a class="headerlink" href="#gradient-computations-stall" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Confirm that <code class="docutils literal notranslate"><span class="pre">jax_enable_x64</span></code> is turned on; implicit differentiation through
+the polynomial solver is numerically sensitive in single precision.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">jax.jit</span></code> to compile the forward pass before taking gradients; this
+shortens trace lengths and avoids repeated recompilations.</p></li>
+</ul>
+</section>
+<section id="import-errors-for-optional-dependencies">
+<h2>Import errors for optional dependencies<a class="headerlink" href="#import-errors-for-optional-dependencies" title="Permalink to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">microJAX</span></code> only depends on JAX and NumPy at runtime, but some examples pull in
+<code class="docutils literal notranslate"><span class="pre">matplotlib</span></code> or <code class="docutils literal notranslate"><span class="pre">seaborn</span></code>.  Install extras with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">microjaxx[plot]</span></code>
+(or install the packages manually) if you intend to run the demo scripts.</p>
+</section>
+<section id="still-stuck">
+<h2>Still stuck?<a class="headerlink" href="#still-stuck" title="Permalink to this heading"></a></h2>
+<p>Open an issue on GitHub with the following information:</p>
+<ul class="simple">
+<li><p>microJAX version (<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-c</span> <span class="pre">&quot;import</span> <span class="pre">microjax;</span> <span class="pre">print(microjax.__version__)&quot;</span></code>)</p></li>
+<li><p>JAX/JAXLIB versions and platform (CPU, CUDA, ROCm)</p></li>
+<li><p>A minimal code snippet reproducing the issue</p></li>
+</ul>
+<p>We are happy to help debug problems and improve the documentation.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="usage.html" class="btn btn-neutral float-left" title="Usage Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="concepts.html" class="btn btn-neutral float-right" title="Concepts &amp; Architecture" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -38,10 +38,15 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Internals &amp; Contribution</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; Architecture</a></li>
 <li class="toctree-l1"><a class="reference internal" href="development.html">Development</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -75,35 +80,85 @@
              
   <section id="welcome-to-microjax-s-documentation">
 <h1>Welcome to microJAX’s documentation!<a class="headerlink" href="#welcome-to-microjax-s-documentation" title="Permalink to this heading"></a></h1>
-<p><code class="docutils literal notranslate"><span class="pre">microJAX</span></code> is an auto-differentiable microlensing toolkit built on top of
-JAX. The library provides point-source and finite-source magnification models,
-fast contour integration, and utilities for trajectory generation and
-inference-ready likelihoods.</p>
-<p>Use this documentation as a companion to the project README: the guide sections
-walk through installation and common workflows, while the API reference links
-to detailed, auto-generated documentation for the public modules.</p>
+<p><code class="docutils literal notranslate"><span class="pre">microJAX</span></code> is a GPU-aware, auto-differentiable microlensing toolkit built on
+top of JAX.  The library combines fast multipole approximations with adaptive
+inverse-ray contour integration to deliver accurate magnifications and
+gradients for binary and triple lens systems.</p>
+<section id="highlights">
+<h2>Highlights<a class="headerlink" href="#highlights" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Accelerated finite sources</strong> – image-centred ray shooting with CUDA-ready
+batching.</p></li>
+<li><p><strong>Differentiable everywhere</strong> – gradients flow through polynomial solvers and
+contour integrators for use in HMC/VI workflows.</p></li>
+<li><p><strong>Trajectory utilities</strong> – helpers for parallax, limb darkening, and custom
+source motion.</p></li>
+<li><p><strong>Composable likelihoods</strong> – analytic marginalisation utilities for fast
+photometric inference.</p></li>
+</ul>
+</section>
+<section id="quick-peek">
+<h2>Quick peek<a class="headerlink" href="#quick-peek" title="Permalink to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray.lightcurve</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_binary</span>
+
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+<span class="n">t</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mi">512</span><span class="p">)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">t</span> <span class="o">/</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># toy trajectory on the complex plane</span>
+
+<span class="n">mags</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Use the sections below to install the package, explore worked examples, and dig
+into the API.</p>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Guide</span></p>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="getting_started.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#prerequisites">Prerequisites</a></li>
 <li class="toctree-l2"><a class="reference internal" href="getting_started.html#installation">Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="getting_started.html#first-checks">First checks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="getting_started.html#next-steps">Next steps</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#verify-the-environment">Verify the environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#up-next">Up next</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#point-source-magnification">Point-source magnification</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage.html#extended-source-light-curves">Extended-source light curves</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#finite-source-binary-lenses">Finite-source binary lenses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#triple-lenses">Triple lenses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#autodiff-and-jit">Autodiff and <code class="docutils literal notranslate"><span class="pre">jit</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#trajectory-helpers">Trajectory helpers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage.html#tips">Tips</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#best-practices">Best practices</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#jax-cannot-see-my-gpu">JAX cannot see my GPU</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#mag-binary-is-slow-or-runs-out-of-memory">mag_binary is slow or runs out of memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#gradient-computations-stall">Gradient computations stall</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#import-errors-for-optional-dependencies">Import errors for optional dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#still-stuck">Still stuck?</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Internals &amp; Contribution</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#core-packages">Core packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#execution-model">Execution model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#accuracy-strategy">Accuracy strategy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#key-data-conventions">Key data conventions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts.html#further-reading">Further reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="development.html">Development</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="development.html#test-suite">Test suite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="development.html#documentation">Documentation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="development.html#coding-style">Coding style</a></li>
-<li class="toctree-l2"><a class="reference internal" href="development.html#where-to-ask-questions">Where to ask questions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html#code-style-tooling">Code style &amp; tooling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html#profiling-tips">Profiling tips</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html#questions-support">Questions &amp; support</a></li>
 </ul>
 </li>
 </ul>
@@ -111,18 +166,10 @@ to detailed, auto-generated documentation for the public modules.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="api/point_source.html">Point Source</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/multipole.html">Multipole</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/poly_solver.html">Polynomial Solver</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/utils.html">Utility Functions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/likelihood.html">Likelihood Utilities</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/trajectory.html">Trajectories</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
 </ul>
 </div>
+</section>
 </section>
 <section id="indices-and-tables">
 <h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading"></a></h1>

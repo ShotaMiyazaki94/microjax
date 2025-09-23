@@ -1,59 +1,72 @@
 Getting Started
 ===============
 
-Use this section to set up a working ``microJAX`` environment and ensure the
-package can talk to your available hardware.
+Use this guide to set up a microJAX environment, verify that JAX can see your
+accelerator, and run a sanity check.
 
-Requirements
-------------
+Prerequisites
+-------------
 
-- Python 3.9 or newer
-- ``jax`` / ``jaxlib`` matching your accelerator (CPU-only or CUDA/ROCm build)
-- ``numpy`` and ``scipy`` (installed automatically via ``pip``)
+- Python 3.9 or newer (3.10/3.11 recommended for the latest JAX wheels)
+- ``jax``/``jaxlib`` compiled for your target platform (CPU, CUDA, or ROCm)
+- Optionally: ``matplotlib`` and ``seaborn`` for the plotting utilities
+- A recent ``pip`` (``python -m pip install --upgrade pip``)
 
 Installation
 ------------
 
-From PyPI (recommended)::
+Stable releases (PyPI)::
 
-   pip install microjaxx
+   python -m pip install --upgrade microjaxx
 
-Notes:
-
-- Import name is ``microjax`` but the package on PyPI is ``microjaxx``.
-- Upgrade to the latest release with ``pip install --upgrade microjaxx``.
-
-Development install::
+Development version (from source)::
 
    git clone https://github.com/ShotaMiyazaki94/microjax.git
    cd microjax
-   pip install -e ".[dev]"
+   python -m pip install -e ".[dev]"
 
-GPU support depends on your system. Follow the
-`official JAX installation guide <https://jax.readthedocs.io/en/latest/installation.html>`_
-to install the correct ``jaxlib`` wheel for CUDA or ROCm.
+The import name is ``microjax`` even though the wheel on PyPI is published as
+``microjaxx``.
 
-First checks
-------------
+GPU-aware JAX wheels must be installed separately; follow the `official JAX
+installation matrix <https://jax.readthedocs.io/en/latest/installation.html>`_
+and pick the CUDA/ROCm wheel that matches your drivers.
 
-After installation, verify that JAX detects the expected devices and that core
-modules import correctly::
+Verify the environment
+----------------------
+
+Check that JAX detects your devices and that microJAX imports cleanly::
 
    python - <<'PY'
    import jax
    import microjax
 
-   print("JAX devices:", jax.devices())
-   print("microJAX version:", microjax.__version__)
+   print("microJAX", microjax.__version__)
+   print("JAX devices", jax.devices())
    PY
 
-For numerical robustness we recommend enabling 64-bit precision in JAX::
+Enable 64-bit mode for improved numerical stability::
 
    import jax
    jax.config.update("jax_enable_x64", True)
 
-Next steps
-----------
+Smoke test: point-source magnification::
 
-- Continue with :doc:`usage` for worked examples and snippets.
-- Review :doc:`development` if you plan to contribute or run the test suite.
+   python - <<'PY'
+   import jax
+   import jax.numpy as jnp
+   from microjax.point_source import mag_point_source
+
+   jax.config.update("jax_enable_x64", True)
+
+   w = jnp.linspace(-0.3, 0.3, 5) + 1j * 0.1
+   mu = mag_point_source(w, nlenses=2, s=1.0, q=1e-3)
+   print(mu)
+   PY
+
+Up next
+-------
+
+- :doc:`usage` walks through binary and triple lens examples.
+- :doc:`concepts` explains how the modules fit together.
+- :doc:`troubleshooting` lists common pitfalls and quick fixes.

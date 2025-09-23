@@ -21,7 +21,7 @@
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="API Reference" href="modules.html" />
-    <link rel="prev" title="Usage Guide" href="usage.html" /> 
+    <link rel="prev" title="Concepts &amp; Architecture" href="concepts.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -39,15 +39,21 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Guide</span></p>
-<ul class="current">
+              <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Internals &amp; Contribution</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; Architecture</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Development</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#test-suite">Test suite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#documentation">Documentation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#coding-style">Coding style</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#where-to-ask-questions">Where to ask questions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#code-style-tooling">Code style &amp; tooling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#profiling-tips">Profiling tips</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#questions-support">Questions &amp; support</a></li>
 </ul>
 </li>
 </ul>
@@ -83,43 +89,43 @@
   <section id="development">
 <h1>Development<a class="headerlink" href="#development" title="Permalink to this heading"></a></h1>
 <p>This page collects notes for contributors and power users who want to run the
-full test suite or rebuild the documentation.</p>
+full test suite, regenerate documentation, or profile kernels.</p>
 <section id="test-suite">
 <h2>Test suite<a class="headerlink" href="#test-suite" title="Permalink to this heading"></a></h2>
 <p>Install development dependencies first:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">e</span> <span class="s2">&quot;.[dev]&quot;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">e</span> <span class="s2">&quot;.[dev]&quot;</span>
 </pre></div>
 </div>
-<p>Run the default (CPU) test selection:</p>
+<p>CPU default suite:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pytest</span> <span class="o">-</span><span class="n">q</span>
 </pre></div>
 </div>
-<p>GPU-specific tests are opt-in. On a CUDA-capable machine run:</p>
+<p>GPU-specific tests (opt-in):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pytest</span> <span class="o">-</span><span class="n">m</span> <span class="n">gpu</span> <span class="o">-</span><span class="n">q</span>
 </pre></div>
 </div>
-<p>The GPU tests are skipped automatically when JAX cannot see a CUDA device. No
-additional environment variable is required, though <code class="docutils literal notranslate"><span class="pre">JAX_PLATFORMS=cuda</span></code> can
-be helpful if you have both CPU and GPU runtimes installed.</p>
+<p>The GPU group remains skipped when no CUDA platform is visible; set
+<code class="docutils literal notranslate"><span class="pre">JAX_PLATFORMS=cuda</span></code> to force GPU execution when both CPU and CUDA libraries
+are installed.  For deterministic runs, export <code class="docutils literal notranslate"><span class="pre">XLA_FLAGS=--xla_gpu_deterministic_ops</span></code>.</p>
 </section>
 <section id="documentation">
 <h2>Documentation<a class="headerlink" href="#documentation" title="Permalink to this heading"></a></h2>
-<p>The Sphinx sources live in <code class="docutils literal notranslate"><span class="pre">docs_src</span></code> and the rendered HTML is committed in
-<code class="docutils literal notranslate"><span class="pre">docs</span></code> for convenience.</p>
-<p>Rebuild the docs locally:</p>
+<p>The Sphinx sources reside in <code class="docutils literal notranslate"><span class="pre">docs_src</span></code>.  Rebuild the HTML site via:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">docs_src</span>
 <span class="n">make</span> <span class="n">html</span>
 </pre></div>
 </div>
-<p>The generated site appears in <code class="docutils literal notranslate"><span class="pre">docs/</span></code>. You may publish it on GitHub Pages by
-pushing the rendered files or by wiring up a documentation workflow.</p>
+<p>Artifacts appear under <code class="docutils literal notranslate"><span class="pre">docs/</span></code>.  If you automate documentation deployment,
+consider using <code class="docutils literal notranslate"><span class="pre">sphinx-build</span> <span class="pre">-b</span> <span class="pre">html</span> <span class="pre">docs_src</span> <span class="pre">docs</span></code> in CI for explicit output
+paths.</p>
 </section>
-<section id="coding-style">
-<h2>Coding style<a class="headerlink" href="#coding-style" title="Permalink to this heading"></a></h2>
+<section id="code-style-tooling">
+<h2>Code style &amp; tooling<a class="headerlink" href="#code-style-tooling" title="Permalink to this heading"></a></h2>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">ruff</span></code> handles linting and formatting; run <code class="docutils literal notranslate"><span class="pre">ruff</span> <span class="pre">check</span> <span class="pre">--fix</span></code> before
-committing changes.</p></li>
-<li><p>Enable JAX 64-bit mode during tests for reproducibility:</p>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">ruff</span> <span class="pre">check</span> <span class="pre">--fix</span></code> followed by <code class="docutils literal notranslate"><span class="pre">ruff</span> <span class="pre">format</span></code> to keep Python files tidy.</p></li>
+<li><p>Static type hints are gradually being added; run <code class="docutils literal notranslate"><span class="pre">pyright</span></code> when modifying
+typed modules.</p></li>
+<li><p>Enable 64-bit mode in tests to mirror production usage:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span> <span class="o">&lt;&lt;</span><span class="s1">&#39;PY&#39;</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">config</span>
 <span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
@@ -129,10 +135,19 @@ committing changes.</p></li>
 </li>
 </ul>
 </section>
-<section id="where-to-ask-questions">
-<h2>Where to ask questions<a class="headerlink" href="#where-to-ask-questions" title="Permalink to this heading"></a></h2>
-<p>Open a GitHub issue or start a discussion if you encounter problems or want to
-propose improvements.</p>
+<section id="profiling-tips">
+<h2>Profiling tips<a class="headerlink" href="#profiling-tips" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Wrap expensive kernels with <code class="docutils literal notranslate"><span class="pre">jax.profiler.trace_function</span></code> or use
+<code class="docutils literal notranslate"><span class="pre">jax.profiler.start_trace</span></code> to generate traces viewable in TensorBoard.</p></li>
+<li><p>When experimenting with quadrature settings, benchmark on representative
+trajectories—<code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> and <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> interact strongly.</p></li>
+</ul>
+</section>
+<section id="questions-support">
+<h2>Questions &amp; support<a class="headerlink" href="#questions-support" title="Permalink to this heading"></a></h2>
+<p>File an issue on GitHub or start a discussion thread.  Please include your JAX
+versions, accelerator information, and a minimal reproducer.</p>
 </section>
 </section>
 
@@ -140,7 +155,7 @@ propose improvements.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="usage.html" class="btn btn-neutral float-left" title="Usage Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="concepts.html" class="btn btn-neutral float-left" title="Concepts &amp; Architecture" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="modules.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
