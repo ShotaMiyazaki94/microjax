@@ -66,13 +66,6 @@ into the API.
    troubleshooting
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Internals & Contribution
-
-   concepts
-   development
-
-.. toctree::
    :maxdepth: 1
    :caption: API Reference
 
