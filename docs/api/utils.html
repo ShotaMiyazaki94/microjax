@@ -46,11 +46,6 @@
 <li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Internals &amp; Contribution</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; Architecture</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
-</ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../modules.html">API Reference</a><ul class="current">
@@ -67,6 +62,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#microjax.utils.mean_zero_avoiding"><code class="docutils literal notranslate"><span class="pre">mean_zero_avoiding()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#microjax.utils.min_zero_avoiding"><code class="docutils literal notranslate"><span class="pre">min_zero_avoiding()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#microjax.utils.sparse_argsort"><code class="docutils literal notranslate"><span class="pre">sparse_argsort()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.utils.trapz_zero_avoiding"><code class="docutils literal notranslate"><span class="pre">trapz_zero_avoiding()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="likelihood.html">Likelihood Utilities</a></li>
@@ -102,66 +98,184 @@
              
   <section id="module-microjax.utils">
 <span id="utility-functions"></span><h1>Utility Functions<a class="headerlink" href="#module-microjax.utils" title="Permalink to this heading"></a></h1>
+<p>Utility helpers shared across microJAX modules.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.utils.first_nonzero">
-<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">first_nonzero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.first_nonzero" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="microjax.utils.first_zero">
-<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">first_zero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.first_zero" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="microjax.utils.last_nonzero">
-<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">last_nonzero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.last_nonzero" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="microjax.utils.match_points">
-<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">match_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.match_points" title="Permalink to this definition"></a></dt>
-<dd><p>Iterate over elements of a in order and find the index of the closest
-element in b in distance. Return indices which permute b.</p>
-<p>This algorithm is not guaranteed to find a permutation of b which minimizes
-the sum of elementwise distances between every element of a and b
-(linear sum assignment problem).</p>
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">first_nonzero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.utils.first_nonzero" title="Permalink to this definition"></a></dt>
+<dd><p>Return the index of the first non-zero entry along <code class="docutils literal notranslate"><span class="pre">axis</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>a</strong> (<em>array_like</em>) – 1D array of complex numbers.</p></li>
-<li><p><strong>b</strong> (<em>array_like</em>) – 1D array of complex numbers.</p></li>
+<li><p><strong>x</strong> (<em>Array</em>) – Input array.</p></li>
+<li><p><strong>axis</strong> (<em>int</em><em>, </em><em>optional</em>) – Axis along which to search. Defaults to 0.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Indices which specify a permutation of b.</p>
+<dd class="field-even"><p>Index of the first non-zero entry. If no entry is non-zero the result is
+<code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>array_like</p>
+<dd class="field-odd"><p>Array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.first_zero">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">first_zero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.utils.first_zero" title="Permalink to this definition"></a></dt>
+<dd><p>Return the index of the first zero entry along <code class="docutils literal notranslate"><span class="pre">axis</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Array</em>) – Input array.</p></li>
+<li><p><strong>axis</strong> (<em>int</em><em>, </em><em>optional</em>) – Axis along which to search. Defaults to 0.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Index of the first zero entry. If no entry is zero the result is <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.last_nonzero">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">last_nonzero</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.utils.last_nonzero" title="Permalink to this definition"></a></dt>
+<dd><p>Return the index of the last non-zero entry along <code class="docutils literal notranslate"><span class="pre">axis</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Array</em>) – Input array.</p></li>
+<li><p><strong>axis</strong> (<em>int</em><em>, </em><em>optional</em>) – Axis along which to search. Defaults to 0.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Index of the last non-zero entry. If all entries are zero the result is
+<code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.match_points">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">match_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.utils.match_points" title="Permalink to this definition"></a></dt>
+<dd><p>Greedy nearest-neighbour matching between two point sets.</p>
+<p>The algorithm iterates over <code class="docutils literal notranslate"><span class="pre">a</span></code> and, for each element, picks the closest
+unused element of <code class="docutils literal notranslate"><span class="pre">b</span></code>.  It does <strong>not</strong> solve the optimal assignment
+problem but provides a fast, deterministic ordering that is sufficient for
+tracking lens images across sampling steps.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<em>Array</em>) – One-dimensional complex array of source points.</p></li>
+<li><p><strong>b</strong> (<em>Array</em>) – One-dimensional complex array of candidate points to match against.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Indices that permute <code class="docutils literal notranslate"><span class="pre">b</span></code> into the greedy match order of <code class="docutils literal notranslate"><span class="pre">a</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Array</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.utils.max_zero_avoiding">
-<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">max_zero_avoiding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.max_zero_avoiding" title="Permalink to this definition"></a></dt>
-<dd><p>Return the maximum  of a 1D array, avoiding 0.</p>
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">max_zero_avoiding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.utils.max_zero_avoiding" title="Permalink to this definition"></a></dt>
+<dd><p>Maximum value of <code class="docutils literal notranslate"><span class="pre">x</span></code> while skipping zeros.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Array</em>) – One-dimensional input array.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Maximum non-zero value if present, otherwise <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Array</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.utils.mean_zero_avoiding">
-<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">mean_zero_avoiding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.mean_zero_avoiding" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">mean_zero_avoiding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.utils.mean_zero_avoiding" title="Permalink to this definition"></a></dt>
+<dd><p>Mean of non-zero entries in <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Array</em>) – Input array.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Mean over the non-zero entries or <code class="docutils literal notranslate"><span class="pre">0</span></code> if all entries are zero.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Array</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.utils.min_zero_avoiding">
-<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">min_zero_avoiding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.min_zero_avoiding" title="Permalink to this definition"></a></dt>
-<dd><p>Return the minimum  of a 1D array, avoiding 0.</p>
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">min_zero_avoiding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.utils.min_zero_avoiding" title="Permalink to this definition"></a></dt>
+<dd><p>Minimum value of <code class="docutils literal notranslate"><span class="pre">x</span></code> while skipping zeros.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Array</em>) – One-dimensional input array.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Minimum non-zero value if present, otherwise <code class="docutils literal notranslate"><span class="pre">0</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Array</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.utils.sparse_argsort">
-<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">sparse_argsort</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.utils.sparse_argsort" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">sparse_argsort</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.utils.sparse_argsort" title="Permalink to this definition"></a></dt>
+<dd><p>Argsort that treats zeros as missing values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>a</strong> (<em>Array</em>) – Input array.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Indices that sort <code class="docutils literal notranslate"><span class="pre">a</span></code> after replacing zeros with <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.utils.trapz_zero_avoiding">
+<span class="sig-prename descclassname"><span class="pre">microjax.utils.</span></span><span class="sig-name descname"><span class="pre">trapz_zero_avoiding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tail_idx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.utils.trapz_zero_avoiding" title="Permalink to this definition"></a></dt>
+<dd><p>Trapezoidal integration omitting the final segment beyond <code class="docutils literal notranslate"><span class="pre">tail_idx</span></code>.</p>
+<p>Equivalent to <code class="docutils literal notranslate"><span class="pre">jax.scipy.integrate.trapezoid(y[:tail_idx+1],</span> <span class="pre">x[:tail_idx+1])</span></code>
+but avoids the last segment if <code class="docutils literal notranslate"><span class="pre">tail_idx</span></code> does not point to the final
+sample.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>y</strong> (<em>Array</em>) – Function samples.</p></li>
+<li><p><strong>x</strong> (<em>Array</em>) – Sample positions.</p></li>
+<li><p><strong>tail_idx</strong> (<em>int</em>) – Index of the last reliable sample to include in the integral.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Trapezoidal integral up to <code class="docutils literal notranslate"><span class="pre">tail_idx</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Array</p>
+</dd>
+</dl>
+</dd></dl>
 
 </section>
 

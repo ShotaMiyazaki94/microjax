@@ -1,6 +1,6 @@
 Trajectories
 ============
 
-.. automodule:: microjax.trajectory.parallax
+.. automodule:: microjax.trajectory
    :members:
    :show-inheritance:

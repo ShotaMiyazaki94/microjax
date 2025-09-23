@@ -54,5 +54,5 @@ Up next
 -------
 
 - :doc:`usage` walks through binary and triple lens examples.
-- :doc:`concepts` explains how the modules fit together.
 - :doc:`troubleshooting` lists common pitfalls and quick fixes.
+- :doc:`modules` provides API-level details for every public entry point.

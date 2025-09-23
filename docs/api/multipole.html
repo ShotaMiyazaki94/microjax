@@ -46,16 +46,14 @@
 <li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Internals &amp; Contribution</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../concepts.html">Concepts &amp; Architecture</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../development.html">Development</a></li>
-</ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../modules.html">API Reference</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="point_source.html">Point Source</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Multipole</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Multipole</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.multipole.mag_hexadecapole"><code class="docutils literal notranslate"><span class="pre">mag_hexadecapole()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
 <li class="toctree-l2"><a class="reference internal" href="poly_solver.html">Polynomial Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="utils.html">Utility Functions</a></li>
@@ -92,6 +90,41 @@
              
   <section id="module-microjax.multipole">
 <span id="multipole"></span><h1>Multipole<a class="headerlink" href="#module-microjax.multipole" title="Permalink to this heading"></a></h1>
+<p>Multipole approximations for finite-source magnifications.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.multipole.mag_hexadecapole">
+<span class="sig-prename descclassname"><span class="pre">microjax.multipole.</span></span><span class="sig-name descname"><span class="pre">mag_hexadecapole</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nlenses</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.multipole.mag_hexadecapole" title="Permalink to this definition"></a></dt>
+<dd><p>Evaluate the hexadecapole approximation for finite-source magnification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>z</strong> (<em>jax.Array</em>) – Complex image locations with shape <code class="docutils literal notranslate"><span class="pre">(N_images,</span> <span class="pre">...)</span></code>.</p></li>
+<li><p><strong>z_mask</strong> (<em>jax.Array</em>) – Boolean mask with the same shape as <code class="docutils literal notranslate"><span class="pre">z</span></code> selecting valid image
+branches (typically output of <code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.point_source._images_point_source()</span></code>).</p></li>
+<li><p><strong>rho</strong> (<em>float</em>) – Source radius in Einstein units.</p></li>
+<li><p><strong>u1</strong> (<em>float</em><em>, </em><em>optional</em>) – Linear limb-darkening coefficient. Defaults to <code class="docutils literal notranslate"><span class="pre">0</span></code> (uniform source).</p></li>
+<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of lenses (1, 2, or 3). Defaults to 2.</p></li>
+<li><p><strong>**params</strong> – Additional lens parameters in the mid-point coordinate system. For
+binaries this expects <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">e1</span></code>; for triples <code class="docutils literal notranslate"><span class="pre">a</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code>,
+<code class="docutils literal notranslate"><span class="pre">e1</span></code> and <code class="docutils literal notranslate"><span class="pre">e2</span></code> in addition to any other configuration details.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>mu</strong> (<em>jax.Array</em>) – Finite-source magnification obtained by summing the point-source term
+with quadrupole and hexadecapole corrections over all valid images.</p></li>
+<li><p><strong>residual</strong> (<em>jax.Array</em>) – Diagnostic amplitude (absolute quadrupole + hexadecapole contribution)
+that can be used to gauge when the approximation may be insufficient.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>The implementation follows Cassan et al. (2017), computing the multipole
+moments via the complex quantities <code class="docutils literal notranslate"><span class="pre">W_k</span></code> and applying limb-darkening
+corrections through the <code class="docutils literal notranslate"><span class="pre">Gamma</span></code> parameter.</p>
+</dd></dl>
+
 </section>
 
 
