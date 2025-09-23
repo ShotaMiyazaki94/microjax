@@ -123,7 +123,8 @@ Note: The triple-lens Jacobian example is computationally intensive. On CPU it c
 ## ⚠️ Known Limitations
 
 - Triple-lens hexadecapole/ghost-image test is not yet implemented: triple-lens calculations fall back to full contour integration everywhere, which can be substantially slower.
-- GPU tests are opt-in. If `MICROJAX_GPU_TESTS=1` is set and JAX detects a CUDA GPU, tests marked `gpu` run; otherwise they are skipped.
+- Finite-source magnification trades memory/runtime for accuracy through resolution parameters; tune these settings to match your GPU's available memory and throughput.
+- GPU tests are opt-in; run them explicitly with `pytest -m gpu`. If JAX cannot see a CUDA GPU, those tests are skipped.
 - For numerical stability and agreement across libraries, enable 64-bit precision in JAX (`jax_enable_x64=True`).
 
 ## 📚 References
@@ -151,7 +152,7 @@ GPU-only tests are opt-in and skipped by default. To run them on a CUDA-capable 
 pytest -m gpu -q
 ```
 
-These tests require JAX to detect a CUDA device. If not available, they are skipped.
+These tests require JAX to detect a CUDA device. If not available, they are skipped. No additional environment flag is required beyond the `-m gpu` marker.
 
 ## 📜 License
 
