@@ -51,8 +51,25 @@ Note: ``mag_binary`` also works on CPU but is very slow.
   mag_ext = mag_binary(w_points, rho, s=s, q=q)
 
   # Critical and caustic curves
-  crit, cau = critical_and_caustic_curves(s=s, q=q, nlenses=2, npts=1000) 
-  
+  crit, cau = critical_and_caustic_curves(s=s, q=q, nlenses=2, npts=1000)
+
+  import matplotlib.pyplot as plt
+  fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+  ax[0].plot(t, mag_p, 'k--', label='Point Source')
+  ax[0].plot(t, mag_ext, 'r-', label='Extended Source')
+  ax[0].set_xlabel('Time (days)')
+  ax[0].set_ylabel('Magnification')
+  ax[0].set_yscale('log')
+  ax[0].legend()
+  ax[1].plot(cau.real, cau.imag, 'r.')
+  ax[1].plot(w_points.real, w_points.imag, 'b-')
+  ax[1].axis('equal')
+  plt.show() 
+
+.. image:: _static/lightcurve_binary.png
+  :alt: Light curve example
+  :align: center
+  :width: 80% 
 
 Use the sections below to install the package, explore worked examples, and dig
 into the API.
