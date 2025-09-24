@@ -103,13 +103,15 @@ mu_point = mag_point_source(w_points, nlenses=2, s=s, q=q)
 
 ## Example output
 
-| Visualization of the ICRS method (binary-lens) | Triple-lens magnification and its gradients |
-| --------------------------------------- | --------------------------------------------- |
-| ![ICRS](example/visualize-icrs/visualize_example.png) | ![Triple-lens](example/triple-lens-jacobian/full_jacobian_plot.png) |
+| Visualization of the ICRS method (binary-lens) | Triple-lens magnification and its gradients | Compare with VBBL (binary uniform source) |
+| --- | --- | --- |
+| ![ICRS](example/visualize-icrs/visualize_example.png) | ![Triple-lens](example/triple-lens-jacobian/full_jacobian_plot.png) | ![Compare VBBL](example/compare-vbbl/compare_binary_uniform.png) |
 
 Refer to the [example](example/) directory for code that creates these plots.
 
 Note: The triple-lens Jacobian example is computationally intensive. On CPU it can be impractically slow; a CUDA-capable GPU with JAX is strongly recommended.
+
+Note: Finite-source inverse-ray calculations are likewise extremely slow without a GPU—this stems from the dense inverse ray-shooting itself, not from Jacobian evaluation.
 
 ---
 
