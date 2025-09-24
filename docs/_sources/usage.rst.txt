@@ -80,7 +80,7 @@ replace it with your own sampler if you need orbital motion or parallax.
    tau = (t - t0) / tE
    y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
    y2 =  u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
-   w = jnp.array(y1 + 1j * y2, dtype=complex)   # source trajectory
+   w_points = jnp.array(y1 + 1j * y2, dtype=complex)   # source trajectory
 
 2. Evaluate the magnification
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -93,8 +93,7 @@ if you hit performance limits.
 
    s = 0.95                       # projected separation
    q = 5e-4                       # mass ratio (m2/m1)
-
-   mags = mag_binary(w, rho, s=s, q=q)
+   mags = mag_binary(w_points, rho, s=s, q=q)
 
 ``mag_binary`` returns magnifications aligned with the input trajectory.  If you
 need fluxes, multiply by the intrinsic source flux and add blends or baselines
@@ -134,8 +133,13 @@ inputs mirror the binary API, but you must describe the third body explicitly.
 
 .. code-block:: python
 
-   mags_triple = mag_triple(w, rho, s=1.10, q=0.02, 
-                            q3=0.50, r3=0.60, psi=jnp.deg2rad(210.0))
+   mags_triple = mag_triple(w_points, rho, 
+                            s=1.10,                 # separation between 1st and 2nd lenses
+                            q=0.02,                 # mass ratio (m2/m1)
+                            q3=0.50,                # mass ratio (m3/m1)
+                            r3=0.60,                # separation between center of masss for m1/m2 and m3
+                            psi=jnp.deg2rad(210.0)  # angle of 3rd lens axis in radians 
+                            )
 
 Guidelines:
 
@@ -147,32 +151,27 @@ Autodiff and ``jit``
 --------------------
 
 All magnification routines are differentiable.  Wrapping them in ``jax.jit``
-gives you compiled performance, and ``jax.grad`` / ``jax.jacrev`` provide
-derivatives for inference.
+gives you compiled performance, and ``jax.jacfwd`` provide derivatives for 
+inference.
 
 .. code-block:: python
 
    from functools import partial
-   from jax import grad, jacrev, jit
-
-   data_flux = jnp.load("example_lightcurve.npy")
+   from jax import jacfwd, jit
 
    def forward_model(q):
        mags = mag_binary(w, rho, s=s, q=q)
        return mags  # replace with instrument model if needed
 
    forward_jit = jit(forward_model)
+   J = jacfwd(forward_jit)(q)
 
-   def neg_log_like(q):
-       model = forward_jit(q)
-       resid = model - data_flux
-       return 0.5 * jnp.sum(resid ** 2)
+``jacfwd`` is especially useful when fitting multiple parameters simultaneously
+or when propagating uncertainties through a light-curve model. 
 
-   g = grad(neg_log_like)(q)
-   J = jacrev(forward_jit)(q)
+Note: The reverse-mode automatic differentiation in ``microJAX`` is currently 
+under development due to memory handling issues.
 
-``jacrev`` is especially useful when fitting multiple parameters simultaneously
-or when propagating uncertainties through a light-curve model.
 
 Trajectory helpers
 ------------------

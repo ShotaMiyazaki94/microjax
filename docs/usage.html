@@ -63,11 +63,6 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Internals &amp; Contribution</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="concepts.html">Concepts &amp; Architecture</a></li>
-<li class="toctree-l1"><a class="reference internal" href="development.html">Development</a></li>
-</ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
@@ -169,7 +164,7 @@ replace it with your own sampler if you need orbital motion or parallax.</p>
 <span class="n">tau</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">/</span> <span class="n">tE</span>
 <span class="n">y1</span> <span class="o">=</span> <span class="o">-</span><span class="n">u0</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
 <span class="n">y2</span> <span class="o">=</span>  <span class="n">u0</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
-<span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y1</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">y2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>   <span class="c1"># source trajectory</span>
+<span class="n">w_points</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y1</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">y2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>   <span class="c1"># source trajectory</span>
 </pre></div>
 </div>
 </section>
@@ -180,8 +175,7 @@ start, stick with the defaults for the optional arguments and only adjust them
 if you hit performance limits.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">s</span> <span class="o">=</span> <span class="mf">0.95</span>                       <span class="c1"># projected separation</span>
 <span class="n">q</span> <span class="o">=</span> <span class="mf">5e-4</span>                       <span class="c1"># mass ratio (m2/m1)</span>
-
-<span class="n">mags</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
+<span class="n">mags</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> returns magnifications aligned with the input trajectory.  If you
@@ -220,8 +214,13 @@ appear in magnification calculations.</p></li>
 <h2>Triple lenses<a class="headerlink" href="#triple-lenses" title="Permalink to this heading"></a></h2>
 <p>Triple-lens finite-source calculations are handled by <code class="docutils literal notranslate"><span class="pre">mag_triple</span></code>.  The
 inputs mirror the binary API, but you must describe the third body explicitly.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mags_triple</span> <span class="o">=</span> <span class="n">mag_triple</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">1.10</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>
-                         <span class="n">q3</span><span class="o">=</span><span class="mf">0.50</span><span class="p">,</span> <span class="n">r3</span><span class="o">=</span><span class="mf">0.60</span><span class="p">,</span> <span class="n">psi</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">210.0</span><span class="p">))</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mags_triple</span> <span class="o">=</span> <span class="n">mag_triple</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span>
+                         <span class="n">s</span><span class="o">=</span><span class="mf">1.10</span><span class="p">,</span>                 <span class="c1"># separation between 1st and 2nd lenses</span>
+                         <span class="n">q</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>                 <span class="c1"># mass ratio (m2/m1)</span>
+                         <span class="n">q3</span><span class="o">=</span><span class="mf">0.50</span><span class="p">,</span>                <span class="c1"># mass ratio (m3/m1)</span>
+                         <span class="n">r3</span><span class="o">=</span><span class="mf">0.60</span><span class="p">,</span>                <span class="c1"># separation between center of masss for m1/m2 and m3</span>
+                         <span class="n">psi</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">210.0</span><span class="p">)</span>  <span class="c1"># angle of 3rd lens axis in radians</span>
+                         <span class="p">)</span>
 </pre></div>
 </div>
 <p>Guidelines:</p>
@@ -234,37 +233,30 @@ changes.</p></li>
 <section id="autodiff-and-jit">
 <h2>Autodiff and <code class="docutils literal notranslate"><span class="pre">jit</span></code><a class="headerlink" href="#autodiff-and-jit" title="Permalink to this heading"></a></h2>
 <p>All magnification routines are differentiable.  Wrapping them in <code class="docutils literal notranslate"><span class="pre">jax.jit</span></code>
-gives you compiled performance, and <code class="docutils literal notranslate"><span class="pre">jax.grad</span></code> / <code class="docutils literal notranslate"><span class="pre">jax.jacrev</span></code> provide
-derivatives for inference.</p>
+gives you compiled performance, and <code class="docutils literal notranslate"><span class="pre">jax.jacfwd</span></code> provide derivatives for
+inference.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">grad</span><span class="p">,</span> <span class="n">jacrev</span><span class="p">,</span> <span class="n">jit</span>
-
-<span class="n">data_flux</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;example_lightcurve.npy&quot;</span><span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacfwd</span><span class="p">,</span> <span class="n">jit</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">forward_model</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
     <span class="n">mags</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">mags</span>  <span class="c1"># replace with instrument model if needed</span>
 
 <span class="n">forward_jit</span> <span class="o">=</span> <span class="n">jit</span><span class="p">(</span><span class="n">forward_model</span><span class="p">)</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">neg_log_like</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
-    <span class="n">model</span> <span class="o">=</span> <span class="n">forward_jit</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
-    <span class="n">resid</span> <span class="o">=</span> <span class="n">model</span> <span class="o">-</span> <span class="n">data_flux</span>
-    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">resid</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
-
-<span class="n">g</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">neg_log_like</span><span class="p">)(</span><span class="n">q</span><span class="p">)</span>
-<span class="n">J</span> <span class="o">=</span> <span class="n">jacrev</span><span class="p">(</span><span class="n">forward_jit</span><span class="p">)(</span><span class="n">q</span><span class="p">)</span>
+<span class="n">J</span> <span class="o">=</span> <span class="n">jacfwd</span><span class="p">(</span><span class="n">forward_jit</span><span class="p">)(</span><span class="n">q</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">jacrev</span></code> is especially useful when fitting multiple parameters simultaneously
+<p><code class="docutils literal notranslate"><span class="pre">jacfwd</span></code> is especially useful when fitting multiple parameters simultaneously
 or when propagating uncertainties through a light-curve model.</p>
+<p>Note: The reverse-mode automatic differentiation in <code class="docutils literal notranslate"><span class="pre">microJAX</span></code> is currently
+under development due to memory handling issues.</p>
 </section>
 <section id="trajectory-helpers">
 <h2>Trajectory helpers<a class="headerlink" href="#trajectory-helpers" title="Permalink to this heading"></a></h2>
-<p>For trajectories beyond straight lines, the <code class="xref py py-mod docutils literal notranslate"><span class="pre">microjax.trajectory</span></code> package
+<p>For trajectories beyond straight lines, the <a class="reference internal" href="api/trajectory.html#module-microjax.trajectory" title="microjax.trajectory"><code class="xref py py-mod docutils literal notranslate"><span class="pre">microjax.trajectory</span></code></a> package
 provides composable pieces:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="api/trajectory.html#module-microjax.trajectory.parallax" title="microjax.trajectory.parallax"><code class="xref py py-mod docutils literal notranslate"><span class="pre">microjax.trajectory.parallax</span></code></a> – annual parallax terms.</p></li>
+<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">microjax.trajectory.parallax</span></code> – annual parallax terms.</p></li>
 </ul>
 <p>These components return arrays compatible with the <code class="docutils literal notranslate"><span class="pre">w</span></code> input used above, so
 you can drop them into <code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> / <code class="docutils literal notranslate"><span class="pre">mag_triple</span></code> without further changes.</p>
