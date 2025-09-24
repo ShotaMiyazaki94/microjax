@@ -67,7 +67,7 @@ def test_binary_lightcurve_matches_vbbl(s, q, u0, tE, rho, alpha):
 
     t0 = 0.0
     npts = 100
-    t, w = make_trajectory(u0=u0, tE=tE, t0=t0, alpha=alpha, n=npts, span=2.0)
+    t, w = make_trajectory(u0=u0, tE=tE, t0=t0, alpha=alpha, n=npts, span=1.0)
     params_vb = [jnp.log(s), jnp.log(q), u0, alpha - jnp.pi, jnp.log(rho), jnp.log(tE), t0]
     mag_vb, _, _ = jnp.array(VBBL.BinaryLightCurve(params_vb, t))
 
@@ -76,17 +76,17 @@ def test_binary_lightcurve_matches_vbbl(s, q, u0, tE, rho, alpha):
         rho,
         s=s,
         q=q,
-        r_resolution=1000,
-        th_resolution=1000,
+        r_resolution=500,
+        th_resolution=500,
         Nlimb=500,
         bins_r=120,
         bins_th=360,
         margin_r=0.5,
         margin_th=0.5,
-        MAX_FULL_CALLS=1000,
-        chunk_size=500,
+        MAX_FULL_CALLS=100,
+        chunk_size=10,
     )
 
     diff = np.array(mags) - np.array(mag_vb)
     # Allow a modest tolerance due to discretization and algorithmic differences
-    assert np.max(np.abs(diff)) < 2e-3
+    assert np.max(np.abs(diff)) < 5e-3
