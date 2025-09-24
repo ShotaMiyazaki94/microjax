@@ -69,8 +69,9 @@ tE, u0 = 30.0, 0.0          # Einstein time [days], impact parameter
 alpha = jnp.deg2rad(10.0)  # trajectory angle
 t0 = 0.0
 
+# Source trajectory
 N_points = 1000
-t = t0 + jnp.linspace(-2*tE, 2*tE, N_points)
+t = t0 + jnp.linspace(-tE, tE, N_points)
 tau = (t - t0)/tE
 y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
 y2 =  u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
