@@ -103,7 +103,7 @@ mu_point = mag_point_source(w_points, nlenses=2, s=s, q=q)
 
 ## Example output
 
-| Visualization of the ICRS method (binary-lens) | Triple-lens magnification and its gradients | Compare with VBBL (binary uniform source) |
+| Visualization of the ICRS method (binary-lens) | Triple-lens magnification and its gradients | Compare with VBBL (uniform source, binary-lens) |
 | --- | --- | --- |
 | ![ICRS](example/visualize-icrs/visualize_example.png) | ![Triple-lens](example/triple-lens-jacobian/full_jacobian_plot.png) | ![Compare VBBL](example/compare-vbbl/compare_binary_uniform.png) |
 
