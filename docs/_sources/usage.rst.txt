@@ -166,8 +166,6 @@ inference.
    forward_jit = jit(forward_model)
    J = jacfwd(forward_jit)(q)
 
-``jacfwd`` is especially useful when fitting multiple parameters simultaneously
-or when propagating uncertainties through a light-curve model. 
 
 Note: The reverse-mode automatic differentiation in ``microJAX`` is currently 
 under development due to memory handling issues.

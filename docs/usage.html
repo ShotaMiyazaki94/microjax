@@ -246,8 +246,6 @@ inference.</p>
 <span class="n">J</span> <span class="o">=</span> <span class="n">jacfwd</span><span class="p">(</span><span class="n">forward_jit</span><span class="p">)(</span><span class="n">q</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">jacfwd</span></code> is especially useful when fitting multiple parameters simultaneously
-or when propagating uncertainties through a light-curve model.</p>
 <p>Note: The reverse-mode automatic differentiation in <code class="docutils literal notranslate"><span class="pre">microJAX</span></code> is currently
 under development due to memory handling issues.</p>
 </section>
