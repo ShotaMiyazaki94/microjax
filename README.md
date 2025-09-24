@@ -115,10 +115,10 @@ Note: Finite-source calculation with microJAX is extremely slow without a GPU. S
 
 ## ⚠️ Known Limitations
 
-- Triple-lens hexadecapole/ghost-image test is not yet implemented: triple-lens calculations fall back to full contour integration everywhere, which can be substantially slower.
 - Finite-source magnification trades memory/runtime for accuracy through resolution parameters; tune these settings to match your GPU's available memory and throughput.
-- GPU tests are opt-in; run them explicitly with `pytest -m gpu`. If JAX cannot see a CUDA GPU, those tests are skipped.
 - For numerical stability and agreement across libraries, enable 64-bit precision in JAX (`jax_enable_x64=True`).
+- Triple-lens hexadecapole/ghost-image test is not yet implemented: triple-lens calculations fall back to full contour integration everywhere, which can be substantially slower.
+- GPU tests are opt-in; run them explicitly with `pytest -m gpu`. If JAX cannot see a CUDA GPU, those tests are skipped.
 
 ## 📚 References
 * [Miyazaki & Kawahara (in prep.)](): `microjax` paper (expected within 2025!)
