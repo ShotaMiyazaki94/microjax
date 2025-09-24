@@ -69,7 +69,7 @@ Note: ``mag_binary`` also works on CPU but is very slow.
 .. image:: _static/lightcurve_binary.png
   :alt: Light curve example
   :align: center
-  :width: 80% 
+  :width: 100% 
 
 Use the sections below to install the package, explore worked examples, and dig
 into the API.
