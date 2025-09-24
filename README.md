@@ -109,9 +109,7 @@ mu_point = mag_point_source(w_points, nlenses=2, s=s, q=q)
 
 Refer to the [example](example/) directory for code that creates these plots.
 
-Note: The triple-lens Jacobian example is computationally intensive. On CPU it can be impractically slow; a CUDA-capable GPU with JAX is strongly recommended.
-
-Note: Finite-source inverse-ray calculations are likewise extremely slow without a GPU—this stems from the dense inverse ray-shooting itself, not from Jacobian evaluation.
+Note: Finite-source calculation with microJAX is extremely slow without a GPU. So, the latter two examples are significantly slower on the CPU.
 
 ---
 
