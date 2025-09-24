@@ -30,7 +30,7 @@ This software is under active development and not yet feature complete.
 
 ## 📦 Installation
 
-From PyPI (recommended):
+From PyPI:
 
 ```bash
 pip install microjaxx
@@ -45,7 +45,7 @@ Notes:
 import microjax
 ```
 
-Development install (from source):
+Development install (from source, recommended):
 
 ```bash
 # clone the repository
