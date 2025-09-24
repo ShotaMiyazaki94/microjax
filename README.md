@@ -109,7 +109,7 @@ mu_point = mag_point_source(w_points, nlenses=2, s=s, q=q)
 
 Refer to the [example](example/) directory for code that creates these plots.
 
-Note: Finite-source calculation with microJAX is extremely slow without a GPU. So, the latter two examples are significantly slower on the CPU.
+Note: Finite-source calculations with `microJAX` are very slow without a GPU, so the last two examples take considerable time to run on a CPU.
 
 ---
 
