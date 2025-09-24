@@ -179,7 +179,7 @@ provides composable pieces:
 
 - :mod:`microjax.trajectory.parallax` – annual parallax terms.
 
-These components return arrays compatible with the ``w`` input used above, so
+These components return arrays compatible with the ``w_points`` input used above, so
 you can drop them into ``mag_binary`` / ``mag_triple`` without further changes.
 
 Best practices
