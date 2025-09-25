@@ -2,7 +2,10 @@ Caustics Contour Test
 =====================
 
 Light-curve benchmark that exercises `microjax.caustics.lightcurve.magnifications`
-and compares the result with `VBBinaryLensing` for a binary lens.
+and compares the result with `VBBinaryLensing` for a binary lens. The helper is
+based on the contour-integration routines originally released in Fran
+Bartolic's `caustics` package (`MIT` license). Upstream repository:
+https://github.com/fbartolic/caustics
 
 Usage
 -----
