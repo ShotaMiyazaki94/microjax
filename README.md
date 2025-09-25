@@ -18,6 +18,12 @@ This software is under active development and not yet feature complete.
 
 ---
 
+## Documentation
+
+For detailed guides, tutorials, and the API reference, visit the hosted [microJAX documentation](https://shotamiyazaki94.github.io/microjax/). The rendered HTML bundle also lives in `docs/` if you prefer browsing locally.
+
+---
+
 ## 📦 Installation
 
 From PyPI:
@@ -140,6 +146,6 @@ These tests require JAX to detect a CUDA device. If not available, they are skip
 
 ## 📜 License
 
-This project is licensed under the [MIT License](LICENSE).  If you use `microJAX` in academic work, please cite the upcoming Miyazaki et al. (2025) methods paper.
+This project is licensed under the [MIT License](LICENSE).  Third-party components bundled in the tree and their respective licenses are listed in `third_party/README.md`. If you use `microJAX` in academic work, please cite the upcoming Miyazaki et al. (2025) methods paper.
 
 ---
