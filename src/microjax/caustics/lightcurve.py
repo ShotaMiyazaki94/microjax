@@ -8,6 +8,42 @@
 # SPDX-FileCopyrightText: 2025 Shota Miyazaki
 # SPDX-License-Identifier: MIT
 
+"""Hybrid light-curve evaluation adapted from the `caustics` package.
+
+This module retains the contour-selection heuristics of Fran Bartolic's
+``caustics`` project while porting the implementation to JAX and the
+microJAX coordinate conventions.  The main entry point,
+:func:`magnifications`, mixes the fast hexadecapole approximation with full
+finite-source contour integrations to deliver accurate light curves across
+binary and triple microlensing configurations.
+
+Design highlights
+-----------------
+
+- **JAX-native execution**: relies on :mod:`jax`, :mod:`jax.numpy`, and
+  :func:`jax.jit` to make the control flow differentiable and accelerator
+  friendly.
+- **Center-of-mass bookkeeping**: transparently shifts source positions to the
+  midpoint frame required by the polynomial image solver and restores them
+  before returning magnifications.
+- **Selective refinement**: reuses the proximity and ghost-image tests from
+  ``caustics`` to decide when the multipole estimate suffices.
+
+External dependencies
+---------------------
+
+- :mod:`jax` (``jax.numpy`` arrays and ``jit``/``lax`` primitives).
+- :mod:`functools.partial` for annotating static JIT parameters.
+
+Internal collaborators
+----------------------
+
+- :mod:`microjax.multipole` — hexadecapole approximation.
+- :mod:`microjax.caustics.extended_source` — contour integration routines.
+- :mod:`microjax.point_source` — polynomial image finder used in the accuracy
+  tests.
+"""
+
 __all__ = [
     "magnifications",
 ]
@@ -108,61 +144,50 @@ def magnifications(
     npts_ld=100,
     **params
 ):
-    """Extended-source magnification for one to three point lenses.
+    """Finite-source magnification samples along a caustic light curve.
 
-    This helper evaluates the finite-source magnification at each complex
-    position in ``w_points``.  It selects between
-    :func:`microjax.multipole.mag_hexadecapole` and
-    :func:`microjax.caustics.extended_source.mag_extended_source` on a
-    per-point basis, following the original ``caustics`` heuristics but
-    adapted to microJAX's coordinate handling and JAX-backed solvers.
-
-    ``w_points`` are given in the center-of-mass frame of the first two lenses
-    (or the single lens when ``nlenses == 1``).  Internally the coordinates are
-    shifted to the mid-point frame required by the point-source polynomial
-    solver and by :func:`mag_extended_source` and shifted back afterwards.
-
-    Behaviour summary
-    -----------------
-    - ``nlenses == 1``: the multipole branch is exact and is used everywhere.
-    - ``nlenses == 2``: proximity and planetary-caustic tests determine where
-      the fast multipole estimate is sufficient; otherwise a full contour
-      integration is triggered.
-    - ``nlenses == 3``: the ghost-image test is not yet implemented, so the
-      routine falls back to contour integration for every point.
+    The routine evaluates the magnification for each complex source position in
+    ``w_points`` by reusing the ``caustics`` decision logic, adapted to
+    microJAX's center-of-mass conventions and JAX-native solvers.  Depending on
+    the local configuration it either applies
+    :func:`microjax.multipole.mag_hexadecapole` or falls back to the full
+    contour-integration path implemented in
+    :func:`microjax.caustics.extended_source.mag_extended_source`.
 
     Parameters
     ----------
-    w_points : array_like
-        Source positions (center-of-mass frame) at which to evaluate the
-        magnification.
+    w_points : jax.Array
+        Source-plane positions expressed in the center-of-mass frame of the
+        first two lenses (or the lone lens when ``nlenses == 1``).
     rho : float
-        Source radius in Einstein units.
+        Angular radius of the source in Einstein units.
     nlenses : int, optional
-        Number of lenses in the system (1, 2, or 3).  Defaults to 2.
+        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
     npts_limb : int, optional
-        Base number of sampling points placed uniformly on the source limb
-        before adaptive refinement during contour integrations.  Defaults to
+        Baseline number of uniformly spaced samples placed on the source limb
+        before adaptive refinement during contour integrations. Defaults to
         200.
     limb_darkening : bool, optional
-        If ``True``, evaluate the magnification of a linearly limb-darkened
-        source.  Defaults to ``False``.
+        When ``True``, evaluate linear limb-darkening with coefficient ``u1``.
+        Defaults to ``False``.
     u1 : float, optional
-        Linear limb-darkening coefficient used when ``limb_darkening`` is set.
-        Defaults to ``0.0``.
+        Linear limb-darkening coefficient used when ``limb_darkening`` is
+        enabled. Defaults to ``0.0``.
     npts_ld : int, optional
-        Number of quadrature samples for the Dominik (1998) ``P`` and ``Q``
-        integrals when limb darkening is enabled.  Defaults to 100.
-    **params
-        Lens configuration parameters forwarded to the underlying solvers:
+        Number of quadrature nodes for the Dominik (1998) ``P``/``Q`` integrals
+        used in the limb-darkened branch. Defaults to 100.
+    **params : Any
+        Lens parameters forwarded to the multipole and contour solvers.  The
+        expected keywords depend on ``nlenses``:
 
-        - ``nlenses == 1``: no additional keywords are required.
+        - ``nlenses == 1``: none required.
         - ``nlenses == 2``: ``s`` (separation) and ``q`` (mass ratio ``m2/m1``).
-        - ``nlenses == 3``: ``s``, ``q``, ``q3`` (``m3/m1``), ``r3`` (magnitude
-          of the third lens position), and ``psi`` (azimuth of the third lens).
+        - ``nlenses == 3``: ``s``, ``q``, ``q3`` (``m3/m1``), ``r3`` (modulus of
+          the third lens position), and ``psi`` (azimuth of the third lens).
 
-        Extra keyword arguments understood by
-        :func:`mag_hexadecapole`, :func:`mag_extended_source`, or
+        Additional keyword arguments recognised by
+        :func:`microjax.multipole.mag_hexadecapole`,
+        :func:`microjax.caustics.extended_source.mag_extended_source`, or
         :func:`microjax.point_source._images_point_source` (for example custom
         root-solver settings) are propagated unchanged.
 
@@ -173,10 +198,14 @@ def magnifications(
 
     Notes
     -----
-    Enabling limb darkening typically incurs an order-of-magnitude slowdown
-    because additional quadrature is required.  Triple-lens configurations
-    always take the contour-integration path, which is slower but currently
-    the only option with reliable accuracy.
+    The routine temporarily shifts coordinates into the midpoint frame required
+    by the polynomial root solver and shifts the images back before applying
+    the multipole or contour integrations.  For ``nlenses == 1`` the multipole
+    approximation is exact; for ``nlenses == 2`` proximity and planetary tests
+    decide whether it is used; for ``nlenses == 3`` the algorithm always falls
+    back to contour integration because the ghost-image test has not yet been
+    generalised.  Enabling limb darkening can increase runtime by up to an
+    order of magnitude due to the extra quadrature.
     """
     if nlenses == 1:
         _params = {}
