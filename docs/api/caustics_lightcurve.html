@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Caustics Lightcurve &mdash; microJAX  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Inverse-Ray Lightcurve" href="inverse_ray_lightcurve.html" />
+    <link rel="prev" title="Multipole" href="multipole.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> microJAX
+            <img src="../_static/microjax.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="point_source.html">Point Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Caustics Lightcurve</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.caustics.lightcurve.magnifications"><code class="docutils literal notranslate"><span class="pre">magnifications()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
+<li class="toctree-l2"><a class="reference internal" href="poly_solver.html">Polynomial Solver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="likelihood.html">Likelihood Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="trajectory.html">Trajectories</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">microJAX</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../modules.html">API Reference</a> &raquo;</li>
+      <li>Caustics Lightcurve</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/caustics_lightcurve.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-microjax.caustics.lightcurve">
+<span id="caustics-lightcurve"></span><h1>Caustics Lightcurve<a class="headerlink" href="#module-microjax.caustics.lightcurve" title="Permalink to this heading"></a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.caustics.lightcurve.magnifications">
+<span class="sig-prename descclassname"><span class="pre">microjax.caustics.lightcurve.</span></span><span class="sig-name descname"><span class="pre">magnifications</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nlenses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">npts_limb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limb_darkening</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">npts_ld</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.caustics.lightcurve.magnifications" title="Permalink to this definition"></a></dt>
+<dd><p>Compute the extended source magnification for a system with <cite>nlenses</cite> lenses
+and a source star radius <cite>rho</cite> at a set of complex points <cite>w_points</cite> in the
+source plane. This function calls either [<cite>caustics.mag_hexadecapole</cite>][] or
+[<cite>caustics.mag_extended_source</cite>][] at each point in <cite>w_points</cite> depending on
+whether or not the hexadecapole approximation is accurate enough at that point.</p>
+<p>If <cite>nlenses</cite> is 2 (binary lens) or 3 (triple lens), the coordinate system is
+set up such that the the origin is at the center of mass of the first two
+lenses which are both located on the real line. The location of the first
+lens is $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$. The optional
+third lens is located at an arbitrary position in the complex plane
+$r_3e^{-ipsi}$. The magnification is computed using contour integration in
+the image plane. Boolean flag <cite>limb_darkening</cite> indicates whether linear
+limb-darkening needs to taken into account. If <cite>limb_darkening</cite> is set to
+<cite>True</cite> the linear limb-darkening coefficient <cite>u1</cite> needs to be specified as
+well. Note that turning on this flag slows down the computation by up to an
+order of magnitude.</p>
+<p>If <cite>nlenses</cite> is 2 only the parameters <cite>s</cite> and <cite>q</cite> should be specified. If
+<cite>nlenses</cite> is 3, the parameters <cite>s</cite>, <cite>q</cite>, <cite>q3</cite>, <cite>r3</cite> and <cite>psi</cite> should be
+specified.</p>
+<p>!!! note</p>
+<blockquote>
+<div><p>Turning on limb-darkening (<cite>limb_darkening=True</cite>) slows down the
+computation by up to an order of magnitude.</p>
+</div></blockquote>
+<p>!!! warning</p>
+<blockquote>
+<div><p>At the moment the test determining whether or not to use the hexadecapole
+approximation does not work for triple lenses so the function will use
+full contour integration at every point. This substantially slows down
+the computation. See <a class="reference external" href="https://github.com/fbartolic/caustics/issues/19">https://github.com/fbartolic/caustics/issues/19</a>.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>w_points</strong> (<em>array_like</em>) – Source positions in the complex plane.</p></li>
+<li><p><strong>rho</strong> (<em>float</em>) – Source radius in Einstein radii.</p></li>
+<li><p><strong>nlenses</strong> (<em>int</em>) – Number of lenses in the system.</p></li>
+<li><p><strong>npts_limb</strong> (<em>int</em><em>, </em><em>optional</em>) – Initial number of points uniformly distributed
+on the source limb when computing the point source magnification.
+The final number of points is greater than this value because
+the number of points is decreased geometrically by a factor of
+1/2 until it reaches 2.</p></li>
+<li><p><strong>limb_darkening</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, compute the magnification of
+a limb-darkened source. If limb_darkening is enabled the u1 linear
+limb-darkening coefficient needs to be specified. Defaults to False.</p></li>
+<li><p><strong>u1</strong> (<em>float</em><em>, </em><em>optional</em>) – Linear limb darkening coefficient. Defaults to 0..</p></li>
+<li><p><strong>npts_ld</strong> (<em>int</em><em>, </em><em>optional</em>) – <dl class="simple">
+<dt>Number of points at which the stellar brightness</dt><dd><p>function is evaluated when computing contour integrals
+$int P(z_1^prime, z_2) dz_1^prime$ and
+$int Q(z_1, z_2^prime) dz_2^prime$ (see Dominik 1998). Defaults
+to 100.</p>
+</dd>
+<dt>s (float): Separation between the two lenses. The first lens is located</dt><dd><p>at $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$ on the real line.</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>q</strong> (<em>float</em>) – Mass ratio defined as $m_2/m_1$.</p></li>
+<li><p><strong>q3</strong> (<em>float</em>) – Mass ratio defined as $m_3/m_1$.</p></li>
+<li><p><strong>r3</strong> (<em>float</em>) – Magnitude of the complex position of the third lens.</p></li>
+<li><p><strong>psi</strong> (<em>float</em>) – Phase angle of the complex position of the third lens.</p></li>
+<li><p><strong>roots_itmax</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of iterations for the root solver.</p></li>
+<li><p><strong>roots_compensated</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use the compensated
+arithmetic version of the Ehrlich-Aberth root solver.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Magnification array.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="multipole.html" class="btn btn-neutral float-left" title="Multipole" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="inverse_ray_lightcurve.html" class="btn btn-neutral float-right" title="Inverse-Ray Lightcurve" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
