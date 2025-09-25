@@ -74,17 +74,21 @@ def _caustics_proximity_test(
         f_pp = lambda z: 2 * (e1 / (a - z) ** 3 - e2 / (a + z) ** 3)
 
     elif nlenses == 3:
-        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
+        a = params["a"]
+        r3 = params["r3"]
+        psi = params["psi"]
+        e1, e2 = params["e1"], params["e2"]
+        r3_complex = r3 * jnp.exp(1j * psi)
         # Derivatives
-        f = lambda z: - e1 / (z - a) - e2 / (z + a) - (1 - e1 - e2) / (z + r3)
+        f = lambda z: - e1 / (z - a) - e2 / (z + a) - (1 - e1 - e2) / (z + r3_complex)
         f_p = (
             lambda z: e1 / (z - a) ** 2
             + e2 / (z + a) ** 2
-            + (1 - e1 - e2) / (z + r3) ** 2
+            + (1 - e1 - e2) / (z + r3_complex) ** 2
         )
         f_pp = (
             lambda z: 2 * (e1 / (a - z) ** 3 - e2 / (a + z) ** 3)
-            + (1 - e1 - e2) / (z + r3) ** 3
+            + (1 - e1 - e2) / (z + r3_complex) ** 3
         )
     zbar = jnp.conjugate(z)
     zhat = jnp.conjugate(w) - f(z)
@@ -220,12 +224,12 @@ def magnifications(
     # Trigger the full calculation everywhere because I haven't figured out 
     # how to implement the ghost image test for nlenses > 2 yet
     elif nlenses == 3:
-        s, q, q3, r3, psi = params["s"], params["q"], params["q3"], params["r3"], params["psi"]
+        s, q, q3 = params["s"], params["q"], params["q3"]
+        r3, psi = params["r3"], params["psi"]
         a = 0.5 * s
         e1 = q / (1.0 + q + q3)
         e2 = 1.0 / (1.0 + q + q3) #miyazaki
-        r3 = r3*jnp.exp(1j * psi)
-        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
+        _params = {"a": a, "r3": r3, "psi": psi, "e1": e1, "e2": e2}
         x_cm = a * (1.0 - q) / (1.0 + q)
 
     else:
@@ -261,6 +265,7 @@ def magnifications(
         )
     elif nlenses == 3:
         test = jnp.zeros_like(w_points).astype(jnp.bool_)
+        mu_multi = jnp.zeros_like(w_points.real)
     
     mag_full = lambda w: mag_extended_source(
         w,

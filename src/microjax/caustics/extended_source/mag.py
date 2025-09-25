@@ -93,18 +93,12 @@ def mag_extended_source(
         x_cm = a * (1 - q) / (1 + q)
         w0 -= x_cm
     elif nlenses == 3:
-        s, q, q3, r3, psi = (
-            params["s"],
-            params["q"],
-            params["q3"],
-            params["r3"],
-            params["psi"],
-        )
+        s, q, q3 = params["s"], params["q"], params["q3"]
+        r3, psi = params["r3"], params["psi"]
         a = 0.5 * s
         e1 = q / (1.0 + q + q3)
         e2 = (1 - q3) / (1.0 + q + q3)
-        r3 = r3 * jnp.exp(1j * psi)
-        _params = {"a": a, "r3": r3, "e1": e1, "e2": e2}
+        _params = {"a": a, "r3": r3, "psi": psi, "e1": e1, "e2": e2}
         x_cm = a * (1 - q) / (1 + q)
         w0 -= x_cm
     else:
