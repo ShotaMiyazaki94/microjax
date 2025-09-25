@@ -170,7 +170,7 @@ def mag_binary(
 
     # Boolean mask: False indicates that an inverse-ray evaluation is required.
     z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, a=a, e1=e1)
-    mu_multi, delta_mu_multi = mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+    mu_multi, delta_mu_multi = mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, u1=u1, **_params)
     test1 = _caustics_proximity_test(w_points_shifted, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params)
     test2 = _planetary_caustic_test(w_points_shifted, rho, **_params)
     test = jnp.where(q < 0.01, test1 & test2, test1)
@@ -330,7 +330,7 @@ def mag_triple(
     w_points_shifted = w_points - x_cm
     
     z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, **_params) 
-    mu_multi, delta_mu_multi = mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+    mu_multi, delta_mu_multi = mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, u1=u1, **_params)
     test = jnp.zeros_like(w_points).astype(jnp.bool_)
 
     if u1 == 0.0:
