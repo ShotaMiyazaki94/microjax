@@ -35,7 +35,6 @@ Verify the environment
 Run the snippet below to confirm that microJAX imports cleanly, JAX can see your
 devices, and 64-bit mode is enabled for better numerical stability::
 
-   python - <<'PY'
    import jax
    import jax.numpy as jnp
    import microjax
@@ -48,7 +47,6 @@ devices, and 64-bit mode is enabled for better numerical stability::
 
    w = jnp.linspace(-0.3, 0.3, 5) + 0.1j
    print("Sample magnification", mag_point_source(w, nlenses=2, s=1.0, q=1e-3))
-   PY
 
 Up next
 -------

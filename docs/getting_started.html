@@ -113,8 +113,7 @@ visualization examples.</p></li>
 <h2>Verify the environment<a class="headerlink" href="#verify-the-environment" title="Permalink to this heading"></a></h2>
 <p>Run the snippet below to confirm that microJAX imports cleanly, JAX can see your
 devices, and 64-bit mode is enabled for better numerical stability:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span> <span class="o">&lt;&lt;</span><span class="s1">&#39;PY&#39;</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">microjax</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
@@ -126,7 +125,6 @@ devices, and 64-bit mode is enabled for better numerical stability:</p>
 
 <span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.1</span><span class="n">j</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Sample magnification&quot;</span><span class="p">,</span> <span class="n">mag_point_source</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">))</span>
-<span class="n">PY</span>
 </pre></div>
 </div>
 </section>
