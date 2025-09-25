@@ -108,71 +108,75 @@ def magnifications(
     npts_ld=100,
     **params
 ):
-    """
-    Compute the extended source magnification for a system with `nlenses` lenses 
-    and a source star radius `rho` at a set of complex points `w_points` in the 
-    source plane. This function calls either [`caustics.mag_hexadecapole`][] or 
-    [`caustics.mag_extended_source`][] at each point in `w_points` depending on
-    whether or not the hexadecapole approximation is accurate enough at that point. 
+    """Extended-source magnification for one to three point lenses.
 
-    If `nlenses` is 2 (binary lens) or 3 (triple lens), the coordinate system is
-    set up such that the the origin is at the center of mass of the first two 
-    lenses which are both located on the real line. The location of the first 
-    lens is $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$. The optional 
-    third lens is located at an arbitrary position in the complex plane 
-    $r_3e^{-i\psi}$. The magnification is computed using contour integration in
-    the image plane. Boolean flag `limb_darkening` indicates whether linear 
-    limb-darkening needs to taken into account. If `limb_darkening` is set to 
-    `True` the linear limb-darkening coefficient `u1` needs to be specified as 
-    well. Note that turning on this flag slows down the computation by up to an 
-    order of magnitude.
+    This helper evaluates the finite-source magnification at each complex
+    position in ``w_points``.  It selects between
+    :func:`microjax.multipole.mag_hexadecapole` and
+    :func:`microjax.caustics.extended_source.mag_extended_source` on a
+    per-point basis, following the original ``caustics`` heuristics but
+    adapted to microJAX's coordinate handling and JAX-backed solvers.
 
-    If `nlenses` is 2 only the parameters `s` and `q` should be specified. If 
-    `nlenses` is 3, the parameters `s`, `q`, `q3`, `r3` and `psi` should be 
-    specified.
+    ``w_points`` are given in the center-of-mass frame of the first two lenses
+    (or the single lens when ``nlenses == 1``).  Internally the coordinates are
+    shifted to the mid-point frame required by the point-source polynomial
+    solver and by :func:`mag_extended_source` and shifted back afterwards.
 
-    !!! note
+    Behaviour summary
+    -----------------
+    - ``nlenses == 1``: the multipole branch is exact and is used everywhere.
+    - ``nlenses == 2``: proximity and planetary-caustic tests determine where
+      the fast multipole estimate is sufficient; otherwise a full contour
+      integration is triggered.
+    - ``nlenses == 3``: the ghost-image test is not yet implemented, so the
+      routine falls back to contour integration for every point.
 
-        Turning on limb-darkening (`limb_darkening=True`) slows down the 
-        computation by up to an order of magnitude.
-    
-    !!! warning
+    Parameters
+    ----------
+    w_points : array_like
+        Source positions (center-of-mass frame) at which to evaluate the
+        magnification.
+    rho : float
+        Source radius in Einstein units.
+    nlenses : int, optional
+        Number of lenses in the system (1, 2, or 3).  Defaults to 2.
+    npts_limb : int, optional
+        Base number of sampling points placed uniformly on the source limb
+        before adaptive refinement during contour integrations.  Defaults to
+        200.
+    limb_darkening : bool, optional
+        If ``True``, evaluate the magnification of a linearly limb-darkened
+        source.  Defaults to ``False``.
+    u1 : float, optional
+        Linear limb-darkening coefficient used when ``limb_darkening`` is set.
+        Defaults to ``0.0``.
+    npts_ld : int, optional
+        Number of quadrature samples for the Dominik (1998) ``P`` and ``Q``
+        integrals when limb darkening is enabled.  Defaults to 100.
+    **params
+        Lens configuration parameters forwarded to the underlying solvers:
 
-        At the moment the test determining whether or not to use the hexadecapole
-        approximation does not work for triple lenses so the function will use
-        full contour integration at every point. This substantially slows down
-        the computation. See https://github.com/fbartolic/caustics/issues/19.
+        - ``nlenses == 1``: no additional keywords are required.
+        - ``nlenses == 2``: ``s`` (separation) and ``q`` (mass ratio ``m2/m1``).
+        - ``nlenses == 3``: ``s``, ``q``, ``q3`` (``m3/m1``), ``r3`` (magnitude
+          of the third lens position), and ``psi`` (azimuth of the third lens).
 
-    Args:
-        w_points (array_like): Source positions in the complex plane.
-        rho (float): Source radius in Einstein radii.
-        nlenses (int): Number of lenses in the system.
-        npts_limb (int, optional): Initial number of points uniformly distributed
-            on the source limb when computing the point source magnification.
-            The final number of points is greater than this value because
-            the number of points is decreased geometrically by a factor of
-            1/2 until it reaches 2.
-        limb_darkening (bool, optional): If True, compute the magnification of
-            a limb-darkened source. If limb_darkening is enabled the u1 linear
-            limb-darkening coefficient needs to be specified. Defaults to False.
-        u1 (float, optional): Linear limb darkening coefficient. Defaults to 0..
-        npts_ld (int, optional): Number of points at which the stellar brightness
-            function is evaluated when computing contour integrals 
-            $\int P(z_1^\prime, z_2) dz_1^\prime$ and 
-            $\int Q(z_1, z_2^\prime) dz_2^\prime$ (see Dominik 1998). Defaults 
-            to 100.
-         s (float): Separation between the two lenses. The first lens is located 
-            at $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$ on the real line.
-        q (float): Mass ratio defined as $m_2/m_1$.
-        q3 (float): Mass ratio defined as $m_3/m_1$.
-        r3 (float): Magnitude of the complex position of the third lens.
-        psi (float): Phase angle of the complex position of the third lens.
-        roots_itmax (int, optional): Number of iterations for the root solver.
-        roots_compensated (bool, optional): Whether to use the compensated
-            arithmetic version of the Ehrlich-Aberth root solver.
+        Extra keyword arguments understood by
+        :func:`mag_hexadecapole`, :func:`mag_extended_source`, or
+        :func:`microjax.point_source._images_point_source` (for example custom
+        root-solver settings) are propagated unchanged.
 
-    Returns:
-        array_like: Magnification array.
+    Returns
+    -------
+    jax.Array
+        Magnification evaluated at each entry of ``w_points``.
+
+    Notes
+    -----
+    Enabling limb darkening typically incurs an order-of-magnitude slowdown
+    because additional quadrature is required.  Triple-lens configurations
+    always take the contour-integration path, which is slower but currently
+    the only option with reliable accuracy.
     """
     if nlenses == 1:
         _params = {}

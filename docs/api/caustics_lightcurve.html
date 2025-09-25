@@ -93,78 +93,102 @@
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.caustics.lightcurve.magnifications">
 <span class="sig-prename descclassname"><span class="pre">microjax.caustics.lightcurve.</span></span><span class="sig-name descname"><span class="pre">magnifications</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nlenses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">npts_limb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limb_darkening</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">npts_ld</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.caustics.lightcurve.magnifications" title="Permalink to this definition"></a></dt>
-<dd><p>Compute the extended source magnification for a system with <cite>nlenses</cite> lenses
-and a source star radius <cite>rho</cite> at a set of complex points <cite>w_points</cite> in the
-source plane. This function calls either [<cite>caustics.mag_hexadecapole</cite>][] or
-[<cite>caustics.mag_extended_source</cite>][] at each point in <cite>w_points</cite> depending on
-whether or not the hexadecapole approximation is accurate enough at that point.</p>
-<p>If <cite>nlenses</cite> is 2 (binary lens) or 3 (triple lens), the coordinate system is
-set up such that the the origin is at the center of mass of the first two
-lenses which are both located on the real line. The location of the first
-lens is $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$. The optional
-third lens is located at an arbitrary position in the complex plane
-$r_3e^{-ipsi}$. The magnification is computed using contour integration in
-the image plane. Boolean flag <cite>limb_darkening</cite> indicates whether linear
-limb-darkening needs to taken into account. If <cite>limb_darkening</cite> is set to
-<cite>True</cite> the linear limb-darkening coefficient <cite>u1</cite> needs to be specified as
-well. Note that turning on this flag slows down the computation by up to an
-order of magnitude.</p>
-<p>If <cite>nlenses</cite> is 2 only the parameters <cite>s</cite> and <cite>q</cite> should be specified. If
-<cite>nlenses</cite> is 3, the parameters <cite>s</cite>, <cite>q</cite>, <cite>q3</cite>, <cite>r3</cite> and <cite>psi</cite> should be
-specified.</p>
-<p>!!! note</p>
-<blockquote>
-<div><p>Turning on limb-darkening (<cite>limb_darkening=True</cite>) slows down the
-computation by up to an order of magnitude.</p>
-</div></blockquote>
-<p>!!! warning</p>
-<blockquote>
-<div><p>At the moment the test determining whether or not to use the hexadecapole
-approximation does not work for triple lenses so the function will use
-full contour integration at every point. This substantially slows down
-the computation. See <a class="reference external" href="https://github.com/fbartolic/caustics/issues/19">https://github.com/fbartolic/caustics/issues/19</a>.</p>
-</div></blockquote>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>w_points</strong> (<em>array_like</em>) – Source positions in the complex plane.</p></li>
-<li><p><strong>rho</strong> (<em>float</em>) – Source radius in Einstein radii.</p></li>
-<li><p><strong>nlenses</strong> (<em>int</em>) – Number of lenses in the system.</p></li>
-<li><p><strong>npts_limb</strong> (<em>int</em><em>, </em><em>optional</em>) – Initial number of points uniformly distributed
-on the source limb when computing the point source magnification.
-The final number of points is greater than this value because
-the number of points is decreased geometrically by a factor of
-1/2 until it reaches 2.</p></li>
-<li><p><strong>limb_darkening</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, compute the magnification of
-a limb-darkened source. If limb_darkening is enabled the u1 linear
-limb-darkening coefficient needs to be specified. Defaults to False.</p></li>
-<li><p><strong>u1</strong> (<em>float</em><em>, </em><em>optional</em>) – Linear limb darkening coefficient. Defaults to 0..</p></li>
-<li><p><strong>npts_ld</strong> (<em>int</em><em>, </em><em>optional</em>) – <dl class="simple">
-<dt>Number of points at which the stellar brightness</dt><dd><p>function is evaluated when computing contour integrals
-$int P(z_1^prime, z_2) dz_1^prime$ and
-$int Q(z_1, z_2^prime) dz_2^prime$ (see Dominik 1998). Defaults
-to 100.</p>
-</dd>
-<dt>s (float): Separation between the two lenses. The first lens is located</dt><dd><p>at $-sq/(1 + q)$ and the second lens is at $s/(1 + q)$ on the real line.</p>
-</dd>
-</dl>
-</p></li>
-<li><p><strong>q</strong> (<em>float</em>) – Mass ratio defined as $m_2/m_1$.</p></li>
-<li><p><strong>q3</strong> (<em>float</em>) – Mass ratio defined as $m_3/m_1$.</p></li>
-<li><p><strong>r3</strong> (<em>float</em>) – Magnitude of the complex position of the third lens.</p></li>
-<li><p><strong>psi</strong> (<em>float</em>) – Phase angle of the complex position of the third lens.</p></li>
-<li><p><strong>roots_itmax</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of iterations for the root solver.</p></li>
-<li><p><strong>roots_compensated</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use the compensated
-arithmetic version of the Ehrlich-Aberth root solver.</p></li>
+<dd><p>Extended-source magnification for one to three point lenses.</p>
+<p>This helper evaluates the finite-source magnification at each complex
+position in <code class="docutils literal notranslate"><span class="pre">w_points</span></code>.  It selects between
+<a class="reference internal" href="multipole.html#microjax.multipole.mag_hexadecapole" title="microjax.multipole.mag_hexadecapole"><code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.multipole.mag_hexadecapole()</span></code></a> and
+<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.caustics.extended_source.mag_extended_source()</span></code> on a
+per-point basis, following the original <code class="docutils literal notranslate"><span class="pre">caustics</span></code> heuristics but
+adapted to microJAX’s coordinate handling and JAX-backed solvers.</p>
+<p><code class="docutils literal notranslate"><span class="pre">w_points</span></code> are given in the center-of-mass frame of the first two lenses
+(or the single lens when <code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">==</span> <span class="pre">1</span></code>).  Internally the coordinates are
+shifted to the mid-point frame required by the point-source polynomial
+solver and by <code class="xref py py-func docutils literal notranslate"><span class="pre">mag_extended_source()</span></code> and shifted back afterwards.</p>
+<section id="behaviour-summary">
+<h2>Behaviour summary<a class="headerlink" href="#behaviour-summary" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">==</span> <span class="pre">1</span></code>: the multipole branch is exact and is used everywhere.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">==</span> <span class="pre">2</span></code>: proximity and planetary-caustic tests determine where
+the fast multipole estimate is sufficient; otherwise a full contour
+integration is triggered.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">==</span> <span class="pre">3</span></code>: the ghost-image test is not yet implemented, so the
+routine falls back to contour integration for every point.</p></li>
 </ul>
+<dl class="field-list">
+<dt class="field-odd">param w_points</dt>
+<dd class="field-odd"><p>Source positions (center-of-mass frame) at which to evaluate the
+magnification.</p>
 </dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Magnification array.</p>
+<dt class="field-even">type w_points</dt>
+<dd class="field-even"><p>array_like</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>array_like</p>
+<dt class="field-odd">param rho</dt>
+<dd class="field-odd"><p>Source radius in Einstein units.</p>
+</dd>
+<dt class="field-even">type rho</dt>
+<dd class="field-even"><p>float</p>
+</dd>
+<dt class="field-odd">param nlenses</dt>
+<dd class="field-odd"><p>Number of lenses in the system (1, 2, or 3).  Defaults to 2.</p>
+</dd>
+<dt class="field-even">type nlenses</dt>
+<dd class="field-even"><p>int, optional</p>
+</dd>
+<dt class="field-odd">param npts_limb</dt>
+<dd class="field-odd"><p>Base number of sampling points placed uniformly on the source limb
+before adaptive refinement during contour integrations.  Defaults to
+200.</p>
+</dd>
+<dt class="field-even">type npts_limb</dt>
+<dd class="field-even"><p>int, optional</p>
+</dd>
+<dt class="field-odd">param limb_darkening</dt>
+<dd class="field-odd"><p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, evaluate the magnification of a linearly limb-darkened
+source.  Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+</dd>
+<dt class="field-even">type limb_darkening</dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param u1</dt>
+<dd class="field-odd"><p>Linear limb-darkening coefficient used when <code class="docutils literal notranslate"><span class="pre">limb_darkening</span></code> is set.
+Defaults to <code class="docutils literal notranslate"><span class="pre">0.0</span></code>.</p>
+</dd>
+<dt class="field-even">type u1</dt>
+<dd class="field-even"><p>float, optional</p>
+</dd>
+<dt class="field-odd">param npts_ld</dt>
+<dd class="field-odd"><p>Number of quadrature samples for the Dominik (1998) <code class="docutils literal notranslate"><span class="pre">P</span></code> and <code class="docutils literal notranslate"><span class="pre">Q</span></code>
+integrals when limb darkening is enabled.  Defaults to 100.</p>
+</dd>
+<dt class="field-even">type npts_ld</dt>
+<dd class="field-even"><p>int, optional</p>
+</dd>
+<dt class="field-odd">param **params</dt>
+<dd class="field-odd"><p>Lens configuration parameters forwarded to the underlying solvers:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">==</span> <span class="pre">1</span></code>: no additional keywords are required.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">==</span> <span class="pre">2</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code> (separation) and <code class="docutils literal notranslate"><span class="pre">q</span></code> (mass ratio <code class="docutils literal notranslate"><span class="pre">m2/m1</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">==</span> <span class="pre">3</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code>, <code class="docutils literal notranslate"><span class="pre">q</span></code>, <code class="docutils literal notranslate"><span class="pre">q3</span></code> (<code class="docutils literal notranslate"><span class="pre">m3/m1</span></code>), <code class="docutils literal notranslate"><span class="pre">r3</span></code> (magnitude
+of the third lens position), and <code class="docutils literal notranslate"><span class="pre">psi</span></code> (azimuth of the third lens).</p></li>
+</ul>
+<p>Extra keyword arguments understood by
+<code class="xref py py-func docutils literal notranslate"><span class="pre">mag_hexadecapole()</span></code>, <code class="xref py py-func docutils literal notranslate"><span class="pre">mag_extended_source()</span></code>, or
+<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.point_source._images_point_source()</span></code> (for example custom
+root-solver settings) are propagated unchanged.</p>
+</dd>
+<dt class="field-even">returns</dt>
+<dd class="field-even"><p>Magnification evaluated at each entry of <code class="docutils literal notranslate"><span class="pre">w_points</span></code>.</p>
+</dd>
+<dt class="field-odd">rtype</dt>
+<dd class="field-odd"><p>jax.Array</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<p>Enabling limb darkening typically incurs an order-of-magnitude slowdown
+because additional quadrature is required.  Triple-lens configurations
+always take the contour-integration path, which is slower but currently
+the only option with reliable accuracy.</p>
+</section>
 </dd></dl>
 
 </section>
