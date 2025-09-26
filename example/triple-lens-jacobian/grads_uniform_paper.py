@@ -1,19 +1,9 @@
-"""
-Triple‑lens magnification + full Jacobian example.
-
-Note:
-- This script is computationally heavy. On CPU it can take an impractically
-  long time (orders of magnitude slower). A CUDA‑capable GPU with JAX is
-  strongly recommended (e.g., set `JAX_PLATFORMS=cuda`).
-"""
-
 import numpy as np
 import jax.numpy as jnp
-from jax import jit, jacfwd, jacrev 
+from jax import jit, vmap, lax 
 import jax
 jax.config.update("jax_enable_x64", True)
 
-# Warn if running without CUDA (CPU run may be extremely slow)
 try:
     if not jax.devices("cuda"):
         print("[Warning] No CUDA device detected by JAX.\n"
@@ -24,93 +14,100 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib.ticker import AutoMinorLocator
-
 from microjax.inverse_ray.extended_source import mag_uniform
 from microjax.point_source import critical_and_caustic_curves
 
-# Parameters
-s  = 1.1  
-q  = 0.1  
-q3 = 0.03
-r3_complex = 0.3 + 1.2j 
-psi = jnp.arctan2(r3_complex.imag, r3_complex.real)
-
-alpha = jnp.deg2rad(50) # angle between lens axis and source trajectory
-tE = 10  # einstein radius crossing time
-t0 = 0.0 # time of peak magnification
-u0 = 0.1 # impact parameter
-t  =  t0 + jnp.linspace(-0.5*tE, tE, 500)
-rho = 0.02
-
-tau = (t - t0)/tE
-y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
-y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
-w_points = jnp.array(y1 + 1j * y2, dtype=complex)
-
-r_resolution  = 500
-th_resolution = 500
-Nlimb = 500
+N_POINTS = 500
+N_LIMB   = 500
+R_NUM = 500
+TH_NUM = 500
+TIME_CHUNK = 50         # chunk_size
 MAX_FULL_CALLS = 500
-cubic = True
 
-def chunked_vmap(func, data, chunk_size):
-    results = []
-    for i in range(0, len(data), chunk_size):
-        chunk = data[i:i + chunk_size]
-        results.append(jax.vmap(func)(chunk))
-    return jnp.concatenate(results)
+# Parameters
+t0, tE, u0 = 0.0, 10.0, 0.1
+q, s, alpha = 0.1, 1.1, jnp.deg2rad(50) 
+rho = 0.02
+q3, r3_complex = 0.03, 0.3 + 1.2j 
+psi = jnp.arctan2(r3_complex.imag, r3_complex.real)
+times = t0 + jnp.linspace(-0.5*tE, tE, N_POINTS)
+
+def map_chunked(func, arr, chunk_size: int):
+    M = arr.shape[0]
+    pad = (-M) % chunk_size
+    arr_p = jnp.pad(arr, (0, pad))
+    num_chunks = arr_p.shape[0] // chunk_size
+    chunks = arr_p.reshape(num_chunks, chunk_size)
+    def f_chunk(x):
+        return vmap(func)(x)                # shape: (chunk_size,)
+    outs = lax.map(f_chunk, chunks)         # shape: (num_chunks, chunk_size)
+    outs = outs.reshape(-1)[:M]             # (M,)
+    return outs
 
 @jit
 def get_mag(params):
     t0, tE, u0, q, s, alpha, rho, q3, r3, psi = params
-    tau = (t - t0)/tE
+    tau = (times - t0)/tE
     y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
     y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
     w_points = jnp.array(y1 + 1j * y2, dtype=complex)
     _params = {"q": q, "s": s, "q3": q3, "r3": r3, "psi": psi}
     def mag_mj(w):
-        return mag_uniform(w, rho, nlenses=3, **_params, cubic=cubic, 
-                           r_resolution=r_resolution, th_resolution=th_resolution)
-    magnifications = chunked_vmap(mag_mj, w_points, chunk_size=50)
-    return w_points, magnifications
+        return mag_uniform(w, rho, nlenses=3, **_params, Nlimb=N_LIMB, 
+                           r_resolution=R_NUM, th_resolution=TH_NUM)
+    magnifications = map_chunked(mag_mj, w_points, chunk_size=TIME_CHUNK)
+    return magnifications
 
-if(0):
+def jvp_param_loop(f, x):
+    nparam = x.shape[0]
+    outs = []
+    for k in range(nparam):
+        e = jnp.zeros_like(x).at[k].set(1.0)
+        _, jvp_val = jax.jvp(f, (x,), (e,))
+        outs.append(jvp_val)
+    return jnp.stack(outs, axis=0)
+
+if(1):
     import time
     params = jnp.array([t0, tE, u0, q, s, alpha, rho, q3, jnp.abs(r3_complex), psi])
-    get_mag(params)
-    print("start")
+    start = time.time() 
+    _ = get_mag(params)
+    _.block_until_ready()
+    end = time.time()
+    print("warmup (JIT): %.3f sec"%(end - start))
     start = time.time()
-    w_points, A = get_mag(params)
+    A = get_mag(params)
+    A.block_until_ready()
     end = time.time()
     print("mag finish: %.3f sec"%(end - start))
-    # Evaluate the Jacobian at every point
-    mag_jac = jit(jacfwd(lambda params: get_mag(params)[1]))
-    mag_jac(params)
-    print("start")
     start = time.time()
-    jac_eval = mag_jac(params)
+    _ = jvp_param_loop(get_mag, params) 
+    _.block_until_ready()
     end = time.time()
-    print("jac finish: %.3f sec"%(end - start))
+    print("warmup (JVP, JIT): %.3f sec"%(end - start))
+    start = time.time()
+    J = jvp_param_loop(get_mag, params)
+    J.block_until_ready()
+    end = time.time()
+    print("jac (param-loop) finish: %.3f sec"%(end - start))
 
-    t_np = np.array([t, A]).T
-    jac_np = np.array(jac_eval)
-    np.savetxt("example/triple-lens-jacobian/time_mag.csv", t_np, delimiter=",")
-    np.save("example/triple-lens-jacobian/jacobian.npy", jac_np)
+    t_np = np.array(A).T
+    jac_np = np.array(J)
+    np.savetxt("example/triple-lens-jacobian/magnification.csv", t_np, delimiter=",")
+    np.save("example/triple-lens-jacobian/jacobian_full.npy", jac_np)
 
-# Plotting
-file = np.loadtxt("example/triple-lens-jacobian/time_mag.csv", delimiter=",")
-t, A = file.T[0], file.T[1]
-jac = np.load("example/triple-lens-jacobian/jacobian.npy").T
-
+A = np.loadtxt("example/triple-lens-jacobian/magnification.csv", delimiter=",")
+tau = (times - t0)/tE
+y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
+y2 = u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
+w_points = jnp.array(y1 + 1j * y2, dtype=complex)
+jac = np.load("example/triple-lens-jacobian/jacobian_full.npy")
 param_names = ['t0', 'tE', 'u0', 'q', 's', 'alpha', 'rho', 'q3', 'r3', 'psi']
-
 n_params = jac.shape[0]
 
 fig, axes = plt.subplots(11, 1, figsize=(12, 10), sharex=True,
                          gridspec_kw={'height_ratios': [8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 'wspace':0.3}) 
-                         #gridspec_kw={'hspace': 0.1, 'height_ratios': [2] + [1]*n_params})
-
-axes[0].plot(t, A, label='Magnification $A(t)$', color='black')
+axes[0].plot(times, A, label='Magnification $A(t)$', color='black')
 axes[0].set_ylabel('Magnification')
 #axes[0].legend(loc='upper right')
 
@@ -157,17 +154,20 @@ ax_in.set_aspect(1)
 ax_in.set(xlim=(-1.5, 1.5), ylim=(-1.5, 1.5))
 
 labels = [
-    r'$\frac{\partial A}{\partial u_0}$', r'$\frac{\partial A}{\partial t_0}$',r'$\frac{\partial A}{\partial t_E}$',
-    r'$\frac{\partial A}{\partial q}$', r'$\frac{\partial A}{\partial s}$', r'$\frac{\partial A}{\partial \alpha}$',
+    r'$\frac{\partial A}{\partial t_0}$', 
+    r'$\frac{\partial A}{\partial t_E}$',
+    r'$\frac{\partial A}{\partial u_0}$',
+    r'$\frac{\partial A}{\partial q}$', 
+    r'$\frac{\partial A}{\partial s}$', 
+    r'$\frac{\partial A}{\partial \alpha}$',
     r'$\frac{\partial A}{\partial \rho}$',
-    r'$\frac{\partial A}{\partial q_3}$', r'$\frac{\partial A}{\partial r_3}$', r'$\frac{\partial A}{\partial \psi}$'
+    r'$\frac{\partial A}{\partial q_3}$', 
+    r'$\frac{\partial A}{\partial r_3}$', 
+    r'$\frac{\partial A}{\partial \psi}$'
 ]
 for i, l in enumerate(labels):
-    axes[i+1].plot(t, jac[i])
+    axes[i+1].plot(times, jac[i])
     axes[i+1].set_ylabel(l)
-
 axes[-1].set_xlabel('Time (day)')
-
-plt.tight_layout()
-plt.savefig("example/triple-lens-jacobian/full_jacobian_plot.png", dpi=300, bbox_inches='tight')
-plt.close()
+plt.savefig("example/triple-lens-jacobian/full_jac.png", dpi=300, bbox_inches='tight')
+plt.show()
