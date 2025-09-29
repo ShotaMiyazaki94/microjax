@@ -20,14 +20,14 @@ q = 0.1
 a = 0.5 * s
 e1 = q / (1.0 + q)
 _params = {"a": a, "e1": e1, "q": q, "s": s}
-rho = 0.05
+rho = 0.1
 
 nlenses = 2
-Nlimb = 200
-margin_r  = 0.5
+Nlimb = 500
+margin_r  = 0.1
 margin_th = 1.0
-bins_r = 50
-bins_th= 120
+bins_r = 100
+bins_th= 360
 
 critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=500, s=s, q=q) 
 image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, **_params)
@@ -98,4 +98,5 @@ ax.set_title(rf"$N_{{\rm limb}} = {Nlimb:d}$, $N_r={r_resolution:d}$, $N_\theta=
 ax.set_xlabel("$x$ [$R_{\\rm E}$]")
 ax.set_ylabel("$y$ [$R_{\\rm E}$]")
 plt.savefig("example/visualize-icrs/visualize_example.png", bbox_inches="tight", dpi=300)
-plt.close()
+print("out: example/visualize-icrs/visualize_example.png")
+plt.show()

@@ -1,8 +1,8 @@
-Inverse-Cartesian Region Sketch
+Visualization for Image-Centered Ray Shooting (ICRS)
 ================================
 
-Visual aid for the inverse-ray contour integration pipeline. The script traces
-the source limb through the lens, builds the polar integration regions, and
+Visual aid for the ICRS. The script traces the source limb 
+through the lens, builds the polar integration regions, and
 plots the resulting sampling tiles alongside the lens caustics.
 
 Run::
