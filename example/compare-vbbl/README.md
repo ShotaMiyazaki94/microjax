@@ -23,3 +23,19 @@ How to run
 
 Both scripts assume double-precision JAX. GPU acceleration is helpful but not
 required.
+
+Belows are an example of the execution time on NVIDIA A100 GPU::
+
+  python example/compare-vbbl/compare_binary_uniform.py
+  computation time: 0.001 sec (0.001 ms per points) for point-source in microjax
+  computation time: 0.102 sec (0.102 ms per points) for hexadecapole in microjax
+  computation time: 1.065 sec (1.065 ms per points) with VBBinaryLensing
+  computation time: 0.245 sec (0.245 ms per points) with microjax mag_binary, 200 chunk_size, 1000 max_full, 500 rbin, 500 thbin
+  output: example/compare-vbbl/compare_binary_uniform.png
+
+  python example/compare-vbbl/compare_binary_limb_dark.py
+  computation time: 0.001 sec (0.001 ms per points) for point-source in microjax
+  computation time: 0.102 sec (0.102 ms per points) for hexadecapole in microjax
+  computation time: 3.715 sec (3.715 ms per points) with VBBinaryLensing
+  computation time: 0.344 sec (0.344 ms per points) with microjax mag_binary, 200 chunk_size, 1000 max_full, 500 rbin, 500 thbin
+  output: example/compare-vbbl/compare_binary_limb_dark.png
