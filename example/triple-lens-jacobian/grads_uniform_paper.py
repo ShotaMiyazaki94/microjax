@@ -67,7 +67,7 @@ def jvp_param_loop(f, x):
         outs.append(jvp_val)
     return jnp.stack(outs, axis=0)
 
-if(1):
+if(0):
     import time
     params = jnp.array([t0, tE, u0, q, s, alpha, rho, q3, jnp.abs(r3_complex), psi])
     start = time.time() 
