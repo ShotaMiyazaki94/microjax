@@ -41,8 +41,21 @@ python example/compare-vbbl/compare_binary_limb_dark.py
   computation time: 0.102 sec (0.102 ms per points) for hexadecapole in microjax
   computation time: 3.715 sec (3.715 ms per points) with VBBinaryLensing
   computation time: 0.344 sec (0.344 ms per points) with microjax mag_binary, 200 chunk_size, 1000 max_full, 500 rbin, 500 thbin
-  output: example/compare-vbbl/compare_binary_limb_dark.png
+output: example/compare-vbbl/compare_binary_limb_dark.png
 ```
+
+<table>
+  <tr>
+    <td style="text-align:center;">
+      <figcaption>Uniform source</figcaption>
+      <img src="compare_binary_uniform.png" alt="Uniform source comparison" width="100%">
+    </td>
+    <td style="text-align:center;">
+      <figcaption>Limb-darkened source</figcaption>
+      <img src="compare_binary_limb_dark.png" alt="Limb-darkened source comparison" width="100%">
+    </td>
+  </tr>
+</table>
 
 And, below is that on Mac M2 CPU: 
 
