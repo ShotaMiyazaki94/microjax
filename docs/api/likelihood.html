@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Likelihood Utilities &mdash; microJAX  documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/underscore.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -29,12 +28,16 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> microJAX
-            <img src="../_static/microjax.png" class="logo" alt="Logo"/>
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            microJAX
+              <img src="../_static/microjax.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -51,6 +54,7 @@
 <li class="toctree-l1 current"><a class="reference internal" href="../modules.html">API Reference</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="point_source.html">Point Source</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caustics_lightcurve.html">Caustics Lightcurve</a></li>
 <li class="toctree-l2"><a class="reference internal" href="inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
 <li class="toctree-l2"><a class="reference internal" href="poly_solver.html">Polynomial Solver</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Likelihood Utilities</a><ul>
@@ -77,9 +81,9 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="../modules.html">API Reference</a> &raquo;</li>
-      <li>Likelihood Utilities</li>
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../modules.html">API Reference</a></li>
+      <li class="breadcrumb-item active">Likelihood Utilities</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/api/likelihood.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -90,7 +94,7 @@
            <div itemprop="articleBody">
              
   <section id="module-microjax.likelihood">
-<span id="likelihood-utilities"></span><h1>Likelihood Utilities<a class="headerlink" href="#module-microjax.likelihood" title="Permalink to this heading"></a></h1>
+<span id="likelihood-utilities"></span><h1>Likelihood Utilities<a class="headerlink" href="#module-microjax.likelihood" title="Link to this heading"></a></h1>
 <p>Likelihood and simple linear fits for microlensing photometry.</p>
 <p>This module provides small, JAX-friendly utilities to compute weighted linear
 least-squares fits and negative log-likelihoods (NLL) under Gaussian models.
@@ -105,13 +109,13 @@ Gaussian priors (mean and covariance).</p></li>
 them suitable for gradient-based optimization or inference.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.likelihood.linear_chi2">
-<span class="sig-prename descclassname"><span class="pre">microjax.likelihood.</span></span><span class="sig-name descname"><span class="pre">linear_chi2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">err</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.likelihood.linear_chi2" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.likelihood.</span></span><span class="sig-name descname"><span class="pre">linear_chi2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">err</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Array</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.likelihood.linear_chi2" title="Link to this definition"></a></dt>
 <dd><p>Weighted linear fit <code class="docutils literal notranslate"><span class="pre">y</span> <span class="pre">≈</span> <span class="pre">a</span> <span class="pre">+</span> <span class="pre">b</span> <span class="pre">x</span></code> and chi-squared.</p>
 <p>Performs a closed-form, weighted least-squares fit with independent
 Gaussian errors. If any entry of <code class="docutils literal notranslate"><span class="pre">err</span></code> is 0 (default), that point is
 treated as unweighted with weight 1.0.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>,</em><em>)</em>) – Predictor values.</p></li>
 <li><p><strong>y</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>,</em><em>)</em>) – Observed responses.</p></li>
@@ -119,7 +123,7 @@ treated as unweighted with weight 1.0.</p>
 are replaced by 1.0 in the weights.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><strong>b</strong> (<em>float</em>) – Best-fit slope.</p></li>
 <li><p><strong>be</strong> (<em>float</em>) – Standard error on the slope.</p></li>
@@ -137,7 +141,7 @@ are replaced by 1.0 in the weights.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.likelihood.nll_ulens">
-<span class="sig-prename descclassname"><span class="pre">microjax.likelihood.</span></span><span class="sig-name descname"><span class="pre">nll_ulens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">flux</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_obs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_fb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#microjax.likelihood.nll_ulens" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.likelihood.</span></span><span class="sig-name descname"><span class="pre">nll_ulens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">flux</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_obs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_fs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma2_fb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#microjax.likelihood.nll_ulens" title="Link to this definition"></a></dt>
 <dd><p>Negative log-likelihood with diagonal noise and diagonal priors.</p>
 <p>Assumes a linear flux model <code class="docutils literal notranslate"><span class="pre">flux</span> <span class="pre">≈</span> <span class="pre">M</span> <span class="pre">&#64;</span> <span class="pre">[fs,</span> <span class="pre">fb]</span></code> with independent
 observational errors <code class="docutils literal notranslate"><span class="pre">C</span> <span class="pre">=</span> <span class="pre">diag(sigma2_obs)</span></code> and independent Gaussian
@@ -145,7 +149,7 @@ priors on <code class="docutils literal notranslate"><span class="pre">fs</span>
 All integrals over <code class="docutils literal notranslate"><span class="pre">fs,</span> <span class="pre">fb</span></code> are done analytically, yielding the standard
 marginalized Gaussian NLL.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>flux</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>,</em><em>)</em>) – Observed fluxes.</p></li>
 <li><p><strong>M</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>, </em><em>2</em><em>)</em>) – Design matrix with columns <code class="docutils literal notranslate"><span class="pre">[m_fs,</span> <span class="pre">1]</span></code> where <code class="docutils literal notranslate"><span class="pre">m_fs</span></code> is the source
@@ -155,10 +159,10 @@ model term and the constant column captures blend flux.</p></li>
 <li><p><strong>sigma2_fb</strong> (<em>float</em>) – Prior variance for blend flux <code class="docutils literal notranslate"><span class="pre">fb</span></code>.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>nll</strong> – Negative log-likelihood value.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
 </dd>
 </dl>
@@ -170,14 +174,14 @@ entries <code class="docutils literal notranslate"><span class="pre">[sigma2_fs,
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.likelihood.nll_ulens_general">
-<span class="sig-prename descclassname"><span class="pre">microjax.likelihood.</span></span><span class="sig-name descname"><span class="pre">nll_ulens_general</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">flux</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lambda</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#microjax.likelihood.nll_ulens_general" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.likelihood.</span></span><span class="sig-name descname"><span class="pre">nll_ulens_general</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">flux</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">C</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lambda</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#microjax.likelihood.nll_ulens_general" title="Link to this definition"></a></dt>
 <dd><p>Negative log-likelihood with full-rank noise and Gaussian priors.</p>
 <p>Generalizes <a class="reference internal" href="#microjax.likelihood.nll_ulens" title="microjax.likelihood.nll_ulens"><code class="xref py py-func docutils literal notranslate"><span class="pre">nll_ulens()</span></code></a> to non-diagonal observational covariance
 <code class="docutils literal notranslate"><span class="pre">C</span></code> and an arbitrary Gaussian prior <code class="docutils literal notranslate"><span class="pre">N(mu,</span> <span class="pre">Lambda)</span></code> over <code class="docutils literal notranslate"><span class="pre">[fs,</span> <span class="pre">fb]</span></code>.
 The result is the marginalized NLL after integrating out the linear
 parameters analytically.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>flux</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>,</em><em>)</em>) – Observed fluxes.</p></li>
 <li><p><strong>M</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>n</em><em>, </em><em>2</em><em>)</em>) – Design matrix mapping <code class="docutils literal notranslate"><span class="pre">[fs,</span> <span class="pre">fb]</span></code> to the model flux.</p></li>
@@ -186,10 +190,10 @@ parameters analytically.</p>
 <li><p><strong>Lambda</strong> (<em>jnp.ndarray</em><em>, </em><em>shape</em><em> (</em><em>2</em><em>, </em><em>2</em><em>)</em>) – Prior covariance for <code class="docutils literal notranslate"><span class="pre">[fs,</span> <span class="pre">fb]</span></code> (symmetric positive definite).</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>nll</strong> – Negative log-likelihood value.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>float</p>
 </dd>
 </dl>

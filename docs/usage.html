@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Usage Guide &mdash; microJAX  documentation</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -29,12 +28,16 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> microJAX
-            <img src="_static/microjax.png" class="logo" alt="Logo"/>
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            microJAX
+              <img src="_static/microjax.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -81,8 +84,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Usage Guide</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Usage Guide</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/usage.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -93,12 +96,12 @@
            <div itemprop="articleBody">
              
   <section id="usage-guide">
-<h1>Usage Guide<a class="headerlink" href="#usage-guide" title="Permalink to this heading"></a></h1>
+<h1>Usage Guide<a class="headerlink" href="#usage-guide" title="Link to this heading"></a></h1>
 <p>This chapter walks through the most common workflows in microJAX and explains
 what each knob does.  The goal is to provide copy-and-pasteable snippets along
 with the context required to adapt them to your own microlensing problem.</p>
 <section id="common-setup">
-<h2>Common setup<a class="headerlink" href="#common-setup" title="Permalink to this heading"></a></h2>
+<h2>Common setup<a class="headerlink" href="#common-setup" title="Link to this heading"></a></h2>
 <p>Start every session by enabling 64-bit mode and importing the building blocks
 you intend to use.  Keeping everything in one place makes it easier to reuse the
 same configuration across notebooks or scripts:</p>
@@ -115,11 +118,11 @@ same configuration across notebooks or scripts:</p>
 Python session, rerun it before continuing.</p>
 </section>
 <section id="point-source-magnification">
-<h2>Point-source magnification<a class="headerlink" href="#point-source-magnification" title="Permalink to this heading"></a></h2>
+<h2>Point-source magnification<a class="headerlink" href="#point-source-magnification" title="Link to this heading"></a></h2>
 <p>Use <code class="docutils literal notranslate"><span class="pre">mag_point_source</span></code> when the source can be treated as infinitesimally small
 and you need fast magnifications for one to three lenses.</p>
 <section id="step-by-step">
-<h3>Step-by-step<a class="headerlink" href="#step-by-step" title="Permalink to this heading"></a></h3>
+<h3>Step-by-step<a class="headerlink" href="#step-by-step" title="Link to this heading"></a></h3>
 <ol class="arabic simple">
 <li><p>Assemble the complex source coordinates.  The real part is the x-position,
 the imaginary part is the y-position in Einstein radii.</p></li>
@@ -147,11 +150,11 @@ grid of lens parameters.</p>
 </section>
 </section>
 <section id="finite-source-binary-lenses">
-<h2>Finite-source binary lenses<a class="headerlink" href="#finite-source-binary-lenses" title="Permalink to this heading"></a></h2>
+<h2>Finite-source binary lenses<a class="headerlink" href="#finite-source-binary-lenses" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> computes finite-source light curves by combining a fast
 hexadecapole approximation with full inverse-ray integrations when required.</p>
 <section id="build-the-trajectory">
-<h3>1. Build the trajectory<a class="headerlink" href="#build-the-trajectory" title="Permalink to this heading"></a></h3>
+<h3>1. Build the trajectory<a class="headerlink" href="#build-the-trajectory" title="Link to this heading"></a></h3>
 <p>The helper below constructs a standard rectilinear trajectory.  Feel free to
 replace it with your own sampler if you need orbital motion or parallax.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tE</span> <span class="o">=</span> <span class="mf">40.0</span>                      <span class="c1"># Einstein time (days)</span>
@@ -169,7 +172,7 @@ replace it with your own sampler if you need orbital motion or parallax.</p>
 </div>
 </section>
 <section id="evaluate-the-magnification">
-<h3>2. Evaluate the magnification<a class="headerlink" href="#evaluate-the-magnification" title="Permalink to this heading"></a></h3>
+<h3>2. Evaluate the magnification<a class="headerlink" href="#evaluate-the-magnification" title="Link to this heading"></a></h3>
 <p>Call <code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> with the trajectory, source radius, and lens parameters.  To
 start, stick with the defaults for the optional arguments and only adjust them
 if you hit performance limits.</p>
@@ -183,7 +186,7 @@ need fluxes, multiply by the intrinsic source flux and add blends or baselines
 as appropriate.</p>
 </section>
 <section id="fine-tuning-parameters">
-<h3>Fine-tuning parameters<a class="headerlink" href="#fine-tuning-parameters" title="Permalink to this heading"></a></h3>
+<h3>Fine-tuning parameters<a class="headerlink" href="#fine-tuning-parameters" title="Link to this heading"></a></h3>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">r_resolution</span></code> / <code class="docutils literal notranslate"><span class="pre">th_resolution</span></code>
 Set the number of grid divisions in the radial and angular directions for the
@@ -211,7 +214,7 @@ appear in magnification calculations.</p></li>
 </section>
 </section>
 <section id="triple-lenses">
-<h2>Triple lenses<a class="headerlink" href="#triple-lenses" title="Permalink to this heading"></a></h2>
+<h2>Triple lenses<a class="headerlink" href="#triple-lenses" title="Link to this heading"></a></h2>
 <p>Triple-lens finite-source calculations are handled by <code class="docutils literal notranslate"><span class="pre">mag_triple</span></code>.  The
 inputs mirror the binary API, but you must describe the third body explicitly.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mags_triple</span> <span class="o">=</span> <span class="n">mag_triple</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span>
@@ -231,7 +234,7 @@ changes.</p></li>
 </ul>
 </section>
 <section id="autodiff-and-jit">
-<h2>Autodiff and <code class="docutils literal notranslate"><span class="pre">jit</span></code><a class="headerlink" href="#autodiff-and-jit" title="Permalink to this heading"></a></h2>
+<h2>Autodiff and <code class="docutils literal notranslate"><span class="pre">jit</span></code><a class="headerlink" href="#autodiff-and-jit" title="Link to this heading"></a></h2>
 <p>All magnification routines are differentiable.  Wrapping them in <code class="docutils literal notranslate"><span class="pre">jax.jit</span></code>
 gives you compiled performance, and <code class="docutils literal notranslate"><span class="pre">jax.jacfwd</span></code> provide derivatives for
 inference.</p>
@@ -250,7 +253,7 @@ inference.</p>
 under development due to memory handling issues.</p>
 </section>
 <section id="trajectory-helpers">
-<h2>Trajectory helpers<a class="headerlink" href="#trajectory-helpers" title="Permalink to this heading"></a></h2>
+<h2>Trajectory helpers<a class="headerlink" href="#trajectory-helpers" title="Link to this heading"></a></h2>
 <p>For trajectories beyond straight lines, the <a class="reference internal" href="api/trajectory.html#module-microjax.trajectory" title="microjax.trajectory"><code class="xref py py-mod docutils literal notranslate"><span class="pre">microjax.trajectory</span></code></a> package
 provides composable pieces:</p>
 <ul class="simple">
@@ -260,7 +263,7 @@ provides composable pieces:</p>
 you can drop them into <code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> / <code class="docutils literal notranslate"><span class="pre">mag_triple</span></code> without further changes.</p>
 </section>
 <section id="best-practices">
-<h2>Best practices<a class="headerlink" href="#best-practices" title="Permalink to this heading"></a></h2>
+<h2>Best practices<a class="headerlink" href="#best-practices" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>Keep 64-bit mode enabled for production runs; it significantly improves the
 stability of implicit differentiation through the polynomial solver.</p></li>
