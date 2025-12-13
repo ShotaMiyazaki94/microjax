@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trajectories &mdash; microJAX  documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/underscore.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -28,12 +27,16 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> microJAX
-            <img src="../_static/microjax.png" class="logo" alt="Logo"/>
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            microJAX
+              <img src="../_static/microjax.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -50,6 +53,7 @@
 <li class="toctree-l1 current"><a class="reference internal" href="../modules.html">API Reference</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="point_source.html">Point Source</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caustics_lightcurve.html">Caustics Lightcurve</a></li>
 <li class="toctree-l2"><a class="reference internal" href="inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
 <li class="toctree-l2"><a class="reference internal" href="poly_solver.html">Polynomial Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="likelihood.html">Likelihood Utilities</a></li>
@@ -79,9 +83,9 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="../modules.html">API Reference</a> &raquo;</li>
-      <li>Trajectories</li>
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../modules.html">API Reference</a></li>
+      <li class="breadcrumb-item active">Trajectories</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/api/trajectory.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -92,17 +96,17 @@
            <div itemprop="articleBody">
              
   <section id="module-microjax.trajectory">
-<span id="trajectories"></span><h1>Trajectories<a class="headerlink" href="#module-microjax.trajectory" title="Permalink to this heading"></a></h1>
+<span id="trajectories"></span><h1>Trajectories<a class="headerlink" href="#module-microjax.trajectory" title="Link to this heading"></a></h1>
 <p>Trajectory utilities for microJAX.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.trajectory.compute_parallax">
-<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">compute_parallax</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">piEN</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">piEE</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallax_params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.trajectory.compute_parallax" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">compute_parallax</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">piEN</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">piEE</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallax_params</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.trajectory.compute_parallax" title="Link to this definition"></a></dt>
 <dd><p>Compute annual parallax offsets at times <code class="docutils literal notranslate"><span class="pre">t</span></code>.</p>
 <p>Produces the parallax-induced shifts to microlensing trajectory parameters:
 <code class="docutils literal notranslate"><span class="pre">dtn</span></code> should be added to the dimensionless time coordinate <code class="docutils literal notranslate"><span class="pre">tau</span></code>, and
 <code class="docutils literal notranslate"><span class="pre">dum</span></code> should be added to the impact parameter <code class="docutils literal notranslate"><span class="pre">u</span></code> (north–east frame).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>t</strong> (<em>float</em><em> or </em><em>jax.Array</em>) – Time(s) in JD-2450000 at which to evaluate the parallax signal.</p></li>
 <li><p><strong>piEN</strong> (<em>float</em>) – Parallax amplitude projected in the north direction.</p></li>
@@ -110,7 +114,7 @@
 <li><p><strong>parallax_params</strong> (<em>tuple</em>) – Output of <a class="reference internal" href="#microjax.trajectory.set_parallax" title="microjax.trajectory.set_parallax"><code class="xref py py-func docutils literal notranslate"><span class="pre">set_parallax()</span></code></a>.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><strong>dtn</strong> (<em>jax.Array</em>) – Offset to add to the dimensionless time coordinate(s) <code class="docutils literal notranslate"><span class="pre">tau</span></code>; shape
 <code class="docutils literal notranslate"><span class="pre">(N,)</span></code> matching the number of time samples.</p></li>
@@ -128,23 +132,23 @@ contribution.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.trajectory.getpsi">
-<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">getpsi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.trajectory.getpsi" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">getpsi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">phi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.trajectory.getpsi" title="Link to this definition"></a></dt>
 <dd><p>Solve Kepler’s equation for the eccentric anomaly <code class="docutils literal notranslate"><span class="pre">psi</span></code>.</p>
 <p>The equation solved is <code class="docutils literal notranslate"><span class="pre">psi</span> <span class="pre">-</span> <span class="pre">e</span> <span class="pre">*</span> <span class="pre">sin(psi)</span> <span class="pre">=</span> <span class="pre">phi</span></code> using a fixed small
 number of Newton–Raphson iterations (5) with an empirical initial guess.
 This routine is differentiable under JAX and works with scalars or arrays.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>phi</strong> (<em>float</em><em> or </em><em>jax.Array</em>) – Mean anomaly in radians. May be scalar or array-like.</p></li>
 <li><p><strong>ecc</strong> (<em>float</em>) – Orbital eccentricity, <code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">&lt;=</span> <span class="pre">ecc</span> <span class="pre">&lt;</span> <span class="pre">1</span></code>.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>psi</strong> – Eccentric anomaly in radians, with the same broadcasted shape as
 <code class="docutils literal notranslate"><span class="pre">phi</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>jax.Array</p>
 </dd>
 </dl>
@@ -158,7 +162,7 @@ well for moderate eccentricities without branching.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.trajectory.peri_vernal">
-<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">peri_vernal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tref</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.trajectory.peri_vernal" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">peri_vernal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tref</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.trajectory.peri_vernal" title="Link to this definition"></a></dt>
 <dd><p>Return perihelion and vernal-equinox times closest to <code class="docutils literal notranslate"><span class="pre">tref</span></code>.</p>
 <p>This utility selects, from pre-tabulated epochs, the perihelion time and
 the vernal equinox time that are closest to the provided reference time.</p>
@@ -167,10 +171,10 @@ input is larger than <code class="docutils literal notranslate"><span class="pre
 <code class="docutils literal notranslate"><span class="pre">2_450_000</span></code> so it can be compared against the tables below, which are in
 JD-2450000.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>tref</strong> (<em>float</em><em> or </em><em>array-like</em>) – Reference time(s) in JD or JD-2450000.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><strong>tperi</strong> (<em>float</em>) – Perihelion time (JD-2450000), closest to <code class="docutils literal notranslate"><span class="pre">tref</span></code>.</p></li>
 <li><p><strong>tvernal</strong> (<em>float</em>) – Vernal equinox time (JD-2450000), closest to <code class="docutils literal notranslate"><span class="pre">tref</span></code>.</p></li>
@@ -195,13 +199,13 @@ broadcasting rules of JAX, and a single pair is returned as JAX scalars.</p></li
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.trajectory.prepare_projection_basis">
-<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">prepare_projection_basis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rotaxis_deg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psi_offset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RA</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.trajectory.prepare_projection_basis" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">prepare_projection_basis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rotaxis_deg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psi_offset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RA</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.trajectory.prepare_projection_basis" title="Link to this definition"></a></dt>
 <dd><p>Build rotation and on-sky projection bases.</p>
 <p>Constructs the rotation matrix that maps the Sun–Earth orbital plane
 coordinates to the equatorial frame and returns the orthonormal basis
 vectors on the sky plane at the target direction: <code class="docutils literal notranslate"><span class="pre">north</span></code> and <code class="docutils literal notranslate"><span class="pre">east</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>rotaxis_deg</strong> (<em>float</em>) – Obliquity of the ecliptic (tilt between equatorial and ecliptic
 planes) in degrees.</p></li>
@@ -211,7 +215,7 @@ radians. This aligns the orbital x-axis with the vernal direction.</p></li>
 <li><p><strong>Dec</strong> (<em>float</em>) – Declination of the target in degrees (ICRS).</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><strong>R</strong> (<em>jax.Array, shape (3, 3)</em>) – Rotation matrix from orbital coordinates to equatorial coordinates.</p></li>
 <li><p><strong>north</strong> (<em>jax.Array, shape (3,)</em>) – Unit vector pointing to celestial north on the tangent plane at the
@@ -228,13 +232,13 @@ target position.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.trajectory.project_earth_position">
-<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">project_earth_position</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tperi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">R</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">north</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">east</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.trajectory.project_earth_position" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">project_earth_position</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tperi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">R</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">north</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">east</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.trajectory.project_earth_position" title="Link to this definition"></a></dt>
 <dd><p>Project Earth’s position onto the target’s tangent plane.</p>
 <p>Computes the Sun-centered position of Earth in its (elliptical) orbit at
 time <code class="docutils literal notranslate"><span class="pre">t</span></code> using the eccentric anomaly and projects it onto the sky-plane
 basis defined by <code class="docutils literal notranslate"><span class="pre">north</span></code> and <code class="docutils literal notranslate"><span class="pre">east</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>t</strong> (<em>float</em><em> or </em><em>jax.Array</em>) – Observation time(s) in JD-2450000; scalar or 1D array.</p></li>
 <li><p><strong>tperi</strong> (<em>float</em>) – Time of perihelion in JD-2450000.</p></li>
@@ -245,11 +249,11 @@ basis defined by <code class="docutils literal notranslate"><span class="pre">no
 <li><p><strong>east</strong> (<em>jax.Array</em><em>, </em><em>shape</em><em> (</em><em>3</em><em>,</em><em>)</em>) – East unit vector on the tangent plane.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>q</strong> – Stacked projected coordinates <code class="docutils literal notranslate"><span class="pre">[q_north,</span> <span class="pre">q_east]</span></code> where <code class="docutils literal notranslate"><span class="pre">N</span></code> is the
 number of time samples (<code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <span class="pre">1</span></code> for scalar <code class="docutils literal notranslate"><span class="pre">t</span></code>).</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>jax.Array, shape (2, N)</p>
 </dd>
 </dl>
@@ -261,7 +265,7 @@ the tangent-plane basis.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.trajectory.set_parallax">
-<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">set_parallax</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tref</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tperi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tvernal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RA</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotaxis_deg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">23.44</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0167</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">365.25636</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.trajectory.set_parallax" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">set_parallax</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tref</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tperi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tvernal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">RA</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotaxis_deg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">23.44</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ecc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0167</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">365.25636</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Array</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#microjax.trajectory.set_parallax" title="Link to this definition"></a></dt>
 <dd><p>Precompute parallax parameters at a reference epoch.</p>
 <p>Precomputes quantities needed to evaluate the microlensing annual parallax
 signal around <code class="docutils literal notranslate"><span class="pre">tref</span></code>. This includes the on-sky Earth position at <code class="docutils literal notranslate"><span class="pre">tref</span></code>,
@@ -270,7 +274,7 @@ the projection/rotation bases.</p>
 <p>If either <code class="docutils literal notranslate"><span class="pre">tperi</span></code> or <code class="docutils literal notranslate"><span class="pre">tvernal</span></code> is passed as 0, both values are
 automatically inferred using <a class="reference internal" href="#microjax.trajectory.peri_vernal" title="microjax.trajectory.peri_vernal"><code class="xref py py-func docutils literal notranslate"><span class="pre">peri_vernal()</span></code></a> at <code class="docutils literal notranslate"><span class="pre">tref</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tref</strong> (<em>float</em>) – Reference time in JD-2450000 at which the linearization is anchored.</p></li>
 <li><p><strong>tperi</strong> (<em>float</em>) – Perihelion time in JD-2450000, or 0 to auto-select.</p></li>
@@ -283,7 +287,7 @@ automatically inferred using <a class="reference internal" href="#microjax.traje
 <li><p><strong>dt</strong> (<em>float</em><em>, </em><em>optional</em>) – Time step (days) used to compute the finite-difference velocity.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>parallax_params</strong> – Tuple <code class="docutils literal notranslate"><span class="pre">(qne0,</span> <span class="pre">vne0,</span> <span class="pre">R,</span> <span class="pre">north,</span> <span class="pre">east,</span> <span class="pre">tref,</span> <span class="pre">tperi,</span> <span class="pre">period,</span> <span class="pre">ecc)</span></code> where
 each element is:
 - <code class="docutils literal notranslate"><span class="pre">qne0</span></code>: jax.Array, shape (2,), Earth position [north, east] at <code class="docutils literal notranslate"><span class="pre">tref</span></code>.
@@ -296,7 +300,7 @@ each element is:
 - <code class="docutils literal notranslate"><span class="pre">period</span></code>: float, orbital period used.
 - <code class="docutils literal notranslate"><span class="pre">ecc</span></code>: float, eccentricity used.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>tuple</p>
 </dd>
 </dl>

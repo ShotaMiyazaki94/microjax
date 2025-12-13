@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>microJAX &mdash; microJAX  documentation</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -28,12 +27,16 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="#" class="icon icon-home"> microJAX
-            <img src="_static/microjax.png" class="logo" alt="Logo"/>
+
+          
+          
+          <a href="#" class="icon icon-home">
+            microJAX
+              <img src="_static/microjax.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -63,8 +66,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
-      <li>microJAX</li>
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">microJAX</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -75,14 +78,14 @@
            <div itemprop="articleBody">
              
   <section id="microjax">
-<h1>microJAX<a class="headerlink" href="#microjax" title="Permalink to this heading"></a></h1>
+<h1>microJAX<a class="headerlink" href="#microjax" title="Link to this heading"></a></h1>
 <p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax">microJAX</a> is a GPU-aware,
 auto-differentiable microlensing toolkit built on top of JAX.
 The library combines GPU-optimized image-centered inverse-ray
 shooting method and JAX-enabled XLA-acceralation to deliver fast and accurate
 magnifications and gradients for binary and triple lens systems.</p>
 <section id="highlights">
-<h2>Highlights<a class="headerlink" href="#highlights" title="Permalink to this heading"></a></h2>
+<h2>Highlights<a class="headerlink" href="#highlights" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><strong>Accelerated finite sources</strong> – image-centered ray shooting (ICRS)
 with CUDA-ready batching.</p></li>
@@ -94,7 +97,7 @@ like orbital parallax, limb darkening, custom source motion, and more.</p></li>
 </ul>
 </section>
 <section id="quick-peek">
-<h2>Quick peek<a class="headerlink" href="#quick-peek" title="Permalink to this heading"></a></h2>
+<h2>Quick peek<a class="headerlink" href="#quick-peek" title="Link to this heading"></a></h2>
 <p>Note: <code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> also works on CPU but is very slow.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
@@ -139,7 +142,8 @@ like orbital parallax, limb darkening, custom source motion, and more.</p></li>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
-<a class="reference internal image-reference" href="_images/lightcurve_binary.png"><img alt="Light curve example" class="align-center" src="_images/lightcurve_binary.png" style="width: 100%;" /></a>
+<a class="reference internal image-reference" href="_images/lightcurve_binary.png"><img alt="Light curve example" class="align-center" src="_images/lightcurve_binary.png" style="width: 100%;" />
+</a>
 <p>Use the sections below to install the package, explore worked examples, and dig
 into the API.</p>
 <div class="toctree-wrapper compound">
@@ -181,17 +185,56 @@ into the API.</p>
 </section>
 </section>
 <section id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading"></a></h1>
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
 <ul class="simple">
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
 <li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
 </ul>
+<section id="citing-microjax">
+<h2>Citing microJAX<a class="headerlink" href="#citing-microjax" title="Link to this heading"></a></h2>
+<p>If you use microJAX in academic work, please cite the methods paper and the Zenodo software archive:</p>
+<ul class="simple">
+<li><p>Miyazaki, S., &amp; Kawahara, H. 2025, ApJ, 994, 144, <a class="reference external" href="https://doi.org/10.3847/1538-4357/ae1005">doi:10.3847/1538-4357/ae1005</a></p></li>
+<li><p>microJAX software archive (Zenodo): <a class="reference external" href="https://doi.org/10.5281/zenodo.17247892">doi:10.5281/zenodo.17247892</a></p></li>
+</ul>
+<section id="bibtex">
+<h3>BibTeX<a class="headerlink" href="#bibtex" title="Link to this heading"></a></h3>
+<div class="highlight-bibtex notranslate"><div class="highlight"><pre><span></span><span class="nc">@ARTICLE</span><span class="p">{</span><span class="nl">2025ApJ...994..144M</span><span class="p">,</span>
+<span class="w">       </span><span class="na">author</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{{Miyazaki}, Shota and {Kawahara}, Hajime}</span><span class="p">,</span>
+<span class="w">        </span><span class="na">title</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{microJAX: A Differentiable Framework for Microlensing Modeling with GPU-accelerated Image-centered Ray Shooting}</span><span class="p">,</span>
+<span class="w">      </span><span class="na">journal</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{\apj}</span><span class="p">,</span>
+<span class="w">         </span><span class="na">year</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="m">2025</span><span class="p">,</span>
+<span class="w">        </span><span class="na">month</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nv">dec</span><span class="p">,</span>
+<span class="w">       </span><span class="na">volume</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{994}</span><span class="p">,</span>
+<span class="w">       </span><span class="na">number</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{2}</span><span class="p">,</span>
+<span class="w">          </span><span class="na">eid</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{144}</span><span class="p">,</span>
+<span class="w">        </span><span class="na">pages</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{144}</span><span class="p">,</span>
+<span class="w">          </span><span class="na">doi</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{10.3847/1538-4357/ae1005}</span><span class="p">,</span>
+<span class="na">archivePrefix</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{arXiv}</span><span class="p">,</span>
+<span class="w">       </span><span class="na">eprint</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{2510.02639}</span><span class="p">,</span>
+<span class="w"> </span><span class="na">primaryClass</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{astro-ph.EP}</span><span class="p">,</span>
+<span class="w">       </span><span class="na">adsurl</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{https://ui.adsabs.harvard.edu/abs/2025ApJ...994..144M}</span><span class="p">,</span>
+<span class="w">      </span><span class="na">adsnote</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Provided by the SAO/NASA Astrophysics Data System}</span>
+<span class="p">}</span>
+
+<span class="nc">@software</span><span class="p">{</span><span class="nl">microjax_zenodo_17247892</span><span class="p">,</span>
+<span class="w">  </span><span class="na">author</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Miyazaki, Shota}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">title</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{microJAX}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">year</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{2025}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">publisher</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Zenodo}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">doi</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{10.5281/zenodo.17247892}</span><span class="p">,</span>
+<span class="w">  </span><span class="na">url</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{https://doi.org/10.5281/zenodo.17247892}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
 <section id="references">
-<h2>References<a class="headerlink" href="#references" title="Permalink to this heading"></a></h2>
+<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
 </section>
 <section id="license-attribution">
-<h2>License &amp; Attribution<a class="headerlink" href="#license-attribution" title="Permalink to this heading"></a></h2>
+<h2>License &amp; Attribution<a class="headerlink" href="#license-attribution" title="Link to this heading"></a></h2>
 <p>Copyright 2025, Contributors</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://sites.google.com/view/shotamiyazaki/english">Shota Miyazaki</a> (&#64;ShotaMiyazaki94, maintainer)</p></li>

@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Getting Started &mdash; microJAX  documentation</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -29,12 +28,16 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> microJAX
-            <img src="_static/microjax.png" class="logo" alt="Logo"/>
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            microJAX
+              <img src="_static/microjax.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -70,8 +73,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Getting Started</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Getting Started</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/getting_started.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -82,11 +85,11 @@
            <div itemprop="articleBody">
              
   <section id="getting-started">
-<h1>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this heading"></a></h1>
+<h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h1>
 <p>Use this guide to prepare an environment, confirm that JAX detects your
 accelerator, and run a quick smoke test.</p>
 <section id="prerequisites">
-<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading"></a></h2>
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>Python 3.9 or newer with matching <code class="docutils literal notranslate"><span class="pre">jax</span></code>/<code class="docutils literal notranslate"><span class="pre">jaxlib</span></code> wheels for your platform
 (CPU, CUDA, ROCm).  Follow the <a class="reference external" href="https://jax.readthedocs.io/en/latest/installation.html">official JAX installation matrix</a>.</p></li>
@@ -95,7 +98,7 @@ visualization examples.</p></li>
 </ul>
 </section>
 <section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
 <p>Install the latest release from PyPI:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">pip</span> <span class="n">install</span> <span class="n">microjaxx</span>
 </pre></div>
@@ -110,7 +113,7 @@ visualization examples.</p></li>
 <code class="docutils literal notranslate"><span class="pre">microjaxx</span></code>.</p>
 </section>
 <section id="verify-the-environment">
-<h2>Verify the environment<a class="headerlink" href="#verify-the-environment" title="Permalink to this heading"></a></h2>
+<h2>Verify the environment<a class="headerlink" href="#verify-the-environment" title="Link to this heading"></a></h2>
 <p>Run the snippet below to confirm that microJAX imports cleanly, JAX can see your
 devices, and 64-bit mode is enabled for better numerical stability:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
@@ -129,7 +132,7 @@ devices, and 64-bit mode is enabled for better numerical stability:</p>
 </div>
 </section>
 <section id="up-next">
-<h2>Up next<a class="headerlink" href="#up-next" title="Permalink to this heading"></a></h2>
+<h2>Up next<a class="headerlink" href="#up-next" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="usage.html"><span class="doc">Usage Guide</span></a> walks through binary and triple lens examples.</p></li>
 <li><p><a class="reference internal" href="troubleshooting.html"><span class="doc">Troubleshooting</span></a> lists common pitfalls and quick fixes.</p></li>

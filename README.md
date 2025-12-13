@@ -111,6 +111,46 @@ Note: Finite-source calculation with microJAX is extremely slow without a GPU. S
 
 ---
 
+## 📝 Citing microJAX
+
+If you use microJAX in academic work, please cite the methods paper and, for versioned software DOIs, the Zenodo archive:
+
+- Miyazaki, S., & Kawahara, H. 2025, ApJ, 994, 144, [doi:10.3847/1538-4357/ae1005](https://doi.org/10.3847/1538-4357/ae1005)
+- microJAX software archive (Zenodo): [doi:10.5281/zenodo.17247892](https://doi.org/10.5281/zenodo.17247892)
+
+BibTeX:
+
+```bibtex
+@ARTICLE{2025ApJ...994..144M,
+       author = {{Miyazaki}, Shota and {Kawahara}, Hajime},
+        title = {microJAX: A Differentiable Framework for Microlensing Modeling with GPU-accelerated Image-centered Ray Shooting},
+      journal = {\apj},
+         year = 2025,
+        month = dec,
+       volume = {994},
+       number = {2},
+          eid = {144},
+        pages = {144},
+          doi = {10.3847/1538-4357/ae1005},
+archivePrefix = {arXiv},
+       eprint = {2510.02639},
+ primaryClass = {astro-ph.EP},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2025ApJ...994..144M},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@software{microjax_zenodo_17247892,
+  author = {Miyazaki, Shota},
+  title = {microJAX},
+  year = {2025},
+  publisher = {Zenodo},
+  doi = {10.5281/zenodo.17247892},
+  url = {https://doi.org/10.5281/zenodo.17247892}
+}
+```
+
+---
+
 ## ⚠️ Known Limitations
 
 - Finite-source magnification trades memory/runtime for accuracy through resolution parameters; tune these settings to match your GPU's available memory and throughput.
@@ -119,7 +159,7 @@ Note: Finite-source calculation with microJAX is extremely slow without a GPU. S
 - GPU tests are opt-in; run them explicitly with `pytest -m gpu`. If JAX cannot see a CUDA GPU, those tests are skipped.
 
 ## 📚 References
-* [Miyazaki & Kawahara (in prep.)](): `microjax` paper (expected within 2025!)
+* [Miyazaki & Kawahara (2025)](https://ui.adsabs.harvard.edu/abs/2025ApJ...994..144M/abstract): `microjax` paper 
 * [Bennett (2010)](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract): Image-centred ray shooting (ICRS) method   
 * [Cassan (2017)](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true): Hexadecapole approximations
 * [Sugiyama (2022)](https://ui.adsabs.harvard.edu/abs/2022ApJ...937...63S/abstract): Fast FFT-based magnification evaluation with a single-lens extended source model
@@ -147,6 +187,6 @@ These tests require JAX to detect a CUDA device. If not available, they are skip
 
 ## 📜 License
 
-This project is licensed under the [MIT License](LICENSE).  Third-party components bundled in the tree and their respective licenses are listed in `third_party/README.md`. If you use `microJAX` in academic work, please cite the upcoming Miyazaki et al. (2025) methods paper.
+This project is licensed under the [MIT License](LICENSE).  Third-party components bundled in the tree and their respective licenses are listed in `third_party/README.md`.
 
 ---

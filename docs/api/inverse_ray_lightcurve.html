@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inverse-Ray Lightcurve &mdash; microJAX  documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/underscore.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -29,12 +28,16 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> microJAX
-            <img src="../_static/microjax.png" class="logo" alt="Logo"/>
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            microJAX
+              <img src="../_static/microjax.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -79,9 +82,9 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="../modules.html">API Reference</a> &raquo;</li>
-      <li>Inverse-Ray Lightcurve</li>
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../modules.html">API Reference</a></li>
+      <li class="breadcrumb-item active">Inverse-Ray Lightcurve</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/api/inverse_ray_lightcurve.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -92,14 +95,14 @@
            <div itemprop="articleBody">
              
   <section id="module-microjax.inverse_ray.lightcurve">
-<span id="inverse-ray-lightcurve"></span><h1>Inverse-Ray Lightcurve<a class="headerlink" href="#module-microjax.inverse_ray.lightcurve" title="Permalink to this heading"></a></h1>
+<span id="inverse-ray-lightcurve"></span><h1>Inverse-Ray Lightcurve<a class="headerlink" href="#module-microjax.inverse_ray.lightcurve" title="Link to this heading"></a></h1>
 <p>Adaptive light-curve computation combining multipole and inverse-ray solvers.</p>
 <p>This module couples the hexadecapole approximation with selective inverse-ray
 finite-source integrations to deliver accurate binary- and triple-lens light
 curves while keeping GPU/CPU cost manageable. The key routines exported here
 are <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary" title="microjax.inverse_ray.lightcurve.mag_binary"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_binary()</span></code></a> and <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_triple" title="microjax.inverse_ray.lightcurve.mag_triple"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_triple()</span></code></a>.</p>
 <section id="design-highlights">
-<h2>Design highlights<a class="headerlink" href="#design-highlights" title="Permalink to this heading"></a></h2>
+<h2>Design highlights<a class="headerlink" href="#design-highlights" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><strong>Hexadecapole-first evaluation</strong>: start from the multipole estimate and
 upgrade only samples that fail the accuracy heuristics.</p></li>
@@ -115,7 +118,7 @@ effects.</p></li>
 </ul>
 </section>
 <section id="workflow-outline">
-<h2>Workflow outline<a class="headerlink" href="#workflow-outline" title="Permalink to this heading"></a></h2>
+<h2>Workflow outline<a class="headerlink" href="#workflow-outline" title="Link to this heading"></a></h2>
 <ol class="arabic simple">
 <li><p>Build a complex source-plane trajectory <code class="docutils literal notranslate"><span class="pre">w_points</span></code>.</p></li>
 <li><p>Call <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary" title="microjax.inverse_ray.lightcurve.mag_binary"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_binary()</span></code></a> or <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_triple" title="microjax.inverse_ray.lightcurve.mag_triple"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_triple()</span></code></a> with lens parameters and
@@ -131,7 +134,7 @@ solver stack (forthcoming).</p></li>
 </section>
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.inverse_ray.lightcurve.mag_binary">
-<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_binary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">th_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nlimb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MAX_FULL_CALLS</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_binary" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_binary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">th_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nlimb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MAX_FULL_CALLS</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_binary" title="Link to this definition"></a></dt>
 <dd><p>Binary-lens finite-source magnification with adaptive inverse-ray refinement.</p>
 <p>The input trajectory <code class="docutils literal notranslate"><span class="pre">w_points</span></code> is interpreted as one-dimensional complex
 positions in the source plane (Einstein-radius units). The function recentres
@@ -147,7 +150,7 @@ to the front of the array and recomputed with
 <code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.inverse_ray.extended_source.mag_limb_dark()</span></code> otherwise. Entries
 beyond this budget retain the hexadecapole magnification.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>w_points</strong> (<em>Array</em>) – One-dimensional complex <code class="docutils literal notranslate"><span class="pre">jax.Array</span></code> of source-plane coordinates
 (<code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">+</span> <span class="pre">1j*y</span></code>) sampled along the trajectory. The returned magnification
@@ -181,10 +184,10 @@ inverse-ray solvers. <code class="docutils literal notranslate"><span class="pre
 understood by the low-level routines are forwarded unchanged.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Real-valued magnification array with the same shape as <code class="docutils literal notranslate"><span class="pre">w_points</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Array</p>
 </dd>
 </dl>
@@ -202,7 +205,7 @@ enforce synchronisation when required.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.inverse_ray.lightcurve.mag_triple">
-<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_triple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">th_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nlimb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MAX_FULL_CALLS</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_triple" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_triple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">th_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nlimb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MAX_FULL_CALLS</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_triple" title="Link to this definition"></a></dt>
 <dd><p>Triple-lens magnification with a multipole baseline and limited refinement.</p>
 <p>The procedure is analogous to <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary" title="microjax.inverse_ray.lightcurve.mag_binary"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_binary()</span></code></a>. The trajectory is shifted
 to the centre of mass implied by <code class="docutils literal notranslate"><span class="pre">s</span></code> and <code class="docutils literal notranslate"><span class="pre">q</span></code>, point-source images are
@@ -215,7 +218,7 @@ and the first <code class="docutils literal notranslate"><span class="pre">MAX_F
 <code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.inverse_ray.extended_source.mag_limb_dark`()</span></code> otherwise. The
 remaining points retain their hexadecapole magnifications.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>w_points</strong> (<em>Array</em>) – One-dimensional complex <code class="docutils literal notranslate"><span class="pre">jax.Array</span></code> of source-plane coordinates
 (<code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">+</span> <span class="pre">1j*y</span></code>) sampled along the trajectory. The returned magnification
@@ -252,10 +255,10 @@ measured counter-clockwise from the lens 1–2 axis). Additional keywords
 are passed through untouched.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Real-valued magnification array with the same shape as <code class="docutils literal notranslate"><span class="pre">w_points</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Array</p>
 </dd>
 </dl>

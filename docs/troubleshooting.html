@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Troubleshooting &mdash; microJAX  documentation</title>
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/sphinx_highlight.js"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -29,12 +28,16 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> microJAX
-            <img src="_static/microjax.png" class="logo" alt="Logo"/>
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            microJAX
+              <img src="_static/microjax.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -71,8 +74,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Troubleshooting</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Troubleshooting</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/troubleshooting.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -83,11 +86,11 @@
            <div itemprop="articleBody">
              
   <section id="troubleshooting">
-<h1>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this heading"></a></h1>
+<h1>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h1>
 <p>The most common issues reported by new users are summarised here together with
 suggested fixes.</p>
 <section id="jax-cannot-see-my-gpu">
-<h2>JAX cannot see my GPU<a class="headerlink" href="#jax-cannot-see-my-gpu" title="Permalink to this heading"></a></h2>
+<h2>JAX cannot see my GPU<a class="headerlink" href="#jax-cannot-see-my-gpu" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>Ensure you installed a CUDA/ROCm build of <code class="docutils literal notranslate"><span class="pre">jaxlib</span></code> that matches your driver
 version.  Follow the <a class="reference external" href="https://jax.readthedocs.io/en/latest/installation.html">official installation matrix</a>.</p></li>
@@ -98,7 +101,7 @@ or ROCm equivalents).</p></li>
 </ul>
 </section>
 <section id="mag-binary-is-slow-or-runs-out-of-memory">
-<h2>mag_binary is slow or runs out of memory<a class="headerlink" href="#mag-binary-is-slow-or-runs-out-of-memory" title="Permalink to this heading"></a></h2>
+<h2>mag_binary is slow or runs out of memory<a class="headerlink" href="#mag-binary-is-slow-or-runs-out-of-memory" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> also works on CPU but is very slow.</p></li>
 <li><p>Trim the inverse-ray grid via <code class="docutils literal notranslate"><span class="pre">r_resolution</span></code> / <code class="docutils literal notranslate"><span class="pre">th_resolution</span></code> when you
@@ -113,7 +116,7 @@ approximation.</p></li>
 </ul>
 </section>
 <section id="gradient-computations-stall">
-<h2>Gradient computations stall<a class="headerlink" href="#gradient-computations-stall" title="Permalink to this heading"></a></h2>
+<h2>Gradient computations stall<a class="headerlink" href="#gradient-computations-stall" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>Confirm that <code class="docutils literal notranslate"><span class="pre">jax_enable_x64</span></code> is turned on; implicit differentiation through
 the polynomial solver is numerically sensitive in single precision.</p></li>
@@ -122,14 +125,14 @@ shortens trace lengths and avoids repeated recompilations.</p></li>
 </ul>
 </section>
 <section id="import-errors-for-optional-dependencies">
-<h2>Import errors for optional dependencies<a class="headerlink" href="#import-errors-for-optional-dependencies" title="Permalink to this heading"></a></h2>
+<h2>Import errors for optional dependencies<a class="headerlink" href="#import-errors-for-optional-dependencies" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">microJAX</span></code> only depends on JAX and NumPy at runtime, but some examples pull in
 <code class="docutils literal notranslate"><span class="pre">matplotlib</span></code> or <code class="docutils literal notranslate"><span class="pre">seaborn</span></code>.  Install the plotting stack you need manually—for
 example <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">matplotlib</span> <span class="pre">seaborn</span></code>—before running the demo
 scripts.</p>
 </section>
 <section id="still-stuck">
-<h2>Still stuck?<a class="headerlink" href="#still-stuck" title="Permalink to this heading"></a></h2>
+<h2>Still stuck?<a class="headerlink" href="#still-stuck" title="Link to this heading"></a></h2>
 <p>Open an issue on GitHub with the following information:</p>
 <ul class="simple">
 <li><p>microJAX version (<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-c</span> <span class="pre">&quot;import</span> <span class="pre">microjax;</span> <span class="pre">print(microjax.__version__)&quot;</span></code>)</p></li>
