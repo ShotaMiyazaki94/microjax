@@ -2,7 +2,8 @@
 
 Minimal example to benchmark the JAX FFT‑based finite‐source point‑lens (FSPL)
 implementation (`microjax.fastlens.fspl_*`) against **VBBinaryLensing** (VBBL).
-It produces a residual plot for a grid of source sizes and impact parameters.
+It produces magnification curves and relative residuals along a Paczynski track
+for a grid of source sizes.
 
 ## Requirements
 
@@ -19,16 +20,16 @@ You can run it from anywhere (no need to `cd`):
 python example/fspl_fft/compare_fspl_vbbl.py
 ```
 
-This generates `fspl_vs_vbbl.png` alongside the script. If VBBL is not
-installed, the script will print a short message and exit cleanly. JAX is
+This generates `fspl_vs_vbbl.png` alongside the script (in `example/fspl_fft`).
+If VBBL is not installed, the script will print a short message and exit cleanly. JAX is
 forced to CPU for consistent timing output; per-ρ timings and speed ratios vs.
 VBBL are printed in milliseconds.
 
 ## What it does
 
 - Compares **uniform disk** and **linear limb‑darkening** (`a1=0.2,0.5,0.8`).
-- ρ grid: `1e-3, 1e-2, 1e-1, 1.0, 10.0`
-- Time grid: `t/tE` in `[-2, 2]` (401 points), u(t)=sqrt(u0^2 + (t/tE)^2), u0=0.1
+- ρ grid: `1e-3, 1e-2, 1e-1, 1.0, 3.0` (default; editable at top of script)
+- Time grid: `t/tE` in `[-3, 3]` with 1000 points, u(t)=sqrt(u0^2 + (t/tE)^2), default `u0=0.0` (set >0 to avoid u=0 if desired)
 - Uses default FSPL settings (`N_fft=2048`, `fft_logumin=-6`, `fft_logumax=3`).
 - Plots A(t) (top, log y) and relative residuals vs VBBL (bottom, log y); 1% line shown.
 - Logs per-ρ runtimes (ms) for VBBL and FSPL and their ratios.

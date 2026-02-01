@@ -34,8 +34,17 @@ except ImportError:
 
 from microjax.fastlens import fspl_disk, fspl_ld1
 
+# ---- configuration (edit as needed) ----
+U0 = 0.0             # minimum impact parameter; set >0 to avoid u=0 if desired
+T_E = 1.0            # Einstein time
+T_MIN, T_MAX = -3.0, 3.0
+N_T = 1000
+RHOS = np.array([1e-3, 1e-2, 1e-1, 1.0, 3.0])
+LD_A1_LIST = [0.2, 0.5, 0.8]
+# ----------------------------------------
 
-def paczynski_u(t: np.ndarray, u0: float = 0.0, tE: float = 1.0) -> np.ndarray:
+
+def paczynski_u(t: np.ndarray, u0: float = U0, tE: float = T_E) -> np.ndarray:
     """Compute dimensionless impact parameter u(t) for a single-lens trajectory."""
     tau = (t) / tE
     return np.sqrt(u0 * u0 + tau * tau)
@@ -75,8 +84,8 @@ def main():
     table_path = VBBinaryLensing.__file__.replace("__init__.py", "data/ESPL.tbl")
     vb.LoadESPLTable(table_path)
 
-    rhos = np.array([1e-3, 1e-2, 1e-1, 1.0, 3.0])
-    t = np.linspace(-3.0, 3.0, 1000)  # in units of tE
+    rhos = RHOS
+    t = np.linspace(T_MIN, T_MAX, N_T)  # in units of tE
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 5), gridspec_kw={"height_ratios": [2.0, 1.0]}, sharex="col")
 
@@ -94,7 +103,7 @@ def main():
     ax_res_d.set_ylabel("rel. error vs VBBL")
 
     # Linear limb darkening (multiple a1)
-    a1_list = [0.2, 0.5, 0.8]
+    a1_list = LD_A1_LIST
     colors = ["C0", "C1", "C2"]
     ax_mag_l, ax_res_l = axes[0, 1], axes[1, 1]
     max_t_ld = 0.0
