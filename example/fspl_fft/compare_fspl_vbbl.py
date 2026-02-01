@@ -35,7 +35,7 @@ except ImportError:
 from microjax.fastlens import fspl_disk, fspl_ld1
 
 
-def paczynski_u(t: np.ndarray, u0: float = 0.01, tE: float = 1.0) -> np.ndarray:
+def paczynski_u(t: np.ndarray, u0: float = 0.0, tE: float = 1.0) -> np.ndarray:
     """Compute dimensionless impact parameter u(t) for a single-lens trajectory."""
     tau = (t) / tE
     return np.sqrt(u0 * u0 + tau * tau)
@@ -75,10 +75,10 @@ def main():
     table_path = VBBinaryLensing.__file__.replace("__init__.py", "data/ESPL.tbl")
     vb.LoadESPLTable(table_path)
 
-    rhos = np.array([1e-3, 1e-2, 1e-1, 1.0, 10.0])
-    t = np.linspace(-2.0, 2.0, 401)  # in units of tE
+    rhos = np.array([1e-3, 1e-2, 1e-1, 1.0, 3.0])
+    t = np.linspace(-3.0, 3.0, 1000)  # in units of tE
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 6), gridspec_kw={"height_ratios": [2.0, 1.0]}, sharex="col")
+    fig, axes = plt.subplots(2, 2, figsize=(12, 5), gridspec_kw={"height_ratios": [2.0, 1.0]}, sharex="col")
 
     # Uniform disk
     mag_disk = fspl_disk()
@@ -87,11 +87,11 @@ def main():
     linestyles = ["-", "--", "-.", ":", (0, (3, 1, 1, 1))]
     for i, rho in enumerate(rhos):
         ls = linestyles[i % len(linestyles)]
-        ax_mag_d.plot(t, A_d[i], label=f"rho={rho}", ls=ls)
+        ax_mag_d.semilogy(t, A_d[i], label=f"rho={rho}", ls=ls)
         ax_res_d.semilogy(t, R_d[i], label=f"rho={rho}", ls=ls)
     ax_mag_d.set_title("Uniform disk")
-    ax_mag_d.set_ylabel("A(t)")
-    ax_res_d.set_ylabel("rel. error")
+    ax_mag_d.set_ylabel("A(t) [log]")
+    ax_res_d.set_ylabel("rel. error vs VBBL")
 
     # Linear limb darkening (multiple a1)
     a1_list = [0.2, 0.5, 0.8]
@@ -106,7 +106,7 @@ def main():
         max_t_ld = max(max_t_ld, t_ld)
         for i, rho in enumerate(rhos):
             ls = linestyles[i % len(linestyles)]
-            ax_mag_l.plot(t, A_l[i], color=c, alpha=0.85, ls=ls, label=f"a1={a1}, rho={rho}")
+            ax_mag_l.semilogy(t, A_l[i], color=c, alpha=0.85, ls=ls, label=f"a1={a1}, rho={rho}")
             ax_res_l.semilogy(t, R_l[i], color=c, alpha=0.85, ls=ls)
         # store times tagged by a1
         per_rho_ld_all.extend([(a1, rho, tref, tfspl) for (rho, tref, tfspl) in per_rho_ld])

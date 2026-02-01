@@ -30,7 +30,7 @@ VBBL are printed in milliseconds.
 - ρ grid: `1e-3, 1e-2, 1e-1, 1.0, 10.0`
 - Time grid: `t/tE` in `[-2, 2]` (401 points), u(t)=sqrt(u0^2 + (t/tE)^2), u0=0.1
 - Uses default FSPL settings (`N_fft=2048`, `fft_logumin=-6`, `fft_logumax=3`).
-- Plots A(t) (top) and relative residuals (bottom, log scale); 1% line shown.
+- Plots A(t) (top, log y) and relative residuals vs VBBL (bottom, log y); 1% line shown.
 - Logs per-ρ runtimes (ms) for VBBL and FSPL and their ratios.
 
 ## Sample output
