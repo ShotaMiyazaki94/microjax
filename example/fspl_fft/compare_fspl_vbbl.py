@@ -35,7 +35,7 @@ except ImportError:
 from microjax.fastlens import fspl_disk, fspl_ld1
 
 
-def paczynski_u(t: np.ndarray, u0: float = 0.1, tE: float = 1.0) -> np.ndarray:
+def paczynski_u(t: np.ndarray, u0: float = 0.01, tE: float = 1.0) -> np.ndarray:
     """Compute dimensionless impact parameter u(t) for a single-lens trajectory."""
     tau = (t) / tE
     return np.sqrt(u0 * u0 + tau * tau)
