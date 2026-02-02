@@ -31,4 +31,3 @@ If you use code derived from these components, please comply with the MIT licens
 
 - All included third-party components are compatible with the MIT license of microjax.
 - License files are included in the repository to comply with redistribution terms.
-

@@ -2,3 +2,4 @@ include README.md
 include LICENSE
 recursive-include src/microjax/caustics LICENSE
 recursive-include src/microjax/fastlens LICENSE
+recursive-include src/microjax/data *.txt
