@@ -1,53 +1,29 @@
-"""Microlensing annual parallax utilities built on JAX.
+"""Annual microlensing parallax utilities (JAX-compatible).
 
-This module provides helpers to compute Earth's projected position and the
-resulting annual parallax corrections for microlensing trajectories in an
-equatorial (ICRS) frame. Computations are JAX-friendly (autodiff/JIT) and use
-lightweight fixed-iteration numerical methods where needed.
+Models
+------
+- Keplerian approximation with fixed Earth orbital parameters.
+- Ephemeris-driven projector that interpolates bundled JPL Horizons Earth
+  vectors on a uniform grid (works under JIT/autodiff).
 
-Functions
----------
-- ``peri_vernal(tref)``: Select perihelion and vernal-equinox epochs nearest
-  the reference time.
-- ``getpsi(phi, ecc)``: Solve Kepler's equation for the eccentric anomaly via
-  a fixed-iteration Newton method.
-- ``prepare_projection_basis(rotaxis_deg, psi_offset, RA, Dec)``: Build the
-  orbital→equatorial rotation and sky-plane (north/east) basis vectors.
-- ``project_earth_position(t, tperi, period, ecc, R, north, east)``: Project
-  Earth's Sun-centered orbit position onto the target tangent plane.
-- ``set_parallax(tref, tperi, tvernal, RA, Dec, ...)``: Precompute quantities
-  (position, local velocity, bases) around a reference epoch.
-- ``compute_parallax(t, piEN, piEE, parallax_params)``: Compute the parallax
-  offsets to add to dimensionless time (``tau``) and impact parameter (``u``).
-
-Conventions
------------
-- Times are in JD-2450000 unless stated otherwise.
-- Right ascension and declination are in degrees (ICRS).
-- Tangent-plane basis is orthonormal and orthogonal to the line-of-sight (LOS).
-- Default Earth orbital constants: obliquity 23.44 deg, eccentricity 0.0167,
-  sidereal year 365.25636 days.
-
-Sign Conventions
+Frames and units
 ----------------
-- Basis construction is right-handed: ``east = z_eq × los`` and
-  ``north = los × east`` where ``z_eq`` is the equatorial north pole.
-- Positive ``east`` increases right ascension; positive ``north`` increases
-  declination on the sky.
-- Parallax offsets apply as ``tm = tau + dtn`` and ``um = u0 + dum`` where
-  ``tau = (t - t0)/tE`` and ``u0`` is the impact parameter.
+- Coordinates are ICRS; RA/Dec in degrees.
+- Times default to JD-2450000; functions that accept absolute JD state it.
+- Sky-plane basis is orthonormal and orthogonal to the line of sight.
 
-Example
--------
->>> tperi, tvernal = peri_vernal(8000.0)
->>> params = set_parallax(8000.0, tperi, tvernal, RA=266.4168, Dec=-29.0078)
->>> dtn, dum = compute_parallax(8000.0 + jnp.linspace(-50, 50, 100), 0.1, 0.1, params)
+Primary entry points
+--------------------
+- ``peri_vernal``: nearest perihelion and vernal-equinox epochs to ``tref``.
+- ``set_parallax`` / ``compute_parallax``: Keplerian Δtau, Δbeta offsets.
+- ``set_parallax_ephem`` / ``compute_parallax_ephem``: ephemeris-based offsets
+  with matching signature and sign conventions.
+- ``earth_orbital_parallax_offsets[_jit]``: low-level projector-based offsets.
 
-References
-----------
-- Meeus, J., Astronomical Algorithms, 2nd ed., Willmann–Bell.
-- Seidelmann, P. K. (ed.), Explanatory Supplement to the Astronomical Almanac.
-- Gould, A. (2004), Resolution of the Microlens Parallax Degeneracy, ApJ, 606, 319.
+Sign conventions
+----------------
+- east = z_eq × los, north = los × east (east increases RA, north increases Dec).
+- Apply as ``tau' = (t - t0)/tE + Δtau`` and ``u' = u0 + Δbeta``.
 """
 
 from typing import Tuple, Union
@@ -62,7 +38,7 @@ import numpy as np
 Array = jnp.ndarray
 
 def peri_vernal(tref: Union[float, Array]) -> Tuple[Array, Array]:
-    """Return perihelion and vernal-equinox times closest to ``tref``.
+    """Return the perihelion and vernal-equinox epochs nearest to ``tref``.
 
     This utility selects, from pre-tabulated epochs, the perihelion time and
     the vernal equinox time that are closest to the provided reference time.
@@ -115,11 +91,10 @@ def peri_vernal(tref: Union[float, Array]) -> Tuple[Array, Array]:
     return peris[imin], vernals[imin]
 
 def getpsi(phi: Union[float, Array], ecc: float) -> Array:
-    """Solve Kepler's equation for the eccentric anomaly ``psi``.
+    """Solve Kepler's equation ``psi - e * sin(psi) = phi`` for ``psi``.
 
-    The equation solved is ``psi - e * sin(psi) = phi`` using a fixed small
-    number of Newton–Raphson iterations (5) with an empirical initial guess.
-    This routine is differentiable under JAX and works with scalars or arrays.
+    Uses 5 fixed Newton iterations with an empirical initial guess; JAX
+    differentiable for scalars or arrays.
 
     Parameters
     ----------
@@ -148,11 +123,10 @@ def getpsi(phi: Union[float, Array], ecc: float) -> Array:
     return psi
 
 def prepare_projection_basis(rotaxis_deg: float, psi_offset: float, RA: float, Dec: float) -> Tuple[Array, Array, Array]:
-    """Build rotation and on-sky projection bases.
+    """Build orbital→equatorial rotation and sky-plane bases.
 
-    Constructs the rotation matrix that maps the Sun–Earth orbital plane
-    coordinates to the equatorial frame and returns the orthonormal basis
-    vectors on the sky plane at the target direction: ``north`` and ``east``.
+    Constructs the rotation matrix from orbital coordinates to ICRS and the
+    orthonormal tangent-plane basis vectors ``north`` and ``east`` at (RA, Dec).
 
     Parameters
     ----------
@@ -179,8 +153,8 @@ def prepare_projection_basis(rotaxis_deg: float, psi_offset: float, RA: float, D
 
     Notes
     -----
-    The line-of-sight unit vector is derived from (RA, Dec). The returned
-    ``east`` and ``north`` are orthonormal and orthogonal to the line of sight.
+    - Right-handed convention: east = z_eq × los; north = los × east.
+    - ``east`` and ``north`` are orthonormal and perpendicular to the LOS.
     """
     # orbital frame -> ecliptic frame
     # psi_offset is an angle from perihelion to vernal equinox
@@ -223,11 +197,7 @@ def project_earth_position(
     north: Array,
     east: Array,
 ) -> Array:
-    """Project Earth's position onto the target's tangent plane.
-
-    Computes the Sun-centered position of Earth in its (elliptical) orbit at
-    time ``t`` using the eccentric anomaly and projects it onto the sky-plane
-    basis defined by ``north`` and ``east``.
+    """Project Earth's heliocentric position onto the target tangent plane.
 
     Parameters
     ----------
@@ -249,14 +219,12 @@ def project_earth_position(
     Returns
     -------
     q : jax.Array, shape (2, N)
-        Stacked projected coordinates ``[q_north, q_east]`` where ``N`` is the
-        number of time samples (``N = 1`` for scalar ``t``).
+        Stacked projected coordinates ``[q_north, q_east]``; ``N`` = len(t).
 
     Notes
     -----
-    The orbital coordinates are computed in the orbital frame with x-axis
-    toward perihelion, then rotated to the equatorial frame and projected onto
-    the tangent-plane basis.
+    - Orbital x-axis points to perihelion; z-axis to ecliptic north.
+    - Positions are rotated to ICRS via ``R`` then dotted with ``north/east``.
     """
     t = jnp.atleast_1d(t)
     N = t.shape[0]
@@ -284,12 +252,7 @@ def set_parallax(
     period: float = 365.25636,
     dt: float = 0.1,
 ) -> Tuple[Array, Array, Array, Array, Array, float, float, float, float]:
-    """Precompute parallax parameters at a reference epoch.
-
-    Precomputes quantities needed to evaluate the microlensing annual parallax
-    signal around ``tref``. This includes the on-sky Earth position at ``tref``,
-    a local linear velocity approximation (finite-difference over ``dt``), and
-    the projection/rotation bases.
+    """Precompute Keplerian parallax quantities at a reference epoch.
 
     If either ``tperi`` or ``tvernal`` is passed as 0, both values are
     automatically inferred using :func:`peri_vernal` at ``tref``.
@@ -332,8 +295,8 @@ def set_parallax(
 
     Notes
     -----
-    The velocity is computed with a symmetric finite difference of width
-    ``2*dt`` to reduce truncation error and preserve JAX differentiability.
+    Symmetric finite differencing over ``±dt`` provides the local velocity used
+    to remove linear motion when forming residual parallax offsets.
     """
     info_0 = peri_vernal(tref)
     info = jnp.where(tperi * tvernal == 0,
@@ -359,11 +322,7 @@ def compute_parallax(
     piEE: float,
     parallax_params: Tuple[Array, Array, Array, Array, Array, float, float, float, float],
 ) -> Tuple[Array, Array]:
-    """Compute annual parallax offsets at times ``t``.
-
-    Produces the parallax-induced shifts to microlensing trajectory parameters:
-    ``dtn`` should be added to the dimensionless time coordinate ``tau``, and
-    ``dum`` should be added to the impact parameter ``u`` (north–east frame).
+    """Keplerian annual parallax offsets at times ``t``.
 
     Parameters
     ----------
@@ -387,9 +346,8 @@ def compute_parallax(
 
     Notes
     -----
-    The mean linear motion around ``tref`` is removed using the precomputed
-    velocity in ``parallax_params`` to isolate the purely annual parallax
-    contribution.
+    The linear term from the local velocity (``vne0``) is subtracted so the
+    returned offsets represent purely annual parallax about ``tref``.
     """
     qne0, vne0, R, north, east, tref, tperi, period, ecc = parallax_params
     qne = project_earth_position(t, tperi, period, ecc, R, north, east)
@@ -410,19 +368,12 @@ AU_C_DAY = 0.005775518331436995  # AU/c in days
 
 
 def load_horizons_vectors_file(path: str) -> np.ndarray:
-    """
-    Read a Horizons 'GEOMETRIC cartesian states' table (CSV-like) and return
-    a numeric array with columns:
-        [t_jdtdb, x, y, z, vx, vy, vz]
-    Units: t in days (JD TDB), position in AU, velocity in AU/day.
+    """Parse a JPL Horizons cartesian-state table.
 
-    Expected Horizons line format (example):
-    2451544.500000000, A.D. 2000-Jan-01 00:00:00.0000, -1.7E-01, 8.8E-01, ... , RR,
-
-    Notes:
-    - Skips everything outside $$SOE ... $$EOE.
-    - Ignores the Calendar Date column.
-    - Ignores LT/RG/RR.
+    Returns ndarray columns ``[t_jdtdb, x, y, z, vx, vy, vz]`` with times in
+    JD TDB days, positions in AU, velocities in AU/day. Lines outside the
+    ``$$SOE`` … ``$$EOE`` block are skipped; calendar date and LT/RG/RR fields
+    are ignored.
     """
     rows = []
     in_block = False
@@ -459,7 +410,21 @@ def load_horizons_vectors_file(path: str) -> np.ndarray:
 
 @jax.tree_util.register_pytree_node_class
 class HeliocentricEphemeris:
-    """Uniform ephemeris container (t must be uniform grid for interp_uniform_linear)."""
+    """Uniform heliocentric ephemeris.
+
+    Attributes
+    ----------
+    t : jax.Array, shape (N,)
+        Absolute times (JD TDB) on a uniform grid.
+    r : jax.Array, shape (N, 3)
+        Heliocentric position in AU.
+    v : jax.Array, shape (N, 3)
+        Heliocentric velocity in AU/day.
+
+    Notes
+    -----
+    ``t`` must be uniformly spaced for ``interp_uniform_linear`` to apply.
+    """
     def __init__(self, t: jnp.ndarray, r: jnp.ndarray, v: jnp.ndarray):
         self.t = t
         self.r = r
@@ -483,7 +448,7 @@ class HeliocentricEphemeris:
 
 
 def interp_uniform_linear(xq, x0, dt, y):
-    """Fast linear interpolation on a uniform grid (JAX friendly)."""
+    """Linear interpolation on a uniform grid (JAX friendly)."""
     xq = jnp.atleast_1d(xq)
     u = (xq - x0) / dt
     i0 = jnp.floor(u).astype(jnp.int32)
@@ -495,6 +460,7 @@ def interp_uniform_linear(xq, x0, dt, y):
 
 
 def get_north_east(RA_deg, Dec_deg):
+    """Return sky-plane north/east unit vectors for the given ICRS coordinates."""
     lam = jnp.deg2rad(RA_deg)
     bet = jnp.deg2rad(Dec_deg)
 
@@ -510,6 +476,7 @@ def get_north_east(RA_deg, Dec_deg):
 
 
 def event_unit_vector(RA_deg, Dec_deg, dtype=jnp.float64):
+    """ICRS line-of-sight unit vector for (RA, Dec) in degrees."""
     ra = jnp.deg2rad(jnp.asarray(RA_deg, dtype=dtype))
     dec = jnp.deg2rad(jnp.asarray(Dec_deg, dtype=dtype))
     cd, sd = jnp.cos(dec), jnp.sin(dec)
@@ -518,7 +485,7 @@ def event_unit_vector(RA_deg, Dec_deg, dtype=jnp.float64):
 
 
 def light_time_corrected_time(t, t0, dt, rv, n_hat, au_c_day: float = AU_C_DAY, n_iter: int = 5):
-    """Iteratively solve for emission time accounting for light travel."""
+    """Iteratively solve for emission time given reception time and light travel."""
     t = jnp.asarray(t)
     t_emit = t
 
@@ -533,6 +500,11 @@ def light_time_corrected_time(t, t0, dt, rv, n_hat, au_c_day: float = AU_C_DAY, 
 
 @jax.tree_util.register_pytree_node_class
 class EarthOrbitalParallaxProjector:
+    """Map heliocentric Earth ephemeris to sky-plane offsets.
+
+    Applies optional light-time correction (HJD) and stores reference position
+    and velocity at ``tref`` to separate annual parallax from linear motion.
+    """
     def __init__(self, eph: HeliocentricEphemeris, RA_deg, Dec_deg, tref, *,
                  use_HJD: bool = True, light_time_iters: int = 5, au_c_day: float = AU_C_DAY):
         dtype = eph.t.dtype
@@ -585,7 +557,7 @@ class EarthOrbitalParallaxProjector:
 
 
 def earth_orbital_parallax_offsets(t, piEN, piEE, P: EarthOrbitalParallaxProjector):
-    """Ephemeris-based ``d_tau`` and ``d_beta`` offsets (JAX differentiable)."""
+    """Ephemeris-based ``Δtau`` and ``Δbeta`` offsets (JAX differentiable)."""
     t = jnp.asarray(t, dtype=P.tref.dtype)
 
     if P.use_HJD:
@@ -611,7 +583,7 @@ earth_orbital_parallax_offsets_jit = jax.jit(earth_orbital_parallax_offsets)
 
 
 def load_builtin_earth_ephemeris() -> HeliocentricEphemeris:
-    """Load bundled Earth ephemeris table."""
+    """Load the bundled JPL Horizons Earth ephemeris (uniform JD TDB grid)."""
     try:
         path = resources.files("microjax.data").joinpath("earth_orbital_parallax_table.txt")
     except (FileNotFoundError, ModuleNotFoundError) as exc:
@@ -629,7 +601,7 @@ def set_parallax_ephem(
     use_HJD: bool = True,
     light_time_iters: int = 5,
 ) -> EarthOrbitalParallaxProjector:
-    """Convenience wrapper mirroring set_parallax but using ephemeris."""
+    """Create an ephemeris-based projector anchored at ``tref`` (JD-2450000)."""
     if eph is None:
         eph = load_builtin_earth_ephemeris()
     tref_abs = tref + 2_450_000.0
@@ -651,7 +623,7 @@ def compute_parallax_ephem(
     *,
     times_are_absolute: bool = False,
 ) -> Tuple[Array, Array]:
-    """Ephemeris-based parallax offsets with microjax-style signature."""
+    """Ephemeris-based parallax offsets matching ``compute_parallax`` signature."""
     t_eval = jnp.asarray(t, dtype=projector.tref.dtype)
     if not times_are_absolute:
         t_eval = t_eval + 2_450_000.0
