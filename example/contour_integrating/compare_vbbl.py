@@ -28,7 +28,7 @@ alpha = jnp.deg2rad(45.0)
 t_E = 30.0
 t_0 = 0.0
 u_0 = 0.0
-rho = 0.005
+rho = 0.03
 nlenses = 2
 
 a = 0.5 * s
@@ -136,4 +136,4 @@ ax_in.scatter((1.0 / (1 + q)) * s, 0.0, c="k", s=15)
 ax_in.set(xlabel="Re(w)", ylabel="Im(w)", xlim=(-0.5, 0.5), ylim=(-0.5, 0.5))
 fig.savefig("example/contour_integrating/compare_binary_uniform.png", dpi=200, bbox_inches="tight")
 print("output: example/contour_integrating/compare_binary_uniform.png")
-plt.show()
+plt.close()

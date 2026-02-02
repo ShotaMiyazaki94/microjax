@@ -220,3 +220,14 @@ class fspl_log(fspl):
     def A0(self, rho):
         # TODO: implement if/when needed
         raise NotImplementedError
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatibility aliases
+# ---------------------------------------------------------------------------
+# Older CPU code exposes ``magnification_disk`` in ``fastlens.mag_fft``.  Some
+# downstream projects (e.g., jacscanomaly) still import that name from the JAX
+# module.  The fspl_disk class is API compatible (constructor signature and
+# ``A(u, rho)`` method), so we expose a lightweight alias here to avoid breaking
+# those consumers.
+magnification_disk = fspl_disk

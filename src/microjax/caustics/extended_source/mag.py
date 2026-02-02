@@ -40,6 +40,7 @@ from .contours import _contours_from_closed_segments, _contours_from_open_segmen
         "npts_limb",
         "limb_darkening",
         "npts_ld",
+        "grad_refine",
     ),
 )
 def mag_extended_source(
@@ -50,6 +51,8 @@ def mag_extended_source(
     limb_darkening=False,
     u1=0.0,
     npts_ld=100,
+    grad_refine=True,
+    grad_error_factor=1.0,
     **params,
 ):
     """Compute the magnification of a finite-sized source for up to 3 lenses.
@@ -74,6 +77,13 @@ def mag_extended_source(
     npts_ld : int, optional
         Number of quadrature points for the Dominik (1998) P/Q integrals when
         limb darkening is enabled.
+    grad_refine : bool, optional
+        Enable microlux-style gradient-aware limb refinement (Eq. 18 in Ma+25).
+        Only active for binary lenses; falls back to distance-based refinement
+        otherwise.
+    grad_error_factor : float, optional
+        Relative weight of the gradient error metric when choosing new limb
+        samples. Larger values bias refinement toward gradient stability.
     **params : dict
         Additional lens parameters (e.g. ``s``, ``q``, ``q3``) forwarded to the
         point-source solver.
@@ -89,7 +99,7 @@ def mag_extended_source(
         s, q = params["s"], params["q"]
         a = 0.5 * s
         e1 = q / (1.0 + q)
-        _params = {"a": a, "e1": e1}
+        _params = {"a": a, "e1": e1, "s": s, "q": q}
         x_cm = a * (1 - q) / (1 + q)
         w0 -= x_cm
     elif nlenses == 3:
@@ -104,12 +114,14 @@ def mag_extended_source(
     else:
         raise ValueError("`nlenses` has to be set to be <= 3.")
 
-    z, z_mask, z_parity = _images_of_source_limb(
+    z, z_mask, z_parity, theta = _images_of_source_limb(
         w0,
         rho,
         nlenses=nlenses,
         npts=npts_limb,
         **_params,
+        grad_refine=grad_refine,
+        grad_error_factor=grad_error_factor,
     )
 
     if limb_darkening:
