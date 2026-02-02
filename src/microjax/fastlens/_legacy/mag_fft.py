@@ -1,11 +1,7 @@
-"""
-python module for calculating microlensing magnification with finite source size effect
-by Sunao Sugiyama
-Jun 13, 2023
-"""
+"""Legacy (CPU) implementation of FFT-based extended-source magnification."""
 
 import numpy as np
-from microjax.fastlens import fftlog
+from microjax.fastlens._legacy.fftlog import fftlog, hankel
 from scipy.special import gamma
 from scipy.special import j0, j1, jn, ellipk, ellipe
 
@@ -47,7 +43,7 @@ class magnification:
         """
         u = np.logspace(self.fft_logumin, self.fft_logumax, self.N_fft)
         u2Au = ((u**2+2.0)/(u**2+4.0)**0.5/u - 1) * u**2
-        h = fftlog.hankel(u, u2Au, nu=1.5, N_extrap_high=512, N_extrap_low=512)
+        h = hankel(u, u2Au, nu=1.5, N_extrap_high=512, N_extrap_low=512)
         self.k, apk = h.hankel(0)
         self.apk = apk*2*np.pi
 
@@ -58,7 +54,7 @@ class magnification:
         x    = np.logspace(-5, 5, 1024)
         dump = np.exp(-(x/100)**2)
         fx   = x * self.sk(x, 1) * dump
-        h    = fftlog.hankel(x, fx, nu=1.5, N_pad=1024)
+        h    = hankel(x, fx, nu=1.5, N_pad=1024)
         u, aext0 = h.hankel(0)
         self.Aext0 = lambda x: np.interp(x, u, aext0)
 
@@ -106,7 +102,7 @@ class magnification:
         # Fourier counter part of extended-source magnification
         cj = self.apk*self.k**2 * self.sk(self.k, rho) * dump
         # Hankel back the extended-source magnification
-        h = fftlog.hankel(self.k, cj, nu=1.5, N_pad=512)
+        h = hankel(self.k, cj, nu=1.5, N_pad=512)
         u_fft, a_fft = h.hankel(0)
         a_fft = a_fft/2/np.pi
         a_fft = a_fft + 1
@@ -161,14 +157,16 @@ class magnification_disk(magnification):
         return (rho**2+4)**0.5/rho
 
 class magnification_limb(magnification):
-    def __init__(self, n_limb, **kwargs):
+    def __init__(self, n_limb, a1=1.0, **kwargs):
         """
         This is for limb darkening profile, Eq. (6).
         
         Args:
             n_limb (int): order of limb darkening
+            a1 (float): linear limb darkening coefficient (only used when n_limb=1). Default=1.0.
         """
         self.n_limb = n_limb
+        self.a1 = a1
         super().__init__(**kwargs)
 
     def sk(self, k, rho):
@@ -178,17 +176,26 @@ class magnification_limb(magnification):
         k = np.atleast_1d(k)
         x   = k*rho
         nu  = 1+self.n_limb/2
-        a   = np.ones(x.shape)*1.0/(self.n_limb+2)
+        a_n   = np.ones(x.shape)*1.0/(self.n_limb+2)
         idx = x>0
-        a[idx] = 2**nu*gamma(nu)*jn(nu, x[idx])/x[idx]**nu * nu
-        return a
+        a_n[idx] = 2**nu*gamma(nu)*jn(nu, x[idx])/x[idx]**nu * nu
+        # disk Fourier counterpart
+        a_disk = np.ones(x.shape)
+        disk_idx = x>0
+        a_disk[disk_idx] = 2*jn(1, x[disk_idx])/x[disk_idx]
+        if self.n_limb == 1:
+            return (1 - self.a1)*a_disk + self.a1*a_n
+        else:
+            return a_n
 
     def A0(self, rho):
         """
         Returns A_limb(0, rho)
         """
         if self.n_limb == 1:
-            return (2+1) * (2*(rho**2+2)*ellipe(-rho**2/4)-(rho**2+4)*ellipk(-rho**2/4)) / 3.0/rho**3
+            A_disk = (rho**2+4)**0.5/rho
+            A_s1 = (2*(rho**2+2)*ellipe(-rho**2/4)-(rho**2+4)*ellipk(-rho**2/4)) /  rho**3
+            return (1 - self.a1)*A_disk + self.a1*A_s1
         elif self.n_limb == 2:
             return (2+2) * (rho*(2+rho**2)*(4+rho**2)**0.5 - 8*np.arcsinh(rho/2)) / 4/rho**4
         elif self.n_limb >= 3:

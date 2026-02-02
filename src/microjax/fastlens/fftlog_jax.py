@@ -1,13 +1,41 @@
 
+"""JAX native FFTLog / Hankel utilities used by the fastlens magnification code.
+
+The implementation mirrors the CPU reference in ``fastlens/_legacy`` but keeps
+the code JIT-friendly and differentiable. It provides a minimal FFTLog class
+for logarithmically spaced inputs and a thin ``hankel`` wrapper that evaluates
+zero-th order Hankel transforms (spherical Bessel ``j_ell`` integrals) that
+appear in the FFT-based microlensing algorithm.
+"""
+
 import jax.numpy as jnp
-#from jax.scipy.special import gamma
 from microjax.fastlens.special import gamma
 from jax.numpy.fft import rfft, irfft
-from jax import jit, vmap, lax
+from jax import jit
 from functools import partial
 
 class fftlog(object):
+    """FFTLog on a log-spaced grid with optional edge extrapolation and padding."""
+
     def __init__(self, x, fx, nu=1.1, N_extrap_low=0, N_extrap_high=0, c_window_width=0.25, N_pad=0):
+        """Prepare FFT coefficients for a biased input function ``f(x)/x^nu``.
+
+        Parameters
+        ----------
+        x : array_like
+            Monotonic, logarithmically spaced sample positions.
+        fx : array_like
+            Function values ``f(x)`` on the same grid.
+        nu : float, optional
+            Bias exponent applied before the FFT (default 1.1).
+        N_extrap_low, N_extrap_high : int, optional
+            Number of points to extrapolate on each side in log space to reduce
+            ringing near the boundaries.
+        c_window_width : float, optional
+            Fraction of the upper half of coefficients to cosine-taper.
+        N_pad : int, optional
+            Zero-padding length (added symmetrically) to improve FFT stability.
+        """
         self.x_origin = x # x is logarithmically spaced
         self.dlnx = jnp.log(x[1]/x[0])
         self.fx_origin= fx # f(x) array
@@ -42,13 +70,7 @@ class fftlog(object):
         self.eta_m = 2*jnp.pi/(float(self.N)*self.dlnx) * self.m     
     #@jit
     def get_c_m(self):
-        """
-        return m and c_m
-        c_m: the smoothed FFT coefficients of "biased" input function f(x): f_b = f(x) / x^\nu
-        number of x values should be even
-        c_window_width: the fraction of c_m elements that are smoothed,
-        e.g. c_window_width=0.25 means smoothing the last 1/4 of c_m elements using "c_window".
-        """
+        """Compute smoothed FFT coefficients of the biased function ``f/x^nu``."""
         f_b=self.fx * self.x**(-self.nu)
         c_m=rfft(f_b)
         m=jnp.arange(0,self.N//2+1) 
@@ -56,10 +78,20 @@ class fftlog(object):
         return m, c_m
     #@jit 
     def fftlog(self, ell):
-        """
-        Calculate F(y) = \int_0^\infty dx / x * f(x) * j_\ell(xy),
-        where j_\ell is the spherical Bessel func of order ell.
-        array y is set as y[:] = (ell+1)/x[::-1]
+        r"""
+        Calculate ``F(y) = ∫ dx/x f(x) j_ell(xy)`` on the reflected grid ``y``.
+
+        Parameters
+        ----------
+        ell : int or float
+            Order of the spherical Bessel ``j_ell``.
+
+        Returns
+        -------
+        y : jnp.ndarray
+            Output sample locations ordered like ``x[::-1]`` without padding.
+        Fy : jnp.ndarray
+            Transform values on ``y``.
         """
         z_ar = self.nu + 1j*self.eta_m
         y = (ell+1.) / self.x[::-1]
@@ -70,10 +102,8 @@ class fftlog(object):
         return y[self.N_extrap_high:self.N-self.N_extrap_low], Fy[self.N_extrap_high:self.N-self.N_extrap_low]
 
     def fftlog_dj(self, ell):
-        """
-        Calculate F(y) = \int_0^\infty dx / x * f(x) * j'_\ell(xy),
-        where j_\ell is the spherical Bessel func of order ell.
-        array y is set as y[:] = (ell+1)/x[::-1]
+        r"""
+        Same as :py:meth:`fftlog` but for the first derivative ``j'_ell``.
         """
         z_ar = self.nu + 1j*self.eta_m
         y = (ell+1.) / self.x[::-1]
@@ -83,10 +113,8 @@ class fftlog(object):
         return y[self.N_extrap_high:self.N-self.N_extrap_low], Fy[self.N_extrap_high:self.N-self.N_extrap_low]
     
     def fftlog_ddj(self, ell):
-        """
-        Calculate F(y) = \int_0^\infty dx / x * f(x) * j''_\ell(xy),
-        where j_\ell is the spherical Bessel func of order ell.
-        array y is set as y[:] = (ell+1)/x[::-1]
+        r"""
+        Same as :py:meth:`fftlog` but for the second derivative ``j''_ell``.
         """
         z_ar = self.nu + 1j*self.eta_m
         y = (ell+1.) / self.x[::-1]
@@ -96,10 +124,8 @@ class fftlog(object):
         return y[self.N_extrap_high:self.N-self.N_extrap_low], Fy[self.N_extrap_high:self.N-self.N_extrap_low]
     
     def fftlog_jsqr(self, ell):
-        """
-        Calculate F(y) = \int_0^\infty dx / x * f(x) * (j_\ell(xy))^2,
-        where j_\ell is the spherical Bessel func of order ell.
-        array y is set as y[:] = (ell+1)/x[::-1]
+        r"""
+        Calculate ``F(y) = ∫ dx/x f(x) [j_ell(xy)]^2`` on the reflected grid.
         """
         z_ar = self.nu + 1j*self.eta_m
         y = (ell+1.) / self.x[::-1]
@@ -110,12 +136,15 @@ class fftlog(object):
         return y[self.N_extrap_high:self.N-self.N_extrap_low], Fy[self.N_extrap_high:self.N-self.N_extrap_low]
 
 class hankel(object):
+    """Zero-th order Hankel transform wrapper built on :class:`fftlog`."""
+
     def __init__(self, x, fx, nu, N_extrap_low=0, N_extrap_high=0, c_window_width=0.25, N_pad=0):
         #print('nu is required to be between (0.5-n) and 2.')
         #print("HANKEL!!!",x)
         self.myfftlog = fftlog(x, jnp.sqrt(x)*fx, nu, N_extrap_low, N_extrap_high, c_window_width, N_pad)
     
     def hankel(self, n):
+        """Evaluate ``∫ x fx J_{n}(xy) dx`` via the FFTLog core."""
         y, Fy = self.myfftlog.fftlog(n-0.5)
         Fy *= jnp.sqrt(2*y/jnp.pi)
         return y, Fy
@@ -123,6 +152,7 @@ class hankel(object):
 ### Utility functions ####################
 @partial(jit, static_argnums=(1,2))
 def log_extrap(x, N_extrap_low, N_extrap_high):
+    """Extrapolate a log-spaced grid ``x`` by a fixed number of steps on each side."""
     if N_extrap_low > 0:
         dlnx_low = jnp.log(x[1] / x[0])
         low_x = x[0] * jnp.exp(dlnx_low * jnp.arange(-N_extrap_low, 0))
@@ -137,32 +167,9 @@ def log_extrap(x, N_extrap_low, N_extrap_high):
 
     x_extrap = jnp.concatenate((low_x, x, high_x))
     return x_extrap    
-"""
-def log_extrap_(x, N_extrap_low, N_extrap_high):
-    if x.size < 2:
-         raise ValueError("x must have at least 2 elements")
-    if x[0] == 0:
-         raise ValueError("x[0] must be non-zero")
-    if x[-2] == 0:
-         raise ValueError("x[-2] must be non-zero")
-
-    def compute(_):
-        dlnx_low = jnp.log(x[1] / x[0])
-        low_x = x[0] * jnp.exp(dlnx_low * jnp.arange(-N_extrap_low, 0))
-        low_x = lax.cond(N_extrap_low > 0, lambda: low_x, lambda: jnp.zeros_like(low_x))
-        dlnx_high = jnp.log(x[-1] / x[-2])
-        high_x = x[-1] * jnp.exp(dlnx_high * jnp.arange(1, N_extrap_high + 1))
-        high_x = lax.cond(N_extrap_high > 0, lambda: high_x, lambda: jnp.zeros_like(high_x))
-        x_extrap = jnp.concatenate((low_x, x, high_x))
-        return x_extrap
-    def non_compute(_):
-        return x
-    return lax.cond((N_extrap_low > 0) | (N_extrap_high > 0), compute, non_compute, None)
-    #return lax.cond(~jnp.logical_and(N_extrap_low==0, N_extrap_high==0), compute, non_compute, None)
-"""
-
 @partial(jit, static_argnums=(1,))
 def c_window(n, n_cut):
+    """Cosine taper for the highest ``n_cut`` frequency bins to suppress ringing."""
     n_right = n[-1] - n_cut
     idx = n > n_right
     theta_right = (n[-1] - n) / (n[-1] - n_right - 1).astype(float)
@@ -172,20 +179,14 @@ def c_window(n, n_cut):
 #@partial(jit, static_argnums=(0,))
 @jit
 def g_m_vals(mu, q):
-    '''
-    g_m_vals function adapted for JAX.
-    g_m_vals(mu, q) = gamma( (mu+1+q)/2 ) / gamma( (mu+1-q)/2 ) = gamma(alpha+)/gamma(alpha-)
-    mu = (alpha+) + (alpha-) - 1
-    q = (alpha+) - (alpha-)
-
-    Switching to asymptotic form when |Im(q)| + |mu| > cut = 200
-    '''
+    """Gamma ratio ``Gamma((mu+1+q)/2) / Gamma((mu+1-q)/2)`` with asymptotics."""
     #if (mu + 1 + q.real[0] == 0):
     #    raise ValueError("gamma(0) encountered. Please change another nu value! Try nu=1.1.")
 
     imag_q = jnp.imag(q)
     g_m = jnp.zeros_like(q, dtype=complex)
-    cut = 200
+    # custom gamma_ becomes unstable for large |Im|; switch to asymptotic earlier
+    cut = 80
     mask_asym = jnp.abs(imag_q) + jnp.abs(mu) > cut
     mask_good = (jnp.abs(imag_q) + jnp.abs(mu) <= cut) & (q != mu + 1 + 0j)
 
@@ -208,16 +209,13 @@ def g_m_vals(mu, q):
 
 @jit
 def g_m_ratio(a):
-    '''
-    g_m_ratio(a) = gamma(a)/gamma(a+0.5)
-    switching to asymptotic form when |Im(a)| > cut = 200
-    '''
+    """Gamma ratio ``Gamma(a) / Gamma(a+0.5)`` with asymptotic fallback."""
     #if (a.real[0] == 0):
     #    raise ValueError("gamma(0) encountered. Please change another nu value! Try nu=1.1.")
 
     imag_a = jnp.imag(a)
     g_m = jnp.zeros_like(a, dtype=complex)
-    cut = 100
+    cut = 80
     mask_asym = jnp.abs(imag_a) > cut
     mask_good = jnp.abs(imag_a) <= cut
 
@@ -236,41 +234,21 @@ def g_m_ratio(a):
     return g_m
 
 def g_l(l,z_array):
-    '''
-	gl = 2^z_array * gamma((l+z_array)/2.) / gamma((3.+l-z_array)/2.)
-	alpha+ = (l+z_array)/2.
-	alpha- = (3.+l-z_array)/2.
-	mu = (alpha+) + (alpha-) - 1 = l+0.5
-	q = (alpha+) - (alpha-) = z_array - 1.5
-	'''
+    """Helper for ``fftlog``: gamma ratio for spherical Bessel ``j_l`` integrals."""
     gl = 2.**z_array * g_m_vals(l+0.5,z_array-1.5)
     return gl
 
 def g_l_1(l,z_array):
-	'''
-	for integral containing one first-derivative of spherical Bessel function
-	gl1 = -2^(z_array-1) *(z_array -1)* gamma((l+z_array-1)/2.) / gamma((4.+l-z_array)/2.)
-	mu = l+0.5
-	q = z_array - 2.5
-	'''
-	gl1 = -2.**(z_array-1) *(z_array -1) * g_m_vals(l+0.5,z_array-2.5)
-	return gl1
+    """Gamma prefactor for integrals involving ``j_l'``."""
+    gl1 = -2.**(z_array-1) *(z_array -1) * g_m_vals(l+0.5,z_array-2.5)
+    return gl1
 
 def g_l_2(l,z_array):
-	'''
-	for integral containing one 2nd-derivative of spherical Bessel function
-	gl2 = 2^(z_array-2) *(z_array -1)*(z_array -2)* gamma((l+z_array-2)/2.) / gamma((5.+l-z_array)/2.)
-	mu = l+0.5
-	q = z_array - 3.5
-	'''
-	gl2 = 2.**(z_array-2) *(z_array -1)*(z_array -2)* g_m_vals(l+0.5,z_array-3.5)
-	return gl2
+    """Gamma prefactor for integrals involving ``j_l''``."""
+    gl2 = 2.**(z_array-2) *(z_array -1)*(z_array -2)* g_m_vals(l+0.5,z_array-3.5)
+    return gl2
 
 def h_l(l,z_array):
-	'''
-	hl = gamma(l+ z_array/2.) * gamma((2.-z_array)/2.) / gamma((3.-z_array)/2.) / gamma(2.+l -z_array/2.)
-	first component is g_m_vals(2l+1, z_array - 2)
-	second component is gamma((2.-z_array)/2.) / gamma((3.-z_array)/2.)
-	'''
-	hl = g_m_vals(2*l+1., z_array - 2.) * g_m_ratio((2.-z_array)/2.)
-	return hl
+    """Prefactor for integrals of ``(j_l)^2`` used in ``fftlog_jsqr``."""
+    hl = g_m_vals(2*l+1., z_array - 2.) * g_m_ratio((2.-z_array)/2.)
+    return hl

@@ -17,6 +17,7 @@ import jax.numpy as jnp
 from jax import jit, vmap, lax, random
 
 from ...utils import match_points
+from ..error_estimator import basic_partial, error_ordinary
 from ...point_source import (
     lens_eq_det_jac,
     _images_point_source,
@@ -69,6 +70,7 @@ def _permute_images(z, z_mask, z_parity):
         "nlenses",
         "npts",
         "niter",
+        "grad_refine",
     ),
 )
 def _images_of_source_limb(
@@ -77,6 +79,8 @@ def _images_of_source_limb(
     nlenses=2,
     npts=300,
     niter=10,
+    grad_refine=False,
+    grad_error_factor=1.0,
     **params,
 ):
     """Sample point-source images along the limb of a circular source.
@@ -152,8 +156,25 @@ def _images_of_source_limb(
             delta_z,
             jnp.zeros_like(delta_z.real),
         )
-        delta_z_max = jnp.max(delta_z, axis=0)
-        idcs_theta = jnp.argsort(delta_z_max)[::-1][:n]
+        delta_metric = jnp.max(delta_z, axis=0)
+
+        if grad_refine and (nlenses == 2):
+            # microlux-style gradient-aware error estimate (Eq. 18)
+            theta_delta = theta[1:] - theta[:-1]
+            z_samples = jnp.moveaxis(z, 0, 1)  # (n_samples, n_images)
+            parity = jnp.moveaxis(z_parity, 0, 1)
+            mask = jnp.moveaxis(z_mask, 0, 1)
+            deXProde2X, de_z, de_deXPro_de2X = basic_partial(
+                z_samples, theta, rho, params["q"], params["s"], True
+            )
+            e_tot, _ = error_ordinary(
+                deXProde2X, de_z, theta_delta, z_samples, parity, de_deXPro_de2X
+            )
+            e_tot = jnp.where(mask[:-1] & mask[1:], e_tot, 0.0)
+            grad_metric = jnp.sum(e_tot, axis=1)
+            delta_metric = delta_metric + grad_error_factor * grad_metric
+
+        idcs_theta = jnp.argsort(delta_metric)[::-1][:n]
 
         theta_new = 0.5 * (theta[idcs_theta] + theta[idcs_theta + 1])
         z_new, z_mask_new, z_parity_new = fn(theta_new, z[:, idcs_theta])
@@ -177,4 +198,4 @@ def _images_of_source_limb(
 
     z, z_mask, z_parity = _permute_images(z, z_mask, z_parity)
 
-    return z, z_mask, z_parity
+    return z, z_mask, z_parity, theta

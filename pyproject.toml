@@ -64,7 +64,7 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-microjax = ["**/LICENSE"]
+microjax = ["**/LICENSE", "data/*.txt"]
 
 [tool.setuptools.dynamic]
 version = { attr = "microjax.__version__" }
