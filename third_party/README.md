@@ -27,6 +27,19 @@ If you use code derived from these components, please comply with the MIT licens
 
 ---
 
+## 3. `microlux` (by Haibin Ren)
+
+- **Repository**: https://github.com/CoastEgo/microlux  
+- **License**: MIT License  
+- **Original Author**: Haibin Ren
+
+The original `LICENSE` file from `microlux` is preserved as:
+- `microjax/contour/LICENSE`
+
+This code powers the JAX-based contour integration backend in `microjax.contour`.
+
+---
+
 ## Notes
 
 - All included third-party components are compatible with the MIT license of microjax.
