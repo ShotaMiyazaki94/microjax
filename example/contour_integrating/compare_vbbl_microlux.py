@@ -1,11 +1,15 @@
-"""Compare ``microjax`` caustic magnifications with VBBinaryLensing.
+"""Compare microlux-based contour integration with VBBinaryLensing.
 
-Inspired by ``example/compare-vbbl/compare_binary_uniform.py`` this local helper
-evaluates the finite-source light curve with ``microjax.caustics.magnifications``
-and benchmarks it against ``VBBinaryLensing.BinaryMag2``.
+This mirrors ``compare_vbbl.py`` but uses ``microjax.contour.mag_binary``
+(microlux-based contour integration) instead of the caustics backend.
 """
 
 import time
+import os
+
+# Force CPU to avoid slow GPU plugin probing on machines without CUDA
+os.environ.setdefault("JAX_PLATFORMS", "cpu")
+os.environ.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")
 
 import jax
 import jax.numpy as jnp
@@ -15,95 +19,84 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 import VBBinaryLensing
 
-from microjax.caustics.lightcurve import magnifications
+from microjax.contour import mag_binary
 from microjax.point_source import critical_and_caustic_curves
 
-jax.config.update('jax_platform_name', 'cpu')
+jax.config.update("jax_platform_name", "cpu")
 jax.config.update("jax_enable_x64", True)
 
-
-# --- Lens/source configuration (same convention as the example script) ---
+# --- Lens/source configuration (MulensModel/VBBL convention) ---
 q = 0.05
 s = 1.0
-alpha = jnp.deg2rad(45.0)
+alpha_deg = 45.0
 t_E = 30.0
 t_0 = 0.0
 u_0 = 0.0
 rho = 0.03
-nlenses = 2
 u1 = 0.5
-npts_ld = 100
+n_annuli = 10
 
-a = 0.5 * s
-e1 = q / (1.0 + q)
-params = {"s": s, "q": q}
-
-
-# --- Source trajectory ---
+# --- Observation times ---
 num_points = 1000
-t = jnp.linspace(-0.5 * t_E, 0.5 * t_E, num_points)
-tau = (t - t_0) / t_E
-y1 = -u_0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
-y2 = u_0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
+times = jnp.linspace(-0.5 * t_E, 0.5 * t_E, num_points)
+
+# Source trajectory in the source plane (for plotting)
+alpha_rad = jnp.deg2rad(alpha_deg)
+tau = (times - t_0) / t_E
+y1 = -u_0 * jnp.sin(alpha_rad) + tau * jnp.cos(alpha_rad)
+y2 = u_0 * jnp.cos(alpha_rad) + tau * jnp.sin(alpha_rad)
 w_points = (y1 + 1j * y2).astype(jnp.complex128)
-times = t
 
-npts_limb = 400  # number of points to sample the limb of the source
-
-# --- Warm-up JIT compilation ---
-_ = magnifications(
+# --- Warm-up JIT ---
+_ = mag_binary(
     w_points,
     rho,
-    nlenses=nlenses,
-    npts_limb=npts_limb,
-    limb_darkening=False,
-    **params,
+    s=s,
+    q=q,
+    tol=1e-2,
+    retol=1e-3,
+    analytic=True,
 ).block_until_ready()
-_ = magnifications(
+_ = mag_binary(
     w_points,
     rho,
-    nlenses=nlenses,
-    npts_limb=npts_limb,
-    limb_darkening=True,
-    u1=u1,
-    npts_ld=npts_ld,
-    **params,
+    s=s,
+    q=q,
+    tol=1e-2,
+    retol=1e-3,
+    analytic=True,
+    limb_darkening_coeff=u1,
+    n_annuli=n_annuli,
 ).block_until_ready()
 
-
-# --- microJAX evaluation ---
+# --- microlux evaluation ---
 start = time.time()
-mag_mj_uniform = magnifications(
+mag_mj_uniform = mag_binary(
     w_points,
     rho,
-    nlenses=nlenses,
-    npts_limb=npts_limb,
-    limb_darkening=False,
-    **params,
+    s=s,
+    q=q,
+    tol=1e-2,
+    retol=1e-3,
+    analytic=True,
 ).block_until_ready()
-end = time.time()
-print(
-    "microjax (uniform): %.3f s total (%.3f ms/point)"
-    % (end - start, 1e3 * (end - start) / num_points)
-)
+elapsed_mj = time.time() - start
+print(f"microjax (microlux, uniform): {elapsed_mj:.3f} s total ({1e3*elapsed_mj/num_points:.3f} ms/pt)")
 
 start = time.time()
-mag_mj_ld = magnifications(
+mag_mj_ld = mag_binary(
     w_points,
     rho,
-    nlenses=nlenses,
-    npts_limb=npts_limb,
-    limb_darkening=True,
-    u1=u1,
-    npts_ld=npts_ld,
-    **params,
+    s=s,
+    q=q,
+    tol=1e-2,
+    retol=1e-3,
+    analytic=True,
+    limb_darkening_coeff=u1,
+    n_annuli=n_annuli,
 ).block_until_ready()
-end = time.time()
-print(
-    "microjax (limb-darkening u1=%.2f): %.3f s total (%.3f ms/point)"
-    % (u1, end - start, 1e3 * (end - start) / num_points)
-)
-
+elapsed_mj = time.time() - start
+print(f"microjax (microlux, LD u1={u1:.2f}): {elapsed_mj:.3f} s total ({1e3*elapsed_mj/num_points:.3f} ms/pt)")
 
 # --- VBBinaryLensing reference ---
 _vbbl_solver = VBBinaryLensing.VBBinaryLensing()
@@ -111,38 +104,31 @@ _vbbl_solver.RelTol = 1e-4
 
 
 def mag_vbbl(points, a1):
-    points_np = jnp.asarray(points)
     _vbbl_solver.a1 = float(a1)  # limb darkening coefficient
     mags = [
         _vbbl_solver.BinaryMag2(s, q, float(w.real), float(w.imag), float(rho))
-        for w in points_np
+        for w in jnp.asarray(points)
     ]
     return jnp.array(mags)
 
 
 start = time.time()
 mag_vb_uniform = mag_vbbl(w_points, 0.0)
-end = time.time()
-print(
-    "VBBinaryLensing (uniform): %.3f s total (%.3f ms/point)"
-    % (end - start, 1e3 * (end - start) / num_points)
-)
+elapsed_vb = time.time() - start
+print(f"VBBinaryLensing (uniform): {elapsed_vb:.3f} s total ({1e3*elapsed_vb/num_points:.3f} ms/pt)")
 
 start = time.time()
 mag_vb_ld = mag_vbbl(w_points, u1)
-end = time.time()
-print(
-    "VBBinaryLensing (limb-darkening u1=%.2f): %.3f s total (%.3f ms/point)"
-    % (u1, end - start, 1e3 * (end - start) / num_points)
-)
+elapsed_vb = time.time() - start
+print(f"VBBinaryLensing (LD u1={u1:.2f}): {elapsed_vb:.3f} s total ({1e3*elapsed_vb/num_points:.3f} ms/pt)")
 
-
-# --- Plotting ---
+# --- Caustic curves for inset ---
 critical_curves, caustic_curves = critical_and_caustic_curves(
-    nlenses=nlenses, npts=200, s=s, q=q
+    nlenses=2, npts=200, s=s, q=q
 )
 
-def plot_case(mag_vb, mag_mj, title, out_path, label_mj="microjax (caustics)"):
+# --- Plot ---
+def plot_case(mag_vb, mag_mj, title, out_path, label_mj="microjax (microlux)"):
     fig, (ax, ax_res) = plt.subplots(
         2,
         1,
@@ -188,6 +174,7 @@ def plot_case(mag_vb, mag_mj, title, out_path, label_mj="microjax (caustics)"):
     ax_in.scatter((-q / (1 + q)) * s, 0.0, c="k", s=15)
     ax_in.scatter((1.0 / (1 + q)) * s, 0.0, c="k", s=15)
     ax_in.set(xlabel="Re(w)", ylabel="Im(w)", xlim=(-0.5, 0.5), ylim=(-0.5, 0.5))
+
     fig.savefig(out_path, dpi=200, bbox_inches="tight")
     print(f"output: {out_path}")
     plt.close(fig)
@@ -196,13 +183,13 @@ def plot_case(mag_vb, mag_mj, title, out_path, label_mj="microjax (caustics)"):
 plot_case(
     mag_vb_uniform,
     mag_mj_uniform,
-    f"Caustics contour vs VBBL (uniform, rho={rho:.3f}, s={s:.2f}, q={q:.3f})",
-    "example/contour_integrating/compare_binary_uniform.png",
+    f"Microlux contour vs VBBL (uniform, rho={rho:.3f}, s={s:.2f}, q={q:.3f})",
+    "example/contour_integrating/compare_binary_uniform_microlux.png",
 )
 plot_case(
     mag_vb_ld,
     mag_mj_ld,
-    f"Caustics contour vs VBBL (LD u1={u1:.2f}, rho={rho:.3f}, s={s:.2f}, q={q:.3f})",
-    "example/contour_integrating/compare_binary_ld.png",
-    label_mj=f"microjax (caustics, LD u1={u1:.2f})",
+    f"Microlux contour vs VBBL (LD u1={u1:.2f}, rho={rho:.3f}, s={s:.2f}, q={q:.3f})",
+    "example/contour_integrating/compare_binary_ld_microlux.png",
+    label_mj=f"microjax (microlux, LD u1={u1:.2f})",
 )
