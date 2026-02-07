@@ -1,6 +1,5 @@
 # This file vendors pieces of the `microlux` error estimator so we can
 # drive adaptive sampling with a gradient-aware metric.
-# Original source: microlux 0.2.0 (MIT License) by Yinghao Ma & Jin Li.
 # SPDX-License-Identifier: MIT
 
 import jax
