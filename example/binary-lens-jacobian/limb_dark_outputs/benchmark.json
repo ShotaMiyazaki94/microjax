@@ -1,0 +1,53 @@
+{
+  "device": "cuda:0",
+  "device_kind": "NVIDIA A100-PCIE-40GB",
+  "platform": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+  "jax_version": "0.10.2",
+  "mag_binary_implementation": "retry-free best-effort; limb-darkened G15/K31 fixed-1",
+  "limb_darkening_coefficient_u1": 0.5,
+  "differentiated_parameter_names": [
+    "t0",
+    "tE",
+    "u0",
+    "q",
+    "s",
+    "alpha",
+    "rho"
+  ],
+  "u1_is_static": true,
+  "config": {
+    "n_points": 500,
+    "n_limb": 500,
+    "margin_r": 1.0,
+    "angular_atol": 1e-05,
+    "relative_tolerance": 0.0001,
+    "parallel_regions": false,
+    "with_reverse": false,
+    "reverse_chunk": 8,
+    "repeats": 3
+  },
+  "reverse_implementation": null,
+  "warmup_seconds": {
+    "value": 11.711054231971502,
+    "forward": 21.83330143429339
+  },
+  "run_seconds": {
+    "value": [
+      0.13875329494476318,
+      0.113908551633358,
+      0.11337234638631344
+    ],
+    "forward": [
+      0.3898267252370715,
+      0.3888675170019269,
+      0.38883940409868956
+    ]
+  },
+  "median_seconds": {
+    "value": 0.113908551633358,
+    "forward": 0.3888675170019269
+  },
+  "reverse_over_forward": null,
+  "maximum_jacobian_absolute_difference": null,
+  "jacobian_comparison_tolerances": null
+}

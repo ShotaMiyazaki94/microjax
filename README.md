@@ -101,13 +101,13 @@ mu_point = mag_point_source(w_points, nlenses=2, s=s, q=q)
 
 ## Example output
 
-| Visualization of the ICRS method (binary-lens) | Triple-lens magnification and its gradients | Compare with VBBL (uniform source, binary-lens) |
+| Binary-lens magnification and gradients | Triple-lens magnification and gradients | Compare with VBBL (uniform source, binary-lens) |
 | --- | --- | --- |
-| ![ICRS](example/visualize-icrs/visualize_example.png) | ![Triple-lens](example/triple-lens-jacobian/full_jac.png) | ![Compare VBBL](example/compare-vbbl/compare_binary_uniform.png) |
+| ![Binary-lens](example/binary-lens-jacobian/binary_jacobian.png) | ![Triple-lens](example/triple-lens-jacobian/triple_jacobian.png) | ![Compare VBBL](example/compare-vbbl/compare_binary_uniform.png) |
 
 Refer to the [example](example/) directory for code that creates these plots.
 
-Note: Finite-source calculation with microJAX is extremely slow without a GPU. So, the latter two examples are significantly slower on a CPU.
+Note: Finite-source calculation with microJAX is extremely slow without a GPU, so these examples are significantly slower on a CPU.
 
 ---
 

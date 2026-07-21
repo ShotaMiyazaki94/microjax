@@ -1,0 +1,17 @@
+{
+  "time": -1.7033516758379195,
+  "source_real": -0.04014838402434876,
+  "source_imag": -0.040148384024348754,
+  "relative_residual": 0.0001984086438061403,
+  "limb_darkening_u1": 0.5,
+  "n_limb_requested": 500,
+  "n_limb_traced": 999,
+  "radial_intervals": 22,
+  "radial_candidates_raw": 24,
+  "radial_status": 0,
+  "angular_profile_samples": 528,
+  "display_rings": 30,
+  "angular_failures": 0,
+  "radial_plot_min": 0.9321330663168308,
+  "radial_plot_max": 1.1348604316206712
+}
