@@ -11,8 +11,9 @@ Jacobian with respect to `t0, tE, u0, q, s, alpha, rho, q3, r3, psi`.
 Like the binary example, it reports JIT warm-up separately from the median of
 synchronised compiled executions. Forward mode is the intended production AD
 path: there are ten scalar inputs and hundreds of light-curve outputs. Reverse
-mode is deliberately not included. The triple boundary calculation currently
-uses the global polar chart and the retry-free G15/K31 fixed-1 radial rule.
+mode is deliberately not included. The triple boundary calculation keeps
+Einstein-ring images in the global polar chart, re-centres spatially isolated
+small-angle images, and uses the retry-free G15/K31 fixed-1 radial rule.
 
 Run
 ---

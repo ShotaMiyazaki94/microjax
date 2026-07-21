@@ -181,12 +181,15 @@ def triple_level_set_fourier(
     e1: float,
     e2: float,
     r3_complex: complex,
+    chart_center: complex = 0.0 + 0.0j,
 ) -> FourierLevelSet:
     """Recover the exact degree-four Fourier representation on one ring."""
 
     real_dtype = jnp.asarray(r).dtype
     angles = 2.0 * jnp.pi * jnp.arange(TRIPLE_FOURIER_SAMPLES, dtype=real_dtype) / TRIPLE_FOURIER_SAMPLES
-    z_cm = r * jnp.exp(1j * angles)
+    complex_dtype = jnp.result_type(w_center_shifted, 1j * r)
+    center = jnp.asarray(chart_center, dtype=complex_dtype)
+    z_cm = center + r * jnp.exp(1j * angles)
     samples = triple_level_set(
         z_cm,
         w_center_shifted,

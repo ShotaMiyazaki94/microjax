@@ -392,6 +392,7 @@ def angular_intervals_triple_roots(
     e1: float,
     e2: float,
     r3_complex: complex,
+    chart_center: complex = 0.0 + 0.0j,
 ) -> AngularIntervals:
     """Return inside intervals from the degree-eight triple boundary roots."""
 
@@ -405,6 +406,7 @@ def angular_intervals_triple_roots(
         e1=e1,
         e2=e2,
         r3_complex=r3_complex,
+        chart_center=chart_center,
     )
     return _angular_intervals_fourier_roots(
         fourier,
@@ -465,6 +467,7 @@ def angular_measure_triple_roots(
     e1: float,
     e2: float,
     r3_complex: complex,
+    chart_center: complex = 0.0 + 0.0j,
 ) -> AngularMeasure:
     """Integrate triple-lens angular width from validated boundary roots."""
 
@@ -480,6 +483,7 @@ def angular_measure_triple_roots(
         e1=e1,
         e2=e2,
         r3_complex=r3_complex,
+        chart_center=chart_center,
     )
     active = jnp.arange(_TRIPLE_INSIDE_INTERVAL_CAPACITY) < result.n_intervals
     widths = result.intervals[:, 1] - result.intervals[:, 0]

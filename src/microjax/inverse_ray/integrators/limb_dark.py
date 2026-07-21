@@ -35,6 +35,7 @@ def mag_limb_dark_boundary(
     radial_chunk_size: int = SEQUENTIAL_RADIAL_CHUNK_SIZE,
     angular_profile_subdivisions: int = 1,
     _planetary_local_chart: bool = False,
+    _compact_local_chart: bool = False,
 ) -> Union[Array, BoundaryMagnificationResult]:
     """Linear limb-darkening through the generic radial-profile backend."""
 
@@ -68,5 +69,6 @@ def mag_limb_dark_boundary(
         radial_chunk_size=radial_chunk_size,
         angular_profile_subdivisions=angular_profile_subdivisions,
         _planetary_local_chart=_planetary_local_chart,
+        _compact_local_chart=_compact_local_chart,
         return_info=return_info,
     )

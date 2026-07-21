@@ -119,6 +119,50 @@ def test_triple_degree_four_fourier_level_set_matches_direct_evaluation():
     )
 
 
+def test_triple_fourier_level_set_supports_an_image_local_chart():
+    _, geometry, _, center_midpoint = _setup()
+    radius = jnp.asarray(0.013)
+    chart_center = jnp.asarray(1.09 + 0.046j)
+    rho = 0.03
+    fourier = triple_level_set_fourier(
+        radius,
+        center_midpoint,
+        rho,
+        geometry.shifted,
+        a=geometry.a,
+        e1=geometry.e1,
+        e2=geometry.e2,
+        r3_complex=geometry.r3_complex,
+        chart_center=chart_center,
+    )
+    angles = jnp.asarray([0.07, 0.43, 1.2, 2.9, 4.8, 6.1])
+    direct = triple_level_set(
+        chart_center + radius * jnp.exp(1j * angles),
+        center_midpoint,
+        rho,
+        geometry.shifted,
+        a=geometry.a,
+        e1=geometry.e1,
+        e2=geometry.e2,
+        r3_complex=geometry.r3_complex,
+    )
+    reconstructed = evaluate_fourier(fourier.coefficients, angles)
+    reference_angle = jnp.asarray(0.31)
+    direct_reference = triple_level_set(
+        chart_center + radius * jnp.exp(1j * reference_angle),
+        center_midpoint,
+        rho,
+        geometry.shifted,
+        a=geometry.a,
+        e1=geometry.e1,
+        e2=geometry.e2,
+        r3_complex=geometry.r3_complex,
+    )
+    scale = direct_reference / evaluate_fourier(fourier.coefficients, reference_angle)
+    assert not bool(fourier.degenerate)
+    assert np.allclose(np.asarray(reconstructed * scale), np.asarray(direct), rtol=2e-11, atol=2e-13)
+
+
 def test_triple_degree_eight_roots_match_dense_angular_oracle():
     _, geometry, _, center_midpoint = _setup()
     rho = 0.03

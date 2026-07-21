@@ -39,9 +39,9 @@ only. Lower layers do not import the scheduler or finite-source orchestrator.
 
 The retry-capable and legacy dense algorithms intentionally live in sibling
 packages ``inverse_ray_retry`` and ``inverse_ray_dense``; this package contains
-only the current retry-free single-pass implementation. Binary sources may use
-a certified planetary local chart; triple sources currently remain in the
-global first-binary-centre-of-mass chart.
+only the current retry-free single-pass implementation. Binary planetary
+images and spatially isolated small-angle triple images may use local charts;
+large Einstein-ring branches retain the public global chart.
 """
 
 from .config import BinaryMagConfig, TripleMagConfig

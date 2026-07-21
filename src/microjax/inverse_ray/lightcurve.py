@@ -378,8 +378,9 @@ def _mag_triple_single_pass_impl(
     limb-darkened sources share the same topology and radial node density.
 
     Public source coordinates retain the centre of mass of the first two
-    lenses. The current triple solver deliberately uses that global polar
-    chart throughout; binary-specific planetary re-centring is not applied.
+    lenses. Einstein-ring images keep that global polar chart, while a
+    spatially isolated image with a very small global angular span is assigned
+    an image-local chart from the same source-limb solve.
     Structural root, topology, capacity, and non-finite failures return
     ``NaN``. A radial embedded-error warning retains its finite best-effort
     value, matching the retry-free contract of :func:`mag_binary`.
@@ -407,6 +408,7 @@ def _mag_triple_single_pass_impl(
                 radial_strategy="fixed",
                 radial_chunk_size=8,
                 fixed_radial_order=31,
+                _compact_local_chart=True,
                 return_info=True,
             )
             return _validated_magnification(result)
@@ -434,6 +436,7 @@ def _mag_triple_single_pass_impl(
                 certify_topology=False,
                 radial_chunk_size=8,
                 angular_profile_subdivisions=1,
+                _compact_local_chart=True,
                 return_info=True,
             )
             return _validated_magnification(result)

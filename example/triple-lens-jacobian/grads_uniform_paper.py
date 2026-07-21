@@ -258,7 +258,7 @@ def main():
         "device_kind": getattr(devices[0], "device_kind", "unknown"),
         "platform": platform.platform(),
         "jax_version": jax.__version__,
-        "mag_triple_implementation": "retry-free best-effort; uniform G15/K31 fixed-1; global chart",
+        "mag_triple_implementation": "retry-free best-effort; uniform G15/K31 fixed-1; mixed global/local charts",
         "parameter_names": list(PARAMETER_NAMES),
         "config": {
             **config,

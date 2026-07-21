@@ -5,7 +5,7 @@ flow as follows:
 
 1. sample and solve the source limb;
 2. build fixed-shape radial image topology;
-3. optionally re-centre a certified binary planetary image component;
+3. optionally re-centre certified compact image components;
 4. solve exact angular boundary roots at radial quadrature nodes;
 5. integrate area or a radial intensity profile;
 6. normalize the flux and return numerical status information.

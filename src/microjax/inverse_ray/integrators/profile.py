@@ -28,7 +28,7 @@ from ..roots.angular import (
     angular_intervals_triple_roots,
 )
 from ..roots.level_set import binary_level_set, triple_level_set
-from .charts import _planetary_mixed_topology
+from .charts import _owned_angular_intervals, _planetary_mixed_topology, _triple_compact_mixed_topology
 from .common import (
     Array,
     BoundaryMagnificationResult,
@@ -66,13 +66,14 @@ def mag_radial_profile_boundary(
     radial_chunk_size: int = SEQUENTIAL_RADIAL_CHUNK_SIZE,
     angular_profile_subdivisions: int = 1,
     _planetary_local_chart: bool = False,
+    _compact_local_chart: bool = False,
 ) -> Union[Array, BoundaryMagnificationResult]:
     """Integrate an axisymmetric profile over boundary-root intervals.
 
     radial_intensity(d / rho) is evaluated directly in each image interval;
     intensity_flux is its positive unlensed disk flux. Binary calls support
-    adaptive/fixed radial strategies. The optional planetary chart is binary
-    only; triple-lens calls retain the global public polar origin.
+    adaptive/fixed radial strategies. Optional binary planetary and generic
+    triple compact-image charts retain one fixed-shape integration graph.
 
     With return_info=True, return magnification, error, and status bits.
     """
@@ -85,6 +86,8 @@ def mag_radial_profile_boundary(
         raise ValueError(
             "the single-pass planetary chart requires binary fixed, " "uncertified radial-profile integration"
         )
+    if _compact_local_chart and (nlenses != 3 or radial_strategy != "fixed" or certify_topology):
+        raise ValueError("the compact-image chart requires triple fixed, uncertified radial-profile integration")
 
     if nlenses == 2:
         binary_lens = binary_geometry(s, q)
@@ -160,10 +163,28 @@ def mag_radial_profile_boundary(
             )
             <= 0.0
         )
-    interval_centers = None
+    interval_parameters = None
+    charted = None
     if nlenses != 2 or certify_topology:
-        if _planetary_local_chart:
-            topology, interval_centers = _planetary_mixed_topology(
+        if _compact_local_chart:
+            charted = _triple_compact_mixed_topology(
+                image_limb,
+                mask_limb,
+                rho,
+                margin_r=margin_r,
+                w_center_shifted=w_center_shifted,
+                origin_inside=origin_inside,
+                shifted=shifted,
+                a=a,
+                e1=e1,
+                e2=e2,
+                r3_complex=geometry.r3_complex,
+                lens_margin_parameters=lens_margin_parameters,
+            )
+            topology = charted.topology
+            interval_parameters = charted.interval_parameters
+        elif _planetary_local_chart:
+            topology, interval_parameters = _planetary_mixed_topology(
                 image_limb,
                 mask_limb,
                 rho,
@@ -209,7 +230,8 @@ def mag_radial_profile_boundary(
     else:
         endpoint_intensity = jnp.asarray(endpoint_value_bound, dtype=real_dtype)
 
-    def radial_integrand(r, chart_center=0.0 + 0.0j):
+    def radial_integrand(r, interval_parameter=0.0 + 0.0j):
+        chart_center = interval_parameter[0] if _compact_local_chart else interval_parameter
         if nlenses == 2:
             intervals = angular_intervals_binary_roots(
                 r,
@@ -238,7 +260,17 @@ def mag_radial_profile_boundary(
                 e1=e1_grid,
                 e2=e2_grid,
                 r3_complex=r3_complex_grid,
+                chart_center=chart_center,
             )
+            if _compact_local_chart:
+                owned, n_owned = _owned_angular_intervals(
+                    intervals.intervals,
+                    intervals.n_intervals,
+                    r,
+                    interval_parameter,
+                    charted,
+                )
+                intervals = intervals._replace(intervals=owned, n_intervals=n_owned)
 
         def brightness(theta):
             if nlenses == 2:
@@ -259,6 +291,7 @@ def mag_radial_profile_boundary(
                     w_center_shifted_grid,
                     shifted_grid,
                     nlenses=3,
+                    chart_center=chart_center,
                     a=a_grid,
                     e1=e1_grid,
                     e2=e2_grid,
@@ -323,7 +356,7 @@ def mag_radial_profile_boundary(
         return integrated._replace(status=jnp.bitwise_or(integrated.status, selected_topology.status))
 
     if nlenses != 2 or certify_topology:
-        radial = integrate_topology(topology, interval_centers)
+        radial = integrate_topology(topology, interval_parameters)
         magnification = radial.value / normalization
         estimated_error = radial.error / normalization
         status = radial.status

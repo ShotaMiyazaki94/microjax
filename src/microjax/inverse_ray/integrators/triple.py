@@ -18,9 +18,11 @@ from ..roots.angular import (
     ANGULAR_CAPACITY,
     ANGULAR_DEGENERATE,
     ANGULAR_ROOT_FAILURE,
+    angular_intervals_triple_roots,
     angular_measure_triple_roots,
 )
 from ..roots.level_set import triple_level_set
+from .charts import _owned_angular_intervals, _triple_compact_mixed_topology
 from .common import (
     Array,
     BoundaryMagnificationResult,
@@ -51,6 +53,7 @@ def mag_uniform_triple_boundary(
     radial_strategy: str = "adaptive",
     radial_chunk_size: int = SEQUENTIAL_RADIAL_CHUNK_SIZE,
     fixed_radial_order: int = 31,
+    _compact_local_chart: bool = False,
 ) -> Union[Array, BoundaryMagnificationResult]:
     """Integrate a uniform triple-lens source from exact angular roots.
 
@@ -66,6 +69,8 @@ def mag_uniform_triple_boundary(
         raise ValueError("fixed_radial_order must be 31 or 47")
     if radial_chunk_size <= 0:
         raise ValueError("radial_chunk_size must be positive")
+    if _compact_local_chart and radial_strategy != "fixed":
+        raise ValueError("the compact-image chart requires fixed radial integration")
 
     geometry = triple_lens_geometry(s, q, q3, r3, psi)
     lens_params = {
@@ -96,15 +101,35 @@ def mag_uniform_triple_boundary(
     lens_positions = jnp.asarray([geometry.a, -geometry.a, geometry.r3_complex])
     lens_masses = jnp.asarray([geometry.e1, geometry.e2, geometry.e3])
     margin_parameters = (geometry.shifted, lens_positions, lens_masses) if jacobian_radial_margin else None
-    topology = define_radial_topology(
-        image_limb,
-        mask_limb,
-        rho,
-        margin_r=margin_r,
-        origin_inside=origin_inside,
-        track_roots=track_limb_roots,
-        lens_margin_parameters=margin_parameters,
-    )
+    charted = None
+    if _compact_local_chart:
+        charted = _triple_compact_mixed_topology(
+            image_limb,
+            mask_limb,
+            rho,
+            margin_r=margin_r,
+            w_center_shifted=w_center_shifted,
+            origin_inside=origin_inside,
+            shifted=geometry.shifted,
+            a=geometry.a,
+            e1=geometry.e1,
+            e2=geometry.e2,
+            r3_complex=geometry.r3_complex,
+            lens_margin_parameters=margin_parameters,
+        )
+        topology = charted.topology
+        interval_parameters = charted.interval_parameters
+    else:
+        topology = define_radial_topology(
+            image_limb,
+            mask_limb,
+            rho,
+            margin_r=margin_r,
+            origin_inside=origin_inside,
+            track_roots=track_limb_roots,
+            lens_margin_parameters=margin_parameters,
+        )
+        interval_parameters = None
 
     real_dtype, complex_dtype = integration_dtypes(w_center)
     rho_grid = jnp.asarray(rho, dtype=real_dtype)
@@ -120,24 +145,52 @@ def mag_uniform_triple_boundary(
     normalization = jnp.pi * rho_grid**2
     cell_tolerance = 64.0 * jnp.finfo(real_dtype).eps
 
-    def radial_integrand(radius):
-        angular = angular_measure_triple_roots(
-            radius,
-            0.0,
-            2.0 * jnp.pi,
-            w_center_shifted_grid,
-            rho_grid,
-            shifted_grid,
-            cell_tolerance,
-            a=a_grid,
-            e1=e1_grid,
-            e2=e2_grid,
-            r3_complex=r3_complex_grid,
-        )
+    def radial_integrand(radius, interval_parameter=None):
+        if _compact_local_chart:
+            center = interval_parameter[0]
+            intervals = angular_intervals_triple_roots(
+                radius,
+                0.0,
+                2.0 * jnp.pi,
+                w_center_shifted_grid,
+                rho_grid,
+                shifted_grid,
+                cell_tolerance,
+                a=a_grid,
+                e1=e1_grid,
+                e2=e2_grid,
+                r3_complex=r3_complex_grid,
+                chart_center=center,
+            )
+            owned, n_owned = _owned_angular_intervals(
+                intervals.intervals, intervals.n_intervals, radius, interval_parameter, charted
+            )
+            active = jnp.arange(owned.shape[0]) < n_owned
+            widths = owned[:, 1] - owned[:, 0]
+            measure = jnp.sum(jnp.where(active, widths, 0.0))
+            angular_error = intervals.error
+            angular_status = intervals.status
+        else:
+            angular = angular_measure_triple_roots(
+                radius,
+                0.0,
+                2.0 * jnp.pi,
+                w_center_shifted_grid,
+                rho_grid,
+                shifted_grid,
+                cell_tolerance,
+                a=a_grid,
+                e1=e1_grid,
+                e2=e2_grid,
+                r3_complex=r3_complex_grid,
+            )
+            measure = angular.measure
+            angular_error = angular.error
+            angular_status = angular.status
         return RadialIntegrand(
-            radius * angular.measure,
-            jnp.abs(radius) * angular.error,
-            angular.status,
+            radius * measure,
+            jnp.abs(radius) * angular_error,
+            angular_status,
         )
 
     chunk_size = RADIAL_INTERVAL_CAPACITY if parallel_regions else radial_chunk_size
@@ -154,6 +207,7 @@ def mag_uniform_triple_boundary(
             angular_atol_grid * normalization,
             subdivisions=max_radial_subdivisions,
             single_cell_order=fixed_radial_order,
+            interval_parameters=interval_parameters,
             **integration_options,
         )
     else:
