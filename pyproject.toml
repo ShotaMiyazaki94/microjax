@@ -68,3 +68,6 @@ microjax = ["**/LICENSE", "data/*.txt"]
 
 [tool.setuptools.dynamic]
 version = { attr = "microjax.__version__" }
+
+[tool.black]
+line-length = 120

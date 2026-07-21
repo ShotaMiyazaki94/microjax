@@ -8,34 +8,10 @@ inverse-ray integration. The logic is designed for binary and triple lenses.
 from functools import partial
 
 import jax.numpy as jnp
-from jax import jit, lax
-
-from microjax.multipole import mag_hexadecapole
-from microjax.point_source import _images_point_source
+from jax import jit
 
 # Consistent array alias used across inverse_ray and trajectory modules
 Array = jnp.ndarray
-
-@partial(jit, static_argnames=("nlenses"))
-def test_full(w_points_shifted: Array, rho: float, nlenses: int = 2, **_params) -> Array:
-    """Return a boolean mask where hexadecapole is sufficient (no full solve).
-
-    For nlenses=2, combines a caustic-proximity test and a planetary-caustic
-    exclusion. For other ``nlenses`` values it returns ``False`` everywhere.
-    """
-    e1 = _params["e1"]
-    q = e1 / (1.0 - e1)
-    if nlenses==2:
-        # Compute hexadecapole approximation at every point and a test where it is sufficient
-        z, z_mask = _images_point_source(w_points_shifted, nlenses=nlenses, **_params)
-        mu_multi, delta_mu_multi = mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
-        test1 = _caustics_proximity_test(w_points_shifted, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params)
-        test2 = _planetary_caustic_test(w_points_shifted, rho, **_params)
-        test = jnp.where(q < 0.01, test1 & test2, test1)
-    else:
-        test = jnp.zeros_like(w_points_shifted).astype(jnp.bool_)
-    # test==True means no needs for inverse-ray shooting
-    return test
 
 @partial(jit, static_argnames=("nlenses"))
 def _caustics_proximity_test(
@@ -59,25 +35,32 @@ def _caustics_proximity_test(
     """
     if nlenses == 2:
         a, e1 = params["a"], params["e1"]
-        e2 = 1.0 - e1
-        # Derivatives
-        f = lambda z: - e1 / (z - a) - e2 / (z + a)
-        f_p = lambda z: e1 / (z - a) ** 2 + e2 / (z + a) ** 2
-        f_pp = lambda z: 2 * (e1 / (a - z) ** 3 - e2 / (a + z) ** 3)
+        lens_positions = jnp.asarray([a, -a])
+        lens_masses = jnp.asarray([e1, 1.0 - e1])
 
     elif nlenses == 3:
-        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
-        # Derivatives
-        f = lambda z: - e1 / (z - a) - e2 / (z + a) - (1 - e1 - e2) / (z + r3)
-        f_p = (
-            lambda z: e1 / (z - a) ** 2
-            + e2 / (z + a) ** 2
-            + (1 - e1 - e2) / (z + r3) ** 2
+        a, e1, e2 = params["a"], params["e1"], params["e2"]
+        if "r3_complex" in params:
+            r3_complex = params["r3_complex"]
+        else:
+            r3_complex = params["r3"] * jnp.exp(1j * params["psi"])
+        lens_positions = jnp.asarray([a, -a, r3_complex])
+        lens_masses = jnp.asarray([e1, e2, 1.0 - e1 - e2])
+    else:
+        raise ValueError("nlenses must be 2 or 3")
+
+    def derivative_sum(value, power):
+        expansion = (1,) * value.ndim
+        positions = lens_positions.reshape((-1,) + expansion)
+        masses = lens_masses.reshape((-1,) + expansion)
+        return jnp.sum(
+            masses / (value[None, ...] - positions) ** power,
+            axis=0,
         )
-        f_pp = (
-            lambda z: 2 * (e1 / (a - z) ** 3 - e2 / (a + z) ** 3)
-            + (1 - e1 - e2) / (z + r3) ** 3
-        )
+
+    f = lambda value: -derivative_sum(value, 1)
+    f_p = lambda value: derivative_sum(value, 2)
+    f_pp = lambda value: -2.0 * derivative_sum(value, 3)
     zbar = jnp.conjugate(z)
     zhat = jnp.conjugate(w) - f(z)
 
@@ -99,11 +82,24 @@ def _caustics_proximity_test(
     factor = jnp.abs(J * Jhat**2 / 
                      (Jhat*fpp_zbar*fp_z - jnp.conjugate(Jhat)  * fpp_z * fp_zbar * fp_zhat)
                      )
-    test_false_images = 0.5 * (~z_mask * factor).sum(axis=0) > c_f * (rho + rho_min)
-    test_false_images = jnp.where((~z_mask).sum(axis=0)==0, 
-                                  jnp.ones_like(test_false_images, dtype=jnp.bool_), 
-                                  test_false_images
-                                  )
+    n_false = (~z_mask).sum(axis=0)
+    if nlenses == 2:
+        # A binary polynomial has one conjugate ghost pair, so the historical
+        # half-sum estimates that pair's caustic distance.
+        false_image_scale = 0.5 * (~z_mask * factor).sum(axis=0)
+    else:
+        # A triple polynomial can carry several unrelated ghost pairs. Summing
+        # all six false-root scales lets distant pairs hide the one that is
+        # about to become physical. Every pair must therefore clear the guard.
+        false_image_scale = jnp.min(
+            jnp.where(~z_mask, factor, jnp.inf), axis=0
+        )
+    test_false_images = false_image_scale > c_f * (rho + rho_min)
+    test_false_images = jnp.where(
+        n_false == 0,
+        jnp.ones_like(test_false_images, dtype=jnp.bool_),
+        test_false_images,
+    )
     return test_false_images & test_multipole_and_cusp
 
 def _planetary_caustic_test(w: Array, rho: float, c_p: float = 2.0, **params) -> Array:

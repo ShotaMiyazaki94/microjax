@@ -1,4 +1,5 @@
 import numpy as np
+import jax
 import jax.numpy as jnp
 from jax import config
 
@@ -12,6 +13,7 @@ from microjax.point_source import (
     mag_point_source,
     critical_and_caustic_curves,
 )
+from microjax.lens_geometry import triple_lens_geometry
 
 import pytest
 
@@ -78,6 +80,104 @@ def test_triple_magnification_finite_far_field():
     A = float(np.array(mag_point_source(jnp.array(w), nlenses=3, **params)))
     # Should approach 1 for very large |w|
     assert np.isclose(A, 1.0, rtol=1e-8, atol=1e-8)
+
+
+def test_triple_geometry_keeps_binary_com_public_and_total_com_internal():
+    params = {"s": 0.9, "q": 0.3, "q3": 0.2, "r3": 0.4, "psi": 0.7}
+    geometry = triple_lens_geometry(**params)
+    expected_center_of_mass = (
+        -geometry.a * geometry.e2
+        + geometry.a * geometry.e1
+        + geometry.r3_complex * geometry.e3
+    )
+    expected_binary_shift = (
+        geometry.a * (1.0 - params["q"]) / (1.0 + params["q"])
+    )
+    assert np.isclose(complex(geometry.shifted), expected_binary_shift)
+    assert np.isclose(
+        complex(geometry.total_shifted), -complex(expected_center_of_mass)
+    )
+    assert not np.isclose(float(geometry.total_shifted.imag), 0.0)
+
+
+def test_triple_public_shift_is_independent_of_third_lens():
+    s, q = 0.9, 0.3
+    geometry = triple_lens_geometry(s, q, 0.8, 0.4, 0.7)
+    expected = 0.5 * s * (1.0 - q) / (1.0 + q)
+    assert np.isclose(complex(geometry.shifted), expected, atol=1e-15)
+
+
+def test_triple_magnification_matches_midpoint_frame_inverse_det():
+    params = {"s": 0.9, "q": 0.3, "q3": 0.2, "r3": 0.4, "psi": 0.7}
+    geometry = triple_lens_geometry(**params)
+    w_binary_com = jnp.asarray(-0.1 + 0.2j)
+    w_midpoint = w_binary_com - geometry.shifted
+    lens_params = {
+        "a": geometry.a,
+        "e1": geometry.e1,
+        "e2": geometry.e2,
+        "r3": params["r3"],
+        "psi": params["psi"],
+    }
+    images, mask = _images_point_source(
+        w_midpoint, nlenses=3, **lens_params
+    )
+    det = lens_eq_det_jac(images, nlenses=3, **lens_params)
+    expected = jnp.sum(jnp.where(mask, 1.0 / jnp.abs(det), 0.0))
+    actual = mag_point_source(w_binary_com, nlenses=3, **params)
+    assert np.isclose(float(actual), float(expected), rtol=1e-11, atol=1e-12)
+
+
+def test_triple_critical_caustic_mapping_uses_binary_center_of_mass():
+    params = {"s": 0.9, "q": 0.3, "q3": 0.2, "r3": 0.4, "psi": 0.7}
+    geometry = triple_lens_geometry(**params)
+    z_cr, z_ca = critical_and_caustic_curves(
+        npts=64, nlenses=3, **params
+    )
+    lens_params = {
+        "a": geometry.a,
+        "e1": geometry.e1,
+        "e2": geometry.e2,
+        "r3": params["r3"],
+        "psi": params["psi"],
+    }
+    z_cr_midpoint = z_cr - geometry.shifted
+    z_ca_midpoint = z_ca - geometry.shifted
+    mapped = lens_eq(z_cr_midpoint, nlenses=3, **lens_params)
+    assert np.allclose(
+        np.asarray(mapped), np.asarray(z_ca_midpoint), rtol=1e-8, atol=1e-8
+    )
+
+
+def test_triple_binary_frame_gradient_matches_both_ad_modes():
+    source = jnp.asarray(-0.1 + 0.2j)
+
+    def magnification(q3):
+        return mag_point_source(
+            source,
+            nlenses=3,
+            s=0.9,
+            q=0.3,
+            q3=q3,
+            r3=0.4,
+            psi=0.7,
+        )
+
+    q3 = jnp.asarray(0.2)
+    forward = jax.jacfwd(magnification)(q3)
+    reverse = jax.grad(magnification)(q3)
+    step = 1e-4
+    finite_difference = (
+        magnification(q3 - 2.0 * step)
+        - 8.0 * magnification(q3 - step)
+        + 8.0 * magnification(q3 + step)
+        - magnification(q3 + 2.0 * step)
+    ) / (12.0 * step)
+    assert np.isfinite(float(reverse))
+    assert np.isclose(float(reverse), float(forward), rtol=1e-10, atol=1e-9)
+    assert np.isclose(
+        float(forward), float(finite_difference), rtol=1e-8, atol=1e-7
+    )
 
 
 def test_invalid_nlenses_raises():

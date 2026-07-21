@@ -54,6 +54,7 @@ import jax.numpy as jnp
 from jax import jit, lax 
 
 from .extended_source import mag_extended_source
+from ..lens_geometry import triple_lens_geometry
 from ..point_source import _images_point_source
 
 from ..multipole import mag_hexadecapole
@@ -213,24 +214,28 @@ def magnifications(
     """
     if nlenses == 1:
         _params = {}
-        x_cm = 0 # miyazaki
+        shifted = 0
     elif nlenses == 2:
         s, q = params["s"], params["q"]
         a = 0.5 * s
         e1 = q / (1.0 + q) 
         _params = {"a": a, "e1": e1}
-        x_cm = a*(1 - q)/(1 + q)
+        shifted = a * (1 - q) / (1 + q)
 
     # Trigger the full calculation everywhere because I haven't figured out 
     # how to implement the ghost image test for nlenses > 2 yet
     elif nlenses == 3:
         s, q, q3 = params["s"], params["q"], params["q3"]
         r3, psi = params["r3"], params["psi"]
-        a = 0.5 * s
-        e1 = q / (1.0 + q + q3)
-        e2 = 1.0 / (1.0 + q + q3) #miyazaki
-        _params = {"a": a, "r3": r3, "psi": psi, "e1": e1, "e2": e2}
-        x_cm = a * (1.0 - q) / (1.0 + q)
+        geometry = triple_lens_geometry(s, q, q3, r3, psi)
+        _params = {
+            "a": geometry.a,
+            "r3": r3,
+            "psi": psi,
+            "e1": geometry.e1,
+            "e2": geometry.e2,
+        }
+        shifted = geometry.shifted
 
     else:
         raise ValueError("nlenses must be <= 3")
@@ -238,8 +243,7 @@ def magnifications(
 
     # Compute point images for a point source
     z, z_mask = _images_point_source(
-        w_points - x_cm, #miyazaki
-        #w_points + x_cm,
+        w_points - shifted,
         nlenses=nlenses,
         **_params
     )
@@ -252,11 +256,15 @@ def magnifications(
         # sufficient
         mu_multi, delta_mu_multi = mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
         test1 = _caustics_proximity_test(
-            w_points - x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params #miyazaki
-            #w_points + x_cm, z, z_mask, rho, delta_mu_multi, nlenses=nlenses,  **_params
+            w_points - shifted,
+            z,
+            z_mask,
+            rho,
+            delta_mu_multi,
+            nlenses=nlenses,
+            **_params,
         )
-        test2 = _planetary_caustic_test(w_points - x_cm, rho, **_params)
-        #test2 = _planetary_caustic_test(w_points + x_cm, rho, **_params)
+        test2 = _planetary_caustic_test(w_points - shifted, rho, **_params)
 
         test = lax.cond(
             q < 0.01, 

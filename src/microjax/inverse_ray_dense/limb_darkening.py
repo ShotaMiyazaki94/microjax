@@ -4,14 +4,12 @@ Currently implements a linear limb-darkening law with a custom JVP so that
 gradients remain informative near the limb.
 """
 
-import jax
 import jax.numpy as jnp
-from jax import jit
-from functools import partial
 from jax import custom_jvp
 from typing import Union
 
 Array = jnp.ndarray
+
 
 #@partial(jit, static_argnames=("u1"))
 @custom_jvp

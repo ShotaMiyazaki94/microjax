@@ -5,7 +5,6 @@ disk and for computing smooth boundary weights used in finite-source angular
 integration. Custom JVPs avoid zero gradients at discontinuities.
 """
 
-import jax 
 import jax.numpy as jnp
 from jax import custom_jvp
 from microjax.point_source import lens_eq
@@ -43,29 +42,6 @@ def calc_facB_jvp(primal, tangent):
     tangent_out = 2.0 / 3.0 * delta_B_dot # applying the 1.5-order rule
     return primal_out, tangent_out
 
-@custom_jvp
-def step_smooth(x: Union[float, Array], fac: float = 100.0) -> Union[float, Array]:
-    """Heaviside-like step with a sigmoid derivative for JVPs.
-
-    - Function value: hard step ``1[x>0]`` for exact classification.
-    - Derivative (JVP): steep sigmoid to provide nonzero gradients.
-    """
-    return jnp.where(x > 0, 1.0, 0.0)
-
-@step_smooth.defjvp
-def step_smooth_jvp(primal, tangent):
-    x, fac = primal
-    x_dot, fac_dot = tangent
-    primal_out = step_smooth(x)
-
-    z = x * fac
-    sigmoid = jax.nn.sigmoid(z)
-    dsig_dz = sigmoid * (1.0 - sigmoid)
-    dz_dx   = fac
-    dz_dfac = x
-    tangent_out = x_dot * dsig_dz * dz_dx + fac_dot * dsig_dz * dz_dfac
-    return primal_out, tangent_out 
-
 @custom_jvp 
 def in_source(distances: Array, rho: float) -> Array:
     """Smoothed indicator for whether points lie inside a circular source.
@@ -91,29 +67,6 @@ def in_source_jvp(primal, tangent):
     tangent_out = sigmoid_derivative * (dz_distances * distances_dot + dz_rho * rho_dot)
     primal_out = sigmoid
     return primal_out, tangent_out
-
-def distance_from_source_adaptive(
-    r0: float,
-    th_unit: Array,
-    th_min: float,
-    th_max: float,
-    w_center_shifted: complex,
-    shifted: float,
-    nlenses: int = 2,
-    **_params,
-) -> Array:
-    """Distance to source for adaptively sampled angles at radius ``r0``.
-
-    ``th_unit`` in [0, 1] maps linearly to ``[th_min, th_max]`` to support
-    adaptive angular refinement within a subinterval.
-    """
-    th_values = th_min + (th_max - th_min) * th_unit
-    x_th = r0 * jnp.cos(th_values)
-    y_th = r0 * jnp.sin(th_values)
-    z_th = x_th + 1j * y_th
-    image_mesh = lens_eq(z_th - shifted, nlenses=nlenses, **_params)
-    distances = jnp.abs(image_mesh - w_center_shifted)
-    return distances
 
 def distance_from_source(
     r0: float,

@@ -36,9 +36,16 @@ _DEFAULT_MAX_ITER = 100
 
 __all__ = [
     "poly_roots",
+    "poly_roots_self_inversive_robust_fixed",
+    "poly_roots_self_inversive_fixed",
     "poly_roots_EA",
+    "poly_roots_EA_self_inversive_robust_fixed",
+    "poly_roots_EA_self_inversive_fixed",
     "poly_roots_EA_multi",
 ]
+
+_FIXED_EA_ITERATIONS = 20
+_ROBUST_EA_ITERATIONS = 40
 
 
 def _as_complex(x: jax.Array) -> jax.Array:
@@ -149,6 +156,111 @@ def _ea_step(
     update = f / den
     new_roots = roots - update
     return new_roots, update
+
+
+def _poly_roots_EA_self_inversive_impl(
+    coeffs: jax.Array, iterations: int
+) -> jax.Array:
+    """Solve one self-inversive polynomial with a static EA iteration count."""
+
+    coeffs = _as_complex(coeffs)
+    n = coeffs.shape[0] - 1
+    assert n >= 1, "Polynomial degree must be >= 1"
+    radius = jnp.asarray(1.1, dtype=coeffs.real.dtype)
+    initial_roots = radius * jnp.exp(
+        2j * jnp.pi * (jnp.arange(n) + 0.25) / n
+    )
+    derivative_coeffs = _polyder_coeffs(coeffs)
+    eps = jnp.finfo(initial_roots.real.dtype).eps * 10.0
+
+    def step(_, roots):
+        updated, _ = _ea_step(roots, coeffs, derivative_coeffs, eps)
+        return updated
+
+    return lax.fori_loop(0, iterations, step, initial_roots)
+
+
+def _self_inversive_root_jvp(solver, primals, tangents):
+    """Implicit polynomial-root derivative shared by fixed EA schedules."""
+
+    (coeffs,) = primals
+    (coeffs_tangent,) = tangents
+    roots = solver(coeffs)
+    coeffs_complex = _as_complex(coeffs)
+    tangent_complex = _as_complex(coeffs_tangent)
+    derivative_coeffs = _polyder_coeffs(coeffs_complex)
+    derivative_at_roots = jnp.polyval(derivative_coeffs, roots)
+    degree = coeffs.shape[0] - 1
+    exponents = jnp.arange(degree, -1, -1)
+    vandermonde = roots[:, None] ** exponents[None, :]
+    roots_tangent = -(
+        vandermonde @ tangent_complex
+    ) / derivative_at_roots
+    return roots, roots_tangent
+
+
+@custom_jvp
+def poly_roots_EA_self_inversive_fixed(coeffs: jax.Array) -> jax.Array:
+    """Solve one polynomial with 20 fixed accelerator-friendly EA steps.
+
+    This schedule is intended for large homogeneous first-pass batches. Rare
+    failures remain explicit in downstream residual checks and can be compacted
+    into the robust 40-step schedule instead of making every GPU lane pay its
+    cost.
+    """
+
+    return _poly_roots_EA_self_inversive_impl(
+        coeffs, _FIXED_EA_ITERATIONS
+    )
+
+
+@poly_roots_EA_self_inversive_fixed.defjvp
+def _poly_roots_EA_self_inversive_fixed_jvp(primals, tangents):
+    return _self_inversive_root_jvp(
+        poly_roots_EA_self_inversive_fixed, primals, tangents
+    )
+
+
+@custom_jvp
+def poly_roots_EA_self_inversive_robust_fixed(
+    coeffs: jax.Array,
+) -> jax.Array:
+    """Solve one difficult polynomial with 40 fixed EA steps."""
+
+    return _poly_roots_EA_self_inversive_impl(
+        coeffs, _ROBUST_EA_ITERATIONS
+    )
+
+
+@poly_roots_EA_self_inversive_robust_fixed.defjvp
+def _poly_roots_EA_self_inversive_robust_fixed_jvp(primals, tangents):
+    return _self_inversive_root_jvp(
+        poly_roots_EA_self_inversive_robust_fixed, primals, tangents
+    )
+
+
+@jit
+def poly_roots_self_inversive_fixed(coeffs: jax.Array) -> jax.Array:
+    """Vectorize the fixed self-inversive solver over coefficient batches."""
+
+    ncoeffs = coeffs.shape[-1]
+    output_shape = coeffs.shape[:-1] + (ncoeffs - 1,)
+    coeffs_flat = coeffs.reshape((-1, ncoeffs))
+    roots = jax.vmap(poly_roots_EA_self_inversive_fixed)(coeffs_flat)
+    return roots.reshape(output_shape)
+
+
+@jit
+def poly_roots_self_inversive_robust_fixed(
+    coeffs: jax.Array,
+) -> jax.Array:
+    """Vectorize the robust fixed solver over coefficient batches."""
+
+    ncoeffs = coeffs.shape[-1]
+    output_shape = coeffs.shape[:-1] + (ncoeffs - 1,)
+    coeffs_flat = coeffs.reshape((-1, ncoeffs))
+    roots = jax.vmap(poly_roots_EA_self_inversive_robust_fixed)(coeffs_flat)
+    return roots.reshape(output_shape)
 
 
 @custom_jvp

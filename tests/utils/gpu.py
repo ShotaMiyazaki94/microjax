@@ -7,7 +7,9 @@ except Exception:  # pragma: no cover
 def has_cuda() -> bool:
     if jax is None:
         return False
-    try:
-        return len(jax.devices("cuda")) > 0
-    except Exception:
-        return False
+    for backend in ("gpu", "cuda"):
+        try:
+            return len(jax.devices(backend)) > 0
+        except Exception:
+            pass
+    return False

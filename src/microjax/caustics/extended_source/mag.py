@@ -24,6 +24,7 @@ import numpy as np
 import jax.numpy as jnp
 from jax import jit, lax, vmap
 
+from ...lens_geometry import triple_lens_geometry
 from ...utils import last_nonzero
 
 from ..integrate import _integrate_unif, _integrate_ld
@@ -105,12 +106,15 @@ def mag_extended_source(
     elif nlenses == 3:
         s, q, q3 = params["s"], params["q"], params["q3"]
         r3, psi = params["r3"], params["psi"]
-        a = 0.5 * s
-        e1 = q / (1.0 + q + q3)
-        e2 = (1 - q3) / (1.0 + q + q3)
-        _params = {"a": a, "r3": r3, "psi": psi, "e1": e1, "e2": e2}
-        x_cm = a * (1 - q) / (1 + q)
-        w0 -= x_cm
+        geometry = triple_lens_geometry(s, q, q3, r3, psi)
+        _params = {
+            "a": geometry.a,
+            "r3": r3,
+            "psi": psi,
+            "e1": geometry.e1,
+            "e2": geometry.e2,
+        }
+        w0 -= geometry.shifted
     else:
         raise ValueError("`nlenses` has to be set to be <= 3.")
 

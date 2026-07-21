@@ -66,6 +66,7 @@ from .poly_solver import poly_roots
 from .utils import match_points
 from .coeffs import _poly_coeffs_binary, _poly_coeffs_critical_binary
 from .coeffs import _poly_coeffs_critical_triple, _poly_coeffs_triple_CM
+from .lens_geometry import triple_lens_geometry
 
 #@partial(jit, static_argnames=("nlenses"))
 @partial(jit, static_argnames=("nlenses",))
@@ -211,8 +212,9 @@ def critical_and_caustic_curves(
     -----
     - For ``nlenses = 1`` the critical curve is the unit circle and the caustic
       collapses to the origin.
-    - Output is shifted from mid-point to center of mass for consistency with
-      the rest of the library.
+    - Output is shifted from the first-two-lens midpoint to their centre of
+      mass. For a triple lens this public frame remains independent of the
+      third body.
     """
     phi = jnp.linspace(-np.pi, np.pi, npts)
 
@@ -228,6 +230,7 @@ def critical_and_caustic_curves(
         a = 0.5 * s
         e1 = q / (1.0 + q)
         _params = {"a": a, "e1": e1}
+        shifted = a * (1.0 - q) / (1.0 + q)
         coeffs = jnp.moveaxis(_poly_coeffs_critical_binary(phi, a, e1), 0, -1)
 
     elif nlenses == 3:
@@ -238,13 +241,23 @@ def critical_and_caustic_curves(
             params["r3"],
             params["psi"],
         )
-        a = 0.5 * s
-        e1 = q / (1.0 + q + q3)
-        e2 = 1.0 / (1.0 + q + q3)
-        r3_complex = r3 * jnp.exp(1j * psi)
-        _params = {**params, "a": a, "e1": e1, "e2": e2, "r3": r3, "psi": psi}
+        geometry = triple_lens_geometry(s, q, q3, r3, psi)
+        a, e1, e2 = geometry.a, geometry.e1, geometry.e2
+        shifted = geometry.shifted
+        _params = {
+            **params,
+            "a": a,
+            "e1": e1,
+            "e2": e2,
+            "r3": r3,
+            "psi": psi,
+        }
         coeffs = jnp.moveaxis(
-            _poly_coeffs_critical_triple(phi, a, r3_complex, e1, e2), 0, -1
+            _poly_coeffs_critical_triple(
+                phi, a, geometry.r3_complex, e1, e2
+            ),
+            0,
+            -1,
         )
 
     else:
@@ -259,9 +272,8 @@ def critical_and_caustic_curves(
     # Caustics are critical curves mapped by the lens equation
     z_ca = lens_eq(z_cr, nlenses=nlenses, **_params)
 
-    # Shift from mid-point to center-of-mass
-    x_cm = 0.5 * s * (1.0 - q) / (1.0 + q)
-    z_cr, z_ca = z_cr + x_cm, z_ca + x_cm
+    # Shift from the first-two-lens midpoint to the public binary-COM frame.
+    z_cr, z_ca = z_cr + shifted, z_ca + shifted
 
     return z_cr, z_ca
 
@@ -425,7 +437,8 @@ def mag_point_source(w, nlenses=2, **params):
           shifted to the center of mass for the polynomial construction.
         - ``nlenses = 3``: ``s``, ``q``, ``q3``, ``r3`` and ``psi``. Internally
           ``a = s / 2``, ``e1 = q / (1 + q + q3)``, ``e2 = 1 / (1 + q + q3)``,
-          and the same center-of-mass shift is applied.
+          while the public source origin remains the centre of mass of the
+          first two lenses.
 
     Returns
     -------
@@ -454,12 +467,16 @@ def mag_point_source(w, nlenses=2, **params):
             params["r3"],
             params["psi"],
         )
-        a = 0.5 * s
-        e1 = q / (1.0 + q + q3)
-        e2 = 1.0 / (1.0 + q + q3)
-        _params = {**params, "a": a, "e1": e1, "e2": e2, "r3": r3, "psi": psi}
-        x_cm = a * (1.0 - q) / (1.0 + q)
-        w -= x_cm
+        geometry = triple_lens_geometry(s, q, q3, r3, psi)
+        _params = {
+            **params,
+            "a": geometry.a,
+            "e1": geometry.e1,
+            "e2": geometry.e2,
+            "r3": r3,
+            "psi": psi,
+        }
+        w -= geometry.shifted
     else:
         raise ValueError("`nlenses` has to be set to be <= 3.")
 
