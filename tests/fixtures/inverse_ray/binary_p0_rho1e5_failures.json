@@ -1,0 +1,69 @@
+{
+  "provenance": {
+    "source": "dev/reports/microjax-paper-diff/assets/local_image_rescue_validation_gpu_a100.csv",
+    "device": "NVIDIA A100-PCIE-40GB",
+    "jax": "0.10.2",
+    "VBBinaryLensing": "3.7.0",
+    "seed": 270000,
+    "Nlimb": 500,
+    "angular_atol": 1e-5,
+    "relative_tolerance": 1e-4,
+    "description": "All exact rho=1e-5 points rejected after global and local boundary passes in the 2026-07-19 576-point audit."
+  },
+  "cases": [
+    {
+      "id": "case_016_point_8",
+      "q": 0.0001,
+      "s": 1.0,
+      "rho": 1e-5,
+      "source_x": -0.024684250448039,
+      "source_y": -0.003090372198007001,
+      "vbbl": 171.1741114360385
+    },
+    {
+      "id": "case_016_point_15",
+      "q": 0.0001,
+      "s": 1.0,
+      "rho": 1e-5,
+      "source_x": -0.026385929768259746,
+      "source_y": -0.0031806167303971935,
+      "vbbl": 155.7733908292942
+    },
+    {
+      "id": "case_028_point_0",
+      "q": 0.001,
+      "s": 1.0,
+      "rho": 1e-5,
+      "source_x": 0.11132596199425286,
+      "source_y": -0.002623190215929454,
+      "vbbl": 123.09665592618414
+    },
+    {
+      "id": "case_028_point_8",
+      "q": 0.001,
+      "s": 1.0,
+      "rho": 1e-5,
+      "source_x": 0.11958954344003424,
+      "source_y": 0.0017411413288563823,
+      "vbbl": 161.10976110524592
+    },
+    {
+      "id": "case_028_point_10",
+      "q": 0.001,
+      "s": 1.0,
+      "rho": 1e-5,
+      "source_x": 0.12232826236658526,
+      "source_y": 0.0014885900378438861,
+      "vbbl": 66.64704309727523
+    },
+    {
+      "id": "case_028_point_13",
+      "q": 0.001,
+      "s": 1.0,
+      "rho": 1e-5,
+      "source_x": 0.07737086951125532,
+      "source_y": -0.007504133486035619,
+      "vbbl": 75.65435180329817
+    }
+  ]
+}
