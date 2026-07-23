@@ -66,7 +66,7 @@ def _uniform_single_pass(point, rho, s, q, use_local_chart):
         s=s,
         q=q,
         Nlimb=500,
-        margin_r=1.0,
+        margin_r=0.5,
         angular_atol=1e-5,
         relative_tolerance=1e-4,
         max_radial_subdivisions=1,
@@ -102,7 +102,7 @@ def test_small_q_public_path_matches_local_chart_value_and_forward_q():
     point = 0.9699918738276432 - 0.001572032916854858j
     rho, s = 1e-4, 1.6
     q = jnp.asarray(1e-4)
-    config = BinaryMagConfig(n_limb=500, margin_r=1.0)
+    config = BinaryMagConfig(n_limb=500)
     public = lambda mass_ratio: mag_binary(
         jnp.asarray([point]), rho, s=s, q=mass_ratio, config=config
     )[0]
@@ -149,7 +149,7 @@ def test_far_field_uses_multipole_matches_internal():
         rho,
         s=s,
         q=q,
-        config=BinaryMagConfig(n_limb=500, margin_r=0.5),
+        config=BinaryMagConfig(n_limb=500),
     )
     # All far-field points pass the multipole gate.
     assert np.allclose(np.array(mags), np.array(mu_multi), rtol=1e-6, atol=1e-8)
@@ -203,7 +203,7 @@ def test_boundary_lightcurve_supports_linear_limb_darkening():
         s=s,
         q=q,
         u1=u1,
-        config=BinaryMagConfig(n_limb=500, margin_r=0.5),
+        config=BinaryMagConfig(n_limb=500),
     )
 
     assert np.isfinite(float(expected))
@@ -270,7 +270,7 @@ def test_binary_lightcurve_matches_vbbl(s, q, u0, tE, rho, alpha):
         rho,
         s=s,
         q=q,
-        config=BinaryMagConfig(n_limb=500, margin_r=0.5),
+        config=BinaryMagConfig(n_limb=500),
     )
 
     diff = np.array(mags) - np.array(mag_vb)

@@ -2,6 +2,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
+from dataclasses import fields
 
 from microjax.inverse_ray import TripleMagConfig, mag_triple
 from microjax.inverse_ray.config import DEFAULT_TRIPLE_CONFIG
@@ -19,7 +20,7 @@ PARAMS = {"s": 0.9, "q": 0.3, "q3": 0.2, "r3": 0.4, "psi": 0.7}
 def test_triple_config_has_the_one_pass_defaults():
     assert DEFAULT_TRIPLE_CONFIG == TripleMagConfig()
     assert DEFAULT_TRIPLE_CONFIG.n_limb == 500
-    assert DEFAULT_TRIPLE_CONFIG.margin_r == 0.5
+    assert [field.name for field in fields(TripleMagConfig)] == ["n_limb"]
 
 
 @pytest.mark.parametrize(
@@ -53,7 +54,7 @@ def test_triple_public_path_is_finite_on_gpu(u1):
         points,
         1e-2,
         u1=u1,
-        config=TripleMagConfig(n_limb=40, angular_atol=1e-3),
+        config=TripleMagConfig(n_limb=40),
         **PARAMS,
     )
     assert result.shape == points.shape
@@ -62,7 +63,7 @@ def test_triple_public_path_is_finite_on_gpu(u1):
         w_center=points[0],
         rho=1e-2,
         Nlimb=40,
-        angular_atol=1e-3,
+        angular_atol=1e-5,
         relative_tolerance=1e-4,
         max_radial_subdivisions=1,
         radial_strategy="fixed",
@@ -88,7 +89,7 @@ def test_triple_public_path_has_finite_forward_q3_derivative_on_gpu():
     if not has_cuda():
         pytest.skip("CUDA GPU not available")
     point = jnp.asarray([0.2 + 0.1j])
-    config = TripleMagConfig(n_limb=40, angular_atol=1e-3)
+    config = TripleMagConfig(n_limb=40)
     fixed_params = {name: value for name, value in PARAMS.items() if name != "q3"}
 
     def evaluate(q3):

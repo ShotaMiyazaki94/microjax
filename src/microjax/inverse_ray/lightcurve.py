@@ -1,39 +1,18 @@
-"""Single-pass boundary inverse-ray light-curve solvers.
+"""Finite-source binary- and triple-lens light curves.
 
-This package contains the current ``mag_binary`` and ``mag_triple`` algorithms:
-image-boundary detection followed by one bounded radial integration pass.
-Legacy retry and dense-grid implementations live in ``inverse_ray_retry`` and
-``inverse_ray_dense`` respectively.
+Use :func:`mag_binary` and :func:`mag_triple` with a complex source trajectory.
+For source positions sufficiently far from caustics, microJAX uses a fast
+finite-source approximation. Where a full calculation is needed, it traces
+the lensed images of the circular source boundary and integrates the enclosed
+brightness.
 
-Design highlights
------------------
+Both functions support a uniform source (``u1=0``) and linear limb darkening
+(``u1>0``). They are designed for JAX compilation, vectorization, and
+forward-mode automatic differentiation.
 
-- **Hexadecapole-first evaluation**: start from the multipole estimate and
-  upgrade only samples that fail the accuracy heuristics.
-- **Retry-free public fast path**: each solver sends rejected
-  source through one shallow fixed-1 boundary kernel, returning its
-  best-effort value unless a structural check fails.
-- **Lens-aware triggers**: both solvers use multipole and caustic-proximity
-  tests; the binary path adds its planetary-caustic guard.
-- **Internal GPU batching**: evaluate inverse-ray calls in fixed-size tiles;
-  this scheduler choice is deliberately absent from the numerical API.
-- **Limb-darkening aware**: support both uniform and linear limb-darkened
-  profiles through the ``u1`` parameter.
-
-Workflow outline
-----------------
-
-1. Build a complex source-plane trajectory ``w_points``.
-2. Call :func:`mag_binary` or :func:`mag_triple` with lens parameters and
-   integration settings.
-3. Feed the returned magnifications into downstream likelihoods (see
-   :mod:`microjax.likelihood`).
-
-References
-----------
-
-- Miyazaki & Kawahara (in prep.) — description of the adaptive microJAX
-  solver stack (forthcoming).
+The returned values are numerical estimates without a guaranteed error bound.
+If a valid image boundary or integration region cannot be constructed, the
+corresponding result is ``NaN``.
 """
 
 __all__ = ["mag_binary", "mag_triple"]
@@ -72,6 +51,16 @@ from microjax.point_source import _images_point_source
 # Consistent array alias used across modules
 Array = jnp.ndarray
 _SOURCE_TILE_SIZE = 100
+# Geometry padding, error diagnostics, and region scheduling are implementation
+# details of the public one-pass path. They are fixed here so users do not
+# mistake them for accuracy guarantees or physical model parameters.
+_BOUNDARY_MARGIN_R = 0.5
+_BOUNDARY_ABSOLUTE_TOLERANCE = 1.0e-5
+_PARALLEL_REGIONS = False
+# The public one-pass path does not guarantee or adapt to this empirical
+# radial-error threshold. Keep it as an internal diagnostic setting rather
+# than presenting it as a user-controlled accuracy knob.
+_BOUNDARY_RELATIVE_TOLERANCE = 1.0e-4
 # Match the existing planetary prefilter regime so HMC sees no additional
 # parameter-space branch boundary. Both kernels stay in one compiled graph;
 # scalar lax.cond executes only the selected source-vmap at runtime.
@@ -256,30 +245,37 @@ def _mag_binary_single_pass_impl(
     u1: float = 0.0,
     config: BinaryMagConfig = DEFAULT_BINARY_CONFIG,
 ) -> Array:
-    """Binary light curve with one fixed, retry-free boundary pass.
+    """Compute finite-source magnification for a binary lens.
 
-    The hexadecapole approximation is evaluated over the complete trajectory.
-    Samples rejected by its accuracy tests are compacted once and evaluated by
-    one regular shallow boundary kernel. Uniform and linear limb-darkened
-    sources use one unsplit radial cell and the fixed EA20 root solver. Uniform
-    Both uniform and linear limb-darkened brightness use the embedded G15/K31
-    radial rule, keeping their radial root-sampling density consistent.
+    Parameters
+    ----------
+    w_points
+        Complex source positions. The real and imaginary parts are the two
+        source-plane coordinates in Einstein-radius units.
+    rho
+        Angular source radius in Einstein-radius units.
+    s
+        Projected binary-lens separation.
+    q
+        Mass ratio of the second lens to the first.
+    u1
+        Linear limb-darkening coefficient. Use zero for a uniform source.
+    config
+        Source-boundary sampling configuration. The default is recommended for
+        normal use.
 
-    No failed source is rerun with another radial depth or backend. In the
-    uniform-source graph at ``q < 0.01``, a radially separated and angularly
-    narrow planetary branch may carry a local chart centre through the same
-    radial scheduler; larger mass ratios use only the global centre-of-mass
-    chart. Both paths share one static JAX graph and are selected outside the
-    source ``vmap``.
-    Root, capacity, topology, and non-finite failures remain ``NaN``.
-    A radial embedded-error warning does not discard the one-pass estimate;
-    this is deliberately a best-effort fast path rather than a guarantee that
-    every value meets ``config.angular_atol``/``config.relative_tolerance``. Use
-    ``microjax.inverse_ray_retry.mag_binary_safe`` when that strict acceptance
-    contract is required.
+    Returns
+    -------
+    Array
+        Magnification at each input source position. A value is ``NaN`` when
+        microJAX cannot construct a valid image boundary or integration region.
 
-    Every point rejected by the multipole gate is evaluated by the boundary
-    kernel. GPU tiling is an internal scheduler detail, not a numerical option.
+    Notes
+    -----
+    The function uses a fast approximation away from caustics and a full
+    image-boundary integration where needed. The full calculation uses a fixed
+    amount of work and is not automatically repeated with more expensive
+    settings. Returned finite values do not carry a guaranteed error bound.
     """
 
     multipole, accepted = _binary_prefilter(w_points, rho, u1, s, q)
@@ -291,11 +287,11 @@ def _mag_binary_single_pass_impl(
                 result = mag_uniform_boundary(
                     w,
                     rho,
-                    margin_r=config.margin_r,
+                    margin_r=_BOUNDARY_MARGIN_R,
                     Nlimb=config.n_limb,
-                    angular_atol=config.angular_atol,
-                    relative_tolerance=config.relative_tolerance,
-                    parallel_regions=config.parallel_regions,
+                    angular_atol=_BOUNDARY_ABSOLUTE_TOLERANCE,
+                    relative_tolerance=_BOUNDARY_RELATIVE_TOLERANCE,
+                    parallel_regions=_PARALLEL_REGIONS,
                     max_radial_subdivisions=1,
                     fixed_radial_order=31,
                     robust_roots=False,
@@ -316,11 +312,11 @@ def _mag_binary_single_pass_impl(
                     w,
                     rho,
                     u1=u1,
-                    margin_r=config.margin_r,
+                    margin_r=_BOUNDARY_MARGIN_R,
                     Nlimb=config.n_limb,
-                    angular_atol=config.angular_atol,
-                    relative_tolerance=config.relative_tolerance,
-                    parallel_regions=config.parallel_regions,
+                    angular_atol=_BOUNDARY_ABSOLUTE_TOLERANCE,
+                    relative_tolerance=_BOUNDARY_RELATIVE_TOLERANCE,
+                    parallel_regions=_PARALLEL_REGIONS,
                     max_radial_subdivisions=1,
                     robust_roots=False,
                     radial_strategy="fixed",
@@ -369,21 +365,38 @@ def _mag_triple_single_pass_impl(
     u1: float = 0.0,
     config: TripleMagConfig = DEFAULT_TRIPLE_CONFIG,
 ) -> Array:
-    """Triple light curve with one fixed, retry-free boundary pass.
+    """Compute finite-source magnification for a triple lens.
 
-    A triple-lens hexadecapole estimate is evaluated for the complete source
-    trajectory. Samples rejected by the generic caustic-proximity tests are
-    compacted once and evaluated with exact degree-eight angular boundary
-    roots and one unsplit G15/K31 radial pass. Uniform and linear
-    limb-darkened sources share the same topology and radial node density.
+    Parameters
+    ----------
+    w_points
+        Complex source positions in Einstein-radius units.
+    rho
+        Angular source radius in Einstein-radius units.
+    s, q
+        Separation and mass ratio of the first two lenses.
+    q3
+        Mass of the third lens relative to the first.
+    r3, psi
+        Distance and position angle of the third lens.
+    u1
+        Linear limb-darkening coefficient. Use zero for a uniform source.
+    config
+        Source-boundary sampling configuration. The default is recommended for
+        normal use.
 
-    Public source coordinates retain the centre of mass of the first two
-    lenses. Einstein-ring images keep that global polar chart, while a
-    spatially isolated image with a very small global angular span is assigned
-    an image-local chart from the same source-limb solve.
-    Structural root, topology, capacity, and non-finite failures return
-    ``NaN``. A radial embedded-error warning retains its finite best-effort
-    value, matching the retry-free contract of :func:`mag_binary`.
+    Returns
+    -------
+    Array
+        Magnification at each input source position. A value is ``NaN`` when
+        microJAX cannot construct a valid image boundary or integration region.
+
+    Notes
+    -----
+    The function uses a fast approximation away from caustics and a full
+    image-boundary integration where needed. Small isolated images are handled
+    in coordinates centred near those images to avoid loss of angular
+    resolution. Returned finite values do not carry a guaranteed error bound.
     """
 
     multipole, accepted = _triple_prefilter(w_points, rho, u1, s, q, q3, r3, psi)
@@ -400,10 +413,10 @@ def _mag_triple_single_pass_impl(
                 r3=r3,
                 psi=psi,
                 Nlimb=config.n_limb,
-                margin_r=config.margin_r,
-                angular_atol=config.angular_atol,
-                relative_tolerance=config.relative_tolerance,
-                parallel_regions=config.parallel_regions,
+                margin_r=_BOUNDARY_MARGIN_R,
+                angular_atol=_BOUNDARY_ABSOLUTE_TOLERANCE,
+                relative_tolerance=_BOUNDARY_RELATIVE_TOLERANCE,
+                parallel_regions=_PARALLEL_REGIONS,
                 max_radial_subdivisions=1,
                 radial_strategy="fixed",
                 radial_chunk_size=8,
@@ -427,10 +440,10 @@ def _mag_triple_single_pass_impl(
                 nlenses=3,
                 u1=u1,
                 Nlimb=config.n_limb,
-                margin_r=config.margin_r,
-                angular_atol=config.angular_atol,
-                relative_tolerance=config.relative_tolerance,
-                parallel_regions=config.parallel_regions,
+                margin_r=_BOUNDARY_MARGIN_R,
+                angular_atol=_BOUNDARY_ABSOLUTE_TOLERANCE,
+                relative_tolerance=_BOUNDARY_RELATIVE_TOLERANCE,
+                parallel_regions=_PARALLEL_REGIONS,
                 max_radial_subdivisions=1,
                 radial_strategy="fixed",
                 certify_topology=False,

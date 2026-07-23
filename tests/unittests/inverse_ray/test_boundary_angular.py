@@ -1,5 +1,5 @@
 import json
-from dataclasses import replace
+from dataclasses import fields
 from pathlib import Path
 
 import jax
@@ -537,12 +537,7 @@ def test_safe_lightcurve_rescues_small_planet_boundary_failure():
         1e-4,
         s=common["s"],
         q=common["q"],
-        config=BinaryMagConfig(
-            n_limb=common["Nlimb"],
-            margin_r=common["margin_r"],
-            angular_atol=common["angular_atol"],
-            relative_tolerance=common["relative_tolerance"],
-        ),
+        config=BinaryMagConfig(n_limb=common["Nlimb"]),
     )
 
     assert int(global_boundary.status) != ANGULAR_OK
@@ -608,7 +603,7 @@ def test_uniform_boundary_refines_difficult_resonant_caustic_cell():
         0.03,
         s=1.0,
         q=0.05,
-        config=BinaryMagConfig(n_limb=500, margin_r=1.0),
+        config=BinaryMagConfig(n_limb=500),
     )
     vbbl = 5.611936739107956
     tolerance = 1e-5 + 1e-4 * abs(float(boundary.magnification))
@@ -626,7 +621,7 @@ def test_uniform_boundary_refines_difficult_resonant_caustic_cell():
             0.03,
             s=1.0,
             q=0.05,
-            config=BinaryMagConfig(n_limb=500, margin_r=1.0),
+            config=BinaryMagConfig(n_limb=500),
         )[0]
 
     real = jnp.asarray(-0.22880106808663814)
@@ -720,7 +715,7 @@ def test_single_pass_fixed_one_is_best_effort_and_safe_closes_saved_failure():
         case["rho"],
         s=case["s"],
         q=case["q"],
-        config=BinaryMagConfig(n_limb=500, margin_r=1.0),
+        config=BinaryMagConfig(n_limb=500),
     )[0]
     reference = float(case["vbbl"])
     tolerance = 1e-5 + 1e-4 * abs(reference)
@@ -1129,25 +1124,14 @@ def test_transient_fold_pair_integration_matches_reference():
     assert np.isclose(float(result.magnification), vbbl, rtol=0.0, atol=5e-6)
 
 
-def test_binary_boundary_backend_parallel_regions_matches_sequential():
-    s, q, _, _, _, w_center, _, rho = _binary_setup()
-    w_points = jnp.asarray([w_center])
-    config = BinaryMagConfig(n_limb=500, margin_r=0.5)
-    sequential = mag_binary(w_points, rho, s=s, q=q, config=config)
-    parallel_argument = mag_binary(w_points, rho, s=s, q=q, config=replace(config, parallel_regions=True))
-
-    assert np.allclose(
-        np.asarray(sequential),
-        np.asarray(parallel_argument),
-        rtol=0.0,
-        atol=1e-10,
-    )
+def test_binary_public_config_exposes_only_topology_sampling():
+    assert [field.name for field in fields(BinaryMagConfig)] == ["n_limb"]
 
 
 def test_binary_fast_path_retains_tolerance_warning_without_dense_retry():
     s, q, _, _, _, w_center, _, rho = _binary_setup()
     w_points = jnp.asarray([w_center])
-    config = BinaryMagConfig(n_limb=40, margin_r=0.5, relative_tolerance=0.0)
+    config = BinaryMagConfig(n_limb=40)
     failed_boundary = mag_uniform_boundary(
         w_center,
         rho,
@@ -1168,7 +1152,7 @@ def test_binary_fast_path_retains_tolerance_warning_without_dense_retry():
         Nlimb=40,
         margin_r=0.5,
     )
-    boundary = mag_binary(w_points, rho, s=s, q=q, config=replace(config, angular_atol=0.0))
+    boundary = mag_binary(w_points, rho, s=s, q=q, config=config)
     dense = mag_binary_dense(
         w_points,
         rho,
