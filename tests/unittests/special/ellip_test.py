@@ -1,7 +1,7 @@
 from scipy.special import ellipe as ellipe_s
 from scipy.special import ellipk as ellipk_s
-from microjax.fastlens.special import ellipe
-from microjax.fastlens.special import ellipk
+from microjax.fspl.special import ellipe
+from microjax.fspl.special import ellipk
 import numpy as np
 import jax.numpy as jnp
 from jax import jit, vmap

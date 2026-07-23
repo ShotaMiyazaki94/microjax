@@ -49,6 +49,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Usage Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#common-setup">Common setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#point-source-magnification">Point-source magnification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#finite-source-point-lens">Finite-source point lens</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#finite-source-binary-lenses">Finite-source binary lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#triple-lenses">Triple lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a></li>
@@ -123,6 +124,19 @@ is x and the imaginary part is y.</p>
 <p>For a triple lens, add <code class="docutils literal notranslate"><span class="pre">q3</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code>, and <code class="docutils literal notranslate"><span class="pre">psi</span></code>. Here <code class="docutils literal notranslate"><span class="pre">q3</span></code> is the third
 mass relative to lens 1, <code class="docutils literal notranslate"><span class="pre">r3</span></code> is its separation parameter, and <code class="docutils literal notranslate"><span class="pre">psi</span></code> is its
 position angle in radians.</p>
+</section>
+<section id="finite-source-point-lens">
+<h2>Finite-source point lens<a class="headerlink" href="#finite-source-point-lens" title="Link to this heading"></a></h2>
+<p>For a circular source magnified by one point lens, construct an FSPL source
+profile and evaluate its <code class="docutils literal notranslate"><span class="pre">A(u,</span> <span class="pre">rho)</span></code> method. Here <code class="docutils literal notranslate"><span class="pre">u</span></code> is the lens-source
+separation and <code class="docutils literal notranslate"><span class="pre">rho</span></code> is the source radius, both in Einstein-radius units.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">microjax.fspl</span><span class="w"> </span><span class="kn">import</span> <span class="n">fspl_disk</span><span class="p">,</span> <span class="n">fspl_ld1</span>
+
+<span class="n">u</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+<span class="n">mu_uniform</span> <span class="o">=</span> <span class="n">fspl_disk</span><span class="p">()</span><span class="o">.</span><span class="n">A</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+<span class="n">mu_limb_darkened</span> <span class="o">=</span> <span class="n">fspl_ld1</span><span class="p">(</span><span class="n">a1</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">A</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+</pre></div>
+</div>
 </section>
 <section id="finite-source-binary-lenses">
 <h2>Finite-source binary lenses<a class="headerlink" href="#finite-source-binary-lenses" title="Link to this heading"></a></h2>

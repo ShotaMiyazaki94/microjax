@@ -5,7 +5,7 @@ from jax import custom_jvp
 
 # from jax.scipy.special import digamma
 # from jax.lax import digamma
-# from microjax.fastlens.gamma_jax import gamma_jax as gamma
+# from microjax.fspl.gamma_jax import gamma_jax as gamma
 
 __all__ = ["gamma", "ellipk", "ellipe", "j0", "j1", "j2", "j1p5"]
 

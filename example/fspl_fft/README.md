@@ -1,7 +1,7 @@
 # FSPL FFT vs VBBL comparison (JAX)
 
 Minimal example to benchmark the JAX FFT‑based finite‐source point‑lens (FSPL)
-implementation (`microjax.fastlens.fspl_*`) against **VBBinaryLensing** (VBBL).
+implementation (`microjax.fspl.fspl_*`) against **VBBinaryLensing** (VBBL).
 It produces magnification curves and relative residuals along a Paczynski track
 for a grid of source sizes.
 

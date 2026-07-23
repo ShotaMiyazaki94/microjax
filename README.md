@@ -131,6 +131,17 @@ mu_triple = mag_triple(
 )
 ```
 
+For a circular finite source magnified by one point lens, use the dedicated
+FSPL implementation:
+
+```python
+from microjax.fspl import fspl_disk, fspl_ld1
+
+u = jnp.linspace(0.0, 1.0, 1000)
+mu_fspl = fspl_disk().A(u, rho=0.01)
+mu_fspl_ld = fspl_ld1(a1=0.5).A(u, rho=0.01)
+```
+
 The first call includes JAX compilation time. For timing, run one warm-up call,
 block until the result is ready, and then time repeated evaluations.
 

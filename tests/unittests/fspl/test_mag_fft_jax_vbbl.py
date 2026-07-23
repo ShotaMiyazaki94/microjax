@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from microjax.fastlens.mag_fft_jax import fspl_disk, fspl_ld1
+from microjax.fspl.mag_fft_jax import fspl_disk, fspl_ld1
 
 
 @pytest.fixture(scope="module")

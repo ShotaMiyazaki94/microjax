@@ -6,9 +6,9 @@ but stays fully differentiable and JIT-friendly. The main entry points are
 """
 
 import jax.numpy as jnp
-from microjax.fastlens.fftlog_jax import fftlog, hankel
-from microjax.fastlens.special import gamma, j1, j2, j1p5
-from microjax.fastlens.special import ellipk, ellipe
+from microjax.fspl.fftlog_jax import fftlog, hankel
+from microjax.fspl.special import gamma, j1, j2, j1p5
+from microjax.fspl.special import ellipk, ellipe
 from jax import lax
 
 
@@ -225,7 +225,7 @@ class fspl_log(fspl):
 # ---------------------------------------------------------------------------
 # Backward-compatibility aliases
 # ---------------------------------------------------------------------------
-# Older CPU code exposes ``magnification_disk`` in ``fastlens.mag_fft``.  Some
+# Older CPU code exposes ``magnification_disk`` in ``fspl._legacy.mag_fft``. Some
 # downstream projects (e.g., jacscanomaly) still import that name from the JAX
 # module.  The fspl_disk class is API compatible (constructor signature and
 # ``A(u, rho)`` method), so we expose a lightweight alias here to avoid breaking

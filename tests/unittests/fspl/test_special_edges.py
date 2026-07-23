@@ -4,7 +4,7 @@ from jax import config
 
 config.update("jax_enable_x64", True)
 
-from microjax.fastlens.special import j0, j1, j2, j1p5, ellipk, ellipe
+from microjax.fspl.special import j0, j1, j2, j1p5, ellipk, ellipe
 from scipy.special import j0 as j0_s, j1 as j1_s, jn as jn_s, jv as jv_s
 from scipy.special import ellipk as ellipk_s, ellipe as ellipe_s
 

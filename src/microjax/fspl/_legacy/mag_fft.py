@@ -1,7 +1,7 @@
 """Legacy (CPU) implementation of FFT-based extended-source magnification."""
 
 import numpy as np
-from microjax.fastlens._legacy.fftlog import fftlog, hankel
+from microjax.fspl._legacy.fftlog import fftlog, hankel
 from scipy.special import gamma
 from scipy.special import j0, j1, jn, ellipk, ellipe
 

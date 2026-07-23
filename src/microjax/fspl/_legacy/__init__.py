@@ -1,4 +1,4 @@
-# Legacy (CPU) implementations.
+# Legacy CPU implementations retained as an internal reference.
 from .fftlog import fftlog, hankel
 from .mag_fft import (
     magnification,

@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pytest
 
-from microjax.fastlens.mag_fft_jax import fspl_disk, fspl_ld1
+from microjax.fspl.mag_fft_jax import fspl_disk, fspl_ld1
 
 
 @pytest.fixture(scope="module")
@@ -18,10 +18,10 @@ def vbbl():
 RHO_FAST = np.logspace(-3, 2, 4)      # 1e-3 .. 1e2, 4 pts
 UOVER_FAST = np.logspace(-2, 2, 9)    # 0.01 .. 100, 9 pts
 
-# Slow grid (full coverage): only when FASTLENS_SLOW=1
+# Slow grid (full coverage): only when FSPL_SLOW=1
 RHO_SLOW = np.logspace(-3, 2, 8)      # 1e-3 .. 1e2, 8 pts
 UOVER_SLOW = np.logspace(-2, 2, 25)   # 0.01 .. 100, 25 pts
-RUN_SLOW = os.getenv("FASTLENS_SLOW") == "1"
+RUN_SLOW = os.getenv("FSPL_SLOW") == "1"
 
 
 def _max_rel_err_disk(vbbl, rhos, u_over, n_fft=2048, n_pad=2048):
@@ -67,13 +67,13 @@ def test_limb_vs_vbbl_fast_grid(vbbl, a1, tol):
     assert max_err < tol
 
 
-@pytest.mark.skipif(not RUN_SLOW, reason="set FASTLENS_SLOW=1 to run slow wide-grid validation")
+@pytest.mark.skipif(not RUN_SLOW, reason="set FSPL_SLOW=1 to run slow wide-grid validation")
 def test_disk_vs_vbbl_wide_grid(vbbl):
     max_err = _max_rel_err_disk(vbbl, RHO_SLOW, UOVER_SLOW, n_fft=2048)
     assert max_err < 2e-3  # 0.2%
 
 
-@pytest.mark.skipif(not RUN_SLOW, reason="set FASTLENS_SLOW=1 to run slow wide-grid validation")
+@pytest.mark.skipif(not RUN_SLOW, reason="set FSPL_SLOW=1 to run slow wide-grid validation")
 @pytest.mark.parametrize(
     "a1, tol",
     [

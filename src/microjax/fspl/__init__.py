@@ -1,6 +1,4 @@
-"""
-Public API for fastlens.
-"""
+"""Finite-source point-lens (FSPL) magnification."""
 
 # Public JAX implementations
 from .fftlog_jax import fftlog, hankel

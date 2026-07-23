@@ -1,6 +1,6 @@
 import numpy as np
 
-from microjax.fastlens.mag_fft_jax import fspl_ld1, fspl_ld2
+from microjax.fspl.mag_fft_jax import fspl_ld1, fspl_ld2
 
 
 def test_mag_limb1_A0_matches_A_at_zero_for_large_rho():

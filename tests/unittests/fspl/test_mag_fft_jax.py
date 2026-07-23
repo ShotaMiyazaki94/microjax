@@ -1,7 +1,7 @@
 import numpy as np
 
-from microjax.fastlens.mag_fft_jax import fspl_disk
-from microjax.fastlens.mag_fft_jax import fspl_point
+from microjax.fspl.mag_fft_jax import fspl_disk
+from microjax.fspl.mag_fft_jax import fspl_point
 
 
 def test_jax_magnification_disk_A0_large_rho_matches():

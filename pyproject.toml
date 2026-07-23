@@ -11,7 +11,7 @@ license = "MIT"
 license-files = [
   "LICENSE",
   "LICENSES/caustics-MIT.txt",
-  "src/microjax/fastlens/LICENSE",
+  "src/microjax/fspl/LICENSE",
 ]
 authors = [
   { name = "Shota Miyazaki", email = "miyazaki@ir.isas.jaxa.jp" }

@@ -39,6 +39,9 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 - Public configuration now contains only ``n_limb``. The former
   ``relative_tolerance``, ``angular_atol``, ``margin_r``, and
   ``parallel_regions`` settings are internal implementation details.
+- The finite-source point-lens FFTLog implementation is now imported from
+  `microjax.fspl`; the former `microjax.fastlens` package name has been
+  removed.
 
 ### Compatibility
 

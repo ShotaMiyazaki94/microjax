@@ -21,7 +21,7 @@ The original `LICENSE` file from `caustics` is preserved as:
 - **Original Author**: Sunao Sugiyama
 
 The original `LICENSE` file from `fft-extended-source` is preserved as:
-- `src/microjax/fastlens/LICENSE`
+- `src/microjax/fspl/LICENSE`
 
 If you use code derived from these components, please comply with the MIT license terms and acknowledge both microjax and the original authors accordingly.
 

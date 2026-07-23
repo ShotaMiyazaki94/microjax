@@ -1,7 +1,7 @@
 
-"""JAX native FFTLog / Hankel utilities used by the fastlens magnification code.
+"""JAX-native FFTLog and Hankel utilities used by the FSPL solver.
 
-The implementation mirrors the CPU reference in ``fastlens/_legacy`` but keeps
+The implementation mirrors the CPU reference in ``fspl/_legacy`` but keeps
 the code JIT-friendly and differentiable. It provides a minimal FFTLog class
 for logarithmically spaced inputs and a thin ``hankel`` wrapper that evaluates
 zero-th order Hankel transforms (spherical Bessel ``j_ell`` integrals) that
@@ -9,7 +9,7 @@ appear in the FFT-based microlensing algorithm.
 """
 
 import jax.numpy as jnp
-from microjax.fastlens.special import gamma
+from microjax.fspl.special import gamma
 from jax.numpy.fft import rfft, irfft
 from jax import jit
 from functools import partial

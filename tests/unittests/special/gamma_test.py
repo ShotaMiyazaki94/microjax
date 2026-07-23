@@ -1,5 +1,5 @@
-from microjax.fastlens.special import gamma
-from microjax.fastlens.special import digamma_
+from microjax.fspl.special import gamma
+from microjax.fspl.special import digamma_
 from scipy.special import gamma as gamma_s
 from scipy.special import digamma as digamma_s
 import numpy as np
