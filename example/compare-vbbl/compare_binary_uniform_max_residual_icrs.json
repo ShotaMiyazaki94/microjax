@@ -4,14 +4,5 @@
   "source_imag": -0.12928840846607462,
   "relative_residual": 3.239684677253025e-05,
   "limb_darkening_u1": 0.0,
-  "n_limb_requested": 500,
-  "n_limb_traced": 999,
-  "radial_intervals": 27,
-  "radial_candidates_raw": 24,
-  "radial_status": 0,
-  "angular_profile_samples": 648,
-  "display_rings": 504,
-  "angular_failures": 0,
-  "radial_plot_min": 0.7323300805655945,
-  "radial_plot_max": 1.1195515348415592
+  "n_limb": 500
 }

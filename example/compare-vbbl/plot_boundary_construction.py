@@ -30,7 +30,6 @@ def plot_boundary_construction(
     s: float,
     q: float,
     n_limb: int,
-    margin_r: float,
     time_value: float,
     relative_residual: float,
     limb_darkening: float,
@@ -52,7 +51,6 @@ def plot_boundary_construction(
             images,
             masks,
             rho,
-            margin_r=margin_r,
             origin_inside=origin_inside,
             binary_margin_parameters=(shifted, a, e1),
         )
@@ -97,9 +95,8 @@ def plot_boundary_construction(
     angular_measure = np.asarray(
         [np.sum(bounds[:count, 1] - bounds[:count, 0]) for bounds, count in zip(profile_intervals, profile_counts)]
     )
-    # This diagnostic deliberately plots every non-empty sampled ring.  It is
-    # denser than the publication light-curve plot, but makes a missing image
-    # component distinguishable from display-ring subsampling.
+    # Plot every non-empty sampled ring so that all reconstructed image
+    # components remain visible.
     ring_indices = _nonempty_ring_indices(angular_measure)
     ring_radii = profile_radii[ring_indices]
     ring_intervals = profile_intervals[ring_indices]
@@ -248,23 +245,13 @@ def plot_boundary_construction(
     fig.savefig(output_path, dpi=240, bbox_inches="tight")
     plt.close(fig)
 
-    angular_status = np.asarray(angular.status)
     summary = {
         "time": float(time_value),
         "source_real": float(w_center.real),
         "source_imag": float(w_center.imag),
         "relative_residual": float(relative_residual),
         "limb_darkening_u1": float(limb_darkening),
-        "n_limb_requested": int(n_limb),
-        "n_limb_traced": int(limb_count),
-        "radial_intervals": n_intervals,
-        "radial_candidates_raw": int(topology.n_candidates_raw),
-        "radial_status": int(topology.status),
-        "angular_profile_samples": int(profile_radii.size),
-        "display_rings": int(ring_radii.size),
-        "angular_failures": int(np.count_nonzero(angular_status)),
-        "radial_plot_min": profile_lower,
-        "radial_plot_max": profile_upper,
+        "n_limb": int(n_limb),
     }
     output_path.with_suffix(".json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(f"maximum-residual ICRS output: {output_path}")

@@ -30,7 +30,6 @@ VBBL are printed in milliseconds.
 - Compares **uniform disk** and **linear limb‑darkening** (`a1=0.2,0.5,0.8`).
 - ρ grid: `1e-3, 1e-2, 1e-1, 1.0, 3.0` (default; editable at top of script)
 - Time grid: `t/tE` in `[-3, 3]` with 1000 points, u(t)=sqrt(u0^2 + (t/tE)^2), default `u0=0.0` (set >0 to avoid u=0 if desired)
-- Uses default FSPL settings (`N_fft=2048`, `fft_logumin=-6`, `fft_logumax=3`).
 - Plots A(t) (top, log y) and relative residuals vs VBBL (bottom, log y); 1% line shown.
 - Logs per-ρ runtimes (ms) for VBBL and FSPL and their ratios.
 

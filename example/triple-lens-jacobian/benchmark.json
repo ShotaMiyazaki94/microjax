@@ -3,8 +3,8 @@
   "device_kind": "NVIDIA A100-PCIE-40GB",
   "platform": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
   "jax_version": "0.10.2",
-  "mag_triple_implementation": "retry-free best-effort; uniform G15/K31 fixed-1; mixed global/local charts",
-  "forward_ad": "exact hard-edge primal; unit-flux compact-sigmoid JVP (sharpness 30, angular G15)",
+  "api": "microjax.inverse_ray.mag_triple",
+  "automatic_differentiation": "jax.jacfwd",
   "parameter_names": [
     "t0",
     "tE",

@@ -25,7 +25,7 @@ trajectory parameters as the uniform-source example.
 Run
 ---
 
-The default uses the same 500-point trajectory and `Nlimb=500` as the
+The default uses the same 500-point trajectory and `n_limb=500` as the
 triple-lens example. A CUDA-enabled JAX installation is strongly recommended:
 
 ```console

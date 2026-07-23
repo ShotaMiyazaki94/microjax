@@ -2,9 +2,9 @@
 
 This is the triple-lens counterpart of
 ``example/binary-lens-jacobian/grads_uniform_binary.py``. It benchmarks the
-current retry-free ``mag_triple`` API, separating JIT warm-up from compiled
-execution, and differentiates all ten trajectory, source, and lens parameters
-with forward-mode automatic differentiation.
+current ``mag_triple`` API, separating JIT warm-up from compiled execution,
+and differentiates all ten trajectory, source, and lens parameters with
+forward-mode automatic differentiation.
 """
 
 from __future__ import annotations
@@ -193,7 +193,7 @@ def parse_args():
 
 
 def resolved_config(args) -> dict[str, int]:
-    """Resolve CLI overrides against paper-like or quick defaults."""
+    """Resolve CLI overrides against full-size or quick defaults."""
 
     defaults = {"n_points": 24, "n_limb": 80} if args.quick else {"n_points": 1000, "n_limb": 500}
     return {name: getattr(args, name) if getattr(args, name) is not None else value for name, value in defaults.items()}
@@ -246,8 +246,8 @@ def main():
         "device_kind": getattr(devices[0], "device_kind", "unknown"),
         "platform": platform.platform(),
         "jax_version": jax.__version__,
-        "mag_triple_implementation": "retry-free best-effort; uniform G15/K31 fixed-1; mixed global/local charts",
-        "forward_ad": "exact hard-edge primal; unit-flux compact-sigmoid JVP (sharpness 30, angular G15)",
+        "api": "microjax.inverse_ray.mag_triple",
+        "automatic_differentiation": "jax.jacfwd",
         "parameter_names": list(PARAMETER_NAMES),
         "config": {
             **config,

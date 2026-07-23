@@ -6,11 +6,9 @@ to ``t0, tE, u0, q, s, alpha, rho``.  It compares forward mode with a
 memory-bounded reverse-mode VJP and reports JIT warm-up separately from
 steady-state execution.
 
-``u1`` is intentionally not an eighth differentiated parameter: the public
-``mag_binary`` API uses it as a static JIT argument to select the uniform or
-linear limb-darkened kernel. Forward mode is the default and production path;
-the expensive reverse-mode comparison is available only as an explicit
-diagnostic.
+``u1`` is intentionally not an eighth differentiated parameter. Forward mode
+is the default path; the more expensive reverse-mode comparison is available
+only when requested.
 """
 
 from __future__ import annotations
@@ -59,7 +57,7 @@ def parse_args():
     parser.add_argument(
         "--with-reverse",
         action="store_true",
-        help="also run the expensive reverse-mode diagnostic comparison",
+        help="also compare against reverse-mode differentiation",
     )
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument(
@@ -146,17 +144,16 @@ def main():
         "device_kind": getattr(devices[0], "device_kind", "unknown"),
         "platform": platform.platform(),
         "jax_version": jax.__version__,
-        "mag_binary_implementation": ("retry-free best-effort; limb-darkened G15/K31 fixed-1"),
+        "api": "microjax.inverse_ray.mag_binary",
+        "automatic_differentiation": "jax.jacfwd",
         "limb_darkening_coefficient_u1": args.u1,
         "differentiated_parameter_names": list(PARAMETER_NAMES),
-        "u1_is_static": True,
+        "u1_is_differentiated": False,
         "config": {
             **config,
             "with_reverse": args.with_reverse,
-            "reverse_chunk": reverse_chunk,
             "repeats": args.repeats,
         },
-        "reverse_implementation": ("chunked jax.vjp + lax.map" if args.with_reverse else None),
         "warmup_seconds": {name: results[name][1] for name in results},
         "run_seconds": {name: results[name][2] for name in results},
         "median_seconds": medians,
@@ -171,6 +168,9 @@ def main():
             else None
         ),
     }
+    if args.with_reverse:
+        report["config"]["reverse_chunk"] = reverse_chunk
+        report["reverse_automatic_differentiation"] = "jax.vjp"
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     np.savetxt(
@@ -196,7 +196,7 @@ def main():
             save_benchmark_plot(args.output_dir / "ad_benchmark.png", medians)
 
     print(f"device: {devices[0]}")
-    print(f"u1: {args.u1:.6g} (static; not differentiated)")
+    print(f"u1: {args.u1:.6g} (held fixed; not differentiated)")
     print(
         f"median of {args.repeats} compiled runs: "
         f"value={medians['value']:.3f} s, "

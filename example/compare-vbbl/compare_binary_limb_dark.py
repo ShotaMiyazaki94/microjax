@@ -39,8 +39,7 @@ y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
 y2 = u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
 w_points = (y1 + 1j * y2).astype(jnp.complex128)
 
-Nlimb = 500
-margin_r = 0.5
+n_limb = 500
 benchmark_repeats = 7
 
 _vbbl_solver = VBBinaryLensing.VBBinaryLensing()
@@ -59,7 +58,7 @@ def mag_vbbl(w0):
     return jnp.array([mag_vbbl_(w, rho) for w in w0])
 
 
-config = BinaryMagConfig(n_limb=Nlimb)
+config = BinaryMagConfig(n_limb=n_limb)
 
 # ---- Warmup (JIT compile) ----
 _ = mag_binary(
@@ -80,7 +79,7 @@ mags_poi = mag_point_source(w_points, s=s, q=q)
 mags_poi.block_until_ready()
 end = time.time()
 print(
-    "computation time: %.3f sec (%.3f ms per points) for point-source in microjax"
+    "computation time: %.3f sec (%.3f ms per point) for point-source in microJAX"
     % (end - start, 1000 * (end - start) / num_points)
 )
 
@@ -90,7 +89,7 @@ mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, u1
 mu_multi.block_until_ready()
 end = time.time()
 print(
-    "computation time: %.3f sec (%.3f ms per points) for hexadecapole in microjax"
+    "computation time: %.3f sec (%.3f ms per point) for hexadecapole in microJAX"
     % (end - start, 1000 * (end - start) / num_points)
 )
 
@@ -99,7 +98,7 @@ mag_VB = mag_vbbl(w_points)
 mag_VB.block_until_ready()
 end = time.time()
 print(
-    "computation time: %.3f sec (%.3f ms per points) with VBBinaryLensing"
+    "computation time: %.3f sec (%.3f ms per point) with VBBinaryLensing"
     % (end - start, 1000 * (end - start) / num_points)
 )
 
@@ -118,10 +117,11 @@ for _ in range(benchmark_repeats):
 boundary_seconds = statistics.median(boundary_samples)
 nonfinite = int(jnp.sum(~jnp.isfinite(mag_jax)))
 if nonfinite:
-    raise RuntimeError(f"microjax returned {nonfinite} non-finite magnifications")
+    raise RuntimeError(f"microJAX returned {nonfinite} non-finite magnifications")
 print(
-    "computation time: %.3f sec (%.3f ms per points), median of %d, with microjax boundary mag_binary, %d Nlimb"
-    % (boundary_seconds, 1000 * boundary_seconds / num_points, benchmark_repeats, Nlimb)
+    "computation time: %.3f sec (%.3f ms per point), median of %d, "
+    "with microJAX mag_binary, n_limb=%d"
+    % (boundary_seconds, 1000 * boundary_seconds / num_points, benchmark_repeats, n_limb)
 )
 relative_difference = jnp.abs(mag_jax - mag_VB) / mag_VB
 max_residual_index = int(jnp.nanargmax(relative_difference))
@@ -138,8 +138,7 @@ plot_boundary_construction(
     rho,
     s=s,
     q=q,
-    n_limb=Nlimb,
-    margin_r=margin_r,
+    n_limb=n_limb,
     time_value=float(t[max_residual_index]),
     relative_residual=float(relative_difference[max_residual_index]),
     limb_darkening=u1,
@@ -166,7 +165,7 @@ ax_in.set(xlim=(-0.5, 0.5), ylim=(-0.5, 0.5))
 ax_in.plot(-q / (1 + q) * s, 0, ".", c="k")
 ax_in.plot((1.0) / (1 + q) * s, 0, ".", c="k")
 
-ax.plot(t, mag_jax, ".", label="microjax", zorder=1)
+ax.plot(t, mag_jax, ".", label="microJAX", zorder=1)
 ax.plot(t, mag_VB, "-", label="VBBinaryLensing", zorder=2)
 ylim = ax.get_ylim()
 ax.set_title("Limb-darkened source, rho=%.3f, s=%.2f, q=%.3f, u1=%.2f" % (rho, s, q, u1))

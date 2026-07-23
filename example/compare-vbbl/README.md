@@ -38,19 +38,19 @@ completed. A representative CUDA run gave:
 ```text
 python example/compare-vbbl/compare_binary_uniform.py
   number of data points: 1000
-  computation time: 0.001 sec (0.001 ms per points) for point-source in microjax
-  computation time: 0.090 sec (0.090 ms per points) for hexadecapole in microjax
-  computation time: 0.745 sec (0.745 ms per points) with VBBinaryLensing
-  computation time: 0.219 sec (0.219 ms per points), median of 7, with microjax boundary mag_binary, 500 Nlimb
+  computation time: 0.001 sec (0.001 ms per point) for point-source in microJAX
+  computation time: 0.090 sec (0.090 ms per point) for hexadecapole in microJAX
+  computation time: 0.745 sec (0.745 ms per point) with VBBinaryLensing
+  computation time: 0.219 sec (0.219 ms per point), median of 7, with microJAX mag_binary, n_limb=500
   relative difference vs VBBinaryLensing: median=1.150e-06, p95=7.210e-06, max=2.452e-05
   output: example/compare-vbbl/compare_binary_uniform.png
 
 python example/compare-vbbl/compare_binary_limb_dark.py
   number of data points: 1000
-  computation time: 0.002 sec (0.002 ms per points) for point-source in microjax
-  computation time: 0.093 sec (0.093 ms per points) for hexadecapole in microjax
-  computation time: 1.319 sec (1.319 ms per points) with VBBinaryLensing
-  computation time: 0.230 sec (0.230 ms per points), median of 7, with microjax boundary mag_binary, 500 Nlimb
+  computation time: 0.002 sec (0.002 ms per point) for point-source in microJAX
+  computation time: 0.093 sec (0.093 ms per point) for hexadecapole in microJAX
+  computation time: 1.319 sec (1.319 ms per point) with VBBinaryLensing
+  computation time: 0.230 sec (0.230 ms per point), median of 7, with microJAX mag_binary, n_limb=500
   relative difference vs VBBinaryLensing: median=1.265e-05, p95=4.084e-05, max=6.440e-05
   output: example/compare-vbbl/compare_binary_limb_dark.png
 ```

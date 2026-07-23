@@ -3,7 +3,8 @@
   "device_kind": "NVIDIA A100-PCIE-40GB",
   "platform": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
   "jax_version": "0.10.2",
-  "mag_binary_implementation": "retry-free best-effort; limb-darkened G15/K31 fixed-1",
+  "api": "microjax.inverse_ray.mag_binary",
+  "automatic_differentiation": "jax.jacfwd",
   "limb_darkening_coefficient_u1": 0.5,
   "differentiated_parameter_names": [
     "t0",
@@ -14,15 +15,13 @@
     "alpha",
     "rho"
   ],
-  "u1_is_static": true,
+  "u1_is_differentiated": false,
   "config": {
     "n_points": 500,
     "n_limb": 500,
     "with_reverse": false,
-    "reverse_chunk": 8,
     "repeats": 3
   },
-  "reverse_implementation": null,
   "warmup_seconds": {
     "value": 11.636136694811285,
     "forward": 21.894933867268264

@@ -124,8 +124,7 @@ full finite-source calculation then follow this sequence:
 1. Sample the circumference of the source and map those points through the
    lens equation.
 2. Connect samples that form the same continuous image of the circumference.
-   Such a connected sequence is called an *image branch* in the implementation
-   report.
+   Each connected sequence is an *image branch*.
 3. For every image branch, find the range of image-plane radius that it
    occupies. Combine ranges that overlap.
 4. Divide a combined range wherever the number or arrangement of boundary

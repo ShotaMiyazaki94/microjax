@@ -1,14 +1,14 @@
 """Triple-lens limb-darkened magnification and forward Jacobian benchmark.
 
-This companion to ``grads_uniform_paper.py`` uses the same triple-lens
+This companion to ``grads_uniform_triple.py`` uses the same triple-lens
 trajectory and differentiates the light curve with respect to the same ten
-trajectory, source-size, and lens parameters.  The linear limb-darkening
-coefficient ``u1`` is deliberately static: it selects the compiled
-limb-darkened integration kernel and is not an eleventh AD parameter.
+trajectory, source-size, and lens parameters. The linear limb-darkening
+coefficient ``u1`` is held fixed and is not an eleventh differentiated
+parameter.
 
-Only forward-mode AD is benchmarked.  This matches the intended use of the
-current triple-lens solver and avoids constructing the very expensive reverse
-graph for the boundary and nested profile quadratures.
+Only forward-mode AD is benchmarked. This matches the recommended
+differentiation method for a light curve with many outputs and a small number
+of input parameters.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from grads_uniform_paper import PARAMETER_NAMES, benchmark, make_model, resolved_config, save_jacobian_plot
+from grads_uniform_triple import PARAMETER_NAMES, benchmark, make_model, resolved_config, save_jacobian_plot
 
 jax.config.update("jax_enable_x64", True)
 
@@ -90,11 +90,11 @@ def main():
         "device_kind": getattr(devices[0], "device_kind", "unknown"),
         "platform": platform.platform(),
         "jax_version": jax.__version__,
-        "mag_triple_implementation": "retry-free best-effort; limb-darkened G15/K31 fixed-1; mixed charts",
-        "forward_ad": "forward mode through boundary roots and nested limb-darkened profile quadrature",
+        "api": "microjax.inverse_ray.mag_triple",
+        "automatic_differentiation": "jax.jacfwd",
         "limb_darkening_coefficient_u1": args.u1,
         "differentiated_parameter_names": list(PARAMETER_NAMES),
-        "u1_is_static": True,
+        "u1_is_differentiated": False,
         "config": {
             **config,
             "repeats": args.repeats,
@@ -121,11 +121,11 @@ def main():
             magnification,
             forward,
             np.asarray(params),
-            source_label=rf"Linear limb darkening: $u_1={args.u1:g}$ (static)",
+            source_label=rf"Linear limb darkening: $u_1={args.u1:g}$ (held fixed)",
         )
 
     print(f"device: {devices[0]}")
-    print(f"u1: {args.u1:.6g} (static; not differentiated)")
+    print(f"u1: {args.u1:.6g} (held fixed; not differentiated)")
     print(
         f"median of {args.repeats} compiled runs: "
         f"value={medians['value']:.3f} s, forward={medians['forward']:.3f} s"

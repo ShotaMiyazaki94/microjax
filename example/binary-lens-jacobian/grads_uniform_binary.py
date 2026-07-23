@@ -1,7 +1,7 @@
 """Binary-lens magnification Jacobian and AD-mode benchmark.
 
 This is the binary-lens counterpart of
-``example/triple-lens-jacobian/grads_uniform_paper.py``.  It computes the
+``example/triple-lens-jacobian/grads_uniform_triple.py``. It computes the
 Jacobian of a uniform-source light curve with forward-mode automatic
 differentiation and benchmarks steady-state execution separately from JIT
 compilation. The expensive reverse-mode comparison is opt-in.
@@ -43,7 +43,7 @@ def make_model(
     u1: float = 0.0,
     n_limb: int,
 ):
-    """Build the new boundary-only light-curve function used by both AD modes."""
+    """Build the binary-lens light-curve function used by both AD modes."""
 
     config = BinaryMagConfig(n_limb=n_limb)
 
@@ -225,7 +225,7 @@ def parse_args():
     parser.add_argument(
         "--with-reverse",
         action="store_true",
-        help="also run the expensive reverse-mode diagnostic comparison",
+        help="also compare against reverse-mode differentiation",
     )
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument(
@@ -238,7 +238,7 @@ def parse_args():
 
 
 def resolved_config(args) -> dict[str, int]:
-    """Resolve CLI overrides against paper-like or quick defaults."""
+    """Resolve CLI overrides against full-size or quick defaults."""
 
     defaults = (
         {
@@ -312,21 +312,23 @@ def main():
         "device_kind": getattr(devices[0], "device_kind", "unknown"),
         "platform": platform.platform(),
         "jax_version": jax.__version__,
-        "mag_binary_implementation": ("retry-free best-effort; uniform G15/K31 fixed-1"),
+        "api": "microjax.inverse_ray.mag_binary",
+        "automatic_differentiation": "jax.jacfwd",
         "parameter_names": list(PARAMETER_NAMES),
         "config": {
             **config,
             "with_reverse": args.with_reverse,
-            "reverse_chunk": reverse_chunk,
             "repeats": args.repeats,
         },
-        "reverse_implementation": ("chunked jax.vjp + lax.map" if args.with_reverse else None),
         "warmup_seconds": {name: results[name][1] for name in results},
         "run_seconds": {name: results[name][2] for name in results},
         "median_seconds": medians,
         "reverse_over_forward": (medians["reverse"] / medians["forward"] if args.with_reverse else None),
         "maximum_jacobian_absolute_difference": maximum_difference,
     }
+    if args.with_reverse:
+        report["config"]["reverse_chunk"] = reverse_chunk
+        report["reverse_automatic_differentiation"] = "jax.vjp"
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     np.savetxt(

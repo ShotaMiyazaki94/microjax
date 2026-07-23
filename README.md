@@ -182,10 +182,6 @@ uses the following full calculation:
 6. Integrate the brightness between those crossing angles, and then integrate
    the result over radius to obtain the magnification.
 
-The detailed mathematical derivation, data flow, error handling, and diagrams
-are in the
-[Japanese implementation report](dev/reports/microjax-paper-diff/microjax_paper_diff_report_ja.pdf).
-
 ## Examples and validation
 
 <table>
@@ -236,14 +232,13 @@ mind when using `mag_binary` and `mag_triple`:
 - increasing `n_limb` samples the source circumference more finely, but does
   not directly increase the number of radial integration points;
 - uniform sources and the linear limb-darkening law parameterized by `u1` are
-  supported by the primary boundary API;
+  supported by `mag_binary` and `mag_triple`;
 - finite-source workloads are intended for GPUs. They run on CPUs but may be
   substantially slower.
 
 ## Documentation
 
 - [Hosted documentation](https://shotamiyazaki94.github.io/microjax/)
-- [Implementation report](dev/reports/microjax-paper-diff/microjax_paper_diff_report_ja.pdf)
 - [Contributing guide](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 
