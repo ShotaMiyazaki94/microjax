@@ -1,142 +1,266 @@
 <p align="center">
-  <img src="logo/microjax.png" width="50%">
+  <img src="logo/microjax.png" width="50%" alt="microJAX logo">
 </p>
-
-**microJAX is a GPU-accelerated, differentiable microlensing modeling library written in JAX.**
 
 # microJAX
 
+**Differentiable, GPU-accelerated microlensing models in JAX.**
+
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
-[![JAX](https://img.shields.io/badge/built_with-JAX-blue)](https://github.com/google/jax)
+[![JAX](https://img.shields.io/badge/built%20with-JAX-blue)](https://github.com/jax-ml/jax)
 [![PyPI](https://img.shields.io/pypi/v/microjaxx.svg)](https://pypi.org/project/microjaxx/)
 [![DOI](https://zenodo.org/badge/774485090.svg)](https://doi.org/10.5281/zenodo.17247892)
-![Status](https://img.shields.io/badge/status-alpha-orange)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![Status](https://img.shields.io/badge/status-alpha-orange)](#accuracy-and-limitations)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**microJAX** is a **fully‑differentiable**, **GPU‑accelerated** software for modelling gravitational microlensing light curves produced by **binary**, and **triple** lens systems, using the **image-centered ray shooting (ICRS)** method [(e.g., Bennett 2010)](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract). Written entirely in [JAX](https://github.com/google/jax), it delivers millisecond‑level evaluations of extended-source magnifications *and* exact gradients for every model parameter through the use of [automatic differentiation](https://jax.readthedocs.io/en/latest/notebooks/autodiff_cookbook.html), enabling gradient‑based Bayesian inference workflows such as Hamiltonian Monte Carlo (HMC) and variational inference.
+microJAX models gravitational microlensing by single, binary, and triple lens
+systems. For an extended source, it locates the lensed images of the source
+edge and integrates the enclosed image brightness. The implementation works
+with JAX transformations such as `jit`, `vmap`, and forward-mode automatic
+differentiation. The package also provides point-source magnification, caustic
+curves, fast finite-source approximations, and trajectory utilities.
 
-This software is under active development and not yet feature complete.
+The PyPI distribution is named **`microjaxx`**; the Python package is imported
+as **`microjax`**.
 
----
+## Release lineage
 
-## Documentation
+microJAX has two important version lines:
 
-For detailed guides, tutorials, and the API reference, visit the hosted [microJAX documentation](https://shotamiyazaki94.github.io/microjax/). The rendered HTML bundle also lives in `docs/` if you prefer browsing locally.
+- **`v0.1.1` is the archived paper version.** Use this tag when reproducing
+  the implementation associated with Miyazaki & Kawahara (2025).
+- **The `0.2` series is the redesigned implementation.** It introduces the
+  current finite-source calculation for binary and triple lenses, linear limb
+  darkening, improved treatment of small isolated images, and a reorganized
+  public API.
 
----
+Results should record the exact microJAX version or Git commit, the JAX and
+JAXLIB versions, the execution platform, and the numerical configuration.
+See [CHANGELOG.md](CHANGELOG.md) for the user-visible differences.
 
-## 📦 Installation
+## Installation
 
-From PyPI:
-
-```bash
-pip install microjaxx
-```
-
-Notes:
-
-- PyPI package name: `microjaxx`
-- Python import name: `microjax`
-
-```python
-import microjax
-```
-
-Development install (from source, recommended):
+Install the latest published release from PyPI:
 
 ```bash
-# clone the repository
+python -m pip install microjaxx
+```
+
+Install the paper version explicitly:
+
+```bash
+python -m pip install "microjaxx==0.1.1"
+```
+
+Install the current source tree for development or for testing the upcoming
+`0.2` release:
+
+```bash
 git clone https://github.com/ShotaMiyazaki94/microjax.git
 cd microjax
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
 
-GPU support: JAX/JAXLIB with CUDA/ROCm depends on your environment. Please follow the official JAX installation guide to install the appropriate `jaxlib` for your accelerator:
+JAX accelerator wheels are platform-specific. Install the appropriate CPU,
+CUDA, or ROCm build by following the
+[official JAX installation guide](https://docs.jax.dev/en/latest/installation.html).
+Double precision is strongly recommended for microlensing calculations:
 
-- JAX installation (CPU/GPU): https://jax.readthedocs.io/en/latest/installation.html
+```python
+import jax
 
----
+jax.config.update("jax_enable_x64", True)
+```
 
-## 🚀 Quickstart
+Set this option before creating arrays or compiling microJAX functions.
 
-Compute an extended-source binary-lens magnification light curve using the image-centered ray shooting (ICRS) method:
+## Quickstart
 
-Note: `mag_binary` also works on CPU but is very slow.
+The primary `0.2` extended-source API consists of `mag_binary`, `mag_triple`,
+and their configuration objects. `n_limb` is the number of points used to
+trace the lensed image of the source circumference. The default value, 500, is
+recommended for normal use.
 
 ```python
 import jax
 import jax.numpy as jnp
-from microjax.inverse_ray.lightcurve import mag_binary
+
 jax.config.update("jax_enable_x64", True)
 
-# Binary-lens parameters
-s, q = 1.0, 0.01            # separation and mass ratio (m2/m1)
-rho = 0.02                  # source radius (Einstein units)
-tE, u0 = 30.0, 0.0          # Einstein time [days], impact parameter
-alpha = jnp.deg2rad(10.0)  # trajectory angle
-t0 = 0.0
+from microjax.inverse_ray import BinaryMagConfig, mag_binary
+from microjax.point_source import mag_point_source
 
-# Source trajectory
-N_points = 1000
-t = t0 + jnp.linspace(-tE, tE, N_points)
-tau = (t - t0)/tE
-y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
-y2 =  u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
-w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
+# Binary lens and circular source
+s = 1.0
+q = 0.01
+rho = 0.02
 
-# Extended-source magnification (binary lens)
-mu = mag_binary(w_points, rho, s=s, q=q)
+# Rectilinear source trajectory
+t0, tE, u0 = 0.0, 30.0, 0.0
+alpha = jnp.deg2rad(10.0)
+t = t0 + jnp.linspace(-tE, tE, 1000)
+tau = (t - t0) / tE
+w = (
+    -u0 * jnp.sin(alpha)
+    + tau * jnp.cos(alpha)
+    + 1j * (u0 * jnp.cos(alpha) + tau * jnp.sin(alpha))
+)
+
+config = BinaryMagConfig(n_limb=500)
+
+# Uniform finite source. Set u1 > 0 for linear limb darkening.
+mu_finite = mag_binary(w, rho, s=s, q=q, u1=0.0, config=config)
+mu_point = mag_point_source(w, nlenses=2, s=s, q=q)
 ```
 
-For point-source magnification, use:
-
-Note: `mag_point_source` runs on CPU (and GPU), so it works without a GPU.
+Triple-lens finite-source magnification uses the same source convention:
 
 ```python
-from microjax.point_source import mag_point_source
-mu_point = mag_point_source(w_points, nlenses=2, s=s, q=q)
+from microjax.inverse_ray import TripleMagConfig, mag_triple
+
+mu_triple = mag_triple(
+    w,
+    rho,
+    s=1.1,
+    q=0.1,
+    q3=0.01,
+    r3=0.8,
+    psi=0.7,
+    u1=0.5,
+    config=TripleMagConfig(n_limb=500),
+)
 ```
 
----
+The first call includes JAX compilation time. For timing, run one warm-up call,
+block until the result is ready, and then time repeated evaluations.
 
-## Example output
+## Differentiation
 
-| Binary-lens magnification and gradients | Triple-lens magnification and gradients | Compare with VBBL (uniform source, binary-lens) |
-| --- | --- | --- |
-| ![Binary-lens](example/binary-lens-jacobian/binary_jacobian.png) | ![Triple-lens](example/triple-lens-jacobian/triple_jacobian.png) | ![Compare VBBL](example/compare-vbbl/compare_binary_uniform.png) |
+The current solver can be differentiated with JAX. For example:
 
-Refer to the [example](example/) directory for code that creates these plots.
+```python
+def light_curve(q):
+    return mag_binary(w, rho, s=s, q=q)
 
-Note: Finite-source calculation with microJAX is extremely slow without a GPU, so these examples are significantly slower on a CPU.
+dmu_dq = jax.jacfwd(light_curve)(q)
+```
 
----
+Automatic differentiation does not by itself certify numerical accuracy or
+smoothness at every parameter value. The number or arrangement of lensed
+images can change at caustic crossings, and the code switches between a fast
+approximation and the full finite-source calculation when needed. These
+changes can produce non-smooth numerical behaviour. Validate both
+magnifications and gradients over the parameter region used for inference.
 
-## 📝 Citing microJAX
+## How the current finite-source solver works
 
-If you use microJAX in academic work, please cite the methods paper and, for versioned software DOIs, the Zenodo archive:
+For each source position, microJAX first tries a fast finite-source
+approximation. Near a caustic, where that approximation may be inaccurate, it
+uses the following full calculation:
 
-- Miyazaki, S., & Kawahara, H. 2025, ApJ, 994, 144, [doi:10.3847/1538-4357/ae1005](https://doi.org/10.3847/1538-4357/ae1005)
-- microJAX software archive (Zenodo): [doi:10.5281/zenodo.17247892](https://doi.org/10.5281/zenodo.17247892)
+1. Sample the circumference of the circular source and calculate its lensed
+   image positions.
+2. Connect samples that belong to the same continuous image of the source
+   circumference.
+3. Determine the range of image-plane radius occupied by those images and
+   combine overlapping ranges.
+4. Divide each range wherever the number or arrangement of image-boundary
+   crossings may change.
+5. At selected radii, solve for the angles where a circle in the image plane
+   crosses the lensed source boundary.
+6. Integrate the brightness between those crossing angles, and then integrate
+   the result over radius to obtain the magnification.
 
-BibTeX:
+The detailed mathematical derivation, data flow, error handling, and diagrams
+are in the
+[Japanese implementation report](dev/reports/microjax-paper-diff/microjax_paper_diff_report_ja.pdf).
+
+## Examples and validation
+
+<table>
+  <tr>
+    <th>Binary-lens comparison with VBBL</th>
+    <th>Triple-lens magnification and Jacobian</th>
+  </tr>
+  <tr>
+    <td>
+      <p align="center"><em>Light curve and residuals</em></p>
+      <img src="example/compare-vbbl/compare_binary_uniform.png"
+           alt="Uniform-source binary-lens comparison with VBBinaryLensing" width="100%">
+      <p align="center"><em>Image-plane check at the maximum-residual sample</em></p>
+      <img src="example/compare-vbbl/compare_binary_uniform_max_residual_icrs.png"
+           alt="ICRS image-plane construction at the maximum-residual sample" width="100%">
+    </td>
+    <td>
+      <img src="example/triple-lens-jacobian/triple_jacobian.png"
+           alt="Triple-lens magnification and forward Jacobian" width="100%">
+    </td>
+  </tr>
+</table>
+
+Reproducible scripts and their numerical settings live in [example/](example/):
+
+- [triple-lens-jacobian](example/triple-lens-jacobian/) evaluates uniform and
+  limb-darkened triple-lens light curves and reports their forward Jacobians;
+- [compare-vbbl](example/compare-vbbl/) compares the binary solver with
+  VBBinaryLensing and visualizes the maximum-residual sample.
+
+Benchmark numbers are hardware-, JAX-, configuration-, and trajectory-specific.
+Treat the committed results as reproducibility records, not universal speed or
+accuracy guarantees.
+
+## Accuracy and limitations
+
+microJAX is research software under active development. Keep the following in
+mind when using `mag_binary` and `mag_triple`:
+
+- each source position is evaluated either with a fast approximation or with
+  the full finite-source calculation;
+- the full calculation uses a fixed amount of work. It does not automatically
+  repeat a difficult calculation with increasingly expensive settings;
+- the returned finite value is a numerical estimate. The public API does not
+  provide a guaranteed error bound;
+- if microJAX cannot construct a valid image boundary or integration region,
+  or encounters a non-finite intermediate value, it returns `NaN`;
+- increasing `n_limb` samples the source circumference more finely, but does
+  not directly increase the number of radial integration points;
+- uniform sources and the linear limb-darkening law parameterized by `u1` are
+  supported by the primary boundary API;
+- finite-source workloads are intended for GPUs. They run on CPUs but may be
+  substantially slower.
+
+## Documentation
+
+- [Hosted documentation](https://shotamiyazaki94.github.io/microjax/)
+- [Implementation report](dev/reports/microjax-paper-diff/microjax_paper_diff_report_ja.pdf)
+- [Contributing guide](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
+
+The rendered Sphinx HTML bundle is also committed under `docs/`.
+
+## Citing microJAX
+
+If you use microJAX in academic work, cite the methods paper and the archived
+software version actually used. The methods paper corresponds to the `v0.1.1`
+line; work using the redesigned `0.2` solver should additionally report the
+exact `0.2.x` release or Git commit.
+
+- Miyazaki, S., & Kawahara, H. 2025, ApJ, 994, 144,
+  [doi:10.3847/1538-4357/ae1005](https://doi.org/10.3847/1538-4357/ae1005)
+- microJAX software archive,
+  [doi:10.5281/zenodo.17247892](https://doi.org/10.5281/zenodo.17247892)
 
 ```bibtex
 @ARTICLE{2025ApJ...994..144M,
-       author = {{Miyazaki}, Shota and {Kawahara}, Hajime},
-        title = {microJAX: A Differentiable Framework for Microlensing Modeling with GPU-accelerated Image-centered Ray Shooting},
-      journal = {\apj},
-         year = 2025,
-        month = dec,
-       volume = {994},
-       number = {2},
-          eid = {144},
-        pages = {144},
-          doi = {10.3847/1538-4357/ae1005},
-archivePrefix = {arXiv},
-       eprint = {2510.02639},
- primaryClass = {astro-ph.EP},
-       adsurl = {https://ui.adsabs.harvard.edu/abs/2025ApJ...994..144M},
-      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+  author = {{Miyazaki}, Shota and {Kawahara}, Hajime},
+  title = {microJAX: A Differentiable Framework for Microlensing Modeling
+           with GPU-accelerated Image-centered Ray Shooting},
+  journal = {The Astrophysical Journal},
+  year = {2025},
+  volume = {994},
+  number = {2},
+  pages = {144},
+  doi = {10.3847/1538-4357/ae1005}
 }
 
 @software{microjax_zenodo_17247892,
@@ -149,44 +273,24 @@ archivePrefix = {arXiv},
 }
 ```
 
----
+## Contributing and tests
 
-## ⚠️ Known Limitations
+Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md)
+before changing the solver or its numerical defaults.
 
-- Finite-source magnification trades memory/runtime for accuracy through resolution parameters; tune these settings to match your GPU's available memory and throughput.
-- For numerical stability and agreement across libraries, enable 64-bit precision in JAX (`jax_enable_x64=True`).
-- Triple-lens hexadecapole/ghost-image test is not yet implemented: triple-lens calculations fall back to full contour integration everywhere, which can be substantially slower.
-- GPU tests are opt-in; run them explicitly with `pytest -m gpu`. If JAX cannot see a CUDA GPU, those tests are skipped.
+Run the default CPU test suite with:
 
-## 📚 References
-* [Miyazaki & Kawahara (2025)](https://ui.adsabs.harvard.edu/abs/2025ApJ...994..144M/abstract): `microjax` paper 
-* [Bennett (2010)](https://ui.adsabs.harvard.edu/abs/2010ApJ...716.1408B/abstract): Image-centred ray shooting (ICRS) method   
-* [Cassan (2017)](https://academic.oup.com/mnras/article/468/4/3993/3103057?login=true): Hexadecapole approximations
-* [Sugiyama (2022)](https://ui.adsabs.harvard.edu/abs/2022ApJ...937...63S/abstract): Fast FFT-based magnification evaluation with a single-lens extended source model
-
-## 🤝 Contributing
-
-Pull requests are welcome!  Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for coding style, test suite, and CI guidelines.  Bug reports can be filed via GitHub Issues.
-
-### Running Tests
-
-CPU-only tests:
-
-```
+```bash
 pytest -q
 ```
 
-GPU-only tests are opt-in and skipped by default. To run them on a CUDA-capable machine:
+GPU tests are opt-in and are skipped when JAX cannot detect CUDA:
 
-```
-# optionally: export JAX_PLATFORMS=cuda
+```bash
 pytest -m gpu -q
 ```
 
-These tests require JAX to detect a CUDA device. If not available, they are skipped. No additional environment flag is required beyond the `-m gpu` marker.
+## License
 
-## 📜 License
-
-This project is licensed under the [MIT License](LICENSE).  Third-party components bundled in the tree and their respective licenses are listed in `third_party/README.md`.
-
----
+microJAX is distributed under the [MIT License](LICENSE). Third-party code and
+its attribution are listed in [third_party/README.md](third_party/README.md).

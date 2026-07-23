@@ -8,14 +8,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>microJAX &mdash; microJAX  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="_static/doctools.js?v=9bcbadda"></script>
-      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -79,73 +79,60 @@
              
   <section id="microjax">
 <h1>microJAX<a class="headerlink" href="#microjax" title="Link to this heading"></a></h1>
-<p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax">microJAX</a> is a GPU-aware,
-auto-differentiable microlensing toolkit built on top of JAX.
-The library combines GPU-optimized image-centered inverse-ray
-shooting method and JAX-enabled XLA-acceralation to deliver fast and accurate
-magnifications and gradients for binary and triple lens systems.</p>
+<p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax">microJAX</a> is a
+differentiable, GPU-accelerated microlensing modelling library built with JAX.
+It provides point-source calculations and finite-source light curves for
+binary and triple lens systems.</p>
+<p>For source positions far enough from caustics, the current finite-source API
+uses a fast approximation. Where a full calculation is needed, it traces the
+lensed images of the source circumference and integrates the brightness
+enclosed by those image boundaries. The implementation is compatible with JAX
+transformations including <code class="docutils literal notranslate"><span class="pre">jit</span></code>, <code class="docutils literal notranslate"><span class="pre">vmap</span></code>, and forward-mode automatic
+differentiation.</p>
+<section id="release-lineage">
+<h2>Release lineage<a class="headerlink" href="#release-lineage" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">v0.1.1</span></code> is the archived implementation associated with the methods paper.
+The <code class="docutils literal notranslate"><span class="pre">0.2</span></code> series is a substantial redesign and should not be treated as a
+patch-level update. Record the exact microJAX version or Git commit together
+with the JAX/JAXLIB versions, platform, and numerical configuration in
+reproducible work.</p>
+</section>
 <section id="highlights">
 <h2>Highlights<a class="headerlink" href="#highlights" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p><strong>Accelerated finite sources</strong> – image-centered ray shooting (ICRS)
-with CUDA-ready batching.</p></li>
-<li><p><strong>Differentiable everywhere</strong> – gradients flow through polynomial solvers
-and ICRS for use in optimization and inference (e.g. HMC/VI) workflows.</p></li>
-<li><p><strong>Other Utilities</strong> – helpers for higher-order microlensing effects
-like orbital parallax, limb darkening, custom source motion, and more.</p></li>
-<li><p><strong>Composable likelihoods</strong> – analytic marginalisation utilities for inference.</p></li>
+<li><p>Point-source magnification and caustic curves for one to three lenses.</p></li>
+<li><p>Binary and triple finite-source boundary integration.</p></li>
+<li><p>Uniform and linear limb-darkened circular sources.</p></li>
+<li><p>Direct calculation of image-boundary crossing angles, without an angular
+sampling grid.</p></li>
+<li><p>GPU-oriented trajectory batching and forward-mode Jacobians.</p></li>
+<li><p>Parallax and binary orbital-motion trajectory utilities.</p></li>
 </ul>
 </section>
 <section id="quick-peek">
 <h2>Quick peek<a class="headerlink" href="#quick-peek" title="Link to this heading"></a></h2>
-<p>Note: <code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> also works on CPU but is very slow.</p>
+<p>Enable double precision before creating arrays or compiling functions.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray.lightcurve</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_binary</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">critical_and_caustic_curves</span>
+
 <span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 
-<span class="c1"># Binary-lens parameters</span>
-<span class="n">s</span><span class="p">,</span> <span class="n">q</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.01</span>            <span class="c1"># separation and mass ratio (m2/m1)</span>
-<span class="n">rho</span> <span class="o">=</span> <span class="mf">0.02</span>                  <span class="c1"># source radius (Einstein units)</span>
-<span class="n">tE</span><span class="p">,</span> <span class="n">u0</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span> <span class="mf">0.0</span>          <span class="c1"># Einstein time [days], impact parameter</span>
-<span class="n">alpha</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">10.0</span><span class="p">)</span>   <span class="c1"># trajectory angle in radian</span>
-<span class="n">t0</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray</span><span class="w"> </span><span class="kn">import</span> <span class="n">BinaryMagConfig</span><span class="p">,</span> <span class="n">mag_binary</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
 
-<span class="c1"># Source trajectory</span>
-<span class="n">N_points</span> <span class="o">=</span> <span class="mi">1000</span>
-<span class="n">t</span> <span class="o">=</span> <span class="n">t0</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">tE</span><span class="p">,</span> <span class="n">tE</span><span class="p">,</span> <span class="n">N_points</span><span class="p">)</span>
-<span class="n">tau</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span><span class="o">/</span><span class="n">tE</span>
-<span class="n">y1</span> <span class="o">=</span> <span class="o">-</span><span class="n">u0</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
-<span class="n">y2</span> <span class="o">=</span>  <span class="n">u0</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
-<span class="n">w_points</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y1</span> <span class="o">+</span> <span class="n">y2</span> <span class="o">*</span> <span class="mi">1</span><span class="n">j</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+<span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">rho</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.02</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">30.0</span><span class="p">,</span> <span class="mf">30.0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+<span class="n">tau</span> <span class="o">=</span> <span class="n">t</span> <span class="o">/</span> <span class="mf">30.0</span>
+<span class="n">alpha</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">10.0</span><span class="p">)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
 
-<span class="c1"># Point-source and Extended-source magnifications (binary lens)</span>
-<span class="n">mag_p</span>   <span class="o">=</span> <span class="n">mag_point_source</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<span class="n">mag_ext</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
-
-<span class="c1"># Critical and caustic curves</span>
-<span class="n">crit</span><span class="p">,</span> <span class="n">cau</span> <span class="o">=</span> <span class="n">critical_and_caustic_curves</span><span class="p">(</span><span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">npts</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
-<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
-<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">mag_p</span><span class="p">,</span> <span class="s1">&#39;k--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Point Source&#39;</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">mag_ext</span><span class="p">,</span> <span class="s1">&#39;r-&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;Extended Source&#39;</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Time (days)&#39;</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Magnification&#39;</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-<span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">cau</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">cau</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">&#39;r.&#39;</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">w_points</span><span class="o">.</span><span class="n">real</span><span class="p">,</span> <span class="n">w_points</span><span class="o">.</span><span class="n">imag</span><span class="p">,</span> <span class="s1">&#39;b-&#39;</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;equal&#39;</span><span class="p">)</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">BinaryMagConfig</span><span class="p">(</span><span class="n">n_limb</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+<span class="n">mu_point</span> <span class="o">=</span> <span class="n">mag_point_source</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
+<span class="n">mu_finite</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
-<a class="reference internal image-reference" href="_images/lightcurve_binary.png"><img alt="Light curve example" class="align-center" src="_images/lightcurve_binary.png" style="width: 100%;" />
-</a>
-<p>Use the sections below to install the package, explore worked examples, and dig
-into the API.</p>
+<p>The first call includes JAX compilation time. Finite-source calculations run
+on CPUs but are intended primarily for GPU execution.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
@@ -161,9 +148,11 @@ into the API.</p>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#point-source-magnification">Point-source magnification</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#finite-source-binary-lenses">Finite-source binary lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#triple-lenses">Triple lenses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage.html#autodiff-and-jit">Autodiff and <code class="docutils literal notranslate"><span class="pre">jit</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage.html#trajectory-helpers">Trajectory helpers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage.html#best-practices">Best practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#boundary-integration-in-outline">Boundary integration in outline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#differentiation">Differentiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#failure-behavior">Failure behavior</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#performance-and-reproducibility">Performance and reproducibility</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a><ul>
@@ -183,6 +172,30 @@ into the API.</p>
 </ul>
 </div>
 </section>
+<section id="accuracy-and-limitations">
+<h2>Accuracy and limitations<a class="headerlink" href="#accuracy-and-limitations" title="Link to this heading"></a></h2>
+<p>microJAX is research software under active development. The public
+<code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> and <code class="docutils literal notranslate"><span class="pre">mag_triple</span></code> functions use a fixed amount of work for
+each source position; they do not automatically repeat a difficult calculation
+with increasingly expensive settings. A returned finite value is a numerical
+estimate, not a value with a guaranteed error bound. If microJAX cannot
+construct valid image boundaries or integration regions, it returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.
+Validate magnifications and derivatives over the parameter region used in an
+analysis.</p>
+</section>
+<section id="citing-microjax">
+<h2>Citing microJAX<a class="headerlink" href="#citing-microjax" title="Link to this heading"></a></h2>
+<p>If you use microJAX, cite the methods paper and the archived software version
+actually used. The methods paper corresponds to the <code class="docutils literal notranslate"><span class="pre">v0.1.1</span></code> line; work
+using the redesigned solver should additionally report the exact <code class="docutils literal notranslate"><span class="pre">0.2.x</span></code>
+release or Git commit.</p>
+<ul class="simple">
+<li><p>Miyazaki, S., &amp; Kawahara, H. 2025, ApJ, 994, 144,
+<a class="reference external" href="https://doi.org/10.3847/1538-4357/ae1005">doi:10.3847/1538-4357/ae1005</a></p></li>
+<li><p>microJAX software archive,
+<a class="reference external" href="https://doi.org/10.5281/zenodo.17247892">doi:10.5281/zenodo.17247892</a></p></li>
+</ul>
+</section>
 </section>
 <section id="indices-and-tables">
 <h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
@@ -191,56 +204,6 @@ into the API.</p>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
 <li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
 </ul>
-<section id="citing-microjax">
-<h2>Citing microJAX<a class="headerlink" href="#citing-microjax" title="Link to this heading"></a></h2>
-<p>If you use microJAX in academic work, please cite the methods paper and the Zenodo software archive:</p>
-<ul class="simple">
-<li><p>Miyazaki, S., &amp; Kawahara, H. 2025, ApJ, 994, 144, <a class="reference external" href="https://doi.org/10.3847/1538-4357/ae1005">doi:10.3847/1538-4357/ae1005</a></p></li>
-<li><p>microJAX software archive (Zenodo): <a class="reference external" href="https://doi.org/10.5281/zenodo.17247892">doi:10.5281/zenodo.17247892</a></p></li>
-</ul>
-<section id="bibtex">
-<h3>BibTeX<a class="headerlink" href="#bibtex" title="Link to this heading"></a></h3>
-<div class="highlight-bibtex notranslate"><div class="highlight"><pre><span></span><span class="nc">@ARTICLE</span><span class="p">{</span><span class="nl">2025ApJ...994..144M</span><span class="p">,</span>
-<span class="w">       </span><span class="na">author</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{{Miyazaki}, Shota and {Kawahara}, Hajime}</span><span class="p">,</span>
-<span class="w">        </span><span class="na">title</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{microJAX: A Differentiable Framework for Microlensing Modeling with GPU-accelerated Image-centered Ray Shooting}</span><span class="p">,</span>
-<span class="w">      </span><span class="na">journal</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{\apj}</span><span class="p">,</span>
-<span class="w">         </span><span class="na">year</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="m">2025</span><span class="p">,</span>
-<span class="w">        </span><span class="na">month</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nv">dec</span><span class="p">,</span>
-<span class="w">       </span><span class="na">volume</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{994}</span><span class="p">,</span>
-<span class="w">       </span><span class="na">number</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{2}</span><span class="p">,</span>
-<span class="w">          </span><span class="na">eid</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{144}</span><span class="p">,</span>
-<span class="w">        </span><span class="na">pages</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{144}</span><span class="p">,</span>
-<span class="w">          </span><span class="na">doi</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{10.3847/1538-4357/ae1005}</span><span class="p">,</span>
-<span class="na">archivePrefix</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{arXiv}</span><span class="p">,</span>
-<span class="w">       </span><span class="na">eprint</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{2510.02639}</span><span class="p">,</span>
-<span class="w"> </span><span class="na">primaryClass</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{astro-ph.EP}</span><span class="p">,</span>
-<span class="w">       </span><span class="na">adsurl</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{https://ui.adsabs.harvard.edu/abs/2025ApJ...994..144M}</span><span class="p">,</span>
-<span class="w">      </span><span class="na">adsnote</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Provided by the SAO/NASA Astrophysics Data System}</span>
-<span class="p">}</span>
-
-<span class="nc">@software</span><span class="p">{</span><span class="nl">microjax_zenodo_17247892</span><span class="p">,</span>
-<span class="w">  </span><span class="na">author</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Miyazaki, Shota}</span><span class="p">,</span>
-<span class="w">  </span><span class="na">title</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{microJAX}</span><span class="p">,</span>
-<span class="w">  </span><span class="na">year</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{2025}</span><span class="p">,</span>
-<span class="w">  </span><span class="na">publisher</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Zenodo}</span><span class="p">,</span>
-<span class="w">  </span><span class="na">doi</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{10.5281/zenodo.17247892}</span><span class="p">,</span>
-<span class="w">  </span><span class="na">url</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{https://doi.org/10.5281/zenodo.17247892}</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="references">
-<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
-</section>
-<section id="license-attribution">
-<h2>License &amp; Attribution<a class="headerlink" href="#license-attribution" title="Link to this heading"></a></h2>
-<p>Copyright 2025, Contributors</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://sites.google.com/view/shotamiyazaki/english">Shota Miyazaki</a> (&#64;ShotaMiyazaki94, maintainer)</p></li>
-<li><p><a class="reference external" href="http://secondearths.sakura.ne.jp/en/index.html">Hajime Kawahara</a> (&#64;HajimeKawahara, co-maintainer)</p></li>
-</ul>
-</section>
 </section>
 
 

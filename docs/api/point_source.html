@@ -8,14 +8,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Point Source &mdash; microJAX  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -169,8 +169,9 @@ the mapped caustics. Both arrays have shape <code class="docutils literal notran
 <ul class="simple">
 <li><p>For <code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">1</span></code> the critical curve is the unit circle and the caustic
 collapses to the origin.</p></li>
-<li><p>Output is shifted from mid-point to center of mass for consistency with
-the rest of the library.</p></li>
+<li><p>Output is shifted from the first-two-lens midpoint to their centre of
+mass. For a triple lens this public frame remains independent of the
+third body.</p></li>
 </ul>
 </dd></dl>
 
@@ -241,7 +242,8 @@ Internally <code class="docutils literal notranslate"><span class="pre">a</span>
 shifted to the center of mass for the polynomial construction.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">3</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code>, <code class="docutils literal notranslate"><span class="pre">q</span></code>, <code class="docutils literal notranslate"><span class="pre">q3</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code> and <code class="docutils literal notranslate"><span class="pre">psi</span></code>. Internally
 <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">=</span> <span class="pre">s</span> <span class="pre">/</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">=</span> <span class="pre">q</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q</span> <span class="pre">+</span> <span class="pre">q3)</span></code>, <code class="docutils literal notranslate"><span class="pre">e2</span> <span class="pre">=</span> <span class="pre">1</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q</span> <span class="pre">+</span> <span class="pre">q3)</span></code>,
-and the same center-of-mass shift is applied.</p></li>
+while the public source origin remains the centre of mass of the
+first two lenses.</p></li>
 </ul>
 </p></li>
 </ul>

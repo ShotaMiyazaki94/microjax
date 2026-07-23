@@ -54,7 +54,8 @@ dev = [
 Homepage = "https://github.com/ShotaMiyazaki94/microjax"
 Repository = "https://github.com/ShotaMiyazaki94/microjax"
 Issues = "https://github.com/ShotaMiyazaki94/microjax/issues"
-Documentation = "https://github.com/ShotaMiyazaki94/microjax#readme"
+Documentation = "https://shotamiyazaki94.github.io/microjax/"
+Changelog = "https://github.com/ShotaMiyazaki94/microjax/blob/master/CHANGELOG.md"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -1,78 +1,65 @@
 microJAX
-====================================
+========
 
-`microJAX <https://github.com/ShotaMiyazaki94/microjax>`_ is a GPU-aware, 
-auto-differentiable microlensing toolkit built on top of JAX.  
-The library combines GPU-optimized image-centered inverse-ray 
-shooting method and JAX-enabled XLA-acceralation to deliver fast and accurate 
-magnifications and gradients for binary and triple lens systems.
+`microJAX <https://github.com/ShotaMiyazaki94/microjax>`_ is a
+differentiable, GPU-accelerated microlensing modelling library built with JAX.
+It provides point-source calculations and finite-source light curves for
+binary and triple lens systems.
+
+For source positions far enough from caustics, the current finite-source API
+uses a fast approximation. Where a full calculation is needed, it traces the
+lensed images of the source circumference and integrates the brightness
+enclosed by those image boundaries. The implementation is compatible with JAX
+transformations including ``jit``, ``vmap``, and forward-mode automatic
+differentiation.
+
+Release lineage
+---------------
+
+``v0.1.1`` is the archived implementation associated with the methods paper.
+The ``0.2`` series is a substantial redesign and should not be treated as a
+patch-level update. Record the exact microJAX version or Git commit together
+with the JAX/JAXLIB versions, platform, and numerical configuration in
+reproducible work.
 
 Highlights
 ----------
 
-- **Accelerated finite sources** – image-centered ray shooting (ICRS) 
-  with CUDA-ready batching.
-- **Differentiable everywhere** – gradients flow through polynomial solvers 
-  and ICRS for use in optimization and inference (e.g. HMC/VI) workflows.
-- **Other Utilities** – helpers for higher-order microlensing effects 
-  like orbital parallax, limb darkening, custom source motion, and more.
-- **Composable likelihoods** – analytic marginalisation utilities for inference.
+- Point-source magnification and caustic curves for one to three lenses.
+- Binary and triple finite-source boundary integration.
+- Uniform and linear limb-darkened circular sources.
+- Direct calculation of image-boundary crossing angles, without an angular
+  sampling grid.
+- GPU-oriented trajectory batching and forward-mode Jacobians.
+- Parallax and binary orbital-motion trajectory utilities.
 
 Quick peek
 ----------
-Note: ``mag_binary`` also works on CPU but is very slow.
+
+Enable double precision before creating arrays or compiling functions.
 
 .. code-block:: python
-  
-  import jax
-  import jax.numpy as jnp
-  from microjax.point_source import mag_point_source
-  from microjax.inverse_ray.lightcurve import mag_binary
-  from microjax.point_source import critical_and_caustic_curves
-  jax.config.update("jax_enable_x64", True)
 
-  # Binary-lens parameters
-  s, q = 1.0, 0.01            # separation and mass ratio (m2/m1)
-  rho = 0.02                  # source radius (Einstein units)
-  tE, u0 = 30.0, 0.0          # Einstein time [days], impact parameter
-  alpha = jnp.deg2rad(10.0)   # trajectory angle in radian
-  t0 = 0.0
-  
-  # Source trajectory
-  N_points = 1000
-  t = t0 + jnp.linspace(-tE, tE, N_points)
-  tau = (t - t0)/tE
-  y1 = -u0*jnp.sin(alpha) + tau*jnp.cos(alpha)
-  y2 =  u0*jnp.cos(alpha) + tau*jnp.sin(alpha)
-  w_points = jnp.array(y1 + y2 * 1j, dtype=complex)
-  
-  # Point-source and Extended-source magnifications (binary lens)
-  mag_p   = mag_point_source(w_points, s=s, q=q, nlenses=2)
-  mag_ext = mag_binary(w_points, rho, s=s, q=q)
+   import jax
+   import jax.numpy as jnp
 
-  # Critical and caustic curves
-  crit, cau = critical_and_caustic_curves(s=s, q=q, nlenses=2, npts=1000)
+   jax.config.update("jax_enable_x64", True)
 
-  import matplotlib.pyplot as plt
-  fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-  ax[0].plot(t, mag_p, 'k--', label='Point Source')
-  ax[0].plot(t, mag_ext, 'r-', label='Extended Source')
-  ax[0].set_xlabel('Time (days)')
-  ax[0].set_ylabel('Magnification')
-  ax[0].set_yscale('log')
-  ax[0].legend()
-  ax[1].plot(cau.real, cau.imag, 'r.')
-  ax[1].plot(w_points.real, w_points.imag, 'b-')
-  ax[1].axis('equal')
-  plt.show() 
+   from microjax.inverse_ray import BinaryMagConfig, mag_binary
+   from microjax.point_source import mag_point_source
 
-.. image:: _static/lightcurve_binary.png
-  :alt: Light curve example
-  :align: center
-  :width: 100% 
+   s, q, rho = 1.0, 0.01, 0.02
+   t = jnp.linspace(-30.0, 30.0, 1000)
+   tau = t / 30.0
+   alpha = jnp.deg2rad(10.0)
+   w = tau * jnp.cos(alpha) + 1j * tau * jnp.sin(alpha)
 
-Use the sections below to install the package, explore worked examples, and dig
-into the API.
+   config = BinaryMagConfig(n_limb=500)
+   mu_point = mag_point_source(w, nlenses=2, s=s, q=q)
+   mu_finite = mag_binary(w, rho, s=s, q=q, config=config)
+
+The first call includes JAX compilation time. Finite-source calculations run
+on CPUs but are intended primarily for GPU execution.
 
 .. toctree::
    :maxdepth: 2
@@ -88,61 +75,34 @@ into the API.
 
    modules
 
+Accuracy and limitations
+------------------------
+
+microJAX is research software under active development. The public
+``mag_binary`` and ``mag_triple`` functions use a fixed amount of work for
+each source position; they do not automatically repeat a difficult calculation
+with increasingly expensive settings. A returned finite value is a numerical
+estimate, not a value with a guaranteed error bound. If microJAX cannot
+construct valid image boundaries or integration regions, it returns ``NaN``.
+Validate magnifications and derivatives over the parameter region used in an
+analysis.
+
+Citing microJAX
+---------------
+
+If you use microJAX, cite the methods paper and the archived software version
+actually used. The methods paper corresponds to the ``v0.1.1`` line; work
+using the redesigned solver should additionally report the exact ``0.2.x``
+release or Git commit.
+
+- Miyazaki, S., & Kawahara, H. 2025, ApJ, 994, 144,
+  `doi:10.3847/1538-4357/ae1005 <https://doi.org/10.3847/1538-4357/ae1005>`_
+- microJAX software archive,
+  `doi:10.5281/zenodo.17247892 <https://doi.org/10.5281/zenodo.17247892>`_
+
 Indices and tables
 ==================
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-Citing microJAX
----------------
-
-If you use microJAX in academic work, please cite the methods paper and the Zenodo software archive:
-
-- Miyazaki, S., & Kawahara, H. 2025, ApJ, 994, 144, `doi:10.3847/1538-4357/ae1005 <https://doi.org/10.3847/1538-4357/ae1005>`_
-- microJAX software archive (Zenodo): `doi:10.5281/zenodo.17247892 <https://doi.org/10.5281/zenodo.17247892>`_
-
-BibTeX
-^^^^^^
-
-.. code-block:: bibtex
-
-   @ARTICLE{2025ApJ...994..144M,
-          author = {{Miyazaki}, Shota and {Kawahara}, Hajime},
-           title = {microJAX: A Differentiable Framework for Microlensing Modeling with GPU-accelerated Image-centered Ray Shooting},
-         journal = {\apj},
-            year = 2025,
-           month = dec,
-          volume = {994},
-          number = {2},
-             eid = {144},
-           pages = {144},
-             doi = {10.3847/1538-4357/ae1005},
-   archivePrefix = {arXiv},
-          eprint = {2510.02639},
-    primaryClass = {astro-ph.EP},
-          adsurl = {https://ui.adsabs.harvard.edu/abs/2025ApJ...994..144M},
-         adsnote = {Provided by the SAO/NASA Astrophysics Data System}
-   }
-
-   @software{microjax_zenodo_17247892,
-     author = {Miyazaki, Shota},
-     title = {microJAX},
-     year = {2025},
-     publisher = {Zenodo},
-     doi = {10.5281/zenodo.17247892},
-     url = {https://doi.org/10.5281/zenodo.17247892}
-   }
-
-References 
----------------------
-
-
-License & Attribution
----------------------
-
-Copyright 2025, Contributors
-
-- `Shota Miyazaki <https://sites.google.com/view/shotamiyazaki/english>`_ (@ShotaMiyazaki94, maintainer)
-- `Hajime Kawahara <http://secondearths.sakura.ne.jp/en/index.html>`_ (@HajimeKawahara, co-maintainer)

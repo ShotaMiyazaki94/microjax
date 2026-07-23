@@ -8,14 +8,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inverse-Ray Lightcurve &mdash; microJAX  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -56,8 +56,6 @@
 <li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
 <li class="toctree-l2"><a class="reference internal" href="caustics_lightcurve.html">Caustics Lightcurve</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Inverse-Ray Lightcurve</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#design-highlights">Design highlights</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#workflow-outline">Workflow outline</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary"><code class="docutils literal notranslate"><span class="pre">mag_binary()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_triple"><code class="docutils literal notranslate"><span class="pre">mag_triple()</span></code></a></li>
 </ul>
@@ -96,188 +94,82 @@
              
   <section id="module-microjax.inverse_ray.lightcurve">
 <span id="inverse-ray-lightcurve"></span><h1>Inverse-Ray Lightcurve<a class="headerlink" href="#module-microjax.inverse_ray.lightcurve" title="Link to this heading"></a></h1>
-<p>Adaptive light-curve computation combining multipole and inverse-ray solvers.</p>
-<p>This module couples the hexadecapole approximation with selective inverse-ray
-finite-source integrations to deliver accurate binary- and triple-lens light
-curves while keeping GPU/CPU cost manageable. The key routines exported here
-are <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary" title="microjax.inverse_ray.lightcurve.mag_binary"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_binary()</span></code></a> and <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_triple" title="microjax.inverse_ray.lightcurve.mag_triple"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_triple()</span></code></a>.</p>
-<section id="design-highlights">
-<h2>Design highlights<a class="headerlink" href="#design-highlights" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><strong>Hexadecapole-first evaluation</strong>: start from the multipole estimate and
-upgrade only samples that fail the accuracy heuristics.</p></li>
-<li><p><strong>Hybrid triggers</strong>: combine caustic-proximity and planetary-caustic tests to
-decide when a full inverse-ray solve is required.</p></li>
-<li><p><strong>Chunked batching</strong>: evaluate inverse-ray calls in configurable chunks to
-balance memory usage and accelerator occupancy.</p></li>
-<li><p><strong>Limb-darkening aware</strong>: support both uniform and linear limb-darkened
-profiles through the <code class="docutils literal notranslate"><span class="pre">u1</span></code> parameter.</p></li>
-<li><p><strong>Shared infrastructure</strong>: binary and triple lenses reuse the same chunking
-and integration utilities, so configuration parameters have consistent
-effects.</p></li>
-</ul>
-</section>
-<section id="workflow-outline">
-<h2>Workflow outline<a class="headerlink" href="#workflow-outline" title="Link to this heading"></a></h2>
-<ol class="arabic simple">
-<li><p>Build a complex source-plane trajectory <code class="docutils literal notranslate"><span class="pre">w_points</span></code>.</p></li>
-<li><p>Call <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary" title="microjax.inverse_ray.lightcurve.mag_binary"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_binary()</span></code></a> or <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_triple" title="microjax.inverse_ray.lightcurve.mag_triple"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_triple()</span></code></a> with lens parameters and
-integration settings.</p></li>
-<li><p>Feed the returned magnifications into downstream likelihoods (see
-<a class="reference internal" href="likelihood.html#module-microjax.likelihood" title="microjax.likelihood"><code class="xref py py-mod docutils literal notranslate"><span class="pre">microjax.likelihood</span></code></a>).</p></li>
-</ol>
-<p class="rubric">References</p>
-<ul class="simple">
-<li><p>Miyazaki &amp; Kawahara (in prep.) — description of the adaptive microJAX
-solver stack (forthcoming).</p></li>
-</ul>
-</section>
+<p>Finite-source binary- and triple-lens light curves.</p>
+<p>Use <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary" title="microjax.inverse_ray.lightcurve.mag_binary"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_binary()</span></code></a> and <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_triple" title="microjax.inverse_ray.lightcurve.mag_triple"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_triple()</span></code></a> with a complex source trajectory.
+For source positions sufficiently far from caustics, microJAX uses a fast
+finite-source approximation. Where a full calculation is needed, it traces
+the lensed images of the circular source boundary and integrates the enclosed
+brightness.</p>
+<p>Both functions support a uniform source (<code class="docutils literal notranslate"><span class="pre">u1=0</span></code>) and linear limb darkening
+(<code class="docutils literal notranslate"><span class="pre">u1&gt;0</span></code>). They are designed for JAX compilation, vectorization, and
+forward-mode automatic differentiation.</p>
+<p>The returned values are numerical estimates without a guaranteed error bound.
+If a valid image boundary or integration region cannot be constructed, the
+corresponding result is <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.inverse_ray.lightcurve.mag_binary">
-<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_binary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">th_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nlimb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MAX_FULL_CALLS</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_binary" title="Link to this definition"></a></dt>
-<dd><p>Binary-lens finite-source magnification with adaptive inverse-ray refinement.</p>
-<p>The input trajectory <code class="docutils literal notranslate"><span class="pre">w_points</span></code> is interpreted as one-dimensional complex
-positions in the source plane (Einstein-radius units). The function recentres
-these coordinates on the binary centre of mass defined by the supplied
-separation <code class="docutils literal notranslate"><span class="pre">s</span></code> and mass ratio <code class="docutils literal notranslate"><span class="pre">q</span></code>, evaluates point-source images via
-<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.point_source._images_point_source()</span></code>, and obtains the
-hexadecapole approximation with <a class="reference internal" href="multipole.html#microjax.multipole.mag_hexadecapole" title="microjax.multipole.mag_hexadecapole"><code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.multipole.mag_hexadecapole()</span></code></a>.
-The accuracy tests in <code class="xref py py-mod docutils literal notranslate"><span class="pre">microjax.inverse_ray.cond_extended</span></code> provide a
-boolean mask <code class="docutils literal notranslate"><span class="pre">test</span></code> that marks positions where the multipole solution is
-sufficient. Up to <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> entries failing the tests are reordered
-to the front of the array and recomputed with
-<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.inverse_ray.extended_source.mag_uniform()</span></code> when <code class="docutils literal notranslate"><span class="pre">u1</span> <span class="pre">=</span> <span class="pre">0</span></code> or
-<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.inverse_ray.extended_source.mag_limb_dark()</span></code> otherwise. Entries
-beyond this budget retain the hexadecapole magnification.</p>
+<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_binary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BinaryMagConfig</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">BinaryMagConfig(n_limb=500)</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_binary" title="Link to this definition"></a></dt>
+<dd><p>Compute finite-source magnification for a binary lens.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>w_points</strong> (<em>Array</em>) – One-dimensional complex <code class="docutils literal notranslate"><span class="pre">jax.Array</span></code> of source-plane coordinates
-(<code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">+</span> <span class="pre">1j*y</span></code>) sampled along the trajectory. The returned magnification
-array preserves the same ordering.</p></li>
-<li><p><strong>rho</strong> (<em>float</em>) – Angular source radius in Einstein units.</p></li>
-<li><p><strong>r_resolution</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of uniformly spaced radial samples per polar cell used by the
-inverse-ray integrator.</p></li>
-<li><p><strong>th_resolution</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of uniformly spaced angular samples per polar cell used by the
-inverse-ray integrator.</p></li>
-<li><p><strong>u1</strong> (<em>float</em><em>, </em><em>optional</em>) – Linear limb-darkening coefficient. Use <code class="docutils literal notranslate"><span class="pre">0</span></code> for a uniform surface
-brightness.</p></li>
-<li><p><strong>delta_c</strong> (<em>float</em><em>, </em><em>optional</em>) – Dimensionless smoothing threshold supplied to
-<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.inverse_ray.boundary.calc_facB()</span></code> in the limb-darkened
-integrator.</p></li>
-<li><p><strong>Nlimb</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of source-limb samples traced through the lens to seed the polar
-region construction.</p></li>
-<li><p><strong>bins_r</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of histogram bins used when clustering limb radii into polar
-subregions; larger values resolve smaller radial features.</p></li>
-<li><p><strong>bins_th</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of histogram bins used when clustering limb angles into polar
-subregions.</p></li>
-<li><p><strong>margin_r</strong> (<em>float</em><em>, </em><em>optional</em>) – Radial margin applied to each subregion in units of <code class="docutils literal notranslate"><span class="pre">rho</span></code>.</p></li>
-<li><p><strong>margin_th</strong> (<em>float</em><em>, </em><em>optional</em>) – Angular margin applied to each subregion, expressed in degrees (converted
-to radians internally).</p></li>
-<li><p><strong>MAX_FULL_CALLS</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of points replaced by the inverse-ray finite-source
-solver. Setting <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span> <span class="pre">=</span> <span class="pre">0</span></code> disables the refinement stage.</p></li>
-<li><p><strong>chunk_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of refined points evaluated per <code class="xref py py-func docutils literal notranslate"><span class="pre">jax.vmap()</span></code> batch when the
-inverse-ray solver is invoked.</p></li>
-<li><p><strong>**params</strong> – Lens-configuration keywords forwarded to the point-source and
-inverse-ray solvers. <code class="docutils literal notranslate"><span class="pre">s</span></code> (projected separation) and <code class="docutils literal notranslate"><span class="pre">q</span></code>
-(companion-to-host mass ratio) are mandatory; any additional entries
-understood by the low-level routines are forwarded unchanged.</p></li>
+<li><p><strong>w_points</strong> – Complex source positions. The real and imaginary parts are the two
+source-plane coordinates in Einstein-radius units.</p></li>
+<li><p><strong>rho</strong> – Angular source radius in Einstein-radius units.</p></li>
+<li><p><strong>s</strong> – Projected binary-lens separation.</p></li>
+<li><p><strong>q</strong> – Mass ratio of the second lens to the first.</p></li>
+<li><p><strong>u1</strong> – Linear limb-darkening coefficient. Use zero for a uniform source.</p></li>
+<li><p><strong>config</strong> – Source-boundary sampling configuration. The default is recommended for
+normal use.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Real-valued magnification array with the same shape as <code class="docutils literal notranslate"><span class="pre">w_points</span></code>.</p>
+<dd class="field-even"><p>Magnification at each input source position. A value is <code class="docutils literal notranslate"><span class="pre">NaN</span></code> when
+microJAX cannot construct a valid image boundary or integration region.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Array</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">test</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code> where the multipole solution is accepted; indices with
-<code class="docutils literal notranslate"><span class="pre">False</span></code> are ordered first and considered for refinement in that order.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span> <span class="pre">=</span> <span class="pre">0</span></code> produces a purely hexadecapole light curve.</p></li>
-<li><p>Source positions are shifted internally to the lens centre-of-mass frame,
-while the public interface accepts unshifted coordinates.</p></li>
-<li><p>Results are evaluated lazily by JAX; call <code class="docutils literal notranslate"><span class="pre">mags.block_until_ready()</span></code> to
-enforce synchronisation when required.</p></li>
-</ul>
+<p>The function uses a fast approximation away from caustics and a full
+image-boundary integration where needed. The full calculation uses a fixed
+amount of work and is not automatically repeated with more expensive
+settings. Returned finite values do not carry a guaranteed error bound.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.inverse_ray.lightcurve.mag_triple">
-<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_triple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">th_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Nlimb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">120</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">margin_th</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MAX_FULL_CALLS</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_triple" title="Link to this definition"></a></dt>
-<dd><p>Triple-lens magnification with a multipole baseline and limited refinement.</p>
-<p>The procedure is analogous to <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary" title="microjax.inverse_ray.lightcurve.mag_binary"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_binary()</span></code></a>. The trajectory is shifted
-to the centre of mass implied by <code class="docutils literal notranslate"><span class="pre">s</span></code> and <code class="docutils literal notranslate"><span class="pre">q</span></code>, point-source images are
-evaluated with <code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">3</span></code>, and the hexadecapole approximation provides
-the baseline magnification. Because specialised accuracy tests for triple
-lenses are not yet available, the boolean mask <code class="docutils literal notranslate"><span class="pre">test</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code> at all
-entries. Consequently <code class="docutils literal notranslate"><span class="pre">jnp.argsort(test)</span></code> produces the original ordering
-and the first <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> elements are recomputed with
-<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.inverse_ray.extended_source.mag_uniform()</span></code> for <code class="docutils literal notranslate"><span class="pre">u1</span> <span class="pre">=</span> <span class="pre">0</span></code> or
-<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.inverse_ray.extended_source.mag_limb_dark`()</span></code> otherwise. The
-remaining points retain their hexadecapole magnifications.</p>
+<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_triple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TripleMagConfig</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">TripleMagConfig(n_limb=500)</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_triple" title="Link to this definition"></a></dt>
+<dd><p>Compute finite-source magnification for a triple lens.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>w_points</strong> (<em>Array</em>) – One-dimensional complex <code class="docutils literal notranslate"><span class="pre">jax.Array</span></code> of source-plane coordinates
-(<code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">+</span> <span class="pre">1j*y</span></code>) sampled along the trajectory. The returned magnification
-array preserves the same ordering.</p></li>
-<li><p><strong>rho</strong> (<em>float</em>) – Angular source radius in Einstein units.</p></li>
-<li><p><strong>r_resolution</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of uniformly spaced radial samples per polar cell used by the
-inverse-ray integrator.</p></li>
-<li><p><strong>th_resolution</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of uniformly spaced angular samples per polar cell used by the
-inverse-ray integrator.</p></li>
-<li><p><strong>u1</strong> (<em>float</em><em>, </em><em>optional</em>) – Linear limb-darkening coefficient. Use <code class="docutils literal notranslate"><span class="pre">0</span></code> for a uniform surface
-brightness.</p></li>
-<li><p><strong>delta_c</strong> (<em>float</em><em>, </em><em>optional</em>) – Dimensionless smoothing threshold supplied to
-<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.inverse_ray.boundary.calc_facB()</span></code> in the limb-darkened
-integrator.</p></li>
-<li><p><strong>Nlimb</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of source-limb samples traced through the lens to seed the polar
-region construction.</p></li>
-<li><p><strong>bins_r</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of histogram bins used when clustering limb radii into polar
-subregions; larger values resolve smaller radial features.</p></li>
-<li><p><strong>bins_th</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of histogram bins used when clustering limb angles into polar
-subregions.</p></li>
-<li><p><strong>margin_r</strong> (<em>float</em><em>, </em><em>optional</em>) – Radial margin applied to each subregion in units of <code class="docutils literal notranslate"><span class="pre">rho</span></code>.</p></li>
-<li><p><strong>margin_th</strong> (<em>float</em><em>, </em><em>optional</em>) – Angular margin applied to each subregion, expressed in degrees (converted
-to radians internally).</p></li>
-<li><p><strong>MAX_FULL_CALLS</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of points replaced by the inverse-ray finite-source
-solver. Setting <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span> <span class="pre">=</span> <span class="pre">0</span></code> leaves the hexadecapole baseline
-unchanged.</p></li>
-<li><p><strong>chunk_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of refined points evaluated per <code class="xref py py-func docutils literal notranslate"><span class="pre">jax.vmap()</span></code> batch when the
-inverse-ray solver is invoked.</p></li>
-<li><p><strong>**params</strong> – Triple-lens configuration keywords forwarded to the low-level solvers.
-Required keys are <code class="docutils literal notranslate"><span class="pre">s</span></code> (lens 1–2 separation), <code class="docutils literal notranslate"><span class="pre">q</span></code> (lens 2 to lens 1
-mass ratio), <code class="docutils literal notranslate"><span class="pre">q3</span></code> (lens 3 to lens 1 mass ratio), <code class="docutils literal notranslate"><span class="pre">r3</span></code> (lens 1–3
-separation in Einstein units), and <code class="docutils literal notranslate"><span class="pre">psi</span></code> (polar angle of lens 3
-measured counter-clockwise from the lens 1–2 axis). Additional keywords
-are passed through untouched.</p></li>
+<li><p><strong>w_points</strong> – Complex source positions in Einstein-radius units.</p></li>
+<li><p><strong>rho</strong> – Angular source radius in Einstein-radius units.</p></li>
+<li><p><strong>s</strong> – Separation and mass ratio of the first two lenses.</p></li>
+<li><p><strong>q</strong> – Separation and mass ratio of the first two lenses.</p></li>
+<li><p><strong>q3</strong> – Mass of the third lens relative to the first.</p></li>
+<li><p><strong>r3</strong> – Distance and position angle of the third lens.</p></li>
+<li><p><strong>psi</strong> – Distance and position angle of the third lens.</p></li>
+<li><p><strong>u1</strong> – Linear limb-darkening coefficient. Use zero for a uniform source.</p></li>
+<li><p><strong>config</strong> – Source-boundary sampling configuration. The default is recommended for
+normal use.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Real-valued magnification array with the same shape as <code class="docutils literal notranslate"><span class="pre">w_points</span></code>.</p>
+<dd class="field-even"><p>Magnification at each input source position. A value is <code class="docutils literal notranslate"><span class="pre">NaN</span></code> when
+microJAX cannot construct a valid image boundary or integration region.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Array</p>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
-<ul class="simple">
-<li><p>Source positions are shifted internally to the centre of mass defined by
-<code class="docutils literal notranslate"><span class="pre">s</span></code> and <code class="docutils literal notranslate"><span class="pre">q</span></code> before invoking
-<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.point_source._images_point_source()</span></code>; the public API uses
-unshifted coordinates.</p></li>
-<li><p>Because the <code class="docutils literal notranslate"><span class="pre">test</span></code> mask evaluates to <code class="docutils literal notranslate"><span class="pre">False</span></code> for every position, the
-refinement stage processes the leading
-<code class="docutils literal notranslate"><span class="pre">min(MAX_FULL_CALLS,</span> <span class="pre">w_points.size)</span></code> entries. Increasing
-<code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> expands this subset.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">u1</span></code> selects between
-<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.inverse_ray.extended_source.mag_uniform()</span></code> (<code class="docutils literal notranslate"><span class="pre">u1</span> <span class="pre">==</span> <span class="pre">0</span></code>) and
-<code class="xref py py-func docutils literal notranslate"><span class="pre">microjax.inverse_ray.extended_source.mag_limb_dark()</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> specifies the number of refined points handled by each
-<code class="xref py py-func docutils literal notranslate"><span class="pre">jax.vmap()</span></code> invocation.</p></li>
-</ul>
+<p>The function uses a fast approximation away from caustics and a full
+image-boundary integration where needed. Small isolated images are handled
+in coordinates centred near those images to avoid loss of angular
+resolution. Returned finite values do not carry a guaranteed error bound.</p>
 </dd></dl>
 
 </section>

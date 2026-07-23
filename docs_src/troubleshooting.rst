@@ -18,16 +18,15 @@ JAX cannot see my GPU
 mag_binary is slow or runs out of memory
 ----------------------------------------
 
-- ``mag_binary`` also works on CPU but is very slow.
-- Trim the inverse-ray grid via ``r_resolution`` / ``th_resolution`` when you
-  do not need the default 1000×1000 sampling; smaller grids cut both runtime and
-  memory pressure.  Increase them only when accuracy demands it.
-- Adjust ``chunk_size`` to fit your device.  Lower values avoid out-of-memory
-  crashes; raise it gradually if the GPU remains underutilised.
-- Use ``MAX_FULL_CALLS`` to cap how many samples fall back to the full
-  image-centred ray shooting routine.  Lowering it keeps runtimes bounded, but
-  expect a trade-off in accuracy if many points revert to the hexadecapole
-  approximation.
+- Finite-source calculations run on a CPU but are intended primarily for a
+  GPU. A CPU run can be substantially slower.
+- The first call includes JAX compilation. Measure later calls only after
+  waiting for the first result with ``block_until_ready()``.
+- Process a very long light curve in several user-level batches if the complete
+  output and its derivatives do not fit in device memory.
+- ``n_limb`` controls how finely the source circumference is followed. Reducing
+  it can lower cost, but it can also miss rapidly changing image geometry.
+  Validate against the default before using a smaller value.
 
 Gradient computations stall
 ---------------------------
