@@ -163,9 +163,9 @@ def mag_uniform_boundary(
             angular.status,
         )
 
-    # The bulk EA20 pass retains the conservative node-wise coefficient
+    # The bulk EA32 pass retains the conservative node-wise coefficient
     # padding.  EA40 propagates measured residuals node-wise and applies the
-    # common x64 floor once below.  The 144-point audit exposed one false EA20
+    # common x64 floor once below.  A 144-point audit exposed one false
     # acceptance when the correlated model was applied before robust root
     # convergence, so that tempting shortcut is deliberately not used.
     refinement_safety_factor = 0.01 if robust_roots and radial_strategy == "adaptive" else 1.0

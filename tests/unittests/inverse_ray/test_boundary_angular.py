@@ -488,6 +488,38 @@ def test_small_source_off_unit_roots_do_not_create_false_fatal_status():
     assert float(result.error) == 0.0
 
 
+def test_fixed_binary_roots_resolve_roman_recovery_boundary_crossings():
+    # This exact GK31 radial node occurs in a Roman-model recovery case.  The
+    # former 20-step fixed EA solve found only one of the two boundary roots,
+    # so the public one-pass light curve returned NaN.
+    s = 1.025189817009389
+    q = 9.840799897016288e-6
+    rho = 0.0018453285205730348
+    w_center = 0.06940317682632598 - 0.0013061043233880167j
+    a = 0.5 * s
+    e1 = q / (1.0 + q)
+    shifted = a * (1.0 - q) / (1.0 + q)
+
+    result = angular_intervals_binary_roots(
+        1.0360819265012022,
+        0.0,
+        2.0 * jnp.pi,
+        w_center - shifted,
+        rho,
+        shifted,
+        64.0 * jnp.finfo(jnp.float64).eps,
+        a=a,
+        e1=e1,
+        robust_roots=False,
+        chart_center=0.0 + 0.0j,
+    )
+
+    assert int(result.status) == ANGULAR_OK
+    assert int(result.n_intervals) == 2
+    assert np.all(np.isfinite(np.asarray(result.intervals)))
+    assert np.all(np.diff(np.asarray(result.intervals[:2]), axis=1) > 0.0)
+
+
 @pytest.mark.slow
 def test_uniform_boundary_is_finite_at_rho_1e4_regression_point():
     result = mag_uniform_boundary(
@@ -738,7 +770,7 @@ def test_rho1e5_p0_fixtures_close_after_robust_error_retry():
     estimated_error = np.asarray(robust.estimated_error)
     tolerance = 1e-5 + 1e-4 * np.abs(reference)
 
-    # These are the original failure mechanism: the conservative EA20 pass is
+    # These are the original failure mechanism: the conservative EA32 pass is
     # rejected by radial error accounting, then the bounded EA40/8-way retry
     # closes with the correlated-roundoff estimate. This is not merely a finite
     # output assertion.
