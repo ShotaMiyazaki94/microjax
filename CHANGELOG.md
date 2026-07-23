@@ -49,6 +49,13 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 - Reproduction of the published methods-paper implementation should use the
   `v0.1.1` Git tag or the `microjaxx==0.1.1` distribution.
 
+### Removed
+
+- The legacy `microjax.caustics` finite-source solver and the experimental
+  `microjax.contour` backend. Use `microjax.inverse_ray` for binary- and
+  triple-lens finite-source calculations. The paper-era implementation remains
+  available from the `v0.1.1` tag and distribution.
+
 ## 0.1.1 — paper version
 
 - Archived implementation associated with Miyazaki & Kawahara (2025), ApJ,

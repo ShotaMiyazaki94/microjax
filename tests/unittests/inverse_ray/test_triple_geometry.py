@@ -1,7 +1,6 @@
 import jax.numpy as jnp
 import numpy as np
 
-from microjax.caustics.extended_source import mag_extended_source
 from microjax.inverse_ray_dense.extended_source import mag_limb_dark, mag_uniform
 from microjax.inverse_ray.geometry.limb import calc_source_limb
 from microjax.inverse_ray_dense.lightcurve import mag_triple
@@ -139,23 +138,6 @@ def test_triple_multipole_point_source_limit_keeps_third_lens_azimuth():
         np.asarray(point_source),
         rtol=1e-11,
         atol=1e-12,
-    )
-
-
-def test_retained_triple_compatibility_path_uses_correct_mass_geometry():
-    params = {"s": 0.9, "q": 0.3, "q3": 0.2, "r3": 0.4, "psi": 0.7}
-    point = jnp.asarray(0.8 + 0.4j)
-    point_value = mag_point_source(point, nlenses=3, **params)
-    finite_value = mag_extended_source(
-        point,
-        1e-3,
-        nlenses=3,
-        npts_limb=50,
-        **params,
-    )
-    assert np.isfinite(float(finite_value))
-    assert np.isclose(
-        float(finite_value), float(point_value), rtol=3e-2, atol=0.0
     )
 
 
