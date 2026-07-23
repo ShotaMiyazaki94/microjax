@@ -8,18 +8,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Point Source &mdash; microJAX  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Multipole" href="multipole.html" />
+    <link rel="next" title="Finite-source Point Lens" href="fspl.html" />
     <link rel="prev" title="API Reference" href="../modules.html" /> 
 </head>
 
@@ -61,8 +61,8 @@
 <li class="toctree-l3"><a class="reference internal" href="#microjax.point_source.mag_point_source"><code class="docutils literal notranslate"><span class="pre">mag_point_source()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="fspl.html">Finite-source Point Lens</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
-<li class="toctree-l2"><a class="reference internal" href="caustics_lightcurve.html">Caustics Lightcurve</a></li>
 <li class="toctree-l2"><a class="reference internal" href="inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
 <li class="toctree-l2"><a class="reference internal" href="poly_solver.html">Polynomial Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="likelihood.html">Likelihood Utilities</a></li>
@@ -169,8 +169,9 @@ the mapped caustics. Both arrays have shape <code class="docutils literal notran
 <ul class="simple">
 <li><p>For <code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">1</span></code> the critical curve is the unit circle and the caustic
 collapses to the origin.</p></li>
-<li><p>Output is shifted from mid-point to center of mass for consistency with
-the rest of the library.</p></li>
+<li><p>Output is shifted from the first-two-lens midpoint to their centre of
+mass. For a triple lens this public frame remains independent of the
+third body.</p></li>
 </ul>
 </dd></dl>
 
@@ -241,7 +242,8 @@ Internally <code class="docutils literal notranslate"><span class="pre">a</span>
 shifted to the center of mass for the polynomial construction.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">3</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code>, <code class="docutils literal notranslate"><span class="pre">q</span></code>, <code class="docutils literal notranslate"><span class="pre">q3</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code> and <code class="docutils literal notranslate"><span class="pre">psi</span></code>. Internally
 <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">=</span> <span class="pre">s</span> <span class="pre">/</span> <span class="pre">2</span></code>, <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">=</span> <span class="pre">q</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q</span> <span class="pre">+</span> <span class="pre">q3)</span></code>, <code class="docutils literal notranslate"><span class="pre">e2</span> <span class="pre">=</span> <span class="pre">1</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q</span> <span class="pre">+</span> <span class="pre">q3)</span></code>,
-and the same center-of-mass shift is applied.</p></li>
+while the public source origin remains the centre of mass of the
+first two lenses.</p></li>
 </ul>
 </p></li>
 </ul>
@@ -265,7 +267,7 @@ branches returned by <code class="docutils literal notranslate"><span class="pre
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../modules.html" class="btn btn-neutral float-left" title="API Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="multipole.html" class="btn btn-neutral float-right" title="Multipole" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="fspl.html" class="btn btn-neutral float-right" title="Finite-source Point Lens" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

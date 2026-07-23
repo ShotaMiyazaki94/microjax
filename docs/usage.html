@@ -8,14 +8,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Usage Guide &mdash; microJAX  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="_static/doctools.js?v=9bcbadda"></script>
-      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -48,20 +48,15 @@
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Usage Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#common-setup">Common setup</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#point-source-magnification">Point-source magnification</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#step-by-step">Step-by-step</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#finite-source-binary-lenses">Finite-source binary lenses</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#build-the-trajectory">1. Build the trajectory</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#evaluate-the-magnification">2. Evaluate the magnification</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#fine-tuning-parameters">Fine-tuning parameters</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="#point-source-magnification">Point-source magnification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#finite-source-point-lens">Finite-source point lens</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#finite-source-binary-lenses">Finite-source binary lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#triple-lenses">Triple lenses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#autodiff-and-jit">Autodiff and <code class="docutils literal notranslate"><span class="pre">jit</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="#trajectory-helpers">Trajectory helpers</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#best-practices">Best practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#boundary-integration-in-outline">Boundary integration in outline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#differentiation">Differentiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#failure-behavior">Failure behavior</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#performance-and-reproducibility">Performance and reproducibility</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
@@ -97,178 +92,168 @@
              
   <section id="usage-guide">
 <h1>Usage Guide<a class="headerlink" href="#usage-guide" title="Link to this heading"></a></h1>
-<p>This chapter walks through the most common workflows in microJAX and explains
-what each knob does.  The goal is to provide copy-and-pasteable snippets along
-with the context required to adapt them to your own microlensing problem.</p>
+<p>This guide introduces the public <code class="docutils literal notranslate"><span class="pre">0.2</span></code> workflow, the available settings, and
+the checks recommended before using a result in an analysis.</p>
 <section id="common-setup">
 <h2>Common setup<a class="headerlink" href="#common-setup" title="Link to this heading"></a></h2>
-<p>Start every session by enabling 64-bit mode and importing the building blocks
-you intend to use.  Keeping everything in one place makes it easier to reuse the
-same configuration across notebooks or scripts:</p>
+<p>Enable 64-bit mode before creating arrays and use the public package imports:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray.lightcurve</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_binary</span><span class="p">,</span> <span class="n">mag_triple</span>
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 
-<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>  <span class="c1"># stabilises the polynomial solver</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BinaryMagConfig</span><span class="p">,</span>
+    <span class="n">TripleMagConfig</span><span class="p">,</span>
+    <span class="n">mag_binary</span><span class="p">,</span>
+    <span class="n">mag_triple</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
 </pre></div>
 </div>
-<p>The snippets below assume this cell has already been run.  If you restart your
-Python session, rerun it before continuing.</p>
 </section>
 <section id="point-source-magnification">
 <h2>Point-source magnification<a class="headerlink" href="#point-source-magnification" title="Link to this heading"></a></h2>
-<p>Use <code class="docutils literal notranslate"><span class="pre">mag_point_source</span></code> when the source can be treated as infinitesimally small
-and you need fast magnifications for one to three lenses.</p>
-<section id="step-by-step">
-<h3>Step-by-step<a class="headerlink" href="#step-by-step" title="Link to this heading"></a></h3>
-<ol class="arabic simple">
-<li><p>Assemble the complex source coordinates.  The real part is the x-position,
-the imaginary part is the y-position in Einstein radii.</p></li>
-<li><p>Specify the lens configuration via <code class="docutils literal notranslate"><span class="pre">nlenses</span></code> and the associated parameters.</p></li>
-<li><p>Call <code class="docutils literal notranslate"><span class="pre">mag_point_source</span></code>; the function broadcasts across any leading axes of
-<code class="docutils literal notranslate"><span class="pre">w</span></code> so batches are handled automatically.</p></li>
-</ol>
-<p>Example:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-    <span class="mf">0.00</span> <span class="o">+</span> <span class="mf">0.10</span><span class="n">j</span><span class="p">,</span>
-    <span class="mf">0.05</span> <span class="o">+</span> <span class="mf">0.05</span><span class="n">j</span><span class="p">,</span>
-    <span class="o">-</span><span class="mf">0.10</span> <span class="o">+</span> <span class="mf">0.02</span><span class="n">j</span><span class="p">,</span>
-<span class="p">])</span>
-
+<p><code class="docutils literal notranslate"><span class="pre">mag_point_source</span></code> evaluates magnification for one to three point lenses.
+Source coordinates are complex numbers in Einstein-radius units: the real part
+is x and the imaginary part is y.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.00</span> <span class="o">+</span> <span class="mf">0.10</span><span class="n">j</span><span class="p">,</span> <span class="mf">0.05</span> <span class="o">+</span> <span class="mf">0.05</span><span class="n">j</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.10</span> <span class="o">+</span> <span class="mf">0.02</span><span class="n">j</span><span class="p">])</span>
 <span class="n">mu</span> <span class="o">=</span> <span class="n">mag_point_source</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Magnification per sample:&quot;</span><span class="p">,</span> <span class="n">mu</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">nlenses=3</span></code> introduces a third body.  Provide the additional keywords <code class="docutils literal notranslate"><span class="pre">q3</span></code>
-(mass ratio of lens 3 to lens 1), <code class="docutils literal notranslate"><span class="pre">r3</span></code> (distance between lens 1 and 3), and
-<code class="docutils literal notranslate"><span class="pre">psi</span></code> (position angle of lens 3, in radians).  All other keyword arguments are
-fully broadcastable and can be supplied as arrays if you want to sweep over a
-grid of lens parameters.</p>
+<p>For a triple lens, add <code class="docutils literal notranslate"><span class="pre">q3</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code>, and <code class="docutils literal notranslate"><span class="pre">psi</span></code>. Here <code class="docutils literal notranslate"><span class="pre">q3</span></code> is the third
+mass relative to lens 1, <code class="docutils literal notranslate"><span class="pre">r3</span></code> is its separation parameter, and <code class="docutils literal notranslate"><span class="pre">psi</span></code> is its
+position angle in radians.</p>
 </section>
+<section id="finite-source-point-lens">
+<h2>Finite-source point lens<a class="headerlink" href="#finite-source-point-lens" title="Link to this heading"></a></h2>
+<p>For a circular source magnified by one point lens, construct an FSPL source
+profile and evaluate its <code class="docutils literal notranslate"><span class="pre">A(u,</span> <span class="pre">rho)</span></code> method. Here <code class="docutils literal notranslate"><span class="pre">u</span></code> is the lens-source
+separation and <code class="docutils literal notranslate"><span class="pre">rho</span></code> is the source radius, both in Einstein-radius units.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">microjax.fspl</span><span class="w"> </span><span class="kn">import</span> <span class="n">fspl_disk</span><span class="p">,</span> <span class="n">fspl_ld1</span>
+
+<span class="n">u</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+<span class="n">mu_uniform</span> <span class="o">=</span> <span class="n">fspl_disk</span><span class="p">()</span><span class="o">.</span><span class="n">A</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+<span class="n">mu_limb_darkened</span> <span class="o">=</span> <span class="n">fspl_ld1</span><span class="p">(</span><span class="n">a1</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">A</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+</pre></div>
+</div>
 </section>
 <section id="finite-source-binary-lenses">
 <h2>Finite-source binary lenses<a class="headerlink" href="#finite-source-binary-lenses" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> computes finite-source light curves by combining a fast
-hexadecapole approximation with full inverse-ray integrations when required.</p>
-<section id="build-the-trajectory">
-<h3>1. Build the trajectory<a class="headerlink" href="#build-the-trajectory" title="Link to this heading"></a></h3>
-<p>The helper below constructs a standard rectilinear trajectory.  Feel free to
-replace it with your own sampler if you need orbital motion or parallax.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tE</span> <span class="o">=</span> <span class="mf">40.0</span>                      <span class="c1"># Einstein time (days)</span>
-<span class="n">u0</span> <span class="o">=</span> <span class="mf">0.05</span>                      <span class="c1"># impact parameter</span>
-<span class="n">alpha</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">60.0</span><span class="p">)</span>      <span class="c1"># trajectory angle in radians</span>
-<span class="n">t0</span> <span class="o">=</span> <span class="mf">0.0</span>                       <span class="c1"># time of closest approach</span>
-<span class="n">rho</span> <span class="o">=</span> <span class="mf">0.01</span>                     <span class="c1"># source radius in Einstein units</span>
+<p>Construct a source trajectory and pass the circular-source radius <code class="docutils literal notranslate"><span class="pre">rho</span></code> to
+<code class="docutils literal notranslate"><span class="pre">mag_binary</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">t0</span><span class="p">,</span> <span class="n">tE</span><span class="p">,</span> <span class="n">u0</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">40.0</span><span class="p">,</span> <span class="mf">0.05</span>
+<span class="n">alpha</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">60.0</span><span class="p">)</span>
+<span class="n">rho</span> <span class="o">=</span> <span class="mf">0.01</span>
 
 <span class="n">t</span> <span class="o">=</span> <span class="n">t0</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">tE</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">tE</span><span class="p">,</span> <span class="mi">1024</span><span class="p">)</span>
 <span class="n">tau</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">/</span> <span class="n">tE</span>
-<span class="n">y1</span> <span class="o">=</span> <span class="o">-</span><span class="n">u0</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
-<span class="n">y2</span> <span class="o">=</span>  <span class="n">u0</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
-<span class="n">w_points</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y1</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">y2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>   <span class="c1"># source trajectory</span>
+<span class="n">w</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="o">-</span><span class="n">u0</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="o">+</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="p">(</span><span class="n">u0</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">))</span>
+<span class="p">)</span>
+
+<span class="n">config</span> <span class="o">=</span> <span class="n">BinaryMagConfig</span><span class="p">(</span><span class="n">n_limb</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+<span class="n">mu</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">5e-4</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
-</section>
-<section id="evaluate-the-magnification">
-<h3>2. Evaluate the magnification<a class="headerlink" href="#evaluate-the-magnification" title="Link to this heading"></a></h3>
-<p>Call <code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> with the trajectory, source radius, and lens parameters.  To
-start, stick with the defaults for the optional arguments and only adjust them
-if you hit performance limits.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">s</span> <span class="o">=</span> <span class="mf">0.95</span>                       <span class="c1"># projected separation</span>
-<span class="n">q</span> <span class="o">=</span> <span class="mf">5e-4</span>                       <span class="c1"># mass ratio (m2/m1)</span>
-<span class="n">mags</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
+<p>Set <code class="docutils literal notranslate"><span class="pre">u1</span></code> to a non-zero value for the normalized linear limb-darkening law:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mu_ld</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">5e-4</span><span class="p">,</span> <span class="n">u1</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> returns magnifications aligned with the input trajectory.  If you
-need fluxes, multiply by the intrinsic source flux and add blends or baselines
-as appropriate.</p>
-</section>
-<section id="fine-tuning-parameters">
-<h3>Fine-tuning parameters<a class="headerlink" href="#fine-tuning-parameters" title="Link to this heading"></a></h3>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">r_resolution</span></code> / <code class="docutils literal notranslate"><span class="pre">th_resolution</span></code>
-Set the number of grid divisions in the radial and angular directions for the
-inverse-ray shooting method. Increasing these values improves the accuracy of
-the magnification calculation, but also raises computational and memory costs
-on GPUs. Users should adjust them according to their accuracy requirements
-and hardware limits.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code>
-Determines the maximum number of magnification points that are computed with
-the image-centered ray-shooting (ICRS) method. It sets an upper limit on the
-points that require finite-source calculations, with the remaining points
-evaluated using the hexadecapole approximation.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">chunk_size</span></code>
-Controls how many points are processed in parallel by the ICRS method via
-<code class="docutils literal notranslate"><span class="pre">jax.vmap</span></code>. A larger value can improve GPU utilization but may exceed
-device memory, causing out-of-memory errors. Smaller values are safer but may
-slow down the computation. Users should tune this parameter based on their
-GPU capacity.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">Nlimb</span></code>
-Sets the number of source limb points used to construct annular sectors on the
-lens plane, where ray-shooting integrations are performed. In most cases,
-users do not need to change this value. Adjust it only if catastrophic errors
-appear in magnification calculations.</p></li>
-</ul>
-</section>
 </section>
 <section id="triple-lenses">
 <h2>Triple lenses<a class="headerlink" href="#triple-lenses" title="Link to this heading"></a></h2>
-<p>Triple-lens finite-source calculations are handled by <code class="docutils literal notranslate"><span class="pre">mag_triple</span></code>.  The
-inputs mirror the binary API, but you must describe the third body explicitly.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mags_triple</span> <span class="o">=</span> <span class="n">mag_triple</span><span class="p">(</span><span class="n">w_points</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span>
-                         <span class="n">s</span><span class="o">=</span><span class="mf">1.10</span><span class="p">,</span>                 <span class="c1"># separation between 1st and 2nd lenses</span>
-                         <span class="n">q</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>                 <span class="c1"># mass ratio (m2/m1)</span>
-                         <span class="n">q3</span><span class="o">=</span><span class="mf">0.50</span><span class="p">,</span>                <span class="c1"># mass ratio (m3/m1)</span>
-                         <span class="n">r3</span><span class="o">=</span><span class="mf">0.60</span><span class="p">,</span>                <span class="c1"># separation between center of masss for m1/m2 and m3</span>
-                         <span class="n">psi</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">210.0</span><span class="p">)</span>  <span class="c1"># angle of 3rd lens axis in radians</span>
-                         <span class="p">)</span>
+<p>The triple-lens API uses the same trajectory and source profile.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">triple_config</span> <span class="o">=</span> <span class="n">TripleMagConfig</span><span class="p">(</span><span class="n">n_limb</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+<span class="n">mu_triple</span> <span class="o">=</span> <span class="n">mag_triple</span><span class="p">(</span>
+    <span class="n">w</span><span class="p">,</span>
+    <span class="n">rho</span><span class="p">,</span>
+    <span class="n">s</span><span class="o">=</span><span class="mf">1.10</span><span class="p">,</span>
+    <span class="n">q</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>
+    <span class="n">q3</span><span class="o">=</span><span class="mf">0.50</span><span class="p">,</span>
+    <span class="n">r3</span><span class="o">=</span><span class="mf">0.60</span><span class="p">,</span>
+    <span class="n">psi</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">210.0</span><span class="p">),</span>
+    <span class="n">u1</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">config</span><span class="o">=</span><span class="n">triple_config</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 </div>
-<p>Guidelines:</p>
-<ul class="simple">
-<li><p>Start with the same trajectory used for the binary case; only the lens system
-changes.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">psi</span></code> is measured counter-clockwise from the lens 1–2 axis.</p></li>
-</ul>
 </section>
-<section id="autodiff-and-jit">
-<h2>Autodiff and <code class="docutils literal notranslate"><span class="pre">jit</span></code><a class="headerlink" href="#autodiff-and-jit" title="Link to this heading"></a></h2>
-<p>All magnification routines are differentiable.  Wrapping them in <code class="docutils literal notranslate"><span class="pre">jax.jit</span></code>
-gives you compiled performance, and <code class="docutils literal notranslate"><span class="pre">jax.jacfwd</span></code> provide derivatives for
-inference.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">jax</span><span class="w"> </span><span class="kn">import</span> <span class="n">jacfwd</span><span class="p">,</span> <span class="n">jit</span>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">TripleMagConfig</span></code> currently expose one setting:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">n_limb</span></code></dt><dd><p>Number of points placed on the circular source boundary before those points
+are mapped into the image plane. Larger values follow rapid changes of the
+image boundary more finely, at additional computational cost. The default
+value is recommended for normal use. This setting does not directly change
+the number of radial integration points.</p>
+</dd>
+</dl>
+<p>microJAX automatically chooses the remaining integration and GPU execution
+settings.</p>
+</section>
+<section id="boundary-integration-in-outline">
+<h2>Boundary integration in outline<a class="headerlink" href="#boundary-integration-in-outline" title="Link to this heading"></a></h2>
+<p>The solver first tries a fast approximation. Source positions that require the
+full finite-source calculation then follow this sequence:</p>
+<ol class="arabic simple">
+<li><p>Sample the circumference of the source and map those points through the
+lens equation.</p></li>
+<li><p>Connect samples that form the same continuous image of the circumference.
+Each connected sequence is an <em>image branch</em>.</p></li>
+<li><p>For every image branch, find the range of image-plane radius that it
+occupies. Combine ranges that overlap.</p></li>
+<li><p>Divide a combined range wherever the number or arrangement of boundary
+crossings may change. Each resulting radial subinterval is called a
+<em>radial cell</em>.</p></li>
+<li><p>At selected radii within each cell, calculate the angles where the radius
+circle crosses the image boundary. Adjacent crossing angles determine which
+angular arcs lie inside a lensed image.</p></li>
+<li><p>Integrate the surface brightness along the inside arcs, then integrate over
+radius to obtain the total lensed flux.</p></li>
+</ol>
+<p>The subdivision in step 4 is important: one image branch can contribute to
+several cells, and one combined radial range can contain several cells. Within
+one cell, the pattern of boundary crossings is expected to stay unchanged.</p>
+</section>
+<section id="differentiation">
+<h2>Differentiation<a class="headerlink" href="#differentiation" title="Link to this heading"></a></h2>
+<p>Forward-mode differentiation is the recommended route for full light-curve
+Jacobians.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">forward_model</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">forward_model</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
-    <span class="n">mags</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">mags</span>  <span class="c1"># replace with instrument model if needed</span>
-
-<span class="n">forward_jit</span> <span class="o">=</span> <span class="n">jit</span><span class="p">(</span><span class="n">forward_model</span><span class="p">)</span>
-<span class="n">J</span> <span class="o">=</span> <span class="n">jacfwd</span><span class="p">(</span><span class="n">forward_jit</span><span class="p">)(</span><span class="n">q</span><span class="p">)</span>
+<span class="n">dmu_dq</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jacfwd</span><span class="p">(</span><span class="n">forward_model</span><span class="p">)(</span><span class="mf">5e-4</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Note: The reverse-mode automatic differentiation in <code class="docutils literal notranslate"><span class="pre">microJAX</span></code> is currently
-under development due to memory handling issues.</p>
+<p>JAX differentiation does not guarantee that the numerical result is smooth or
+accurate at every point. Caustic crossings can change the number and
+arrangement of images, and the code switches between an approximation and the
+full calculation where appropriate. Compare values and gradients against
+independent calculations over the intended parameter range.</p>
 </section>
-<section id="trajectory-helpers">
-<h2>Trajectory helpers<a class="headerlink" href="#trajectory-helpers" title="Link to this heading"></a></h2>
-<p>For trajectories beyond straight lines, the <a class="reference internal" href="api/trajectory.html#module-microjax.trajectory" title="microjax.trajectory"><code class="xref py py-mod docutils literal notranslate"><span class="pre">microjax.trajectory</span></code></a> package
-provides composable pieces:</p>
-<ul class="simple">
-<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">microjax.trajectory.parallax</span></code> – annual parallax terms.</p></li>
-</ul>
-<p>These components return arrays compatible with the <code class="docutils literal notranslate"><span class="pre">w_points</span></code> input used above, so
-you can drop them into <code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> / <code class="docutils literal notranslate"><span class="pre">mag_triple</span></code> without further changes.</p>
+<section id="failure-behavior">
+<h2>Failure behavior<a class="headerlink" href="#failure-behavior" title="Link to this heading"></a></h2>
+<p>The public finite-source functions return <code class="docutils literal notranslate"><span class="pre">NaN</span></code> if they cannot construct a
+valid image boundary or integration region, or if a calculation becomes
+non-finite. A finite result is still a numerical estimate without a guaranteed
+error bound. Downstream likelihood code should check for non-finite values
+explicitly and validate accuracy independently.</p>
 </section>
-<section id="best-practices">
-<h2>Best practices<a class="headerlink" href="#best-practices" title="Link to this heading"></a></h2>
+<section id="performance-and-reproducibility">
+<h2>Performance and reproducibility<a class="headerlink" href="#performance-and-reproducibility" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p>Keep 64-bit mode enabled for production runs; it significantly improves the
-stability of implicit differentiation through the polynomial solver.</p></li>
-<li><p>Use <a class="reference internal" href="api/likelihood.html#module-microjax.likelihood" title="microjax.likelihood"><code class="xref py py-mod docutils literal notranslate"><span class="pre">microjax.likelihood</span></code></a> to marginalise nuisance flux parameters instead
-of fitting them manually—this often reduces sampler autocorrelation.</p></li>
+<li><p>The first call includes compilation. Warm up and call <code class="docutils literal notranslate"><span class="pre">block_until_ready</span></code>
+before timing.</p></li>
+<li><p>Finite-source calculations are intended for GPUs, although they also run on
+CPUs.</p></li>
+<li><p>Record microJAX, JAX, and JAXLIB versions; the accelerator model; precision;
+and the complete configuration object with reported results.</p></li>
+<li><p>Benchmark values committed under <code class="docutils literal notranslate"><span class="pre">example/</span></code> are records for their stated
+hardware and trajectories, not universal guarantees.</p></li>
 </ul>
 </section>
 </section>

@@ -32,7 +32,7 @@ except ImportError:
     print("VBBinaryLensing not installed; run `pip install VBBinaryLensing`.")
     sys.exit(0)
 
-from microjax.fastlens import fspl_disk, fspl_ld1
+from microjax.fspl import fspl_disk, fspl_ld1
 
 # ---- configuration (edit as needed) ----
 U0 = 0.0             # minimum impact parameter; set >0 to avoid u=0 if desired

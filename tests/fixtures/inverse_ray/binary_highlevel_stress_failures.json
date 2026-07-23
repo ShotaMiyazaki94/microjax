@@ -1,0 +1,41 @@
+{
+  "provenance": {
+    "source": "dev/reports/microjax-paper-diff/assets/highlevel_fixed_stress_validation_gpu_a100.csv",
+    "device": "NVIDIA A100-PCIE-40GB",
+    "jax": "0.10.2",
+    "reference": "saved VBBinaryLensing 3.7.0 stress_matrix.csv values",
+    "Nlimb": 500,
+    "angular_atol": 1e-5,
+    "relative_tolerance": 1e-4,
+    "description": "All non-finite public mag_binary results in the original 2026-07-20 768-point broad binary stress audit."
+  },
+  "cases": [
+    {
+      "id": "case_01_point_21",
+      "q": 0.0001,
+      "s": 0.7,
+      "rho": 0.01,
+      "source_x": -0.7232370464985145,
+      "source_y": 0.02346512697508372,
+      "vbbl": 1.9036176550010675
+    },
+    {
+      "id": "case_03_point_25",
+      "q": 0.0001,
+      "s": 1.0,
+      "rho": 0.01,
+      "source_x": -0.03446231170802129,
+      "source_y": 0.00505532006404231,
+      "vbbl": 27.960199616988888
+    },
+    {
+      "id": "case_10_point_18",
+      "q": 0.01,
+      "s": 1.6,
+      "rho": 0.0001,
+      "source_x": 0.9847876663040261,
+      "source_y": 0.03270152547393896,
+      "vbbl": 16.9001683539166
+    }
+  ]
+}

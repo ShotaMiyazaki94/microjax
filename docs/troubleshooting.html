@@ -8,14 +8,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Troubleshooting &mdash; microJAX  documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="_static/doctools.js?v=9bcbadda"></script>
-      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -103,16 +103,15 @@ or ROCm equivalents).</p></li>
 <section id="mag-binary-is-slow-or-runs-out-of-memory">
 <h2>mag_binary is slow or runs out of memory<a class="headerlink" href="#mag-binary-is-slow-or-runs-out-of-memory" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> also works on CPU but is very slow.</p></li>
-<li><p>Trim the inverse-ray grid via <code class="docutils literal notranslate"><span class="pre">r_resolution</span></code> / <code class="docutils literal notranslate"><span class="pre">th_resolution</span></code> when you
-do not need the default 1000×1000 sampling; smaller grids cut both runtime and
-memory pressure.  Increase them only when accuracy demands it.</p></li>
-<li><p>Adjust <code class="docutils literal notranslate"><span class="pre">chunk_size</span></code> to fit your device.  Lower values avoid out-of-memory
-crashes; raise it gradually if the GPU remains underutilised.</p></li>
-<li><p>Use <code class="docutils literal notranslate"><span class="pre">MAX_FULL_CALLS</span></code> to cap how many samples fall back to the full
-image-centred ray shooting routine.  Lowering it keeps runtimes bounded, but
-expect a trade-off in accuracy if many points revert to the hexadecapole
-approximation.</p></li>
+<li><p>Finite-source calculations run on a CPU but are intended primarily for a
+GPU. A CPU run can be substantially slower.</p></li>
+<li><p>The first call includes JAX compilation. Measure later calls only after
+waiting for the first result with <code class="docutils literal notranslate"><span class="pre">block_until_ready()</span></code>.</p></li>
+<li><p>Process a very long light curve in several user-level batches if the complete
+output and its derivatives do not fit in device memory.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_limb</span></code> controls how finely the source circumference is followed. Reducing
+it can lower cost, but it can also miss rapidly changing image geometry.
+Validate against the default before using a smaller value.</p></li>
 </ul>
 </section>
 <section id="gradient-computations-stall">

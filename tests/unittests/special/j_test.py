@@ -1,4 +1,4 @@
-from microjax.fastlens.special import j0, j1, j2, j1p5
+from microjax.fspl.special import j0, j1, j2, j1p5
 from scipy.special import jv as jv_s
 from scipy.special import j0 as j0_s
 from scipy.special import j1 as j1_s

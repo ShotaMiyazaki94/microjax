@@ -1,5 +1,20 @@
 """Trajectory utilities for microJAX."""
 
+from .lom import (
+    circular_orbital_motion_3d,
+    circular_orbital_motion_3d_jit,
+    circular_orbital_motion_3d_state,
+    circular_orbital_motion_3d_state_jit,
+    elliptic_orbital_motion_3d,
+    elliptic_orbital_motion_3d_jit,
+    elliptic_orbital_motion_3d_state,
+    elliptic_orbital_motion_3d_state_jit,
+    linear_orbital_motion,
+    linear_orbital_motion_jit,
+    linear_orbital_motion_state,
+    linear_orbital_motion_state_jit,
+    to_rotating_lens_frame,
+)
 from .parallax import (
     EarthOrbitalParallaxProjector,
     HeliocentricEphemeris,
@@ -18,6 +33,19 @@ from .parallax import (
 )
 
 __all__ = [
+    "circular_orbital_motion_3d",
+    "circular_orbital_motion_3d_jit",
+    "circular_orbital_motion_3d_state",
+    "circular_orbital_motion_3d_state_jit",
+    "elliptic_orbital_motion_3d",
+    "elliptic_orbital_motion_3d_jit",
+    "elliptic_orbital_motion_3d_state",
+    "elliptic_orbital_motion_3d_state_jit",
+    "linear_orbital_motion",
+    "linear_orbital_motion_jit",
+    "linear_orbital_motion_state",
+    "linear_orbital_motion_state_jit",
+    "to_rotating_lens_frame",
     "EarthOrbitalParallaxProjector",
     "HeliocentricEphemeris",
     "earth_orbital_parallax_offsets",

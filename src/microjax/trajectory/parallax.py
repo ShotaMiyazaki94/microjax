@@ -34,6 +34,8 @@ from jax import lax
 import jax.numpy as jnp
 import numpy as np
 
+from ._kepler import solve_kepler_newton
+
 # Lightweight array alias for readability (consistent with inverse_ray style)
 Array = jnp.ndarray
 
@@ -115,12 +117,12 @@ def getpsi(phi: Union[float, Array], ecc: float) -> Array:
       well for moderate eccentricities without branching.
     - The iteration count is fixed to keep control-flow JIT friendly.
     """
-    psi = phi + jnp.sign(jnp.sin(phi)) * 0.85 * ecc # empirical init
-    for _ in range(5):
-        f = psi - ecc * jnp.sin(psi) - phi
-        f_prime = 1.0 - ecc * jnp.cos(psi)
-        psi -= f / f_prime
-    return psi
+    return solve_kepler_newton(
+        phi,
+        ecc,
+        n_iter=5,
+        init="parallax_empirical",
+    )
 
 def prepare_projection_basis(rotaxis_deg: float, psi_offset: float, RA: float, Dec: float) -> Tuple[Array, Array, Array]:
     """Build orbital→equatorial rotation and sky-plane bases.

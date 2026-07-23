@@ -1,191 +1,181 @@
 Usage Guide
 ===========
 
-This chapter walks through the most common workflows in microJAX and explains
-what each knob does.  The goal is to provide copy-and-pasteable snippets along
-with the context required to adapt them to your own microlensing problem.
+This guide introduces the public ``0.2`` workflow, the available settings, and
+the checks recommended before using a result in an analysis.
 
 Common setup
 ------------
 
-Start every session by enabling 64-bit mode and importing the building blocks
-you intend to use.  Keeping everything in one place makes it easier to reuse the
-same configuration across notebooks or scripts::
+Enable 64-bit mode before creating arrays and use the public package imports::
 
    import jax
    import jax.numpy as jnp
 
+   jax.config.update("jax_enable_x64", True)
+
+   from microjax.inverse_ray import (
+       BinaryMagConfig,
+       TripleMagConfig,
+       mag_binary,
+       mag_triple,
+   )
    from microjax.point_source import mag_point_source
-   from microjax.inverse_ray.lightcurve import mag_binary, mag_triple
-
-   jax.config.update("jax_enable_x64", True)  # stabilises the polynomial solver
-
-The snippets below assume this cell has already been run.  If you restart your
-Python session, rerun it before continuing.
 
 Point-source magnification
 --------------------------
 
-Use ``mag_point_source`` when the source can be treated as infinitesimally small
-and you need fast magnifications for one to three lenses.
+``mag_point_source`` evaluates magnification for one to three point lenses.
+Source coordinates are complex numbers in Einstein-radius units: the real part
+is x and the imaginary part is y.
 
-Step-by-step
-~~~~~~~~~~~~
+.. code-block:: python
 
-1. Assemble the complex source coordinates.  The real part is the x-position,
-   the imaginary part is the y-position in Einstein radii.
-2. Specify the lens configuration via ``nlenses`` and the associated parameters.
-3. Call ``mag_point_source``; the function broadcasts across any leading axes of
-   ``w`` so batches are handled automatically.
-
-Example::
-
-   w = jnp.array([
-       0.00 + 0.10j,
-       0.05 + 0.05j,
-       -0.10 + 0.02j,
-   ])
-
+   w = jnp.array([0.00 + 0.10j, 0.05 + 0.05j, -0.10 + 0.02j])
    mu = mag_point_source(w, nlenses=2, s=1.0, q=0.01)
 
-   print("Magnification per sample:", mu)
+For a triple lens, add ``q3``, ``r3``, and ``psi``. Here ``q3`` is the third
+mass relative to lens 1, ``r3`` is its separation parameter, and ``psi`` is its
+position angle in radians.
 
-``nlenses=3`` introduces a third body.  Provide the additional keywords ``q3``
-(mass ratio of lens 3 to lens 1), ``r3`` (distance between lens 1 and 3), and
-``psi`` (position angle of lens 3, in radians).  All other keyword arguments are
-fully broadcastable and can be supplied as arrays if you want to sweep over a
-grid of lens parameters.
+Finite-source point lens
+------------------------
+
+For a circular source magnified by one point lens, construct an FSPL source
+profile and evaluate its ``A(u, rho)`` method. Here ``u`` is the lens-source
+separation and ``rho`` is the source radius, both in Einstein-radius units.
+
+.. code-block:: python
+
+   from microjax.fspl import fspl_disk, fspl_ld1
+
+   u = jnp.linspace(0.0, 1.0, 1000)
+   mu_uniform = fspl_disk().A(u, rho=0.01)
+   mu_limb_darkened = fspl_ld1(a1=0.5).A(u, rho=0.01)
 
 Finite-source binary lenses
 ---------------------------
 
-``mag_binary`` computes finite-source light curves by combining a fast
-hexadecapole approximation with full inverse-ray integrations when required.
-
-1. Build the trajectory
-~~~~~~~~~~~~~~~~~~~~~~~
-
-The helper below constructs a standard rectilinear trajectory.  Feel free to
-replace it with your own sampler if you need orbital motion or parallax.
+Construct a source trajectory and pass the circular-source radius ``rho`` to
+``mag_binary``.
 
 .. code-block:: python
 
-   tE = 40.0                      # Einstein time (days)
-   u0 = 0.05                      # impact parameter
-   alpha = jnp.deg2rad(60.0)      # trajectory angle in radians
-   t0 = 0.0                       # time of closest approach
-   rho = 0.01                     # source radius in Einstein units
+   t0, tE, u0 = 0.0, 40.0, 0.05
+   alpha = jnp.deg2rad(60.0)
+   rho = 0.01
 
    t = t0 + jnp.linspace(-2 * tE, 2 * tE, 1024)
    tau = (t - t0) / tE
-   y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
-   y2 =  u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
-   w_points = jnp.array(y1 + 1j * y2, dtype=complex)   # source trajectory
+   w = (
+       -u0 * jnp.sin(alpha)
+       + tau * jnp.cos(alpha)
+       + 1j * (u0 * jnp.cos(alpha) + tau * jnp.sin(alpha))
+   )
 
-2. Evaluate the magnification
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   config = BinaryMagConfig(n_limb=500)
+   mu = mag_binary(w, rho, s=0.95, q=5e-4, config=config)
 
-Call ``mag_binary`` with the trajectory, source radius, and lens parameters.  To
-start, stick with the defaults for the optional arguments and only adjust them
-if you hit performance limits.
+Set ``u1`` to a non-zero value for the normalized linear limb-darkening law::
 
-.. code-block:: python
-
-   s = 0.95                       # projected separation
-   q = 5e-4                       # mass ratio (m2/m1)
-   mags = mag_binary(w_points, rho, s=s, q=q)
-
-``mag_binary`` returns magnifications aligned with the input trajectory.  If you
-need fluxes, multiply by the intrinsic source flux and add blends or baselines
-as appropriate.
-
-Fine-tuning parameters
-~~~~~~~~~~~~~~~~~~~~~~
-
-- ``r_resolution`` / ``th_resolution``  
-  Set the number of grid divisions in the radial and angular directions for the 
-  inverse-ray shooting method. Increasing these values improves the accuracy of 
-  the magnification calculation, but also raises computational and memory costs 
-  on GPUs. Users should adjust them according to their accuracy requirements 
-  and hardware limits.
-- ``MAX_FULL_CALLS``  
-  Determines the maximum number of magnification points that are computed with 
-  the image-centered ray-shooting (ICRS) method. It sets an upper limit on the 
-  points that require finite-source calculations, with the remaining points 
-  evaluated using the hexadecapole approximation.
-- ``chunk_size``  
-  Controls how many points are processed in parallel by the ICRS method via 
-  ``jax.vmap``. A larger value can improve GPU utilization but may exceed 
-  device memory, causing out-of-memory errors. Smaller values are safer but may 
-  slow down the computation. Users should tune this parameter based on their 
-  GPU capacity.
-- ``Nlimb``  
-  Sets the number of source limb points used to construct annular sectors on the 
-  lens plane, where ray-shooting integrations are performed. In most cases, 
-  users do not need to change this value. Adjust it only if catastrophic errors 
-  appear in magnification calculations.
+   mu_ld = mag_binary(w, rho, s=0.95, q=5e-4, u1=0.5, config=config)
 
 Triple lenses
 -------------
 
-Triple-lens finite-source calculations are handled by ``mag_triple``.  The
-inputs mirror the binary API, but you must describe the third body explicitly.
+The triple-lens API uses the same trajectory and source profile.
 
 .. code-block:: python
 
-   mags_triple = mag_triple(w_points, rho, 
-                            s=1.10,                 # separation between 1st and 2nd lenses
-                            q=0.02,                 # mass ratio (m2/m1)
-                            q3=0.50,                # mass ratio (m3/m1)
-                            r3=0.60,                # separation between center of masss for m1/m2 and m3
-                            psi=jnp.deg2rad(210.0)  # angle of 3rd lens axis in radians 
-                            )
+   triple_config = TripleMagConfig(n_limb=500)
+   mu_triple = mag_triple(
+       w,
+       rho,
+       s=1.10,
+       q=0.02,
+       q3=0.50,
+       r3=0.60,
+       psi=jnp.deg2rad(210.0),
+       u1=0.5,
+       config=triple_config,
+   )
 
-Guidelines:
+Configuration
+-------------
 
-- Start with the same trajectory used for the binary case; only the lens system
-  changes.
-- ``psi`` is measured counter-clockwise from the lens 1–2 axis.
+``BinaryMagConfig`` and ``TripleMagConfig`` currently expose one setting:
 
-Autodiff and ``jit``
---------------------
+``n_limb``
+   Number of points placed on the circular source boundary before those points
+   are mapped into the image plane. Larger values follow rapid changes of the
+   image boundary more finely, at additional computational cost. The default
+   value is recommended for normal use. This setting does not directly change
+   the number of radial integration points.
 
-All magnification routines are differentiable.  Wrapping them in ``jax.jit``
-gives you compiled performance, and ``jax.jacfwd`` provide derivatives for 
-inference.
+microJAX automatically chooses the remaining integration and GPU execution
+settings.
+
+Boundary integration in outline
+-------------------------------
+
+The solver first tries a fast approximation. Source positions that require the
+full finite-source calculation then follow this sequence:
+
+1. Sample the circumference of the source and map those points through the
+   lens equation.
+2. Connect samples that form the same continuous image of the circumference.
+   Each connected sequence is an *image branch*.
+3. For every image branch, find the range of image-plane radius that it
+   occupies. Combine ranges that overlap.
+4. Divide a combined range wherever the number or arrangement of boundary
+   crossings may change. Each resulting radial subinterval is called a
+   *radial cell*.
+5. At selected radii within each cell, calculate the angles where the radius
+   circle crosses the image boundary. Adjacent crossing angles determine which
+   angular arcs lie inside a lensed image.
+6. Integrate the surface brightness along the inside arcs, then integrate over
+   radius to obtain the total lensed flux.
+
+The subdivision in step 4 is important: one image branch can contribute to
+several cells, and one combined radial range can contain several cells. Within
+one cell, the pattern of boundary crossings is expected to stay unchanged.
+
+Differentiation
+---------------
+
+Forward-mode differentiation is the recommended route for full light-curve
+Jacobians.
 
 .. code-block:: python
-
-   from functools import partial
-   from jax import jacfwd, jit
 
    def forward_model(q):
-       mags = mag_binary(w, rho, s=s, q=q)
-       return mags  # replace with instrument model if needed
+       return mag_binary(w, rho, s=0.95, q=q, config=config)
 
-   forward_jit = jit(forward_model)
-   J = jacfwd(forward_jit)(q)
+   dmu_dq = jax.jacfwd(forward_model)(5e-4)
 
+JAX differentiation does not guarantee that the numerical result is smooth or
+accurate at every point. Caustic crossings can change the number and
+arrangement of images, and the code switches between an approximation and the
+full calculation where appropriate. Compare values and gradients against
+independent calculations over the intended parameter range.
 
-Note: The reverse-mode automatic differentiation in ``microJAX`` is currently 
-under development due to memory handling issues.
+Failure behavior
+----------------
 
+The public finite-source functions return ``NaN`` if they cannot construct a
+valid image boundary or integration region, or if a calculation becomes
+non-finite. A finite result is still a numerical estimate without a guaranteed
+error bound. Downstream likelihood code should check for non-finite values
+explicitly and validate accuracy independently.
 
-Trajectory helpers
-------------------
+Performance and reproducibility
+-------------------------------
 
-For trajectories beyond straight lines, the :mod:`microjax.trajectory` package
-provides composable pieces:
-
-- :mod:`microjax.trajectory.parallax` – annual parallax terms.
-
-These components return arrays compatible with the ``w_points`` input used above, so
-you can drop them into ``mag_binary`` / ``mag_triple`` without further changes.
-
-Best practices
---------------
-
-- Keep 64-bit mode enabled for production runs; it significantly improves the
-  stability of implicit differentiation through the polynomial solver.
-- Use :mod:`microjax.likelihood` to marginalise nuisance flux parameters instead
-  of fitting them manually—this often reduces sampler autocorrelation.
+- The first call includes compilation. Warm up and call ``block_until_ready``
+  before timing.
+- Finite-source calculations are intended for GPUs, although they also run on
+  CPUs.
+- Record microJAX, JAX, and JAXLIB versions; the accelerator model; precision;
+  and the complete configuration object with reported results.
+- Benchmark values committed under ``example/`` are records for their stated
+  hardware and trajectories, not universal guarantees.

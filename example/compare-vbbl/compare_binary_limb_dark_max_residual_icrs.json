@@ -1,0 +1,8 @@
+{
+  "time": 1.876876876876877,
+  "source_real": 0.04423841223639562,
+  "source_imag": 0.044238412236395616,
+  "relative_residual": 6.136943908406249e-05,
+  "limb_darkening_u1": 0.5,
+  "n_limb": 500
+}

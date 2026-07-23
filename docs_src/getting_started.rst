@@ -16,7 +16,7 @@ Prerequisites
 Installation
 ------------
 
-Install the latest release from PyPI::
+Install the latest published release from PyPI::
 
    python -m pip install microjaxx
 
@@ -28,6 +28,14 @@ Or work from source::
 
 The import name remains ``microjax`` even though the published wheel is
 ``microjaxx``.
+
+The methods-paper implementation is preserved as version ``0.1.1``::
+
+   python -m pip install "microjaxx==0.1.1"
+
+The ``0.2`` source line is a substantial solver redesign. For reproducible
+work, record ``microjax.__version__`` or the exact Git commit rather than
+describing either line only as "microJAX".
 
 Verify the environment
 ----------------------

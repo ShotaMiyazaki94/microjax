@@ -290,14 +290,18 @@ def mag_hexadecapole(
             * (e1 / (z - a) ** k + (1.0 - e1) / (z + a) ** k)
         )
     elif nlenses == 3:
-        a, r3, e1, e2 = params["a"], params["r3"], params["e1"], params["e2"]
+        a, e1, e2 = params["a"], params["e1"], params["e2"]
+        if "r3_complex" in params:
+            r3_complex = params["r3_complex"]
+        else:
+            r3_complex = params["r3"] * jnp.exp(1j * params["psi"])
         W = (
             lambda k: (-1) ** (k - 1)
             * factorial(k - 1)
             * (
                 e1 / (z - a) ** k
                 + e2 / (z + a) ** k
-                + (1.0 - e1 - e2) / (z - r3) ** k
+                + (1.0 - e1 - e2) / (z - r3_complex) ** k
             )
         )
     else:

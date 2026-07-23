@@ -1,19 +1,15 @@
-"""Inverse-ray integration utilities for finite-source microlensing.
+"""Public finite-source magnification API.
 
-Submodules
-- boundary: smoothed membership and boundary factors
-- limb_darkening: limb-darkening intensity profiles
-- merge_area: region construction for polar integration
-- extended_source: core integrators (uniform, limb-darkened)
-- cond_extended: tests to select between multipole and full solve
-- lightcurve: adaptive lightcurve mixing multipole and full inverse-ray
+``mag_binary`` and ``mag_triple`` calculate magnification along a complex
+source trajectory. ``BinaryMagConfig`` and ``TripleMagConfig`` control how
+finely the circular source boundary is sampled before it is mapped into the
+image plane.
+
+Use ``u1=0`` for a uniform source or a positive ``u1`` for linear limb
+darkening. Enable JAX 64-bit mode for production calculations.
 """
 
-__all__ = [
-    "boundary",
-    "limb_darkening",
-    "merge_area",
-    "extended_source",
-    "cond_extended",
-    "lightcurve",
-]
+from .config import BinaryMagConfig, TripleMagConfig
+from .lightcurve import mag_binary, mag_triple
+
+__all__ = ["BinaryMagConfig", "TripleMagConfig", "mag_binary", "mag_triple"]

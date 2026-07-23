@@ -8,14 +8,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Polynomial Solver &mdash; microJAX  documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -53,14 +53,16 @@
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="../modules.html">API Reference</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="point_source.html">Point Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fspl.html">Finite-source Point Lens</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
-<li class="toctree-l2"><a class="reference internal" href="caustics_lightcurve.html">Caustics Lightcurve</a></li>
 <li class="toctree-l2"><a class="reference internal" href="inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Polynomial Solver</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#design-highlights">Design highlights</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#notes-on-numerical-behavior">Notes on numerical behavior</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#microjax.poly_solver.poly_roots"><code class="docutils literal notranslate"><span class="pre">poly_roots()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#microjax.poly_solver.poly_roots_EA_multi"><code class="docutils literal notranslate"><span class="pre">poly_roots_EA_multi()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.poly_solver.poly_roots_self_inversive_fixed"><code class="docutils literal notranslate"><span class="pre">poly_roots_self_inversive_fixed()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#microjax.poly_solver.poly_roots_self_inversive_robust_fixed"><code class="docutils literal notranslate"><span class="pre">poly_roots_self_inversive_robust_fixed()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="likelihood.html">Likelihood Utilities</a></li>
@@ -166,6 +168,18 @@ or complex values are supported.</p></li>
 <dd class="field-odd"><p>jax.Array</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.poly_solver.poly_roots_self_inversive_fixed">
+<span class="sig-prename descclassname"><span class="pre">microjax.poly_solver.</span></span><span class="sig-name descname"><span class="pre">poly_roots_self_inversive_fixed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coeffs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.poly_solver.poly_roots_self_inversive_fixed" title="Link to this definition"></a></dt>
+<dd><p>Vectorize the fixed self-inversive solver over coefficient batches.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="microjax.poly_solver.poly_roots_self_inversive_robust_fixed">
+<span class="sig-prename descclassname"><span class="pre">microjax.poly_solver.</span></span><span class="sig-name descname"><span class="pre">poly_roots_self_inversive_robust_fixed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coeffs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.poly_solver.poly_roots_self_inversive_robust_fixed" title="Link to this definition"></a></dt>
+<dd><p>Vectorize the robust fixed solver over coefficient batches.</p>
 </dd></dl>
 
 </section>

@@ -10,8 +10,8 @@ requires-python = ">=3.9"
 license = "MIT"
 license-files = [
   "LICENSE",
-  "src/microjax/caustics/LICENSE",
-  "src/microjax/fastlens/LICENSE",
+  "LICENSES/caustics-MIT.txt",
+  "src/microjax/fspl/LICENSE",
 ]
 authors = [
   { name = "Shota Miyazaki", email = "miyazaki@ir.isas.jaxa.jp" }
@@ -54,7 +54,8 @@ dev = [
 Homepage = "https://github.com/ShotaMiyazaki94/microjax"
 Repository = "https://github.com/ShotaMiyazaki94/microjax"
 Issues = "https://github.com/ShotaMiyazaki94/microjax/issues"
-Documentation = "https://github.com/ShotaMiyazaki94/microjax#readme"
+Documentation = "https://shotamiyazaki94.github.io/microjax/"
+Changelog = "https://github.com/ShotaMiyazaki94/microjax/blob/master/CHANGELOG.md"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -68,3 +69,6 @@ microjax = ["**/LICENSE", "data/*.txt"]
 
 [tool.setuptools.dynamic]
 version = { attr = "microjax.__version__" }
+
+[tool.black]
+line-length = 120
