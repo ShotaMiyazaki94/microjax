@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 __all__ = []
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 __uri__ = ''
 __author__ = 'Shota Miyazaki and collaborators'
 __email__ = 'miyazaki@ir.isas.jaxa.jp'
