@@ -39,6 +39,11 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
   `microjax.fspl`; the former `microjax.fastlens` package name has been
   removed.
 
+### Fixed
+
+- Reduced isolated `NaN` results near binary-lens source boundaries by making
+  the angular boundary calculation more robust.
+
 ### Compatibility
 
 - Treat `0.2.0` as potentially API-breaking relative to `0.1.1`.

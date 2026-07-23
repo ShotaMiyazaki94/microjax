@@ -44,7 +44,7 @@ __all__ = [
     "poly_roots_EA_multi",
 ]
 
-_FIXED_EA_ITERATIONS = 20
+_FIXED_EA_ITERATIONS = 32
 _ROBUST_EA_ITERATIONS = 40
 
 
@@ -201,7 +201,7 @@ def _self_inversive_root_jvp(solver, primals, tangents):
 
 @custom_jvp
 def poly_roots_EA_self_inversive_fixed(coeffs: jax.Array) -> jax.Array:
-    """Solve one polynomial with 20 fixed accelerator-friendly EA steps.
+    """Solve one polynomial with 32 fixed accelerator-friendly EA steps.
 
     This schedule is intended for large homogeneous first-pass batches. Rare
     failures remain explicit in downstream residual checks and can be compacted
