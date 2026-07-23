@@ -17,29 +17,10 @@ from microjax.inverse_ray.roots.level_set import binary_level_set
 from microjax.point_source import critical_and_caustic_curves
 
 
-def _display_ring_indices(
-    radii: np.ndarray,
-    angular_measure: np.ndarray,
-    interval_ids: np.ndarray,
-    count: int = 30,
-) -> np.ndarray:
-    """Select live rings while retaining every non-empty radial interval."""
+def _nonempty_ring_indices(angular_measure: np.ndarray) -> np.ndarray:
+    """Return every sampled ring that contains a non-empty image arc."""
 
-    live = np.isfinite(angular_measure) & (angular_measure > 0.0)
-    guaranteed = []
-    for interval_id in np.unique(interval_ids[live]):
-        candidates = np.flatnonzero(live & (interval_ids == interval_id))
-        guaranteed.append(candidates[len(candidates) // 2])
-
-    guaranteed = np.asarray(guaranteed, dtype=int)
-    if guaranteed.size >= count:
-        return guaranteed
-    remaining = np.setdiff1d(np.flatnonzero(live), guaranteed, assume_unique=False)
-    extra_count = min(count - guaranteed.size, remaining.size)
-    if extra_count:
-        positions = np.linspace(0, remaining.size - 1, extra_count).round().astype(int)
-        guaranteed = np.concatenate((guaranteed, remaining[positions]))
-    return np.sort(np.unique(guaranteed))
+    return np.flatnonzero(np.isfinite(angular_measure) & (angular_measure > 0.0))
 
 
 def plot_boundary_construction(
@@ -93,7 +74,6 @@ def plot_boundary_construction(
         radial_intervals[:, 1:] - radial_intervals[:, :1]
     ) * interval_fractions[None, :]
     profile_radii = profile_radii_by_interval.reshape(-1)
-    profile_interval_ids = np.repeat(np.arange(n_intervals), samples_per_interval)
     cell_tolerance = 64.0 * jnp.finfo(jnp.float64).eps
     angular = jax.jit(
         jax.vmap(
@@ -117,26 +97,43 @@ def plot_boundary_construction(
     angular_measure = np.asarray(
         [np.sum(bounds[:count, 1] - bounds[:count, 0]) for bounds, count in zip(profile_intervals, profile_counts)]
     )
-    ring_indices = _display_ring_indices(profile_radii, angular_measure, profile_interval_ids)
+    # This diagnostic deliberately plots every non-empty sampled ring.  It is
+    # denser than the publication light-curve plot, but makes a missing image
+    # component distinguishable from display-ring subsampling.
+    ring_indices = _nonempty_ring_indices(angular_measure)
     ring_radii = profile_radii[ring_indices]
     ring_intervals = profile_intervals[ring_indices]
     ring_counts = profile_counts[ring_indices]
 
     critical, caustics = critical_and_caustic_curves(nlenses=2, npts=1000, s=s, q=q)
-    fig, axes = plt.subplots(1, 2, figsize=(12.0, 5.4))
-    image_axis = axes[0]
-    boundary_roots_label = "angular boundary roots"
+    fig = plt.figure(figsize=(12.0, 5.4), layout="constrained")
+    grid = fig.add_gridspec(
+        2,
+        2,
+        height_ratios=(1.0, 0.10),
+        hspace=0.06,
+        wspace=0.08,
+    )
+    image_axis = fig.add_subplot(grid[:, 0])
+    boundary_roots_label = "inside-arc endpoints"
     for radius, intervals, count in zip(ring_radii, ring_intervals, ring_counts, strict=True):
         for theta_lo, theta_hi in intervals[:count]:
             theta = np.linspace(theta_lo, theta_hi, 80)
-            image_axis.plot(radius * np.cos(theta), radius * np.sin(theta), color="darkorange", lw=1.2, alpha=0.9)
+            image_axis.plot(
+                radius * np.cos(theta),
+                radius * np.sin(theta),
+                color="darkorange",
+                lw=0.45,
+                alpha=0.22,
+            )
             image_axis.scatter(
                 radius * np.cos([theta_lo, theta_hi]),
                 radius * np.sin([theta_lo, theta_hi]),
                 color="tab:cyan",
                 edgecolor="black",
-                linewidth=0.25,
-                s=7,
+                linewidth=0.2,
+                s=4,
+                alpha=0.72,
                 zorder=4,
                 label=boundary_roots_label,
             )
@@ -149,6 +146,7 @@ def plot_boundary_construction(
         s=1.0,
         color="purple",
         alpha=0.65,
+        zorder=3,
         label="mapped source limb",
     )
     for curve in np.asarray(critical):
@@ -176,35 +174,76 @@ def plot_boundary_construction(
     image_axis.set_aspect("equal")
     image_axis.set_xlabel(r"image-plane $x$ [$R_E$]")
     image_axis.set_ylabel(r"image-plane $y$ [$R_E$]")
-    image_axis.set_title("Exact inside-angle arcs on selected radii")
+    image_axis.set_title("Inside-angle arcs on all sampled non-empty radii")
     image_axis.grid(alpha=0.2)
     image_axis.legend(frameon=False, fontsize=8, loc="lower right")
 
-    radial_axis = axes[1]
+    radial_axis = fig.add_subplot(grid[0, 1])
+    radial_domain_axis = fig.add_subplot(grid[1, 1], sharex=radial_axis)
     measure_by_interval = angular_measure.reshape(n_intervals, samples_per_interval)
-    for interval_radii, interval_measure in zip(
-        profile_radii_by_interval,
-        measure_by_interval,
-        strict=True,
+    radial_gap_tolerance = (
+        512.0
+        * np.finfo(radial_intervals.dtype).eps
+        * max(1.0, float(np.max(np.abs(radial_intervals))))
+    )
+    separated = radial_intervals[1:, 0] > radial_intervals[:-1, 1] + radial_gap_tolerance
+    domain_start_indices = np.concatenate(([0], np.flatnonzero(separated) + 1))
+    domain_end_indices = np.concatenate((np.flatnonzero(separated), [n_intervals - 1]))
+    radial_domains = np.column_stack(
+        (
+            radial_intervals[domain_start_indices, 0],
+            radial_intervals[domain_end_indices, 1],
+        )
+    )
+    for interval_index, (interval_radii, interval_measure) in enumerate(
+        zip(profile_radii_by_interval, measure_by_interval, strict=True)
     ):
         positive_measure = np.where(interval_measure > 0.0, interval_measure, np.nan)
-        radial_axis.plot(interval_radii, positive_measure, color="tab:blue", lw=1.4)
-    for lower, upper in radial_intervals:
-        radial_axis.axvspan(lower, upper, color="tab:blue", alpha=0.055)
-        radial_axis.axvline(lower, color="0.55", lw=0.35)
-    radial_axis.axvline(radial_intervals[-1, 1], color="0.55", lw=0.35)
-    radial_axis.set_xlabel(r"image-plane radius $r$ [$R_E$]")
+        radial_axis.plot(
+            interval_radii,
+            positive_measure,
+            color="tab:blue",
+            lw=1.4,
+            label=r"$\Delta\theta(r)$" if interval_index == 0 else None,
+        )
+    cell_colors = ("#cfe8f5", "#9ecae1")
+    for interval_index, (lower, upper) in enumerate(radial_intervals):
+        cell_color = cell_colors[interval_index % len(cell_colors)]
+        radial_axis.axvspan(lower, upper, color=cell_color, alpha=0.38, lw=0)
+        radial_axis.axvline(lower, color="0.52", lw=0.45, alpha=0.8)
+    for lower, upper in radial_domains:
+        radial_domain_axis.barh(
+            0.5,
+            upper - lower,
+            left=lower,
+            height=0.72,
+            color=cell_colors[0],
+            edgecolor="tab:blue",
+            linewidth=0.8,
+        )
+    shared_boundaries = radial_intervals[:-1, 1][~separated]
+    radial_domain_axis.vlines(shared_boundaries, 0.14, 0.86, color="tab:blue", linewidth=0.65)
+    radial_axis.axvline(radial_intervals[-1, 1], color="0.52", lw=0.45, alpha=0.8)
     radial_axis.set_ylabel(r"inside angular measure $\Delta\theta(r)$")
     radial_axis.set_yscale("log")
     radial_axis.set_xlim(profile_lower, profile_upper)
-    radial_axis.set_title("Radial topology and angular measure")
+    radial_axis.set_title("Angular measure on non-overlapping radial cells")
     radial_axis.grid(alpha=0.2)
+    radial_axis.tick_params(axis="x", which="both", labelbottom=False)
+    radial_axis.legend(frameon=False, fontsize=8, loc="upper right")
+
+    radial_domain_axis.set_ylim(0.0, 1.0)
+    radial_domain_axis.set_yticks([])
+    radial_domain_axis.set_xlabel(r"image-plane radius $r$ [$R_E$]")
+    radial_domain_axis.set_ylabel("integration\ndomain", rotation=0, ha="right", va="center", fontsize=8)
+    radial_domain_axis.grid(False)
+    for side in ("left", "right", "top"):
+        radial_domain_axis.spines[side].set_visible(False)
     profile_label = "uniform" if limb_darkening == 0.0 else rf"$u_1={limb_darkening:g}$"
     fig.suptitle(
         rf"Maximum residual: $t={time_value:.6g}$, rel. diff $={relative_residual:.3e}$, "
         rf"{profile_label}; $s={s:g}$, $q={q:g}$, $\rho={rho:g}$"
     )
-    fig.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=240, bbox_inches="tight")
     plt.close(fig)

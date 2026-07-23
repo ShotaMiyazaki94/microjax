@@ -42,21 +42,12 @@ PARAMETER_LABELS = (
 def make_model(
     times: jax.Array,
     *,
+    u1: float = 0.0,
     n_limb: int,
-    margin_r: float,
-    angular_atol: float,
-    relative_tolerance: float,
-    parallel_regions: bool,
 ):
     """Build the triple boundary light-curve function used by forward AD."""
 
-    config = TripleMagConfig(
-        n_limb=n_limb,
-        margin_r=margin_r,
-        angular_atol=angular_atol,
-        relative_tolerance=relative_tolerance,
-        parallel_regions=parallel_regions,
-    )
+    config = TripleMagConfig(n_limb=n_limb)
 
     def get_magnification(params: jax.Array) -> jax.Array:
         t0, t_e, u0, q, s, alpha, rho, q3, r3, psi = params
@@ -72,6 +63,7 @@ def make_model(
             q3=q3,
             r3=r3,
             psi=psi,
+            u1=u1,
             config=config,
         )
 
@@ -114,6 +106,8 @@ def save_jacobian_plot(
     magnification: np.ndarray,
     jacobian: np.ndarray,
     params: np.ndarray,
+    *,
+    source_label: str | None = None,
 ):
     """Save the magnification and ten parameter-sensitivity panels."""
 
@@ -142,6 +136,8 @@ def save_jacobian_plot(
     )
     axes[0].plot(times, magnification, color="black")
     axes[0].set_ylabel("Magnification")
+    if source_label is not None:
+        axes[0].set_title(source_label)
 
     inset = inset_axes(
         axes[0],
@@ -186,10 +182,6 @@ def parse_args():
     )
     parser.add_argument("--n-points", type=int)
     parser.add_argument("--n-limb", type=int)
-    parser.add_argument("--margin-r", type=float, default=0.5)
-    parser.add_argument("--angular-atol", type=float, default=1e-5)
-    parser.add_argument("--relative-tolerance", type=float, default=1e-4)
-    parser.add_argument("--parallel-regions", action="store_true")
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument(
         "--output-dir",
@@ -203,7 +195,7 @@ def parse_args():
 def resolved_config(args) -> dict[str, int]:
     """Resolve CLI overrides against paper-like or quick defaults."""
 
-    defaults = {"n_points": 24, "n_limb": 80} if args.quick else {"n_points": 500, "n_limb": 500}
+    defaults = {"n_points": 24, "n_limb": 80} if args.quick else {"n_points": 1000, "n_limb": 500}
     return {name: getattr(args, name) if getattr(args, name) is not None else value for name, value in defaults.items()}
 
 
@@ -220,18 +212,14 @@ def main():
         print("[Warning] No GPU detected. The default configuration is expensive; use --quick for a smoke run.")
 
     t0, t_e, u0 = 0.0, 10.0, 0.1
-    q, s, alpha, rho = 0.1, 1.1, np.deg2rad(50.0), 0.02
-    q3, r3_complex = 0.03, 0.3 + 1.2j
+    q, s, alpha, rho = 0.1, 1.1, np.deg2rad(50.0), 0.01
+    q3, r3_complex = 0.01, 0.3 + 1.2j
     r3, psi = np.abs(r3_complex), np.angle(r3_complex)
     params = jnp.asarray([t0, t_e, u0, q, s, alpha, rho, q3, r3, psi])
     times = t0 + jnp.linspace(-0.5 * t_e, t_e, config["n_points"])
     model = make_model(
         times,
         n_limb=config["n_limb"],
-        margin_r=args.margin_r,
-        angular_atol=args.angular_atol,
-        relative_tolerance=args.relative_tolerance,
-        parallel_regions=args.parallel_regions,
     )
 
     functions = {
@@ -259,13 +247,10 @@ def main():
         "platform": platform.platform(),
         "jax_version": jax.__version__,
         "mag_triple_implementation": "retry-free best-effort; uniform G15/K31 fixed-1; mixed global/local charts",
+        "forward_ad": "exact hard-edge primal; unit-flux compact-sigmoid JVP (sharpness 30, angular G15)",
         "parameter_names": list(PARAMETER_NAMES),
         "config": {
             **config,
-            "margin_r": args.margin_r,
-            "angular_atol": args.angular_atol,
-            "relative_tolerance": args.relative_tolerance,
-            "parallel_regions": args.parallel_regions,
             "repeats": args.repeats,
         },
         "warmup_seconds": {name: results[name][1] for name in results},

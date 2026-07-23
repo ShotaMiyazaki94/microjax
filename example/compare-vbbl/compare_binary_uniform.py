@@ -17,13 +17,13 @@ from plot_boundary_construction import plot_boundary_construction
 
 jax.config.update("jax_enable_x64", True)
 
-q = 0.05
-s = 0.8
+q = 0.03
+s = 0.85
 alpha = jnp.deg2rad(45.0)
 tE = 30.0
 t0 = 0.0
 u0 = 0.0
-rho = 0.01
+rho = 5e-3
 nlenses = 2
 
 a = 0.5 * s
@@ -59,7 +59,7 @@ def mag_vbbl(w0):
     return jnp.array([mag_vbbl_(w, rho) for w in w0])
 
 
-config = BinaryMagConfig(n_limb=Nlimb, margin_r=margin_r)
+config = BinaryMagConfig(n_limb=Nlimb)
 
 # ---- Warmup (JIT compile) ----
 _ = mag_binary(

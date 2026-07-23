@@ -13,10 +13,9 @@ Contents
 - `plot_boundary_construction.py`: renders the image-plane boundary-root
   construction at the largest relative residual found by either comparison.
 
-Both scripts use the same physical and temporal setup as
-`example/contour_integrating/compare_vbbl_microlux.py`: `q=0.05`, `s=1.0`,
-`alpha=45 deg`, `tE=30`, `t0=0`, `u0=0`, `rho=0.03`, 1000 samples, and
-`t/tE` from `-0.5` to `0.5`. VBBinaryLensing uses `RelTol=Tol=1e-5`.
+The physical and temporal setup is defined near the top of each comparison
+script. VBBinaryLensing uses the same lens, source, and trajectory parameters
+as microJAX in each run.
 
 How to run
 ----------
@@ -33,9 +32,8 @@ How to run
 Both scripts assume double-precision JAX. GPU acceleration is helpful but not
 required.
 
-The scripts print synchronised median timings after JIT warm-up. A representative
-CUDA run with the common internal source tile selected for value and forward-AD
-performance gave:
+The scripts print median timings after the initial JAX compilation has
+completed. A representative CUDA run gave:
 
 ```text
 python example/compare-vbbl/compare_binary_uniform.py

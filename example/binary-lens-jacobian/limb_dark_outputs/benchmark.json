@@ -18,34 +18,30 @@
   "config": {
     "n_points": 500,
     "n_limb": 500,
-    "margin_r": 1.0,
-    "angular_atol": 1e-05,
-    "relative_tolerance": 0.0001,
-    "parallel_regions": false,
     "with_reverse": false,
     "reverse_chunk": 8,
     "repeats": 3
   },
   "reverse_implementation": null,
   "warmup_seconds": {
-    "value": 11.711054231971502,
-    "forward": 21.83330143429339
+    "value": 11.636136694811285,
+    "forward": 21.894933867268264
   },
   "run_seconds": {
     "value": [
-      0.13875329494476318,
-      0.113908551633358,
-      0.11337234638631344
+      0.08203069679439068,
+      0.061641667038202286,
+      0.06195000559091568
     ],
     "forward": [
-      0.3898267252370715,
-      0.3888675170019269,
-      0.38883940409868956
+      0.21351682022213936,
+      0.20061649475246668,
+      0.20079752523452044
     ]
   },
   "median_seconds": {
-    "value": 0.113908551633358,
-    "forward": 0.3888675170019269
+    "value": 0.06195000559091568,
+    "forward": 0.20079752523452044
   },
   "reverse_over_forward": null,
   "maximum_jacobian_absolute_difference": null,

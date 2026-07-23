@@ -50,10 +50,6 @@ def parse_args():
     parser.add_argument("--u1", type=float, default=0.5)
     parser.add_argument("--n-points", type=int)
     parser.add_argument("--n-limb", type=int)
-    parser.add_argument("--margin-r", type=float, default=0.5)
-    parser.add_argument("--angular-atol", type=float, default=1e-5)
-    parser.add_argument("--relative-tolerance", type=float, default=1e-4)
-    parser.add_argument("--parallel-regions", action="store_true")
     parser.add_argument(
         "--reverse-chunk",
         type=int,
@@ -94,17 +90,13 @@ def main():
         )
 
     t0, t_e, u0 = 0.0, 10.0, 0.1
-    q, s, alpha, rho = 0.1, 1.1, np.deg2rad(50.0), 0.01
+    q, s, alpha, rho = 0.001, 1.0, np.deg2rad(50.0), 0.005
     params = jnp.asarray([t0, t_e, u0, q, s, alpha, rho])
     times = t0 + jnp.linspace(-0.5 * t_e, t_e, config["n_points"])
     model = make_model(
         times,
         u1=args.u1,
         n_limb=config["n_limb"],
-        margin_r=args.margin_r,
-        angular_atol=args.angular_atol,
-        relative_tolerance=args.relative_tolerance,
-        parallel_regions=args.parallel_regions,
     )
 
     value_function = jax.jit(model)
@@ -160,10 +152,6 @@ def main():
         "u1_is_static": True,
         "config": {
             **config,
-            "margin_r": args.margin_r,
-            "angular_atol": args.angular_atol,
-            "relative_tolerance": args.relative_tolerance,
-            "parallel_regions": args.parallel_regions,
             "with_reverse": args.with_reverse,
             "reverse_chunk": reverse_chunk,
             "repeats": args.repeats,

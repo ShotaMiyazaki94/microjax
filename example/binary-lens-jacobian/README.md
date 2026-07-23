@@ -3,24 +3,24 @@ Binary-lens Jacobian Example
 
 This directory is the binary-lens counterpart of
 [`example/triple-lens-jacobian`](../triple-lens-jacobian). It uses the new
-retry-free [`microjax.inverse_ray.lightcurve.mag_binary`](../../src/microjax/inverse_ray/lightcurve.py)
-implementation to compute the uniform-source magnification and its Jacobian
-with respect to `t0, tE, u0, q, s, alpha, rho` using `jax.jacfwd` and
-memory-bounded `jax.vjp`. It does not use the legacy dense `mag_uniform`
-backend or the multi-stage `mag_binary_safe` scheduler.
+[`microjax.inverse_ray.mag_binary`](../../src/microjax/inverse_ray/lightcurve.py)
+function to compute uniform-source magnification and its derivatives with
+respect to `t0, tE, u0, q, s, alpha, rho`. In this document, “Jacobian” means
+the array containing the derivative of every light-curve point with respect to
+each of those seven parameters.
 
 The default path measures the function value and forward Jacobian after JIT
 compilation. Because the model has seven inputs and hundreds of outputs,
-forward mode is the production path. Pass `--with-reverse` only for the
-diagnostic forward/reverse comparison; `--reverse-chunk` then controls its
-memory/performance trade-off.
+forward-mode automatic differentiation is the recommended calculation. Pass
+`--with-reverse` only to compare it with reverse-mode differentiation;
+`--reverse-chunk` then controls how many output derivatives are evaluated
+together and therefore changes the memory/performance trade-off.
 
 The companion `grads_limb_dark_binary.py` runs the same seven-parameter
 Jacobian for a linearly limb-darkened source. Its coefficient is fixed with
-`--u1` (default `0.5`): `u1` is a static kernel-selection argument in the
-public `mag_binary` API and is therefore not included as an eighth derivative.
-The limb-darkened boundary pass uses the profile-specific G15/K31 fixed-1
-rule and remains retry-free.
+`--u1` (default `0.5`) and is not treated as a differentiated parameter in
+this example. The reported Jacobian therefore uses the same seven physical and
+trajectory parameters as the uniform-source example.
 
 Run
 ---
@@ -46,9 +46,8 @@ products are not overwritten. When `--with-reverse` is requested, the
 limb-darkened script uses a smaller default `--reverse-chunk 8` because its
 nested profile quadrature is more memory intensive.
 
-The measured reverse run uses about 21.4 GB. On a smaller GPU, reduce
-`--reverse-chunk` to lower peak memory. Source batching inside `mag_binary`
-is an internal GPU scheduler detail and is not exposed as a CLI option.
+The measured reverse-mode run uses about 21.4 GB. On a smaller GPU, reduce
+`--reverse-chunk` to lower peak memory.
 
 To run a small CPU-friendly benchmark and generate both plots:
 
@@ -70,8 +69,7 @@ A100 GPU result
 ---------------
 
 The bundled products were generated with JAX 0.10.2 on an NVIDIA
-A100-PCIE-40GB. Both kernels use the retry-free G15/K31 fixed-1 radial rule
-with 500 time points and `Nlimb=500`:
+A100-PCIE-40GB, with 500 time points and `n_limb=500`:
 
 | computation | compile + first execution | compiled median (3 runs) |
 | --- | ---: | ---: |
@@ -82,14 +80,12 @@ with 500 time points and `Nlimb=500`:
 | limb-darkened forward Jacobian | 21.833 s | 0.389 s |
 
 All magnifications and forward derivatives were finite. Reverse mode remains
-available only through the explicit `--with-reverse` diagnostic.
-
-For comparison, the retained `mag_binary_safe` scheduler previously took
-1.572 s for magnification, 2.045 s for the forward Jacobian, and 62.317 s for
-the reverse Jacobian on the same setup. The fixed-1 graph is substantially
-smaller and faster. It is a best-effort path: radial-tolerance warnings retain
-their one-pass value, while structural failures remain non-finite; use
-`mag_binary_safe` for strict tolerance enforcement and bounded rescue.
+available only through the explicit `--with-reverse` comparison. These timing
+numbers apply only to the stated hardware, software versions, trajectory, and
+source settings. They are not general performance guarantees. The public
+finite-source function also does not provide a guaranteed numerical error
+bound, so accuracy should be checked independently for the intended parameter
+range.
 
 | Magnification and forward Jacobian | Compiled AD runtime |
 | --- | --- |
