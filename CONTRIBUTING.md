@@ -22,6 +22,13 @@ Run the default test suite with:
 pytest -q
 ```
 
+The default suite excludes long-running numerical regression tests. Run those
+checks explicitly when changing the finite-source integration algorithm:
+
+```bash
+pytest -m slow -q
+```
+
 GPU-specific tests require a CUDA-capable JAX installation:
 
 ```bash

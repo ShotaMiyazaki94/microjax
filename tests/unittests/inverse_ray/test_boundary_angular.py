@@ -185,6 +185,7 @@ def test_local_image_charts_reject_an_empty_limb_root_set():
     assert not np.any(np.asarray(charts.active))
 
 
+@pytest.mark.slow
 def test_local_image_rescue_handles_caustic_enclosing_annulus():
     point = -2.845269680283363e-05 + 8.040213267373542e-05j
     reference = 15873.646704428846
@@ -248,6 +249,7 @@ def test_nonannular_fold_pair_uses_a_guaranteed_interior_chart_origin():
     assert np.min(np.abs(np.asarray(interior_images)[np.asarray(interior_mask)] - complex(center))) < 1e-12
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "point,q,s,reference",
     [
@@ -285,6 +287,7 @@ def test_local_nested_phase_closes_strict_rho1e5_audit_points(point, q, s, refer
     assert abs(float(result.magnification) - reference) <= tolerance
 
 
+@pytest.mark.slow
 def test_safe_lightcurve_compacts_mean_local_failure_into_interior_anchor_retry():
     point = -7.794776723440755e-05 - 7.416540530774523e-05j
     reference = 20696.29552460964
@@ -318,6 +321,7 @@ def test_safe_lightcurve_compacts_mean_local_failure_into_interior_anchor_retry(
     assert abs(float(highlevel) - reference) <= (1e-5 + 1e-4 * abs(reference))
 
 
+@pytest.mark.slow
 def test_local_nested_support_closes_between_sample_fold_minimum():
     point = 0.9824943188437842 + 0.00880220969350141j
     reference = 49.87308550714601
@@ -343,6 +347,7 @@ def test_local_nested_support_closes_between_sample_fold_minimum():
     assert actual_error <= tolerance
 
 
+@pytest.mark.slow
 def test_local_nested_chart_closes_transient_planetary_component():
     point = -0.728614562384981 - 0.007200699676102258j
     reference = 7.055904959651395
@@ -483,6 +488,7 @@ def test_small_source_off_unit_roots_do_not_create_false_fatal_status():
     assert float(result.error) == 0.0
 
 
+@pytest.mark.slow
 def test_uniform_boundary_is_finite_at_rho_1e4_regression_point():
     result = mag_uniform_boundary(
         -0.002654304734183799 - 0.0026543047341837985j,
@@ -502,6 +508,7 @@ def test_uniform_boundary_is_finite_at_rho_1e4_regression_point():
     assert np.isclose(float(result.magnification), reference, rtol=1e-4, atol=0.0)
 
 
+@pytest.mark.slow
 def test_safe_lightcurve_rescues_small_planet_boundary_failure():
     # VBBinaryLensing 3.7.0, Tol=RelTol=1e-12.  In the global COM polar frame
     # this tiny planetary image produces poorly conditioned angular roots and
@@ -555,6 +562,7 @@ def test_safe_lightcurve_rescues_small_planet_boundary_failure():
     assert np.isclose(float(lightcurve[0]), reference, rtol=1.5e-4)
 
 
+@pytest.mark.slow
 def test_uniform_boundary_matches_vbbl_reference_and_reports_error():
     s, q, _, _, _, w_center, _, rho = _binary_setup()
     common = dict(
@@ -592,9 +600,12 @@ def test_binary_public_path_handles_difficult_resonant_caustic_point():
 
     assert np.isfinite(float(lightcurve[0]))
     # This is a breakage guard for the fixed-work public solver, not an
-    # accuracy guarantee. Direct adaptive integration is tested separately.
+    # accuracy guarantee.
     assert np.isclose(float(lightcurve[0]), vbbl, rtol=5e-3, atol=0.0)
 
+
+@pytest.mark.slow
+def test_binary_public_path_difficult_point_has_consistent_derivatives():
     def public_magnification(real):
         return mag_binary(
             jnp.asarray([real - 0.2288010680866381j]),
@@ -612,6 +623,7 @@ def test_binary_public_path_handles_difficult_resonant_caustic_point():
     assert np.isclose(float(forward), float(reverse), rtol=1e-10, atol=1e-10)
 
 
+@pytest.mark.slow
 def test_deep_global_sixteen_way_retry_closes_saved_tolerance_failures():
     cases = _load_fixture("binary_highlevel_stress_failures.json")["cases"][:2]
     points = jnp.asarray([complex(case["source_x"], case["source_y"]) for case in cases])
@@ -646,6 +658,7 @@ def test_deep_global_sixteen_way_retry_closes_saved_tolerance_failures():
     assert np.all(np.abs(actual - reference) <= target)
 
 
+@pytest.mark.slow
 def test_binary_public_path_handles_saved_stress_point():
     case = _load_fixture("binary_highlevel_stress_failures.json")["cases"][0]
     point = jnp.asarray(complex(case["source_x"], case["source_y"]))
@@ -662,6 +675,7 @@ def test_binary_public_path_handles_saved_stress_point():
     assert np.isclose(float(single_pass), reference, rtol=5e-3)
 
 
+@pytest.mark.slow
 def test_dynamic_separation_preserves_near_tangent_root_pair():
     cases = _load_fixture("binary_highlevel_stress_failures.json")["cases"]
     case = next(item for item in cases if item["id"] == "case_10_point_18")
@@ -692,6 +706,7 @@ def test_dynamic_separation_preserves_near_tangent_root_pair():
     assert abs(float(result.magnification) - reference) <= tolerance
 
 
+@pytest.mark.slow
 def test_rho1e5_p0_fixtures_close_after_robust_error_retry():
     cases = _load_fixture("binary_p0_rho1e5_failures.json")["cases"]
     points = jnp.asarray([complex(case["source_x"], case["source_y"]) for case in cases])
@@ -733,6 +748,7 @@ def test_rho1e5_p0_fixtures_close_after_robust_error_retry():
     assert np.all(np.abs(values - reference) <= tolerance)
 
 
+@pytest.mark.slow
 def test_limb_boundary_resolves_profile_quadrature_near_peak():
     # Independent VBBL uniform-disk layer cake: 128 Gauss radii, each evaluated
     # in an isolated process with Tol=1e-10. The former angular G7/K15 rule made
@@ -773,6 +789,7 @@ def test_boundary_api_rejects_dense_grid_arguments(solver):
         )
 
 
+@pytest.mark.slow
 def test_limb_dark_boundary_reduces_to_uniform_and_matches_vbbl():
     s, q, _, _, _, w_center, _, rho = _binary_setup()
     common = dict(
@@ -801,6 +818,7 @@ def test_limb_dark_boundary_reduces_to_uniform_and_matches_vbbl():
     assert np.isclose(float(limb.magnification), vbbl, rtol=0.0, atol=3e-6)
 
 
+@pytest.mark.slow
 def test_limb_dark_boundary_reverse_matches_forward_mode():
     s, q, _, _, _, w_center, _, rho = _binary_setup()
 
@@ -822,6 +840,7 @@ def test_limb_dark_boundary_reverse_matches_forward_mode():
     assert np.isclose(float(reverse), float(forward), rtol=1e-7, atol=1e-6)
 
 
+@pytest.mark.slow
 def test_generic_radial_profile_reduces_to_uniform_disk():
     s, q, _, _, _, w_center, _, rho = _binary_setup()
     common = dict(
@@ -849,6 +868,7 @@ def test_generic_radial_profile_reduces_to_uniform_disk():
     )
 
 
+@pytest.mark.slow
 def test_generic_radial_profile_rejects_nonpositive_flux():
     s, q, _, _, _, w_center, _, rho = _binary_setup()
     result = mag_radial_profile_boundary(
@@ -867,6 +887,7 @@ def test_generic_radial_profile_rejects_nonpositive_flux():
     assert np.isnan(float(result.estimated_error))
 
 
+@pytest.mark.slow
 def test_parallel_and_sequential_image_regions_agree():
     s, q, _, _, _, w_center, _, rho = _binary_setup()
     common = dict(
@@ -895,6 +916,7 @@ def test_parallel_and_sequential_image_regions_agree():
     )
 
 
+@pytest.mark.slow
 def test_uniform_boundary_ignores_unused_fixed_topology_slots():
     result = mag_uniform_boundary(
         -0.031860785514265286 + 0.022521213663533896j,
@@ -960,6 +982,7 @@ def test_generic_lens_margin_matches_binary_compatibility_shorthand():
     )
 
 
+@pytest.mark.slow
 def test_jacobian_margin_recovers_sharp_image_support_between_limb_samples():
     point = -0.6757280840456696 + 0.6174860296825364j
     reference = 61.92633478114333
@@ -981,6 +1004,7 @@ def test_jacobian_margin_recovers_sharp_image_support_between_limb_samples():
     assert jacobian_error < 1e-3 * fixed_error
 
 
+@pytest.mark.slow
 def test_radial_topology_regression_matches_vbbl_reference():
     s, q, w_center, rho, vbbl = _topology_stress_setup()
     result = mag_uniform_boundary(
@@ -998,6 +1022,7 @@ def test_radial_topology_regression_matches_vbbl_reference():
     assert np.isclose(float(result.magnification), vbbl, rtol=0.0, atol=1e-4)
 
 
+@pytest.mark.slow
 def test_nested_radial_phase_disagreement_fails_closed():
     s, q, w_center, rho, vbbl = _topology_stress_setup()
     common = dict(
@@ -1032,6 +1057,7 @@ def test_nested_radial_phase_disagreement_fails_closed():
     assert np.isclose(float(closed.magnification), vbbl, rtol=0.0, atol=1e-4)
 
 
+@pytest.mark.slow
 def test_transient_fold_pair_integration_matches_reference():
     s, q, w_center, rho, vbbl = _transient_pair_setup()
     result = mag_uniform_boundary(
@@ -1051,6 +1077,7 @@ def test_binary_public_config_exposes_only_topology_sampling():
     assert [field.name for field in fields(BinaryMagConfig)] == ["n_limb"]
 
 
+@pytest.mark.slow
 def test_binary_fast_path_retains_tolerance_warning_without_dense_retry():
     s, q, _, _, _, w_center, _, rho = _binary_setup()
     w_points = jnp.asarray([w_center])

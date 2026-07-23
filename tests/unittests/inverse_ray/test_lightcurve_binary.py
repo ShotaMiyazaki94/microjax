@@ -185,6 +185,7 @@ def test_dense_api_rejects_boundary_backend_arguments():
         )
 
 
+@pytest.mark.slow
 def test_boundary_lightcurve_supports_linear_limb_darkening():
     s, q, rho, u1 = 1.0, 1e-2, 5e-3, 0.5
     point = 0.03 + 0.01j
@@ -211,6 +212,7 @@ def test_boundary_lightcurve_supports_linear_limb_darkening():
 
 
 @pytest.mark.parametrize("u1", [0.0, 0.5])
+@pytest.mark.slow
 def test_binary_grid_fp32_matches_baseline_on_small_case(u1):
     s, q, rho = 1.0, 1e-2, 5e-3
     _, w = make_trajectory(

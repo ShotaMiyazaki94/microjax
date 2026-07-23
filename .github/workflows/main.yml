@@ -10,6 +10,7 @@ on:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       # Checkout repository
@@ -30,8 +31,7 @@ jobs:
       - name: Run Pytest and generate JUnit report
         run: |
           mkdir -p results
-          pytest --junit-xml=results/pytest.xml
-        continue-on-error: true
+          pytest -m "not gpu and not slow" -q --durations=20 --junit-xml=results/pytest.xml
 
       - name: Upload Pytest Results
         if: always()
@@ -41,6 +41,7 @@ jobs:
           path: results/pytest.xml
 
       - name: Publish Unit Test Summary
+        if: always()
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           files: results/pytest.xml

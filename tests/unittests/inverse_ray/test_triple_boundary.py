@@ -50,6 +50,7 @@ def test_triple_boundary_rejects_removed_dense_arguments(name):
         mag_uniform_triple_boundary(0.8 + 0.4j, 1e-2, **PARAMS, **{name: 3})
 
 
+@pytest.mark.slow
 def test_triple_uniform_boundary_is_clean_and_reaches_small_source_limit():
     source = jnp.asarray(1.5 - 0.7j)
     rho = 1e-2
@@ -67,6 +68,7 @@ def test_triple_uniform_boundary_is_clean_and_reaches_small_source_limit():
     assert np.isclose(float(result.magnification), float(point), rtol=3e-5, atol=0.0)
 
 
+@pytest.mark.slow
 def test_triple_uniform_boundary_reverse_matches_forward_mode():
     def magnification(q3):
         return mag_uniform_triple_boundary(
@@ -91,6 +93,7 @@ def test_triple_uniform_boundary_reverse_matches_forward_mode():
     assert np.isclose(float(reverse), float(forward), rtol=1e-6, atol=1e-8)
 
 
+@pytest.mark.slow
 def test_triple_uniform_boundary_does_not_differentiate_padded_support():
     def magnification(margin_r):
         return mag_uniform_triple_boundary(
@@ -106,6 +109,7 @@ def test_triple_uniform_boundary_does_not_differentiate_padded_support():
     assert float(derivative) == 0.0
 
 
+@pytest.mark.slow
 def test_triple_generic_radial_profile_reduces_to_uniform_source():
     common = dict(
         w_center=0.8 + 0.4j,
@@ -138,6 +142,7 @@ def test_triple_generic_radial_profile_reduces_to_uniform_source():
     )
 
 
+@pytest.mark.slow
 def test_triple_linear_limb_profile_is_finite_and_status_clean():
     result = mag_limb_dark_boundary(
         0.8 + 0.4j,
@@ -155,6 +160,7 @@ def test_triple_linear_limb_profile_is_finite_and_status_clean():
 
 
 @pytest.mark.parametrize("u1", [0.0, 0.5])
+@pytest.mark.slow
 def test_triple_profile_supports_one_pass_fixed_radial_integration(u1):
     result = mag_limb_dark_boundary(
         0.8 + 0.4j,
