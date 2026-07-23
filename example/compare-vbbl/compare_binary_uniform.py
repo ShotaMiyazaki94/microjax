@@ -31,7 +31,7 @@ e1 = q / (1.0 + q)
 _params = {"a": a, "e1": e1}
 x_cm = a * (1.0 - q) / (1.0 + q)
 
-num_points = 2000
+num_points = 1000
 t = jnp.linspace(-0.5 * tE, 0.5 * tE, num_points)
 tau = (t - t0) / tE
 y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
