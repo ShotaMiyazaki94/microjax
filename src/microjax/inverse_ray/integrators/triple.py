@@ -17,7 +17,7 @@ from ..geometry.topology import (
     define_radial_topology,
 )
 from ..quadrature.radial import RadialIntegrand, adaptive_radial_integral, fixed_radial_integral
-from ..quadrature.rules import G15_W_ON_GK31, GK31_X, GL47_W, GL47_X
+from ..quadrature.rules import GK31_W, GK31_X, GL47_W, GL47_X
 from ..roots.angular import (
     ANGULAR_CAPACITY,
     ANGULAR_DEGENERATE,
@@ -35,11 +35,6 @@ from .common import (
 )
 
 _TRIPLE_TANGENT_EDGE_SHARPNESS = 30.0
-_G15_ACTIVE = G15_W_ON_GK31 != 0.0
-_G15_X = GK31_X[_G15_ACTIVE]
-_G15_W = G15_W_ON_GK31[_G15_ACTIVE]
-
-
 @jax.custom_jvp
 def _hard_value_soft_jvp(hard_value: Array, soft_value: Array) -> Array:
     """Return the exact hard value while taking tangents from a soft profile."""
@@ -70,7 +65,7 @@ def _compact_edge_intensity(normalized_distance: Array) -> Array:
 
 
 def _integrate_compact_edge(brightness, intervals) -> Array:
-    """Integrate the JVP-only profile with the embedded rule's 15 Gauss nodes."""
+    """Integrate the JVP-only profile with the 31-point Kronrod rule."""
 
     active = jnp.arange(intervals.intervals.shape[0]) < intervals.n_intervals
 
@@ -80,11 +75,11 @@ def _integrate_compact_edge(brightness, intervals) -> Array:
         def integrate_interval(pair):
             lower, upper = pair
             dtype = pair.dtype
-            angle = 0.25 * jnp.pi * (jnp.asarray(_G15_X, dtype=dtype) + 1.0)
+            angle = 0.25 * jnp.pi * (jnp.asarray(GK31_X, dtype=dtype) + 1.0)
             width = upper - lower
             theta = lower + width * jnp.sin(angle) ** 2
             jacobian = 0.25 * jnp.pi * width * jnp.sin(2.0 * angle)
-            return jnp.sum(jnp.asarray(_G15_W, dtype=dtype) * jacobian * jax.vmap(brightness)(theta))
+            return jnp.sum(jnp.asarray(GK31_W, dtype=dtype) * jacobian * jax.vmap(brightness)(theta))
 
         values = jax.vmap(integrate_interval)(safe_bounds)
         return jnp.sum(jnp.where(active, values, 0.0))
@@ -127,7 +122,7 @@ def mag_uniform_triple_boundary(
     public triple light-curve API, while ``"adaptive"`` retains the diagnostic
     error-controlled path. The primal is the exact hard-edge area. Its custom
     JVP reuses the same intervals and radial nodes with a unit-flux compact
-    sigmoid profile, evaluated by G15, so source-limb contacts have a bounded
+    sigmoid profile, evaluated by K31, so source-limb contacts have a bounded
     tangent without changing the reported magnification.
     """
 
