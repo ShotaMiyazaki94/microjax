@@ -3,6 +3,7 @@
 from typing import Callable, Optional, Union
 
 import jax.numpy as jnp
+from jax import lax
 
 from microjax.lens_geometry import triple_lens_geometry
 from ..geometry.limb import calc_source_limb
@@ -205,6 +206,12 @@ def mag_radial_profile_boundary(
                 binary_margin_parameters=binary_margin_parameters,
                 lens_margin_parameters=lens_margin_parameters,
             )
+
+    if nlenses == 3:
+        # Triple-lens support bounds are padded into zero-measure regions.
+        # Their sampled min/max motion has no exact boundary contribution and
+        # only differentiates fixed-quadrature truncation error near caustics.
+        topology = topology._replace(intervals=lax.stop_gradient(topology.intervals))
 
     real_dtype, complex_dtype = integration_dtypes(w_center)
     rho_grid = jnp.asarray(rho, dtype=real_dtype)

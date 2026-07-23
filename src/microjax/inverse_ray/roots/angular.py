@@ -1,4 +1,4 @@
-"""Resolution-free angular integration for binary inverse ray shooting.
+"""Resolution-free angular integration for binary and triple inverse ray shooting.
 
 The production path solves the associated degree-six self-inversive polynomial
 and validates every unit-circle root.  A conservative interval-classification
@@ -176,7 +176,10 @@ def _angular_intervals_fourier_roots_impl(
     # modulus while preserving its angle to high accuracy.  Projection is safe
     # only when the polished angle also satisfies the original Fourier level
     # set below, which rejects ordinary reciprocal off-circle roots.
-    unit_tolerance = jnp.minimum(2048.0 * jnp.sqrt(eps), 1e-3)
+    # Degree-eight triple roots need one extra factor of two at radial
+    # tangencies. Binary keeps its established threshold unchanged.
+    unit_tolerance_factor = 4096.0 if c.shape[0] == 5 else 2048.0
+    unit_tolerance = jnp.minimum(unit_tolerance_factor * jnp.sqrt(eps), 1e-3)
 
     theta = jnp.mod(jnp.angle(roots), 2.0 * jnp.pi)
 

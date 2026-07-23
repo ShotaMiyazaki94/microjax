@@ -2,10 +2,13 @@
 
 from typing import Union
 
+import jax
 import jax.numpy as jnp
+from jax import lax
 
 from microjax.lens_geometry import triple_lens_geometry
 from ..geometry.limb import calc_source_limb
+from ..geometry.mapping import distance_from_source
 from ..geometry.topology import (
     RADIAL_CAPACITY,
     RADIAL_INTERVAL_CAPACITY,
@@ -14,12 +17,12 @@ from ..geometry.topology import (
     define_radial_topology,
 )
 from ..quadrature.radial import RadialIntegrand, adaptive_radial_integral, fixed_radial_integral
+from ..quadrature.rules import G15_W_ON_GK31, GK31_X, GL47_W, GL47_X
 from ..roots.angular import (
     ANGULAR_CAPACITY,
     ANGULAR_DEGENERATE,
     ANGULAR_ROOT_FAILURE,
     angular_intervals_triple_roots,
-    angular_measure_triple_roots,
 )
 from ..roots.level_set import triple_level_set
 from .charts import _owned_angular_intervals, _triple_compact_mixed_topology
@@ -30,6 +33,68 @@ from .common import (
     integration_dtypes,
     unwrap_boundary_result,
 )
+
+_TRIPLE_TANGENT_EDGE_SHARPNESS = 30.0
+_G15_ACTIVE = G15_W_ON_GK31 != 0.0
+_G15_X = GK31_X[_G15_ACTIVE]
+_G15_W = G15_W_ON_GK31[_G15_ACTIVE]
+
+
+@jax.custom_jvp
+def _hard_value_soft_jvp(hard_value: Array, soft_value: Array) -> Array:
+    """Return the exact hard value while taking tangents from a soft profile."""
+
+    return hard_value
+
+
+@_hard_value_soft_jvp.defjvp
+def _hard_value_soft_jvp_rule(primals, tangents):
+    hard_value, _ = primals
+    _, soft_dot = tangents
+    return hard_value, soft_dot
+
+
+def _compact_edge_intensity(normalized_distance: Array) -> Array:
+    """Unit-flux profile that tapers smoothly to zero at the hard limb."""
+
+    sharpness = _TRIPLE_TANGENT_EDGE_SHARPNESS
+
+    def unnormalized(x):
+        return jax.nn.sigmoid(sharpness * (1.0 - x)) - 0.5
+
+    nodes = 0.5 * (jnp.asarray(GL47_X, dtype=normalized_distance.dtype) + 1.0)
+    weights = 0.5 * jnp.asarray(GL47_W, dtype=normalized_distance.dtype)
+    relative_flux = 2.0 * jnp.sum(weights * nodes * unnormalized(nodes))
+    bounded_distance = jnp.clip(normalized_distance, 0.0, 1.0)
+    return unnormalized(bounded_distance) / relative_flux
+
+
+def _integrate_compact_edge(brightness, intervals) -> Array:
+    """Integrate the JVP-only profile with the embedded rule's 15 Gauss nodes."""
+
+    active = jnp.arange(intervals.intervals.shape[0]) < intervals.n_intervals
+
+    def integrate(bounds):
+        safe_bounds = jnp.where(active[:, None], bounds, bounds[0])
+
+        def integrate_interval(pair):
+            lower, upper = pair
+            dtype = pair.dtype
+            angle = 0.25 * jnp.pi * (jnp.asarray(_G15_X, dtype=dtype) + 1.0)
+            width = upper - lower
+            theta = lower + width * jnp.sin(angle) ** 2
+            jacobian = 0.25 * jnp.pi * width * jnp.sin(2.0 * angle)
+            return jnp.sum(jnp.asarray(_G15_W, dtype=dtype) * jacobian * jax.vmap(brightness)(theta))
+
+        values = jax.vmap(integrate_interval)(safe_bounds)
+        return jnp.sum(jnp.where(active, values, 0.0))
+
+    return jax.lax.cond(
+        intervals.n_intervals > 0,
+        integrate,
+        lambda _: jnp.asarray(0.0, dtype=intervals.intervals.dtype),
+        intervals.intervals,
+    )
 
 
 def mag_uniform_triple_boundary(
@@ -60,7 +125,10 @@ def mag_uniform_triple_boundary(
     Nlimb controls topology tracing; angular integration uses exact roots.
     ``radial_strategy="fixed"`` provides the bounded G15/K31 pass used by the
     public triple light-curve API, while ``"adaptive"`` retains the diagnostic
-    error-controlled path.
+    error-controlled path. The primal is the exact hard-edge area. Its custom
+    JVP reuses the same intervals and radial nodes with a unit-flux compact
+    sigmoid profile, evaluated by G15, so source-limb contacts have a bounded
+    tangent without changing the reported magnification.
     """
 
     if radial_strategy not in ("adaptive", "fixed"):
@@ -71,7 +139,6 @@ def mag_uniform_triple_boundary(
         raise ValueError("radial_chunk_size must be positive")
     if _compact_local_chart and radial_strategy != "fixed":
         raise ValueError("the compact-image chart requires fixed radial integration")
-
     geometry = triple_lens_geometry(s, q, q3, r3, psi)
     lens_params = {
         "s": s,
@@ -131,6 +198,14 @@ def mag_uniform_triple_boundary(
         )
         interval_parameters = None
 
+    # These intervals are conservative integration supports padded beyond the
+    # physical image boundary, where the angular measure is identically zero.
+    # Their motion therefore has no boundary contribution to the exact area.
+    # Differentiating the sampled min/max construction would nevertheless move
+    # every fixed quadrature node and amplify the (small) radial quadrature
+    # error into a noisy Jacobian near caustics.
+    topology = topology._replace(intervals=lax.stop_gradient(topology.intervals))
+
     real_dtype, complex_dtype = integration_dtypes(w_center)
     rho_grid = jnp.asarray(rho, dtype=real_dtype)
     shifted_grid = jnp.asarray(geometry.shifted, dtype=complex_dtype)
@@ -138,6 +213,8 @@ def mag_uniform_triple_boundary(
     e1_grid = jnp.asarray(geometry.e1, dtype=real_dtype)
     e2_grid = jnp.asarray(geometry.e2, dtype=real_dtype)
     r3_complex_grid = jnp.asarray(geometry.r3_complex, dtype=complex_dtype)
+    r3_grid = jnp.asarray(r3, dtype=real_dtype)
+    psi_grid = jnp.asarray(psi, dtype=real_dtype)
     w_center_shifted_grid = jnp.asarray(w_center_shifted, dtype=complex_dtype)
     angular_atol_grid = jnp.asarray(angular_atol, dtype=real_dtype)
     relative_tolerance_grid = jnp.asarray(relative_tolerance, dtype=real_dtype)
@@ -146,51 +223,55 @@ def mag_uniform_triple_boundary(
     cell_tolerance = 64.0 * jnp.finfo(real_dtype).eps
 
     def radial_integrand(radius, interval_parameter=None):
+        chart_center = interval_parameter[0] if _compact_local_chart else 0.0 + 0.0j
+        intervals = angular_intervals_triple_roots(
+            radius,
+            0.0,
+            2.0 * jnp.pi,
+            w_center_shifted_grid,
+            rho_grid,
+            shifted_grid,
+            cell_tolerance,
+            a=a_grid,
+            e1=e1_grid,
+            e2=e2_grid,
+            r3_complex=r3_complex_grid,
+            chart_center=chart_center,
+        )
         if _compact_local_chart:
-            center = interval_parameter[0]
-            intervals = angular_intervals_triple_roots(
-                radius,
-                0.0,
-                2.0 * jnp.pi,
-                w_center_shifted_grid,
-                rho_grid,
-                shifted_grid,
-                cell_tolerance,
-                a=a_grid,
-                e1=e1_grid,
-                e2=e2_grid,
-                r3_complex=r3_complex_grid,
-                chart_center=center,
-            )
             owned, n_owned = _owned_angular_intervals(
                 intervals.intervals, intervals.n_intervals, radius, interval_parameter, charted
             )
-            active = jnp.arange(owned.shape[0]) < n_owned
-            widths = owned[:, 1] - owned[:, 0]
-            measure = jnp.sum(jnp.where(active, widths, 0.0))
-            angular_error = intervals.error
-            angular_status = intervals.status
-        else:
-            angular = angular_measure_triple_roots(
+            intervals = intervals._replace(intervals=owned, n_intervals=n_owned)
+
+        active = jnp.arange(intervals.intervals.shape[0]) < intervals.n_intervals
+        widths = intervals.intervals[:, 1] - intervals.intervals[:, 0]
+        hard_measure = jnp.sum(jnp.where(active, widths, 0.0))
+        soft_intervals = intervals._replace(intervals=lax.stop_gradient(intervals.intervals))
+
+        def soft_brightness(theta):
+            distance = distance_from_source(
                 radius,
-                0.0,
-                2.0 * jnp.pi,
+                theta,
                 w_center_shifted_grid,
-                rho_grid,
                 shifted_grid,
-                cell_tolerance,
+                nlenses=3,
+                chart_center=chart_center,
                 a=a_grid,
                 e1=e1_grid,
                 e2=e2_grid,
-                r3_complex=r3_complex_grid,
+                r3=r3_grid,
+                psi=psi_grid,
             )
-            measure = angular.measure
-            angular_error = angular.error
-            angular_status = angular.status
+            distance = jnp.nan_to_num(distance, nan=jnp.inf, posinf=jnp.inf, neginf=jnp.inf)
+            return _compact_edge_intensity(distance / rho_grid)
+
+        soft_measure = _integrate_compact_edge(soft_brightness, soft_intervals)
+        measure = _hard_value_soft_jvp(hard_measure, soft_measure)
         return RadialIntegrand(
             radius * measure,
-            jnp.abs(radius) * angular_error,
-            angular_status,
+            jnp.abs(radius) * intervals.error,
+            intervals.status,
         )
 
     chunk_size = RADIAL_INTERVAL_CAPACITY if parallel_regions else radial_chunk_size

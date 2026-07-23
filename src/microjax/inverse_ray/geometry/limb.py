@@ -12,6 +12,7 @@ from .lens import binary_geometry
 from typing import Tuple
 
 Array = jnp.ndarray
+_TRIPLE_POLISH_STEPS = 2
 
 
 def _polish_binary_limb_images(
@@ -67,6 +68,54 @@ def _polish_binary_limb_images(
     )
 
 
+def _polish_triple_limb_images(
+    image: Array,
+    mask: Array,
+    w_limb_shift: Array,
+    a: Array,
+    e1: Array,
+    e2: Array,
+    r3: Array,
+    psi: Array,
+) -> Tuple[Array, Array]:
+    """Polish degree-ten roots with the exact triple-lens Jacobian.
+
+    Only roots already classified as physical are refined.  A triple-lens
+    polynomial also contains ghost roots; allowing those roots into the Newton
+    basin can collapse several slots onto one physical image and corrupt limb
+    topology.
+    """
+
+    lens_params = {"a": a, "e1": e1, "e2": e2, "r3": r3, "psi": psi}
+    lens_positions = jnp.asarray([a, -a, r3 * jnp.exp(1.0j * psi)])
+    lens_masses = jnp.asarray([e1, e2, 1.0 - e1 - e2])
+    determinant_floor = jnp.sqrt(jnp.finfo(image.real.dtype).eps)
+    polished = image
+
+    for _ in range(_TRIPLE_POLISH_STEPS):
+        residual = lens_eq(polished, nlenses=3, **lens_params) - w_limb_shift[None, :]
+        shear = jnp.sum(
+            lens_masses[:, None, None]
+            / (jnp.conjugate(polished)[None, :, :] - jnp.conjugate(lens_positions)[:, None, None]) ** 2,
+            axis=0,
+        )
+        determinant = 1.0 - jnp.abs(shear) ** 2
+        nonsingular = jnp.abs(determinant) > determinant_floor
+        step = (-residual + shear * jnp.conjugate(residual)) / jnp.where(nonsingular, determinant, 1.0)
+        candidate = polished + jnp.where(mask & nonsingular, step, 0.0 + 0.0j)
+        candidate_residual = lens_eq(candidate, nlenses=3, **lens_params) - w_limb_shift[None, :]
+        improves = (
+            jnp.isfinite(candidate.real)
+            & jnp.isfinite(candidate.imag)
+            & (jnp.abs(candidate_residual) < jnp.abs(residual))
+        )
+        polished = jnp.where(improves, candidate, polished)
+
+    final_residual = jnp.abs(lens_eq(polished, nlenses=3, **lens_params) - w_limb_shift[None, :])
+    polished_mask = mask & jnp.isfinite(final_residual) & (final_residual < 1.0e-6)
+    return polished, polished_mask
+
+
 def calc_source_limb(
     w_center: complex,
     rho: float,
@@ -116,5 +165,9 @@ def calc_source_limb(
     image, mask = _images_point_source(w_limb_shift, nlenses=nlenses, **_params)
     if nlenses == 2:
         image, mask = _polish_binary_limb_images(image, mask, w_limb_shift, _params["a"], _params["e1"])
+    else:
+        image, mask = _polish_triple_limb_images(
+            image, mask, w_limb_shift, geometry.a, geometry.e1, geometry.e2, r3, psi
+        )
     image_limb = image + shifted
     return image_limb, mask

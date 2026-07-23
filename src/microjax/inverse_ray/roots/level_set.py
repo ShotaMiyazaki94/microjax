@@ -15,9 +15,7 @@ import jax.numpy as jnp
 Array = jnp.ndarray
 
 BINARY_FOURIER_DEGREE = 3
-BINARY_FOURIER_SAMPLES = 16
 TRIPLE_FOURIER_DEGREE = 4
-TRIPLE_FOURIER_SAMPLES = 20
 
 
 class FourierLevelSet(NamedTuple):
@@ -26,22 +24,6 @@ class FourierLevelSet(NamedTuple):
     coefficients: Array
     padding: Array
     degenerate: Array
-
-
-def _normalized_fourier_level_set(samples: Array, degree: int) -> FourierLevelSet:
-    """Normalize exact-bandwidth samples and bound discarded roundoff."""
-
-    sample_count = samples.shape[0]
-    spectrum = jnp.fft.fft(samples) / sample_count
-    coefficients = spectrum[: degree + 1]
-    raw_scale = jnp.abs(coefficients[0]) + 2.0 * jnp.sum(jnp.abs(coefficients[1:]))
-    tiny = jnp.finfo(samples.dtype).tiny
-    scale = jnp.maximum(raw_scale, tiny)
-    coefficients = coefficients / scale
-    high_modes = spectrum[degree + 1 : sample_count - degree]
-    roundoff = 64.0 * jnp.finfo(samples.dtype).eps
-    padding = jnp.sum(jnp.abs(high_modes)) / scale + roundoff
-    return FourierLevelSet(coefficients, padding, raw_scale == 0.0)
 
 
 def binary_level_set(
@@ -183,21 +165,71 @@ def triple_level_set_fourier(
     r3_complex: complex,
     chart_center: complex = 0.0 + 0.0j,
 ) -> FourierLevelSet:
-    """Recover the exact degree-four Fourier representation on one ring."""
+    """Construct the exact degree-four Fourier representation of ``H``.
 
-    real_dtype = jnp.asarray(r).dtype
-    angles = 2.0 * jnp.pi * jnp.arange(TRIPLE_FOURIER_SAMPLES, dtype=real_dtype) / TRIPLE_FOURIER_SAMPLES
+    Write the three denominator factors as polynomials in ``u**-1``, where
+    ``u = exp(i theta)``. The denominator then has four coefficients and the
+    lens-equation numerator has five, spanning powers ``u**-3`` through
+    ``u**1``. Their short autocorrelations give all five non-negative Fourier
+    modes directly, avoiding angular sampling and an FFT at every radial node.
+    """
+
+    r = jnp.asarray(r)
+    rho = jnp.asarray(rho, dtype=r.dtype)
     complex_dtype = jnp.result_type(w_center_shifted, 1j * r)
-    center = jnp.asarray(chart_center, dtype=complex_dtype)
-    z_cm = center + r * jnp.exp(1j * angles)
-    samples = triple_level_set(
-        z_cm,
-        w_center_shifted,
-        rho,
-        shifted,
-        a=a,
-        e1=e1,
-        e2=e2,
-        r3_complex=r3_complex,
+    midpoint_offset = jnp.asarray(chart_center, dtype=complex_dtype) - jnp.asarray(shifted, dtype=complex_dtype)
+    conjugate_offset = jnp.conjugate(midpoint_offset)
+    source_offset = midpoint_offset - jnp.asarray(w_center_shifted, dtype=complex_dtype)
+    third_offset = conjugate_offset - jnp.conjugate(jnp.asarray(r3_complex, dtype=complex_dtype))
+    plus_offset = conjugate_offset - a
+    minus_offset = conjugate_offset + a
+
+    pair_plus_third = jnp.asarray(
+        [r**2, r * (plus_offset + third_offset), plus_offset * third_offset], dtype=complex_dtype
     )
-    return _normalized_fourier_level_set(samples, TRIPLE_FOURIER_DEGREE)
+    pair_minus_third = jnp.asarray(
+        [r**2, r * (minus_offset + third_offset), minus_offset * third_offset], dtype=complex_dtype
+    )
+    pair_plus_minus = jnp.asarray(
+        [r**2, r * (plus_offset + minus_offset), plus_offset * minus_offset], dtype=complex_dtype
+    )
+    denominator = jnp.asarray(
+        [
+            r**3,
+            r**2 * (plus_offset + minus_offset + third_offset),
+            r * (plus_offset * minus_offset + plus_offset * third_offset + minus_offset * third_offset),
+            plus_offset * minus_offset * third_offset,
+        ],
+        dtype=complex_dtype,
+    )
+    e3 = 1.0 - e1 - e2
+    deflection_numerator = e1 * pair_minus_third + e2 * pair_plus_third + e3 * pair_plus_minus
+    numerator = jnp.asarray(
+        [
+            source_offset * denominator[0],
+            source_offset * denominator[1] + r * denominator[0] - deflection_numerator[0],
+            source_offset * denominator[2] + r * denominator[1] - deflection_numerator[1],
+            source_offset * denominator[3] + r * denominator[2] - deflection_numerator[2],
+            r * denominator[3],
+        ],
+        dtype=complex_dtype,
+    )
+
+    def positive_mode(values, mode):
+        return jnp.sum(values[mode:] * jnp.conjugate(values[: values.size - mode]))
+
+    numerator_modes = jnp.stack([positive_mode(numerator, mode) for mode in range(TRIPLE_FOURIER_DEGREE + 1)])
+    denominator_modes = jnp.stack(
+        [
+            positive_mode(denominator, mode) if mode < denominator.size else 0.0j
+            for mode in range(TRIPLE_FOURIER_DEGREE + 1)
+        ]
+    )
+    coefficients = numerator_modes - rho**2 * denominator_modes
+    raw_scale = jnp.abs(coefficients[0]) + 2.0 * jnp.sum(jnp.abs(coefficients[1:]))
+    scale = jnp.maximum(raw_scale, jnp.finfo(r.dtype).tiny)
+    # The triple construction has more fixed multiply-add stages than the
+    # binary correlation. Two binary-sized roundoff allowances also cover the
+    # discarded-mode floor measured by the former 20-point FFT construction.
+    padding = 128.0 * jnp.finfo(r.dtype).eps
+    return FourierLevelSet(coefficients / scale, padding, raw_scale == 0.0)

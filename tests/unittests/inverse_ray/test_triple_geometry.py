@@ -35,7 +35,51 @@ def test_triple_source_limb_round_trips_between_coordinate_frames():
     )
     residual = jnp.abs(mapped_midpoint - source_midpoint[None, :])
     assert np.any(np.asarray(mask))
-    assert np.all(np.asarray(residual)[np.asarray(mask)] < 1e-3)
+    assert np.all(np.asarray(residual)[np.asarray(mask)] < 1e-6)
+
+
+def test_triple_limb_polish_preserves_physical_images_near_third_lens():
+    params = {
+        "s": 1.1,
+        "q": 0.1,
+        "q3": 0.01,
+        "r3": np.abs(0.3 + 1.2j),
+        "psi": np.angle(0.3 + 1.2j),
+    }
+    geometry = triple_lens_geometry(**params)
+    alpha = np.deg2rad(50.0)
+    time = 8.5
+    center = (-0.1 * np.sin(alpha) + time / 10.0 * np.cos(alpha)) + 1j * (
+        0.1 * np.cos(alpha) + time / 10.0 * np.sin(alpha)
+    )
+    n_limb = 80
+    images, mask = calc_source_limb(center, 0.01, n_limb, nlenses=3, **params)
+    source = center + 0.01 * jnp.exp(1j * jnp.linspace(0.0, 2.0 * jnp.pi, n_limb))
+    raw_images, raw_mask = _images_point_source(
+        source - geometry.shifted,
+        nlenses=3,
+        a=geometry.a,
+        e1=geometry.e1,
+        e2=geometry.e2,
+        **params,
+    )
+    residual = jnp.abs(
+        lens_eq(
+            images - geometry.shifted,
+            nlenses=3,
+            a=geometry.a,
+            e1=geometry.e1,
+            e2=geometry.e2,
+            r3=params["r3"],
+            psi=params["psi"],
+        )
+        - (source - geometry.shifted)[None, :]
+    )
+
+    assert raw_images.shape == images.shape
+    assert np.array_equal(np.asarray(mask), np.asarray(raw_mask))
+    assert np.all(np.asarray(mask).sum(axis=0) >= 4)
+    assert np.all(np.asarray(residual)[np.asarray(mask)] < 1e-6)
 
 
 def test_triple_lightcurve_multipole_baseline_uses_binary_center_of_mass():

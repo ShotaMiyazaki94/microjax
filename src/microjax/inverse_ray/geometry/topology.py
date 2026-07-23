@@ -201,6 +201,26 @@ def _merge_radial_intervals(lower: Array, upper: Array, active: Array) -> Array:
     return output
 
 
+def _polish_sampled_turning_radii(radii: Array, turning: Array, scale: Array) -> Array:
+    """Place sampled radial extrema at the vertex of a local parabola.
+
+    The source-limb samples are uniformly spaced in angle. A three-point
+    vertex estimate therefore removes the leading sampling offset without a
+    new lens solve. Only certified interior turning points are changed; flat
+    or extrapolated fits retain the sampled radius.
+    """
+
+    previous = jnp.roll(radii, 1, axis=1)
+    following = jnp.roll(radii, -1, axis=1)
+    curvature = previous - 2.0 * radii + following
+    floor = 256.0 * jnp.finfo(radii.dtype).eps * scale
+    safe = turning & (jnp.abs(curvature) > floor)
+    offset = jnp.where(safe, 0.5 * (previous - following) / curvature, 0.0)
+    safe = safe & (jnp.abs(offset) <= 1.0)
+    vertex = radii + 0.25 * (following - previous) * offset
+    return jnp.where(safe & jnp.isfinite(vertex), vertex, radii)
+
+
 def _regions_from_samples(
     image_samples: Array,
     mask_samples: Array,
@@ -360,6 +380,7 @@ def define_radial_topology(
         & (left_slope * right_slope <= 0.0)
         & ((jnp.abs(left_slope) + jnp.abs(right_slope)) > slope_floor)
     )
+    polished_radii = _polish_sampled_turning_radii(radii, turning, scale)
     segment_endpoint = valid & ~(previous_valid & next_valid)
     sample_slots = jnp.arange(radii.shape[1])[None, :]
     branch_min_index = jnp.argmin(jnp.where(valid, radii, jnp.inf), axis=1)
@@ -394,7 +415,7 @@ def define_radial_topology(
         size=breakpoint_capacity,
         fill_value=candidate_mask.size - 1,
     )[0]
-    candidate_values = radii.ravel()[candidate_indices]
+    candidate_values = polished_radii.ravel()[candidate_indices]
     candidate_valid = jnp.arange(breakpoint_capacity) < jnp.minimum(n_candidates, breakpoint_capacity)
 
     region_active = regions[:, 1] > regions[:, 0]
