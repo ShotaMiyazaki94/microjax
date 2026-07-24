@@ -60,5 +60,6 @@ Up next
 -------
 
 - :doc:`usage` walks through binary and triple lens examples.
+- :doc:`performance` gives measured GPU scheduler recommendations.
 - :doc:`troubleshooting` lists common pitfalls and quick fixes.
 - :doc:`modules` provides API-level details for every public entry point.

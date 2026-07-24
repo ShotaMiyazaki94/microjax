@@ -4,9 +4,14 @@ import numpy as np
 import pytest
 from dataclasses import fields
 
-from microjax.inverse_ray import TripleMagConfig, mag_triple
+import microjax.inverse_ray.lightcurve as lightcurve_module
+from microjax.inverse_ray import BinaryMagConfig, TripleMagConfig, mag_triple
 from microjax.inverse_ray.config import DEFAULT_TRIPLE_CONFIG
-from microjax.inverse_ray.extended_source import mag_limb_dark_boundary, mag_uniform_triple_boundary
+from microjax.inverse_ray.extended_source import (
+    BoundaryMagnificationResult,
+    mag_limb_dark_boundary,
+    mag_uniform_triple_boundary,
+)
 from microjax.inverse_ray.geometry.limb import calc_source_limb
 from microjax.inverse_ray.integrators.charts import _triple_compact_mixed_topology
 from microjax.inverse_ray.roots.level_set import triple_level_set
@@ -20,7 +25,73 @@ PARAMS = {"s": 0.9, "q": 0.3, "q3": 0.2, "r3": 0.4, "psi": 0.7}
 def test_triple_config_has_the_one_pass_defaults():
     assert DEFAULT_TRIPLE_CONFIG == TripleMagConfig()
     assert DEFAULT_TRIPLE_CONFIG.n_limb == 500
-    assert [field.name for field in fields(TripleMagConfig)] == ["n_limb"]
+    assert DEFAULT_TRIPLE_CONFIG.source_tile_size == 100
+    assert DEFAULT_TRIPLE_CONFIG.radial_chunk_size == 8
+    assert [field.name for field in fields(TripleMagConfig)] == [
+        "n_limb",
+        "source_tile_size",
+        "radial_chunk_size",
+    ]
+
+
+@pytest.mark.parametrize("config_type", [BinaryMagConfig, TripleMagConfig])
+@pytest.mark.parametrize("name", ["source_tile_size", "radial_chunk_size"])
+@pytest.mark.parametrize("value", [0, -1])
+def test_scheduler_config_rejects_non_positive_sizes(config_type, name, value):
+    with pytest.raises(ValueError, match=rf"{name} must be positive"):
+        config_type(**{name: value})
+
+
+@pytest.mark.parametrize("config_type", [BinaryMagConfig, TripleMagConfig])
+@pytest.mark.parametrize("name", ["source_tile_size", "radial_chunk_size"])
+@pytest.mark.parametrize("value", [True, 1.5])
+def test_scheduler_config_rejects_non_integer_sizes(config_type, name, value):
+    with pytest.raises(TypeError, match=rf"{name} must be a positive integer"):
+        config_type(**{name: value})
+
+
+@pytest.mark.parametrize("u1", [0.0, 0.5])
+def test_triple_scheduler_config_reaches_source_and_radial_batches(monkeypatch, u1):
+    tile_sizes = []
+    radial_settings = []
+
+    def fake_prefilter(w_points, rho, coefficient, s, q, q3, r3, psi):
+        del rho, coefficient, s, q, q3, r3, psi
+        return jnp.zeros(w_points.shape, dtype=w_points.real.dtype), jnp.zeros(
+            w_points.shape, dtype=bool
+        )
+
+    def fake_boundary(w_center, rho, **kwargs):
+        del rho
+        radial_settings.append(
+            (kwargs["radial_chunk_size"], kwargs["parallel_regions"])
+        )
+        zero = jnp.asarray(0.0, dtype=w_center.real.dtype)
+        return BoundaryMagnificationResult(w_center.real, zero, jnp.int32(0))
+
+    def fake_tiled_map(function, data, n_active, tile_size):
+        del n_active
+        tile_sizes.append(tile_size)
+        return jax.vmap(function)(data)
+
+    monkeypatch.setattr(lightcurve_module, "_triple_prefilter", fake_prefilter)
+    monkeypatch.setattr(lightcurve_module, "mag_uniform_triple_boundary", fake_boundary)
+    monkeypatch.setattr(lightcurve_module, "mag_limb_dark_boundary", fake_boundary)
+    monkeypatch.setattr(lightcurve_module, "_tiled_vmap_active_scalar", fake_tiled_map)
+
+    points = jnp.arange(5, dtype=jnp.float64).astype(jnp.complex128)
+    config = TripleMagConfig(n_limb=40, source_tile_size=3, radial_chunk_size=64)
+    result = lightcurve_module._mag_triple_single_pass_impl.__wrapped__(
+        points,
+        1e-2,
+        u1=u1,
+        config=config,
+        **PARAMS,
+    )
+
+    assert result.shape == points.shape
+    assert tile_sizes == [3]
+    assert radial_settings and set(radial_settings) == {(64, False)}
 
 
 @pytest.mark.parametrize(

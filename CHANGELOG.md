@@ -21,6 +21,8 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 - Automatic selection between a fast finite-source approximation and the full
   image-boundary calculation at each source position.
 - GPU-oriented processing of complete source trajectories.
+- User-configurable source tiling and radial-region scheduling through
+  `BinaryMagConfig` and `TripleMagConfig`.
 - Parallax and binary orbital-motion trajectory utilities.
 - A triple-lens Jacobian example and binary-lens VBBinaryLensing comparison
   records.
@@ -33,8 +35,11 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 - A returned finite value is a numerical estimate without a guaranteed error
   bound. If the image boundary or integration region cannot be constructed,
   the public functions return `NaN`.
-- Public binary- and triple-lens configuration now contains only `n_limb`;
-  numerical integration and GPU execution choices are selected automatically.
+- Public binary- and triple-lens configuration contains `n_limb` plus advanced
+  static scheduler controls; numerical accuracy settings remain internal.
+- A100 measurements set the binary radial scheduler default to 64 regions;
+  the triple-lens default remains 8 because it was faster for the measured
+  trajectory with 888 full solves out of 1000 positions.
 - The finite-source point-lens FFTLog implementation is now imported from
   `microjax.fspl`; the former `microjax.fastlens` package name has been
   removed.

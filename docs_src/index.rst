@@ -67,6 +67,7 @@ on CPUs but are intended primarily for GPU execution.
 
    getting_started
    usage
+   performance
    troubleshooting
 
 .. toctree::

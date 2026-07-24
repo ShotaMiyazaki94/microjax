@@ -1275,8 +1275,12 @@ def test_transient_fold_pair_integration_matches_reference():
     assert np.isclose(float(result.magnification), vbbl, rtol=0.0, atol=5e-6)
 
 
-def test_binary_public_config_exposes_only_topology_sampling():
-    assert [field.name for field in fields(BinaryMagConfig)] == ["n_limb"]
+def test_binary_public_config_exposes_topology_and_scheduler_settings():
+    assert [field.name for field in fields(BinaryMagConfig)] == [
+        "n_limb",
+        "source_tile_size",
+        "radial_chunk_size",
+    ]
 
 
 @pytest.mark.slow
