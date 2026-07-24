@@ -99,6 +99,60 @@ def _conditioned_root_angle_error(
     return jnp.where(curvature_resolved, jnp.minimum(quadratic, linear), linear)
 
 
+def _reciprocal_pair_rescue(
+    roots: Array,
+    finite_roots: Array,
+    unit_error: Array,
+    residual_ok: Array,
+    unit_candidate: Array,
+    unit_tolerance: Array,
+) -> Array:
+    """Promote a straddling near-unit reciprocal pair atomically.
+
+    A self-inversive polynomial has off-circle roots in pairs
+    ``z_j = 1 / conj(z_i)``.  Near a double contact, roundoff in the root solve
+    can put only one member inside the hard unit-circle threshold.  Accepting
+    that member alone creates a spurious odd root count.  Rescue both members
+    only when one already passed the ordinary threshold, both remain in a
+    narrow near-unit guard band, both polished angles satisfy the Fourier
+    level set, and the reciprocal relation is numerically resolved.
+    """
+
+    reciprocal_error = jnp.abs(
+        roots[:, None] * jnp.conjugate(roots[None, :]) - 1.0
+    )
+    indices = jnp.arange(roots.shape[0])
+    distinct = indices[:, None] != indices[None, :]
+    finite_pair = finite_roots[:, None] & finite_roots[None, :]
+    match_error = jnp.where(
+        distinct & finite_pair,
+        reciprocal_error,
+        jnp.inf,
+    )
+    nearest_partner = jnp.argmin(match_error, axis=1)
+    nearest_pair = indices[None, :] == nearest_partner[:, None]
+    mutual_nearest_pair = nearest_pair & nearest_pair.T
+    rescue_unit_tolerance = jnp.minimum(2.0 * unit_tolerance, 1e-3)
+    # The same coefficient perturbation that moves a near-double root by
+    # O(sqrt(eps)) can make the two independently converged roots imperfect
+    # reciprocals by a comparable fraction of the accepted unit-circle band.
+    # Tie the pair check to that band instead of a second, tighter threshold.
+    # Both projected angles must still pass the original Fourier residual
+    # below, so this does not admit arbitrary nearby off-circle roots.
+    reciprocal_tolerance = jnp.minimum(0.25 * unit_tolerance, 1e-4)
+    pair_ok = (
+        mutual_nearest_pair
+        & finite_pair
+        & (unit_error[:, None] <= rescue_unit_tolerance)
+        & (unit_error[None, :] <= rescue_unit_tolerance)
+        & residual_ok[:, None]
+        & residual_ok[None, :]
+        & (unit_candidate[:, None] | unit_candidate[None, :])
+        & (reciprocal_error <= reciprocal_tolerance)
+    )
+    return jnp.any(pair_ok, axis=1)
+
+
 def _angular_intervals_fourier_roots(
     fourier,
     r: float,
@@ -213,8 +267,18 @@ def _angular_intervals_fourier_roots_impl(
     root_refinement_roundoff = 4096.0 * eps
     fourier_evaluation_roundoff = 64.0 * eps
     residual_tolerance = fourier.padding + root_refinement_roundoff + fourier_evaluation_roundoff
+    residual_ok = residual <= residual_tolerance
     unit_candidate = finite_roots & (unit_error <= unit_tolerance)
-    valid = unit_candidate & (residual <= residual_tolerance)
+    pair_rescued = _reciprocal_pair_rescue(
+        roots,
+        finite_roots,
+        unit_error,
+        residual_ok,
+        unit_candidate,
+        unit_tolerance,
+    )
+    validated_candidate = unit_candidate | pair_rescued
+    valid = validated_candidate & residual_ok
     n_valid = jnp.sum(valid, dtype=jnp.int32)
     check_angles = 2.0 * jnp.pi * jnp.arange(16, dtype=jnp.asarray(r).dtype) / 16.0
     check_values = evaluate_fourier(c, check_angles)
@@ -230,7 +294,7 @@ def _angular_intervals_fourier_roots_impl(
         & jnp.all(finite_roots)
         & jnp.all(
             jnp.where(
-                unit_candidate,
+                validated_candidate,
                 relative_polynomial_residual <= polynomial_tolerance,
                 True,
             )

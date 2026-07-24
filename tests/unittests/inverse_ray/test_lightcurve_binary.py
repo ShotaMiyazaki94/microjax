@@ -4,13 +4,18 @@ import jax.numpy as jnp
 import pytest
 from tests.utils.gpu import has_cuda
 
+import microjax.inverse_ray.lightcurve as lightcurve_module
 from microjax.inverse_ray.lightcurve import (
     _tiled_vmap_active_scalar,
     _select_full_points,
     mag_binary,
 )
-from microjax.inverse_ray.config import BinaryMagConfig
-from microjax.inverse_ray.extended_source import mag_limb_dark_boundary, mag_uniform_boundary
+from microjax.inverse_ray.config import BinaryMagConfig, DEFAULT_BINARY_CONFIG
+from microjax.inverse_ray.extended_source import (
+    BoundaryMagnificationResult,
+    mag_limb_dark_boundary,
+    mag_uniform_boundary,
+)
 from microjax.inverse_ray_dense.lightcurve import mag_binary_dense
 from microjax.multipole import mag_hexadecapole
 from microjax.point_source import _images_point_source
@@ -23,6 +28,13 @@ def make_trajectory(u0, tE, t0, alpha, n=100, span=3.0):
     y2 = u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
     w_points = jnp.array(y1 + 1j * y2, dtype=complex)
     return t, w_points
+
+
+def test_binary_config_has_the_a100_tuned_defaults():
+    assert DEFAULT_BINARY_CONFIG == BinaryMagConfig()
+    assert DEFAULT_BINARY_CONFIG.n_limb == 500
+    assert DEFAULT_BINARY_CONFIG.source_tile_size == 100
+    assert DEFAULT_BINARY_CONFIG.radial_chunk_size == 64
 
 
 def test_chunked_active_map_skips_fully_inactive_chunks():
@@ -130,6 +142,51 @@ def test_partial_source_chunk_has_finite_reverse_gradient():
     reverse = jax.grad(objective)(jnp.asarray(1.0))
     assert np.isfinite(float(reverse))
     assert np.isclose(float(reverse), float(forward), rtol=0.0, atol=1e-14)
+
+
+@pytest.mark.parametrize("u1", [0.0, 0.5])
+def test_binary_scheduler_config_reaches_source_and_radial_batches(monkeypatch, u1):
+    tile_sizes = []
+    radial_settings = []
+
+    def fake_prefilter(w_points, rho, coefficient, s, q):
+        del rho, coefficient, s, q
+        return jnp.zeros(w_points.shape, dtype=w_points.real.dtype), jnp.zeros(
+            w_points.shape, dtype=bool
+        )
+
+    def fake_boundary(w_center, rho, **kwargs):
+        del rho
+        radial_settings.append(
+            (kwargs["radial_chunk_size"], kwargs["parallel_regions"])
+        )
+        zero = jnp.asarray(0.0, dtype=w_center.real.dtype)
+        return BoundaryMagnificationResult(w_center.real, zero, jnp.int32(0))
+
+    def fake_tiled_map(function, data, n_active, tile_size):
+        del n_active
+        tile_sizes.append(tile_size)
+        return jax.vmap(function)(data)
+
+    monkeypatch.setattr(lightcurve_module, "_binary_prefilter", fake_prefilter)
+    monkeypatch.setattr(lightcurve_module, "mag_uniform_boundary", fake_boundary)
+    monkeypatch.setattr(lightcurve_module, "mag_limb_dark_boundary", fake_boundary)
+    monkeypatch.setattr(lightcurve_module, "_tiled_vmap_active_scalar", fake_tiled_map)
+
+    points = jnp.arange(5, dtype=jnp.float64).astype(jnp.complex128)
+    config = BinaryMagConfig(n_limb=40, source_tile_size=3, radial_chunk_size=64)
+    result = lightcurve_module._mag_binary_single_pass_impl.__wrapped__(
+        points,
+        1e-2,
+        s=1.0,
+        q=0.1,
+        u1=u1,
+        config=config,
+    )
+
+    assert result.shape == points.shape
+    assert tile_sizes and set(tile_sizes) == {3}
+    assert radial_settings and set(radial_settings) == {(64, False)}
 
 
 def test_far_field_uses_multipole_matches_internal():

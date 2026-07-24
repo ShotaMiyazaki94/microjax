@@ -23,7 +23,7 @@ alpha = jnp.deg2rad(45.0)
 tE = 30.0
 t0 = 0.0
 u0 = 0.0
-rho = 5e-3
+rho = 0.05
 nlenses = 2
 
 a = 0.5 * s

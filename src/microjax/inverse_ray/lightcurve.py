@@ -50,12 +50,14 @@ from microjax.point_source import _images_point_source
 
 # Consistent array alias used across modules
 Array = jnp.ndarray
-_SOURCE_TILE_SIZE = 100
-# Geometry padding, error diagnostics, and region scheduling are implementation
-# details of the public one-pass path. They are fixed here so users do not
-# mistake them for accuracy guarantees or physical model parameters.
+# Geometry padding and error diagnostics are implementation details of the
+# public one-pass path. They are fixed here so users do not mistake them for
+# accuracy guarantees or physical model parameters.
 _BOUNDARY_MARGIN_R = 0.5
 _BOUNDARY_ABSOLUTE_TOLERANCE = 1.0e-5
+# The high-level scheduler expresses radial-region batching through each
+# configuration's radial_chunk_size, leaving the redundant compatibility flag
+# off.
 _PARALLEL_REGIONS = False
 # The public one-pass path does not guarantee or adapt to this empirical
 # radial-error threshold. Keep it as an internal diagnostic setting rather
@@ -261,8 +263,9 @@ def _mag_binary_single_pass_impl(
     u1
         Linear limb-darkening coefficient. Use zero for a uniform source.
     config
-        Source-boundary sampling configuration. The default is recommended for
-        normal use.
+        Source-boundary sampling and accelerator scheduling configuration. The
+        default is recommended for normal use. Scheduler settings change static
+        JAX shapes and therefore trigger separate compilation.
 
     Returns
     -------
@@ -297,7 +300,7 @@ def _mag_binary_single_pass_impl(
                     robust_roots=False,
                     certify_topology=False,
                     radial_strategy="fixed",
-                    radial_chunk_size=8,
+                    radial_chunk_size=config.radial_chunk_size,
                     return_info=True,
                     _planetary_local_chart=use_local_chart,
                     s=s,
@@ -321,7 +324,7 @@ def _mag_binary_single_pass_impl(
                     robust_roots=False,
                     radial_strategy="fixed",
                     certify_topology=False,
-                    radial_chunk_size=8,
+                    radial_chunk_size=config.radial_chunk_size,
                     angular_profile_subdivisions=1,
                     return_info=True,
                     _planetary_local_chart=use_local_chart,
@@ -335,10 +338,12 @@ def _mag_binary_single_pass_impl(
     if w_points.shape[0] == 0:
         return multipole
     full_points, indices, n_active = _select_full_points(w_points, accepted)
-    tile_size = min(_SOURCE_TILE_SIZE, w_points.shape[0])
+    tile_size = min(config.source_tile_size, w_points.shape[0])
 
     def solve(boundary):
-        full_values = _tiled_vmap_active_scalar(boundary, full_points, n_active, tile_size)
+        full_values = _tiled_vmap_active_scalar(
+            boundary, full_points, n_active, tile_size
+        )
         return _scatter_full_values(multipole, indices, full_values)
 
     return lax.cond(
@@ -382,8 +387,9 @@ def _mag_triple_single_pass_impl(
     u1
         Linear limb-darkening coefficient. Use zero for a uniform source.
     config
-        Source-boundary sampling configuration. The default is recommended for
-        normal use.
+        Source-boundary sampling and accelerator scheduling configuration. The
+        default is recommended for normal use. Scheduler settings change static
+        JAX shapes and therefore trigger separate compilation.
 
     Returns
     -------
@@ -419,7 +425,7 @@ def _mag_triple_single_pass_impl(
                 parallel_regions=_PARALLEL_REGIONS,
                 max_radial_subdivisions=1,
                 radial_strategy="fixed",
-                radial_chunk_size=8,
+                radial_chunk_size=config.radial_chunk_size,
                 fixed_radial_order=31,
                 _compact_local_chart=True,
                 return_info=True,
@@ -447,7 +453,7 @@ def _mag_triple_single_pass_impl(
                 max_radial_subdivisions=1,
                 radial_strategy="fixed",
                 certify_topology=False,
-                radial_chunk_size=8,
+                radial_chunk_size=config.radial_chunk_size,
                 angular_profile_subdivisions=1,
                 _compact_local_chart=True,
                 return_info=True,
@@ -457,7 +463,7 @@ def _mag_triple_single_pass_impl(
     if w_points.shape[0] == 0:
         return multipole
     full_points, indices, n_active = _select_full_points(w_points, accepted)
-    tile_size = min(_SOURCE_TILE_SIZE, w_points.shape[0])
+    tile_size = min(config.source_tile_size, w_points.shape[0])
     full_values = _tiled_vmap_active_scalar(boundary, full_points, n_active, tile_size)
     return _scatter_full_values(multipole, indices, full_values)
 

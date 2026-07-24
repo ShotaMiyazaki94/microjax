@@ -103,7 +103,8 @@ The triple-lens API uses the same trajectory and source profile.
 Configuration
 -------------
 
-``BinaryMagConfig`` and ``TripleMagConfig`` currently expose one setting:
+``BinaryMagConfig`` and ``TripleMagConfig`` expose source-boundary sampling
+and static accelerator scheduling:
 
 ``n_limb``
    Number of points placed on the circular source boundary before those points
@@ -112,8 +113,19 @@ Configuration
    value is recommended for normal use. This setting does not directly change
    the number of radial integration points.
 
-microJAX automatically chooses the remaining integration and GPU execution
-settings.
+``source_tile_size``
+   Number of full-solve source positions in an outer vectorized tile.
+
+``radial_chunk_size``
+   Number of radial image regions in an inner vectorized chunk. A value of 64
+   evaluates the complete fixed-capacity region buffer together.
+
+Both scheduler sizes must be positive integers.
+
+The A100-tuned binary defaults are ``100 / 64`` for source tile and radial
+chunk. The triple defaults are ``100 / 8``. These settings produce separately
+compiled JAX executables. See :doc:`performance` for measured results and
+recommendations indexed by the measured full-solve count.
 
 Boundary integration in outline
 -------------------------------

@@ -79,7 +79,8 @@ Set this option before creating arrays or compiling microJAX functions.
 The primary `0.2` extended-source API consists of `mag_binary`, `mag_triple`,
 and their configuration objects. `n_limb` is the number of points used to
 trace the lensed image of the source circumference. The default value, 500, is
-recommended for normal use.
+recommended for normal use. Advanced users can tune `source_tile_size` and
+`radial_chunk_size` for their accelerator and workload.
 
 ```python
 import jax
@@ -111,6 +112,28 @@ config = BinaryMagConfig(n_limb=500)
 # Uniform finite source. Set u1 > 0 for linear limb darkening.
 mu_finite = mag_binary(w, rho, s=s, q=q, u1=0.0, config=config)
 mu_point = mag_point_source(w, nlenses=2, s=s, q=q)
+```
+
+The scheduler defaults target GPU light-curve workloads while limiting peak
+memory. `source_tile_size` controls the number of source positions in each
+outer vectorized batch, and `radial_chunk_size` controls the inner batch of
+radial integration regions. Setting `radial_chunk_size=64` evaluates the full
+fixed-capacity region buffer together. On the measured A100 binary workload it
+reduced execution time and raised the 100-position-tile primal peak from about
+160 MiB to 256 MiB. Both scheduler sizes must be positive integers. These
+settings change static JAX shapes, so each distinct configuration is compiled
+separately:
+
+The A100-tuned defaults are `source_tile_size=100` for both lens types,
+`radial_chunk_size=64` for binary lenses, and `radial_chunk_size=8` for triple
+lenses.
+
+```python
+config = BinaryMagConfig(
+    n_limb=500,
+    source_tile_size=32,
+    radial_chunk_size=16,
+)
 ```
 
 Triple-lens finite-source magnification uses the same source convention:
@@ -231,6 +254,8 @@ mind when using `mag_binary` and `mag_triple`:
   or encounters a non-finite intermediate value, it returns `NaN`;
 - increasing `n_limb` samples the source circumference more finely, but does
   not directly increase the number of radial integration points;
+- scheduler settings are performance and memory controls, not accuracy
+  controls, and their best values depend on the accelerator and trajectory;
 - uniform sources and the linear limb-darkening law parameterized by `u1` are
   supported by `mag_binary` and `mag_triple`;
 - finite-source workloads are intended for GPUs. They run on CPUs but may be

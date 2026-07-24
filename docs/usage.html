@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Troubleshooting" href="troubleshooting.html" />
+    <link rel="next" title="Performance Tuning" href="performance.html" />
     <link rel="prev" title="Getting Started" href="getting_started.html" /> 
 </head>
 
@@ -59,6 +59,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#performance-and-reproducibility">Performance and reproducibility</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Tuning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -183,7 +184,8 @@ separation and <code class="docutils literal notranslate"><span class="pre">rho<
 </section>
 <section id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">TripleMagConfig</span></code> currently expose one setting:</p>
+<p><code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">TripleMagConfig</span></code> expose source-boundary sampling
+and static accelerator scheduling:</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">n_limb</span></code></dt><dd><p>Number of points placed on the circular source boundary before those points
 are mapped into the image plane. Larger values follow rapid changes of the
@@ -191,9 +193,17 @@ image boundary more finely, at additional computational cost. The default
 value is recommended for normal use. This setting does not directly change
 the number of radial integration points.</p>
 </dd>
+<dt><code class="docutils literal notranslate"><span class="pre">source_tile_size</span></code></dt><dd><p>Number of full-solve source positions in an outer vectorized tile.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">radial_chunk_size</span></code></dt><dd><p>Number of radial image regions in an inner vectorized chunk. A value of 64
+evaluates the complete fixed-capacity region buffer together.</p>
+</dd>
 </dl>
-<p>microJAX automatically chooses the remaining integration and GPU execution
-settings.</p>
+<p>Both scheduler sizes must be positive integers.</p>
+<p>The A100-tuned binary defaults are <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">/</span> <span class="pre">64</span></code> for source tile and radial
+chunk. The triple defaults are <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">/</span> <span class="pre">8</span></code>. These settings produce separately
+compiled JAX executables. See <a class="reference internal" href="performance.html"><span class="doc">Performance Tuning</span></a> for measured results and
+recommendations indexed by the measured full-solve count.</p>
 </section>
 <section id="boundary-integration-in-outline">
 <h2>Boundary integration in outline<a class="headerlink" href="#boundary-integration-in-outline" title="Link to this heading"></a></h2>
@@ -263,7 +273,7 @@ hardware and trajectories, not universal guarantees.</p></li>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="getting_started.html" class="btn btn-neutral float-left" title="Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="troubleshooting.html" class="btn btn-neutral float-right" title="Troubleshooting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="performance.html" class="btn btn-neutral float-right" title="Performance Tuning" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

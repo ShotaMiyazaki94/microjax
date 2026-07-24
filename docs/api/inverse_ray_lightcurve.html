@@ -10,7 +10,7 @@
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
-  
+
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="../_static/documentation_options.js?v=5929fcd5"></script>
@@ -23,14 +23,14 @@
     <link rel="prev" title="Multipole" href="multipole.html" />
 </head>
 
-<body class="wy-body-for-nav"> 
+<body class="wy-body-for-nav">
   <div class="wy-grid-for-nav">
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
 
-          
-          
+
+
           <a href="../index.html" class="icon icon-home">
             microJAX
               <img src="../_static/microjax.png" class="logo" alt="Logo"/>
@@ -47,6 +47,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance Tuning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -56,8 +57,16 @@
 <li class="toctree-l2"><a class="reference internal" href="fspl.html">Finite-source Point Lens</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Inverse-Ray Lightcurve</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary"><code class="docutils literal notranslate"><span class="pre">mag_binary()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_triple"><code class="docutils literal notranslate"><span class="pre">mag_triple()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#configuration">Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#microjax.inverse_ray.BinaryMagConfig"><code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#microjax.inverse_ray.TripleMagConfig"><code class="docutils literal notranslate"><span class="pre">TripleMagConfig</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-microjax.inverse_ray.lightcurve">Light-curve functions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary"><code class="docutils literal notranslate"><span class="pre">mag_binary()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_triple"><code class="docutils literal notranslate"><span class="pre">mag_triple()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="poly_solver.html">Polynomial Solver</a></li>
@@ -91,9 +100,33 @@
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-             
-  <section id="module-microjax.inverse_ray.lightcurve">
-<span id="inverse-ray-lightcurve"></span><h1>Inverse-Ray Lightcurve<a class="headerlink" href="#module-microjax.inverse_ray.lightcurve" title="Link to this heading"></a></h1>
+
+  <section id="inverse-ray-lightcurve">
+<h1>Inverse-Ray Lightcurve<a class="headerlink" href="#inverse-ray-lightcurve" title="Link to this heading"></a></h1>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="microjax.inverse_ray.BinaryMagConfig">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.</span></span><span class="sig-name descname"><span class="pre">BinaryMagConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_limb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_tile_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radial_chunk_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">64</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.inverse_ray.BinaryMagConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundaryMagConfig</span></code></p>
+<p>Static configuration for <code class="docutils literal notranslate"><span class="pre">mag_binary</span></code>.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="microjax.inverse_ray.BinaryMagConfig.radial_chunk_size">
+<span class="sig-name descname"><span class="pre">radial_chunk_size</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">64</span></span><a class="headerlink" href="#microjax.inverse_ray.BinaryMagConfig.radial_chunk_size" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="microjax.inverse_ray.TripleMagConfig">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.</span></span><span class="sig-name descname"><span class="pre">TripleMagConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_limb</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_tile_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radial_chunk_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.inverse_ray.TripleMagConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_BoundaryMagConfig</span></code></p>
+<p>Static configuration for <code class="docutils literal notranslate"><span class="pre">mag_triple</span></code>.</p>
+</dd></dl>
+
+</section>
+<section id="module-microjax.inverse_ray.lightcurve">
+<span id="light-curve-functions"></span><h2>Light-curve functions<a class="headerlink" href="#module-microjax.inverse_ray.lightcurve" title="Link to this heading"></a></h2>
 <p>Finite-source binary- and triple-lens light curves.</p>
 <p>Use <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_binary" title="microjax.inverse_ray.lightcurve.mag_binary"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_binary()</span></code></a> and <a class="reference internal" href="#microjax.inverse_ray.lightcurve.mag_triple" title="microjax.inverse_ray.lightcurve.mag_triple"><code class="xref py py-func docutils literal notranslate"><span class="pre">mag_triple()</span></code></a> with a complex source trajectory.
 For source positions sufficiently far from caustics, microJAX uses a fast
@@ -108,7 +141,7 @@ If a valid image boundary or integration region cannot be constructed, the
 corresponding result is <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.inverse_ray.lightcurve.mag_binary">
-<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_binary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">BinaryMagConfig</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">BinaryMagConfig(n_limb=500)</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_binary" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_binary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#microjax.inverse_ray.BinaryMagConfig" title="microjax.inverse_ray.config.BinaryMagConfig"><span class="pre">BinaryMagConfig</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">BinaryMagConfig(n_limb=500,</span> <span class="pre">source_tile_size=100,</span> <span class="pre">radial_chunk_size=64)</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_binary" title="Link to this definition"></a></dt>
 <dd><p>Compute finite-source magnification for a binary lens.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -119,8 +152,9 @@ source-plane coordinates in Einstein-radius units.</p></li>
 <li><p><strong>s</strong> – Projected binary-lens separation.</p></li>
 <li><p><strong>q</strong> – Mass ratio of the second lens to the first.</p></li>
 <li><p><strong>u1</strong> – Linear limb-darkening coefficient. Use zero for a uniform source.</p></li>
-<li><p><strong>config</strong> – Source-boundary sampling configuration. The default is recommended for
-normal use.</p></li>
+<li><p><strong>config</strong> – Source-boundary sampling and accelerator scheduling configuration. The
+default is recommended for normal use. Scheduler settings change static
+JAX shapes and therefore trigger separate compilation.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -140,7 +174,7 @@ settings. Returned finite values do not carry a guaranteed error bound.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.inverse_ray.lightcurve.mag_triple">
-<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_triple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">TripleMagConfig</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">TripleMagConfig(n_limb=500)</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_triple" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">microjax.inverse_ray.lightcurve.</span></span><span class="sig-name descname"><span class="pre">mag_triple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">psi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#microjax.inverse_ray.TripleMagConfig" title="microjax.inverse_ray.config.TripleMagConfig"><span class="pre">TripleMagConfig</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">TripleMagConfig(n_limb=500,</span> <span class="pre">source_tile_size=100,</span> <span class="pre">radial_chunk_size=8)</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Array</span></span></span><a class="headerlink" href="#microjax.inverse_ray.lightcurve.mag_triple" title="Link to this definition"></a></dt>
 <dd><p>Compute finite-source magnification for a triple lens.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -153,8 +187,9 @@ settings. Returned finite values do not carry a guaranteed error bound.</p>
 <li><p><strong>r3</strong> – Distance and position angle of the third lens.</p></li>
 <li><p><strong>psi</strong> – Distance and position angle of the third lens.</p></li>
 <li><p><strong>u1</strong> – Linear limb-darkening coefficient. Use zero for a uniform source.</p></li>
-<li><p><strong>config</strong> – Source-boundary sampling configuration. The default is recommended for
-normal use.</p></li>
+<li><p><strong>config</strong> – Source-boundary sampling and accelerator scheduling configuration. The
+default is recommended for normal use. Scheduler settings change static
+JAX shapes and therefore trigger separate compilation.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -172,6 +207,7 @@ in coordinates centred near those images to avoid loss of angular
 resolution. Returned finite values do not carry a guaranteed error bound.</p>
 </dd></dl>
 
+</section>
 </section>
 
 
@@ -191,7 +227,7 @@ resolution. Returned finite values do not carry a guaranteed error bound.</p>
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
+
 
 </footer>
         </div>
@@ -202,7 +238,7 @@ resolution. Returned finite values do not carry a guaranteed error bound.</p>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script> 
+  </script>
 
 </body>
 </html>

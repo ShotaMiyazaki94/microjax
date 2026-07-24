@@ -10,11 +10,13 @@ import pytest
 from microjax.inverse_ray.roots.angular import (
     ANGULAR_OK,
     ANGULAR_ROOT_FAILURE,
+    _reciprocal_pair_rescue,
     angular_intervals_binary_roots,
     angular_measure_binary_roots,
     evaluate_fourier,
 )
 from microjax.inverse_ray.geometry.mapping import distance_from_source
+from microjax.inverse_ray.geometry.lens import binary_geometry
 from microjax.inverse_ray.extended_source import (
     mag_limb_dark_boundary,
     mag_radial_profile_boundary,
@@ -39,6 +41,7 @@ from microjax.inverse_ray.geometry.topology import (
     define_radial_topology,
 )
 from microjax.inverse_ray_retry.radial import build_local_image_charts
+from microjax.inverse_ray.integrators.charts import _planetary_mixed_topology
 from microjax.point_source import _images_point_source
 
 _FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "inverse_ray"
@@ -488,6 +491,61 @@ def test_small_source_off_unit_roots_do_not_create_false_fatal_status():
     assert float(result.error) == 0.0
 
 
+def test_near_unit_reciprocal_pair_is_rescued_atomically():
+    eps = jnp.finfo(jnp.float64).eps
+    unit_tolerance = 2048.0 * jnp.sqrt(eps)
+    theta = 0.3
+    inner_radius = 1.0 - 0.99999 * unit_tolerance
+    roots = jnp.asarray(
+        [
+            inner_radius * jnp.exp(1j * theta),
+            (1.0 / inner_radius) * jnp.exp(1j * theta),
+        ]
+    )
+    unit_error = jnp.abs(jnp.abs(roots) - 1.0)
+    unit_candidate = unit_error <= unit_tolerance
+
+    rescued = _reciprocal_pair_rescue(
+        roots,
+        jnp.asarray([True, True]),
+        unit_error,
+        jnp.asarray([True, True]),
+        unit_candidate,
+        unit_tolerance,
+    )
+
+    assert np.array_equal(np.asarray(unit_candidate), np.asarray([True, False]))
+    assert np.array_equal(np.asarray(rescued), np.asarray([True, True]))
+
+
+def test_ill_conditioned_reciprocal_pair_uses_unit_band_scaled_tolerance():
+    eps = jnp.finfo(jnp.float64).eps
+    unit_tolerance = 2048.0 * jnp.sqrt(eps)
+    theta = 0.3
+    outer_radius = 1.0 + 0.99 * unit_tolerance
+    inner_radius = 1.0 - 1.04 * unit_tolerance
+    roots = jnp.asarray(
+        [
+            outer_radius * jnp.exp(1j * theta),
+            inner_radius * jnp.exp(1j * (theta + 2e-6)),
+        ]
+    )
+    unit_error = jnp.abs(jnp.abs(roots) - 1.0)
+    unit_candidate = unit_error <= unit_tolerance
+
+    rescued = _reciprocal_pair_rescue(
+        roots,
+        jnp.asarray([True, True]),
+        unit_error,
+        jnp.asarray([True, True]),
+        unit_candidate,
+        unit_tolerance,
+    )
+
+    assert np.array_equal(np.asarray(unit_candidate), np.asarray([True, False]))
+    assert np.array_equal(np.asarray(rescued), np.asarray([True, True]))
+
+
 def test_fixed_binary_roots_resolve_roman_recovery_boundary_crossings():
     # This exact GK31 radial node occurs in a Roman-model recovery case.  The
     # former 20-step fixed EA solve found only one of the two boundary roots,
@@ -518,6 +576,77 @@ def test_fixed_binary_roots_resolve_roman_recovery_boundary_crossings():
     assert int(result.n_intervals) == 2
     assert np.all(np.isfinite(np.asarray(result.intervals)))
     assert np.all(np.diff(np.asarray(result.intervals[:2]), axis=1) > 0.0)
+
+
+def test_fixed_binary_roots_ignore_nearby_non_crossing_reciprocal_pair():
+    # At this low-q GK31 node, a near-tangent reciprocal pair straddles the
+    # unit-circle threshold on GPU.  It is a same-sign contact candidate, not
+    # an inside interval, so pairwise validation must remain finite and empty.
+    s = 1.0319953783486504
+    q = 9.968586649656417e-6
+    rho = 0.0018320985728076894
+    w_center = 0.07005290915518367 + 0.00010278068291661585j
+    a = 0.5 * s
+    e1 = q / (1.0 + q)
+    shifted = a * (1.0 - q) / (1.0 + q)
+
+    result = angular_intervals_binary_roots(
+        1.0347532636407577,
+        0.0,
+        2.0 * jnp.pi,
+        w_center - shifted,
+        rho,
+        shifted,
+        64.0 * jnp.finfo(jnp.float64).eps,
+        a=a,
+        e1=e1,
+        robust_roots=False,
+        chart_center=0.0 + 0.0j,
+    )
+
+    assert int(result.status) == ANGULAR_OK
+    assert int(result.n_intervals) == 0
+    assert float(result.error) == 0.0
+
+
+def test_planetary_chart_filters_roundoff_radial_turning_points():
+    point = 0.0722579255149055 - 0.0024438627408989305j
+    rho = 0.0017685892259106202
+    s = 1.0484985960884143
+    q = 9.962312735135355e-6
+    lens = binary_geometry(s, q)
+    image_limb, mask_limb = calc_source_limb(
+        point,
+        rho,
+        999,
+        nlenses=2,
+        s=s,
+        q=q,
+    )
+    origin_inside = binary_level_set(
+        0.0 + 0.0j,
+        point - lens.shifted,
+        rho,
+        lens.shifted,
+        a=lens.a,
+        e1=lens.e1,
+    ) <= 0.0
+    topology, _ = _planetary_mixed_topology(
+        image_limb,
+        mask_limb,
+        rho,
+        margin_r=0.5,
+        lens=lens,
+        w_center_shifted=point - lens.shifted,
+        origin_inside=origin_inside,
+        jacobian_radial_margin=True,
+    )
+
+    # The unfiltered local radius has more than 50 machine-scale zig-zags.
+    # Only global extrema and physical host turning points remain.
+    assert int(topology.status) == ANGULAR_OK
+    assert int(topology.n_candidates_raw) <= 16
+    assert int(topology.n_intervals_raw) <= 16
 
 
 @pytest.mark.slow
@@ -634,6 +763,47 @@ def test_binary_public_path_handles_difficult_resonant_caustic_point():
     # This is a breakage guard for the fixed-work public solver, not an
     # accuracy guarantee.
     assert np.isclose(float(lightcurve[0]), vbbl, rtol=5e-3, atol=0.0)
+
+
+def test_binary_public_path_avoids_false_planetary_radial_overflow():
+    point = 0.0722579255149055 - 0.0024438627408989305j
+    vbbl = 13.34459941133492
+    lightcurve = mag_binary(
+        jnp.asarray([point]),
+        0.0017685892259106202,
+        s=1.0484985960884143,
+        q=9.962312735135355e-6,
+        config=BinaryMagConfig(n_limb=500),
+    )
+
+    assert np.isfinite(float(lightcurve[0]))
+    assert np.isclose(float(lightcurve[0]), vbbl, rtol=5e-3, atol=0.0)
+
+
+def test_binary_public_path_handles_vmapped_dynamic_ea_boundary_pair():
+    point = 0.07009147785397735 - 0.0012258946844154843j
+    vbbl = 15.377807025845549
+
+    evaluate = jax.jit(
+        lambda value, radius, separation, mass_ratio: mag_binary(
+            value[None],
+            radius,
+            s=separation,
+            q=mass_ratio,
+            config=BinaryMagConfig(n_limb=500),
+        )[0]
+    )
+    magnification = jax.block_until_ready(
+        evaluate(
+            jnp.asarray(point),
+            jnp.asarray(0.0017747191379164267),
+            jnp.asarray(1.0484523576725895),
+            jnp.asarray(1.0548626990703671e-5),
+        )
+    )
+
+    assert np.isfinite(float(magnification))
+    assert np.isclose(float(magnification), vbbl, rtol=5e-3, atol=0.0)
 
 
 @pytest.mark.slow
@@ -1105,8 +1275,12 @@ def test_transient_fold_pair_integration_matches_reference():
     assert np.isclose(float(result.magnification), vbbl, rtol=0.0, atol=5e-6)
 
 
-def test_binary_public_config_exposes_only_topology_sampling():
-    assert [field.name for field in fields(BinaryMagConfig)] == ["n_limb"]
+def test_binary_public_config_exposes_topology_and_scheduler_settings():
+    assert [field.name for field in fields(BinaryMagConfig)] == [
+        "n_limb",
+        "source_tile_size",
+        "radial_chunk_size",
+    ]
 
 
 @pytest.mark.slow
