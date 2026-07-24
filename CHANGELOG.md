@@ -48,6 +48,9 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 
 - Reduced isolated `NaN` results near binary-lens source boundaries by making
   the angular boundary calculation more robust.
+- Fixed low-mass-ratio binary-lens boundary failures caused by asymmetric
+  validation of near-unit reciprocal root pairs and roundoff-only radial
+  turning points in compact planetary image charts.
 
 ### Compatibility
 
