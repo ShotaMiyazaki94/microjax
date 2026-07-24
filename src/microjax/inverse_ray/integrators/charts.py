@@ -462,6 +462,11 @@ def _planetary_mixed_topology(
             track_roots=False,
             binary_margin_parameters=margin_parameters,
             radial_origin=center,
+            # A compact low-q image can be nearly circular about its local
+            # chart centre. Root-solve roundoff then produces many tiny radial
+            # zig-zags that are not physical topology changes. Global extrema
+            # and mask endpoints remain present after this existing x64 filter.
+            filter_roundoff_turning_points=True,
         )
 
     local_topologies = jax.vmap(local_topology)(chart_masks, chart_centers, local_origin_inside)
