@@ -1,7 +1,7 @@
 """Binary-lens magnification Jacobian and AD-mode benchmark.
 
 This is the binary-lens counterpart of
-``example/triple-lens-jacobian/grads_uniform_triple.py``. It computes the
+``example/jacobian-triple/grads_uniform_triple.py``. It computes the
 Jacobian of a uniform-source light curve with forward-mode automatic
 differentiation and benchmarks steady-state execution separately from JIT
 compilation. The expensive reverse-mode comparison is opt-in.

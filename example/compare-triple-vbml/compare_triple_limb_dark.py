@@ -1,4 +1,4 @@
-"""Compare microJAX and VBMicrolensing for a finite-source triple lens."""
+"""Compare microJAX and VBMicrolensing for a limb-darkened triple lens."""
 
 from __future__ import annotations
 
@@ -24,13 +24,6 @@ jax.config.update("jax_enable_x64", True)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--limb-darkening",
-        type=float,
-        default=0.0,
-        metavar="U1",
-        help="linear limb-darkening coefficient (default: uniform source)",
-    )
     parser.add_argument(
         "--accuracy",
         type=float,
@@ -280,8 +273,7 @@ def main() -> None:
     if args.quick:
         args.n_points = 24
         args.n_limb = 80
-    if not 0.0 <= args.limb_darkening < 1.0:
-        raise ValueError("--limb-darkening must satisfy 0 <= U1 < 1")
+    u1 = 0.5
     if args.accuracy <= 0.0:
         raise ValueError("--accuracy must be positive")
     if min(args.n_points, args.n_limb, args.repeats, args.diagnostic_n_limb) < 1:
@@ -307,7 +299,7 @@ def main() -> None:
             q3=q3,
             r3=r3,
             psi=psi,
-            u1=args.limb_darkening,
+            u1=u1,
             config=config,
         )
     )
@@ -317,7 +309,7 @@ def main() -> None:
         q3=q3,
         r3=r3,
         psi=psi,
-        u1=args.limb_darkening,
+        u1=u1,
         accuracy=args.accuracy,
     )
     def vbml_call():
@@ -325,7 +317,7 @@ def main() -> None:
             vbml_solver,
             positions,
             rho=rho,
-            u1=args.limb_darkening,
+            u1=u1,
             accuracy=args.accuracy,
         )
 
@@ -352,7 +344,7 @@ def main() -> None:
         "maximum_time": float(times[maximum_index]),
     }
 
-    profile = "uniform" if args.limb_darkening == 0.0 else "limb_dark"
+    profile = "uniform" if u1 == 0.0 else "limb_dark"
     stem = f"compare_triple_{profile}"
     args.output_dir.mkdir(parents=True, exist_ok=True)
     np.savetxt(
@@ -381,7 +373,7 @@ def main() -> None:
         "q3": q3,
         "r3": r3,
         "psi": psi,
-        "u1": args.limb_darkening,
+        "u1": u1,
     }
     report = {
         "platform": platform.platform(),
@@ -422,7 +414,7 @@ def main() -> None:
             n_limb=min(args.n_limb, args.diagnostic_n_limb),
             time_value=float(times[maximum_index]),
             relative_residual=float(relative_difference[maximum_index]),
-            limb_darkening=args.limb_darkening,
+            limb_darkening=u1,
             output_path=args.output_dir / f"{stem}_max_residual_icrs.png",
         )
         save_plot(
@@ -437,7 +429,7 @@ def main() -> None:
 
     microjax_median = statistics.median(microjax_runs)
     vbml_median = statistics.median(vbml_runs)
-    vbml_method = "MultiMag2" if args.limb_darkening == 0.0 else "MultiMagDark"
+    vbml_method = "MultiMag2" if u1 == 0.0 else "MultiMagDark"
     print(
         "computation time: %.3f sec (%.3f ms per point), median of %d, "
         "with VBMicrolensing.%s"

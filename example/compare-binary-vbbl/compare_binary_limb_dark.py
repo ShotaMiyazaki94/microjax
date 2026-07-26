@@ -23,8 +23,9 @@ alpha = jnp.deg2rad(45.0)
 tE = 30.0
 t0 = 0.0
 u0 = 0.0
-rho = 0.05
+rho = 5e-3
 nlenses = 2
+u1 = 0.5
 
 a = 0.5 * s
 e1 = q / (1.0 + q)
@@ -42,7 +43,6 @@ n_limb = 500
 benchmark_repeats = 7
 
 _vbbl_solver = VBBinaryLensing.VBBinaryLensing()
-u1 = 0.0
 accuracy = 1e-4
 _vbbl_solver.RelTol = accuracy
 _vbbl_solver.Tol = accuracy
@@ -67,10 +67,11 @@ _ = mag_binary(
     config=config,
     s=s,
     q=q,
+    u1=u1,
 ).block_until_ready()
 _ = mag_point_source(w_points, s=s, q=q).block_until_ready()
 z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
-_, _ = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+_, _ = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, u1=u1, **_params)
 
 print("number of data points: %d" % (num_points))
 start = time.time()
@@ -84,7 +85,7 @@ print(
 
 start = time.time()
 z, z_mask = _images_point_source(w_points - x_cm, nlenses=nlenses, **_params)
-mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, **_params)
+mu_multi, delta_mu_multi = _mag_hexadecapole(z, z_mask, rho, nlenses=nlenses, u1=u1, **_params)
 mu_multi.block_until_ready()
 end = time.time()
 print(
@@ -110,6 +111,7 @@ for _ in range(benchmark_repeats):
         config=config,
         s=s,
         q=q,
+        u1=u1,
     ).block_until_ready()
     boundary_samples.append(time.perf_counter() - start)
 boundary_seconds = statistics.median(boundary_samples)
@@ -140,7 +142,7 @@ plot_boundary_construction(
     time_value=float(t[max_residual_index]),
     relative_residual=float(relative_difference[max_residual_index]),
     limb_darkening=u1,
-    output_path=Path("example/compare-vbbl/compare_binary_uniform_max_residual_icrs.png"),
+    output_path=Path("example/compare-binary-vbbl/compare_binary_limb_dark_max_residual_icrs.png"),
 )
 critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=100, s=s, q=q)
 
@@ -166,7 +168,7 @@ ax_in.plot((1.0) / (1 + q) * s, 0, ".", c="k")
 ax.plot(t, mag_jax, ".", label="microJAX", zorder=1)
 ax.plot(t, mag_VB, "-", label="VBBinaryLensing", zorder=2)
 ylim = ax.get_ylim()
-ax.set_title("Uniform source, rho=%.1e, s=%.2f, q=%.3f" % (rho, s, q))
+ax.set_title("Limb-darkened source, rho=%.3f, s=%.2f, q=%.3f, u1=%.2f" % (rho, s, q, u1))
 ax.grid(ls=":")
 ax.set_ylabel("magnification")
 # ax.plot(t, mags_poi, "--", label="point_source", zorder=-1, color="gray")
@@ -181,6 +183,6 @@ ax1.yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=[1.0, 10**-2, 10**
 ax1.set_ylim(1e-6, 1e-2)
 ax.legend(loc="upper left")
 ax1.set_xlabel("time (days)")
-fig.savefig("example/compare-vbbl/compare_binary_uniform.png", dpi=200)
-print("output: example/compare-vbbl/compare_binary_uniform.png")
+fig.savefig("example/compare-binary-vbbl/compare_binary_limb_dark.png", dpi=200)
+print("output: example/compare-binary-vbbl/compare_binary_limb_dark.png")
 plt.close()

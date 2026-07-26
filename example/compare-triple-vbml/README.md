@@ -7,8 +7,9 @@ source) or `VBMicrolensing.MultiMagDark` (linear limb darkening).
 The lens has mass ratios `1:q:q3 = 1:0.1:0.01`. The first two lenses have
 separation `s = 1.1`; the third is at `0.3 + 1.2i` in their midpoint frame.
 Both solvers receive source coordinates relative to the centre of mass of the
-first two lenses. `compare_triple.py` explicitly translates the lens positions
-passed to VBMicrolensing so that its coordinate system matches microJAX.
+first two lenses. Both comparison scripts explicitly translate the lens
+positions passed to VBMicrolensing so that its coordinate system matches
+microJAX.
 
 ## Install
 
@@ -26,22 +27,22 @@ microJAX package itself.
 Uniform source:
 
 ```bash
-python example/compare-vbml/compare_triple.py
+python example/compare-triple-vbml/compare_triple_uniform.py
 ```
 
 Linear limb darkening with `u1 = 0.5`:
 
 ```bash
-python example/compare-vbml/compare_triple.py --limb-darkening 0.5
+python example/compare-triple-vbml/compare_triple_limb_dark.py
 ```
 
 For a short CPU smoke run:
 
 ```bash
-python example/compare-vbml/compare_triple.py --quick
+python example/compare-triple-vbml/compare_triple_uniform.py --quick
 ```
 
-The script separates JAX compilation from repeated execution and reports the
+The scripts separate JAX compilation from repeated execution and report the
 median execution time of each solver. Each profile writes:
 
 - `compare_triple_<profile>.csv`: both light curves and pointwise relative
@@ -66,7 +67,7 @@ microJAX JIT warm-up time: 9.038 sec
 relative difference: median=1.128e-06, p95=5.524e-06, max=3.506e-04 at t=7.94294
 ```
 
-With `--limb-darkening 0.5`, the same run measured a median relative
+The `compare_triple_limb_dark.py` run measured a median relative
 difference of `2.551e-05`, a 95th percentile of `4.912e-05`, and a maximum
 of `2.474e-04`. Timings are hardware-dependent. The error statistics above
 describe the checked-in trajectory and numerical settings, not a general

@@ -1,7 +1,7 @@
 """Triple-lens uniform-source magnification and forward Jacobian benchmark.
 
 This is the triple-lens counterpart of
-``example/binary-lens-jacobian/grads_uniform_binary.py``. It benchmarks the
+``example/jacobian-binary/grads_uniform_binary.py``. It benchmarks the
 current ``mag_triple`` API, separating JIT warm-up from compiled execution,
 and differentiates all ten trajectory, source, and lens parameters with
 forward-mode automatic differentiation.

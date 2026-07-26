@@ -2,7 +2,7 @@ Triple-lens Jacobian Example
 ============================
 
 This directory is the triple-lens counterpart of
-[`example/binary-lens-jacobian`](../binary-lens-jacobian). The
+[`example/jacobian-binary`](../jacobian-binary). The
 [`grads_uniform_triple.py`](grads_uniform_triple.py) benchmark uses the current
 [`microjax.inverse_ray.mag_triple`](../../src/microjax/inverse_ray/lightcurve.py)
 function to compute uniform-source magnification and its forward Jacobian with
@@ -25,13 +25,13 @@ installation is strongly recommended:
 
 ```console
 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
-  python example/triple-lens-jacobian/grads_uniform_triple.py
+  python example/jacobian-triple/grads_uniform_triple.py
 ```
 
 For a smaller GPU smoke run:
 
 ```console
-python example/triple-lens-jacobian/grads_uniform_triple.py --quick
+python example/jacobian-triple/grads_uniform_triple.py --quick
 ```
 
 Use `--repeats` to change the number of compiled timing runs,

@@ -215,14 +215,14 @@ uses the following full calculation:
   <tr>
     <td>
       <p align="center"><em>Light curve and residuals</em></p>
-      <img src="example/compare-vbbl/compare_binary_uniform.png"
+      <img src="example/compare-binary-vbbl/compare_binary_uniform.png"
            alt="Uniform-source binary-lens comparison with VBBinaryLensing" width="100%">
       <p align="center"><em>Image-plane check at the maximum-residual sample</em></p>
-      <img src="example/compare-vbbl/compare_binary_uniform_max_residual_icrs.png"
+      <img src="example/compare-binary-vbbl/compare_binary_uniform_max_residual_icrs.png"
            alt="ICRS image-plane construction at the maximum-residual sample" width="100%">
     </td>
     <td>
-      <img src="example/triple-lens-jacobian/triple_jacobian.png"
+      <img src="example/jacobian-triple/triple_jacobian.png"
            alt="Triple-lens magnification and forward Jacobian" width="100%">
     </td>
   </tr>
@@ -230,10 +230,14 @@ uses the following full calculation:
 
 Reproducible scripts and their numerical settings live in [example/](example/):
 
-- [triple-lens-jacobian](example/triple-lens-jacobian/) evaluates uniform and
+- [jacobian-binary](example/jacobian-binary/) evaluates uniform and
+  limb-darkened binary-lens light curves and reports their Jacobians;
+- [jacobian-triple](example/jacobian-triple/) evaluates uniform and
   limb-darkened triple-lens light curves and reports their forward Jacobians;
-- [compare-vbbl](example/compare-vbbl/) compares the binary solver with
-  VBBinaryLensing and visualizes the maximum-residual sample.
+- [compare-binary-vbbl](example/compare-binary-vbbl/) compares the binary
+  solver with VBBinaryLensing and visualizes the maximum-residual sample;
+- [compare-triple-vbml](example/compare-triple-vbml/) compares the triple
+  solver with VBMicrolensing for uniform and limb-darkened sources.
 
 Benchmark numbers are hardware-, JAX-, configuration-, and trajectory-specific.
 Treat the committed results as reproducibility records, not universal speed or
