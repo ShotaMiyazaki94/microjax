@@ -21,6 +21,34 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 - Automatic selection between a fast finite-source approximation and the full
   image-boundary calculation at each source position.
 - GPU-oriented processing of complete source trajectories.
+- A legacy coverage-oriented binary-lens CPU scheduler, now selected explicitly
+  with `backend="cpu-adaptive"`,
+  using root-free Bernstein Cartesian ICRS together with an independent polar
+  radial-moment chart for uniform and linearly limb-darkened sources.
+  The uniform Bernstein work list uses exact static mask lookup compaction,
+  which retains the same selected intervals and fallback decisions while
+  reducing the measured Cartesian schedule cost by about 1.4--1.5x.
+  Small uniform sources receive source-radius-dependent Bernstein depths up to
+  20 (22 for the high-accuracy path), and the multipole/primary shortcut uses
+  a `0.25 * rtol` agreement gate. An eight-radius, 8,000-point VBBL sweep fails
+  closed if any certified value exceeds the requested tolerance. Uniform
+  Bernstein crossings use an implicit-root custom JVP. A 52-sample Cartesian
+  scout supports two-view fast acceptance and a topology-only five-view,
+  three-independent-axis consensus; rejected points rebuild the polar support
+  at 64 samples. Periodic root assignment and one-sample branch turns expose
+  extrema missed by a plain sampled sign change. Exact radial tangencies then
+  make narrow fold support independent of source-limb sample density. Linear limb
+  darkening conditionally refines support to 96 samples before its compact
+  polar cross-certificate. The backend provides explicit status diagnostics
+  and calibrated `rtol=1e-3` and `1e-4` modes. Its dynamic scheduler supports
+  forward-mode AD; reverse-mode AD through data-dependent loops is not
+  supported.
+- A fixed-route CPU scheduler selected by default with `backend="cpu"`.
+  `backend="cpu-one-shot"` remains an equivalent compatibility alias. It
+  performs one source-limb trace, chooses one Cartesian or polar quadrature
+  from the resulting image state, and reports a failed certificate without
+  any retry, rescue chart, order escalation, or retracing.  Uniform Cartesian
+  strips use the root-free Bernstein lookup without companion-root repair.
 - User-configurable source tiling and radial-region scheduling through
   `BinaryMagConfig` and `TripleMagConfig`.
 - Parallax and binary orbital-motion trajectory utilities.
@@ -51,6 +79,16 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 - Fixed low-mass-ratio binary-lens boundary failures caused by asymmetric
   validation of near-unit reciprocal root pairs and roundoff-only radial
   turning points in compact planetary image charts.
+- Corrected the planetary-caustic multipole guard from `-1/s` to `a-1/s` in
+  the symmetric internal lens frame, preventing finite sources on wide
+  planetary caustics from being accepted by the fast approximation.
+- Fixed correlated Cartesian certificates for highly magnified, nearly
+  annular small-q images. The CPU scheduler now measures tangential versus
+  radial motion in its existing limb trace and sends only ill-conditioned
+  images directly to the polar chart without another lens-equation solve.
+- Removed forward-mode `NaN` values from linear limb-darkening quadrature by
+  evaluating a benign square-root radicand on inactive image intervals before
+  masking them out.
 
 ### Compatibility
 
