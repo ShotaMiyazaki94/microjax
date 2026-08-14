@@ -7,9 +7,16 @@ dev/
 *.ipynb_checkpoints/
 *.egg-info/
 __pycache__
+.cache/
+.ruff_cache/
+example_cpu/cpu-icrs-benchmark/
+benchmark/
 .pytest_cache/
 .DS_Store
 src/microjax/_legacy/
 tests/integrate
 .vscode/
 .venv/
+_manuscripts
+_archive/
+tmp/
