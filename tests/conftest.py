@@ -1,4 +1,6 @@
-import os, sys
+import os
+import sys
+
 
 def _gpu_marker_selected() -> bool:
     # Detect if pytest was invoked with a GPU marker selection (e.g., `-m gpu`)
@@ -9,6 +11,8 @@ def _gpu_marker_selected() -> bool:
         if arg.startswith("-m="):
             if "gpu" in arg.split("=", 1)[1]:
                 return True
+        if arg == "pytest-gpu.ini" or arg.endswith("/pytest-gpu.ini"):
+            return True
     return False
 
 # Default to CPU unless GPU tests are explicitly selected via marker.
