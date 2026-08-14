@@ -73,6 +73,7 @@ see :doc:`cpu_backend`.
    cpu_backend
    performance
    troubleshooting
+   citing
 
 .. toctree::
    :maxdepth: 1
@@ -95,15 +96,8 @@ magnifications and derivatives over the parameter region used in an analysis.
 Citing microJAX
 ---------------
 
-If you use microJAX, cite the methods paper and the archived software version
-actually used. The methods paper corresponds to the ``v0.1.1`` line; work
-using the redesigned solver should additionally report the exact ``0.2.x``
-release or Git commit.
-
-- Miyazaki, S., & Kawahara, H. 2025, ApJ, 994, 144,
-  `doi:10.3847/1538-4357/ae1005 <https://doi.org/10.3847/1538-4357/ae1005>`_
-- microJAX software archive,
-  `doi:10.5281/zenodo.17247892 <https://doi.org/10.5281/zenodo.17247892>`_
+See :doc:`citing` for the methods-paper and software citations, BibTeX, and the
+environment information that should accompany reproducible numerical results.
 
 Indices and tables
 ==================
