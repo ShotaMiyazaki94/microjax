@@ -98,8 +98,12 @@ def test_planetary_chart_gate_is_value_and_forward_continuous_at_threshold():
         pytest.skip("CUDA GPU not available")
     point = 0.07166622782296088 + 0.07166622782296087j
     q = jnp.asarray(1e-2)
-    local = lambda mass_ratio: _uniform_single_pass(point, 3e-3, 1.0, mass_ratio, True)
-    global_ = lambda mass_ratio: _uniform_single_pass(point, 3e-3, 1.0, mass_ratio, False)
+    def local(mass_ratio):
+        return _uniform_single_pass(point, 3e-3, 1.0, mass_ratio, True)
+
+    def global_(mass_ratio):
+        return _uniform_single_pass(point, 3e-3, 1.0, mass_ratio, False)
+
     local_value, local_forward = jax.jvp(local, (q,), (jnp.ones_like(q),))
     global_value, global_forward = jax.jvp(global_, (q,), (jnp.ones_like(q),))
 
@@ -115,10 +119,14 @@ def test_small_q_public_path_matches_local_chart_value_and_forward_q():
     rho, s = 1e-4, 1.6
     q = jnp.asarray(1e-4)
     config = BinaryMagConfig(n_limb=500)
-    public = lambda mass_ratio: mag_binary(
-        jnp.asarray([point]), rho, s=s, q=mass_ratio, config=config
-    )[0]
-    local = lambda mass_ratio: _uniform_single_pass(point, rho, s, mass_ratio, True)
+    def public(mass_ratio):
+        return mag_binary(
+            jnp.asarray([point]), rho, s=s, q=mass_ratio, config=config
+        )[0]
+
+    def local(mass_ratio):
+        return _uniform_single_pass(point, rho, s, mass_ratio, True)
+
     public_value, public_forward = jax.jvp(public, (q,), (jnp.ones_like(q),))
     local_value, local_forward = jax.jvp(local, (q,), (jnp.ones_like(q),))
 
@@ -151,8 +159,11 @@ def test_binary_scheduler_config_reaches_source_and_radial_batches(monkeypatch, 
 
     def fake_prefilter(w_points, rho, coefficient, s, q):
         del rho, coefficient, s, q
-        return jnp.zeros(w_points.shape, dtype=w_points.real.dtype), jnp.zeros(
-            w_points.shape, dtype=bool
+        return (
+            jnp.zeros(w_points.shape, dtype=w_points.real.dtype),
+            jnp.zeros(w_points.shape, dtype=bool),
+            jnp.zeros(w_points.shape, dtype=w_points.real.dtype),
+            jnp.ones(w_points.shape, dtype=w_points.real.dtype),
         )
 
     def fake_boundary(w_center, rho, **kwargs):
