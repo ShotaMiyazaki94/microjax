@@ -49,10 +49,9 @@
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cpu_backend.html">CPU Binary-Lens Backend</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Accelerator Performance Tuning</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#recommended-a100-configurations">Recommended A100 configurations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#measurement-scope">Measurement scope</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#benchmark-your-actual-trajectory">Benchmark your actual trajectory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#memory-and-compilation-scope">Memory and compilation scope</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#static-scheduler-settings">Static scheduler settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#benchmark-the-analysis-workload">Benchmark the analysis workload</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#memory-and-accuracy">Memory and accuracy</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="caveats.html">Solver Caveats</a></li>
@@ -89,177 +88,42 @@
              
   <section id="accelerator-performance-tuning">
 <h1>Accelerator Performance Tuning<a class="headerlink" href="#accelerator-performance-tuning" title="Link to this heading"></a></h1>
-<p>This page describes the accelerator backend controlled by
-<code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">TripleMagConfig</span></code>. The binary-lens CPU backend has
-fixed internal scheduling and does not use these settings; see
-<a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a> for CPU timing and warm-up guidance.</p>
-<p>The finite-source light-curve functions first evaluate a fast approximation
-over the complete trajectory. Only source positions rejected by that
-approximation enter the full image-boundary calculation. In this guide,
-<em>full-solve count</em> means the number of rejected positions, not the total
-trajectory length.</p>
-<p><code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">TripleMagConfig</span></code> expose two static scheduler
-settings:</p>
+<p>This page covers the accelerator backend configured by
+<code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">TripleMagConfig</span></code>. The binary-lens CPU backend uses
+fixed internal scheduling; see <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a> for CPU guidance.</p>
+<p>The accelerator solver first applies a fast approximation over the complete
+trajectory. Only rejected source positions enter the full finite-source
+calculation. Their number, rather than the total trajectory length, largely
+determines the best scheduler configuration.</p>
+<section id="static-scheduler-settings">
+<h2>Static scheduler settings<a class="headerlink" href="#static-scheduler-settings" title="Link to this heading"></a></h2>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">source_tile_size</span></code></dt><dd><p>Maximum number of full-solve source positions evaluated by one outer
-vectorized batch. A partially occupied final tile is evaluated in full.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">source_tile_size</span></code></dt><dd><p>Maximum number of full-solve positions evaluated in one outer batch. A
+partially occupied final tile is evaluated in full.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">radial_chunk_size</span></code></dt><dd><p>Number of radial image regions evaluated by one inner vectorized batch.
-The fixed-capacity region buffer contains 64 entries, so a value of 64
-evaluates the complete buffer together.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">radial_chunk_size</span></code></dt><dd><p>Number of radial image regions evaluated in one inner batch.</p>
 </dd>
 </dl>
-<p>Both settings change static JAX shapes. A new value therefore produces a
-separately compiled executable. Select a configuration before a fit rather
-than changing it between likelihood evaluations.</p>
-<section id="recommended-a100-configurations">
-<h2>Recommended A100 configurations<a class="headerlink" href="#recommended-a100-configurations" title="Link to this heading"></a></h2>
-<p>The following table reports recommendations at the full-solve counts included
-in the sweep. It prioritizes execution speed when accelerator memory is
-available. <code class="docutils literal notranslate"><span class="pre">n_limb=500</span></code> is omitted from the examples for clarity.</p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 22.0%" />
-<col style="width: 18.0%" />
-<col style="width: 22.0%" />
-<col style="width: 38.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Measured full-solve count</p></th>
-<th class="head"><p>Lens</p></th>
-<th class="head"><p>Recommended scheduler</p></th>
-<th class="head"><p>Measured interpretation</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>1 or 8</p></td>
-<td><p>Binary or triple</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">8</span> <span class="pre">/</span> <span class="pre">64</span></code></p></td>
-<td><p>One 8-position outer tile is evaluated. At count 1, seven padded
-positions are evaluated.</p></td>
-</tr>
-<tr class="row-odd"><td><p>32</p></td>
-<td><p>Binary or triple</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">32</span> <span class="pre">/</span> <span class="pre">64</span></code></p></td>
-<td><p>One 32-position outer tile is evaluated without padding.</p></td>
-</tr>
-<tr class="row-even"><td><p>64</p></td>
-<td><p>Binary or triple</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">64</span> <span class="pre">/</span> <span class="pre">64</span></code></p></td>
-<td><p>One 64-position outer tile is evaluated without padding.</p></td>
-</tr>
-<tr class="row-odd"><td><p>100</p></td>
-<td><p>Binary</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">/</span> <span class="pre">64</span></code></p></td>
-<td><p>One 100-position outer tile is evaluated without padding.</p></td>
-</tr>
-<tr class="row-even"><td><p>100</p></td>
-<td><p>Triple</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">/</span> <span class="pre">8</span></code></p></td>
-<td><p>At this outer width, radial chunks 8, 32, and 64 were within 0.3 ms for
-uniform and limb-darkened sources. The 8-region setting had the lowest
-combined time and is the triple default.</p></td>
-</tr>
-</tbody>
-</table>
-<p>Here <code class="docutils literal notranslate"><span class="pre">tile</span> <span class="pre">/</span> <span class="pre">radial</span></code> abbreviates
-<code class="docutils literal notranslate"><span class="pre">source_tile_size</span> <span class="pre">/</span> <span class="pre">radial_chunk_size</span></code>.</p>
-<p>For an expected full-solve count up to 100 that was not measured directly,
-use the smallest tile in <code class="docutils literal notranslate"><span class="pre">8,</span> <span class="pre">16,</span> <span class="pre">32,</span> <span class="pre">64,</span> <span class="pre">100</span></code> that is not smaller than the
-count, then benchmark the two adjacent tile sizes. For example, a count of 23
-starts with tile 32 and compares it with tile 16. This is a deterministic
-starting rule, not a claim that an unmeasured count has a known optimum.</p>
-<p>For counts greater than 100, no single threshold rule matched every
-measurement. The relevant quantities are
-<code class="docutils literal notranslate"><span class="pre">ceil(full_solve_count</span> <span class="pre">/</span> <span class="pre">source_tile_size)</span></code> executed tiles and the padding
-in the final tile. The measured results were:</p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 22.0%" />
-<col style="width: 18.0%" />
-<col style="width: 22.0%" />
-<col style="width: 38.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Full-solve count</p></th>
-<th class="head"><p>Lens</p></th>
-<th class="head"><p>Fastest measured scheduler</p></th>
-<th class="head"><p>Compared source tiles</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>256</p></td>
-<td><p>Binary</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">/</span> <span class="pre">64</span></code></p></td>
-<td><p>8, 16, 32, 64, and 100</p></td>
-</tr>
-<tr class="row-odd"><td><p>256</p></td>
-<td><p>Triple</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">64</span> <span class="pre">/</span> <span class="pre">64</span></code></p></td>
-<td><p>8, 16, 32, 64, and 100</p></td>
-</tr>
-<tr class="row-even"><td><p>544</p></td>
-<td><p>Binary benchmark</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">/</span> <span class="pre">64</span></code></p></td>
-<td><p>8, 16, 32, 64, and 100</p></td>
-</tr>
-<tr class="row-odd"><td><p>888</p></td>
-<td><p>Triple example</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">/</span> <span class="pre">8</span></code></p></td>
-<td><p>8, 16, 32, 64, and 100</p></td>
-</tr>
-</tbody>
-</table>
-<p>The 544-position binary benchmark used <code class="docutils literal notranslate"><span class="pre">s=0.85</span></code>, <code class="docutils literal notranslate"><span class="pre">q=0.03</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">rho=5e-3</span></code> on the 1000-position VBBL-comparison trajectory. The
-888-position triple benchmark used the 1000-position triple-Jacobian
-trajectory. These are the workloads used to choose the defaults. For example:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray</span><span class="w"> </span><span class="kn">import</span> <span class="n">BinaryMagConfig</span><span class="p">,</span> <span class="n">TripleMagConfig</span>
-
-<span class="n">binary_544_full_solves</span> <span class="o">=</span> <span class="n">BinaryMagConfig</span><span class="p">(</span>
-    <span class="n">n_limb</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-    <span class="n">source_tile_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-    <span class="n">radial_chunk_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">triple_888_full_solves</span> <span class="o">=</span> <span class="n">TripleMagConfig</span><span class="p">(</span>
-    <span class="n">n_limb</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-    <span class="n">source_tile_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-    <span class="n">radial_chunk_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">binary_1_to_8_full_solves</span> <span class="o">=</span> <span class="n">BinaryMagConfig</span><span class="p">(</span>
-    <span class="n">n_limb</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-    <span class="n">source_tile_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
-    <span class="n">radial_chunk_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
+<p>These settings change static JAX shapes and produce separately compiled
+executables. Choose them before a fit rather than changing them between
+likelihood evaluations. They control batching, not numerical accuracy.</p>
+<p>The defaults were selected from synchronized, compilation-excluded
+measurements on an NVIDIA A100 using the repository’s binary and triple-lens
+trajectories. They are useful starting points, not hardware-independent
+optima. In particular, the best source tile depends on the number of full
+solves and padding in its final tile.</p>
 </section>
-<section id="measurement-scope">
-<h2>Measurement scope<a class="headerlink" href="#measurement-scope" title="Link to this heading"></a></h2>
-<p>The recommendations come from an NVIDIA A100-PCIE-40GB sweep with JAX 0.10.2,
-double precision, and <code class="docutils literal notranslate"><span class="pre">n_limb=500</span></code>. Timings excluded compilation and used
-synchronized runs. Under the measured parameters above, the
-default-selection trajectories sent 544 of 1000 binary positions and 888 of
-1000 triple positions to the full calculation. A changed source radius or
-prefilter changes these counts and is a different benchmark workload.</p>
-<p>With JAX device-memory preallocation disabled, changing the radial chunk from
-8 to 64 raised the measured 100-position-tile primal peak from 160 MiB to
-256 MiB for binary lenses and from 144 MiB to 256 MiB for triple lenses.
-Scheduler settings produced identical magnification arrays in the reference
-binary and triple trajectories.</p>
-</section>
-<section id="benchmark-your-actual-trajectory">
-<h2>Benchmark your actual trajectory<a class="headerlink" href="#benchmark-your-actual-trajectory" title="Link to this heading"></a></h2>
-<p>The best outer tile depends on how many positions enter the full calculation
-and on padding in the final tile. Benchmark the complete forward model,
-including the same trajectory length, lens type, limb-darkening law, and JAX
-transformation used by the analysis. Always warm up first and synchronize
-before stopping the timer:</p>
+<section id="benchmark-the-analysis-workload">
+<h2>Benchmark the analysis workload<a class="headerlink" href="#benchmark-the-analysis-workload" title="Link to this heading"></a></h2>
+<p>Benchmark the complete forward model with the same trajectory length, lens
+type, source profile, array shapes, and JAX transformation used by the
+analysis. Warm up the exact configuration and synchronize before stopping the
+timer:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
 
 <span class="n">model</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">))</span>
-<span class="n">model</span><span class="p">()</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">()</span>  <span class="c1"># compile</span>
+<span class="n">model</span><span class="p">()</span><span class="o">.</span><span class="n">block_until_ready</span><span class="p">()</span>  <span class="c1"># trace and compile</span>
 
 <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="p">()</span>
@@ -267,18 +131,24 @@ before stopping the timer:</p>
 <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
 </pre></div>
 </div>
-<p>Scheduler settings change batching only; they are not accuracy controls.</p>
+<p>When tuning <code class="docutils literal notranslate"><span class="pre">source_tile_size</span></code>, compare values near the expected number of
+full solves and account for the padding in the final tile. For larger
+trajectories, compare more than one tile size: lens type and the number of
+executed tiles can change the winner. Report the selected configuration and
+user-level batch size with benchmark results.</p>
 </section>
-<section id="memory-and-compilation-scope">
-<h2>Memory and compilation scope<a class="headerlink" href="#memory-and-compilation-scope" title="Link to this heading"></a></h2>
-<p>The first invocation for each static configuration includes compilation. Long
-light curves may be split into user-level batches when the complete output and
-its derivatives do not fit in device memory. Report the batch size when it
-affects a benchmark.</p>
-<p><code class="docutils literal notranslate"><span class="pre">n_limb</span></code> changes how finely the accelerator backend follows the source
-circumference. Reducing it may lower cost, but can miss rapidly changing image
-geometry; it is not a memory setting and must be validated independently. It
-does not configure the CPU backend.</p>
+<section id="memory-and-accuracy">
+<h2>Memory and accuracy<a class="headerlink" href="#memory-and-accuracy" title="Link to this heading"></a></h2>
+<p>Larger tiles and chunks can increase peak device memory. If a complete light
+curve and its derivatives do not fit, split the trajectory into stable
+user-level batches and benchmark that same batching scheme.</p>
+<p><code class="docutils literal notranslate"><span class="pre">n_limb</span></code> is different from the scheduler settings: it controls how finely
+the accelerator backend follows the source circumference. Reducing it may
+lower cost but can miss rapidly changing image geometry, so changes require
+independent accuracy validation. It does not configure the CPU backend.</p>
+<p>The complete A100 sweep, including exact timings, memory measurements, and
+workload definitions, is retained as a development record rather than a
+portable performance promise.</p>
 </section>
 </section>
 
