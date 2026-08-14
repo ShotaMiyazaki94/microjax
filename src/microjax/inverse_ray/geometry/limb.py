@@ -41,7 +41,8 @@ def _polish_binary_limb_images(
     for _ in range(2):
         residual = lens_eq(polished, nlenses=2, a=a, e1=e1) - w_limb_shift[None, :]
         shear = e1 / (jnp.conjugate(polished) - a) ** 2 + (1.0 - e1) / (jnp.conjugate(polished) + a) ** 2
-        determinant = 1.0 - jnp.abs(shear) ** 2
+        shear_abs = jnp.abs(shear)
+        determinant = (1.0 - shear_abs) * (1.0 + shear_abs)
         step = (-residual + shear * jnp.conjugate(residual)) / jnp.where(
             jnp.abs(determinant) > determinant_floor,
             determinant,
@@ -99,7 +100,8 @@ def _polish_triple_limb_images(
             / (jnp.conjugate(polished)[None, :, :] - jnp.conjugate(lens_positions)[:, None, None]) ** 2,
             axis=0,
         )
-        determinant = 1.0 - jnp.abs(shear) ** 2
+        shear_abs = jnp.abs(shear)
+        determinant = (1.0 - shear_abs) * (1.0 + shear_abs)
         nonsingular = jnp.abs(determinant) > determinant_floor
         step = (-residual + shear * jnp.conjugate(residual)) / jnp.where(nonsingular, determinant, 1.0)
         candidate = polished + jnp.where(mask & nonsingular, step, 0.0 + 0.0j)
