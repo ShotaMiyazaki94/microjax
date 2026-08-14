@@ -129,7 +129,7 @@ magnification accompanying a non-zero status is diagnostic only.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">estimated_error=NaN</span></code> is expected for a structurally successful full
 one-shot solve; it is not itself a failure flag.</p></li>
 <li><p>Record the full <code class="docutils literal notranslate"><span class="pre">q,</span> <span class="pre">s,</span> <span class="pre">rho,</span> <span class="pre">x,</span> <span class="pre">y,</span> <span class="pre">u1</span></code> configuration when reporting the
-miss. The benchmark runner writes replayable microJAX and VBM miss files.</p></li>
+miss, and distinguish a microJAX failure from a reference-solver failure.</p></li>
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">cpu-adaptive</span></code> explicitly when comparing with the older adaptive
 research path. Do not silently add retries to the production one-shot path.</p></li>
 </ul>

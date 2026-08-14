@@ -276,9 +276,9 @@ independent implementation;</p></li>
 <li><p>retain non-zero status configurations rather than silently discarding them;</p></li>
 <li><p>record the microJAX Git commit, JAX/JAXLIB versions, platform, and x64 mode.</p></li>
 </ul>
-<p>The repository benchmark records microJAX misses and VBM reference failures in
-separate replay files. See the <a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax/tree/main/benchmark">CPU benchmark README</a> for commands,
-classification criteria, and output names.</p>
+<p>When running an external validation sweep, retain microJAX misses and reference
+solver failures separately. Store the complete lens and source configuration
+for each miss so that it can be replayed independently.</p>
 </section>
 <section id="forward-mode-differentiation">
 <h2>Forward-mode differentiation<a class="headerlink" href="#forward-mode-differentiation" title="Link to this heading"></a></h2>
