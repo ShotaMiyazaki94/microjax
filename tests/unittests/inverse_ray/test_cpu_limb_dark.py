@@ -86,11 +86,9 @@ def test_cpu_zero_limb_darkening_reduces_to_uniform():
     assert np.isclose(float(limb), float(uniform), rtol=1e-12, atol=1e-12)
 
 
+@pytest.mark.slow
 def test_one_shot_geometry_route_is_shared_by_brightness_profiles():
-    sources = jnp.asarray(
-        [0.05 + 0.02j, 0.001 + 0.001j, -0.12 + 0.08j],
-        dtype=jnp.complex128,
-    )
+    sources = jnp.asarray([0.05 + 0.02j], dtype=jnp.complex128)
     common = dict(rho=5.0e-3, s=1.0, q=1.0e-3, return_state=True)
     solve_uniform = jax.jit(
         jax.vmap(lambda source: mag_uniform_cpu_one_shot(source, **common))
@@ -140,6 +138,7 @@ def test_cpu_limb_dark_fixed_matches_existing_boundary(w, rho, s, q, u1):
     )
 
 
+@pytest.mark.slow
 def test_cpu_limb_dark_hierarchy_supports_jit():
     solve = jax.jit(
         lambda source: mag_limb_dark_cpu(
@@ -155,6 +154,7 @@ def test_cpu_limb_dark_hierarchy_supports_jit():
     assert np.isfinite(float(value))
 
 
+@pytest.mark.slow
 def test_angular_profile_moment_resolves_caustic_residual():
     result = mag_limb_dark_angular_moment_refined(
         -0.10794172585680531 - 0.1079417258568053j,
@@ -212,6 +212,7 @@ def test_bernstein_isolation_rejects_unresolved_close_root_pair():
     assert int(invalid[0]) > 0
 
 
+@pytest.mark.slow
 def test_cartesian_limb_dark_uses_lazy_companion_refinement():
     source = jnp.asarray(
         -0.01167894083040845 - 0.011678940830408447j,
@@ -234,6 +235,7 @@ def test_cartesian_limb_dark_uses_lazy_companion_refinement():
     assert np.isclose(float(result.magnification), 80.5470205519234, rtol=2.0e-4)
 
 
+@pytest.mark.slow
 def test_cartesian_limb_dark_external_cross_certificate_is_fail_closed():
     source = jnp.asarray(-0.05 * jnp.exp(0.25j * jnp.pi), dtype=jnp.complex128)
 

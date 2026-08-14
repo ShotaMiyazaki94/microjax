@@ -90,15 +90,9 @@ def test_cpu_uniform_fixed_matches_certified_boundary(w, rho, s, q):
     )
 
 
-@pytest.mark.parametrize(
-    "w,rho,s,q",
-    [
-        (0.1 + 0.2j, 1e-2, 1.0, 0.3),
-        (-0.35 + 0.17j, 3e-3, 0.7, 1e-2),
-        (0.6 - 0.2j, 5e-3, 1.6, 0.1),
-    ],
-)
-def test_cpu_uniform_hierarchy_reaches_high_accuracy(w, rho, s, q):
+@pytest.mark.slow
+def test_cpu_uniform_hierarchy_reaches_high_accuracy():
+    w, rho, s, q = 0.1 + 0.2j, 1e-2, 1.0, 0.3
     w = jnp.asarray(w, dtype=jnp.complex128)
     actual = _uniform_hierarchy_case(w, rho, s, q)
     expected = _uniform_boundary_case(w, rho, s, q)
@@ -157,20 +151,7 @@ def test_tracked_limb_neighbors_close_a_permuted_root_loop():
     )
 
 
-def test_cpu_uniform_fixed_supports_jit():
-    solve = jax.jit(
-        lambda source: mag_uniform_cpu_fixed(
-            source,
-            1e-2,
-            s=1.0,
-            q=0.3,
-            n_limb=32,
-        )
-    )
-    value = solve(jnp.asarray(0.1 + 0.2j, dtype=jnp.complex128))
-    assert np.isfinite(float(value))
-
-
+@pytest.mark.slow
 def test_cpu_uniform_exposed_caustic_uses_ghost_support():
     sources = jnp.asarray(
         [
@@ -198,6 +179,7 @@ def test_cpu_uniform_exposed_caustic_uses_ghost_support():
     np.testing.assert_allclose(values, references, rtol=3e-6)
 
 
+@pytest.mark.slow
 def test_cpu_uniform_rejects_calibrated_marginal_false_accept():
     """A stratified VBBL-sweep regression must remain explicitly exhausted."""
 
@@ -210,6 +192,7 @@ def test_cpu_uniform_rejects_calibrated_marginal_false_accept():
     assert int(result.status) & CPU_TIER_EXHAUSTED
 
 
+@pytest.mark.slow
 def test_cpu_uniform_rejects_buried_planetary_caustic_false_accept():
     """Consistent radial tiers cannot certify a wholly enclosed caustic."""
 

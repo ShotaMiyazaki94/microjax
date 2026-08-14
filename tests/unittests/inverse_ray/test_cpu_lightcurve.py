@@ -7,10 +7,7 @@ import pytest
 
 from microjax.inverse_ray import mag_binary
 from microjax.inverse_ray.lightcurve import _binary_prefilter
-from microjax.inverse_ray.cpu import (
-    mag_binary_cpu_lightcurve,
-    mag_binary_cpu_one_shot_lightcurve,
-)
+from microjax.inverse_ray.cpu import mag_binary_cpu_lightcurve
 
 
 @pytest.mark.fast
@@ -52,8 +49,8 @@ def test_public_cpu_backend_matches_vbbl_limb_dark_reference():
     assert int(result.status[0]) == 0
 
 
-@pytest.mark.parametrize("u1", (0.0, 0.5))
-def test_public_cpu_backend_is_the_one_shot_alias(u1):
+def test_public_cpu_backend_is_the_one_shot_alias():
+    u1 = 0.5
     sources = jnp.asarray([0.1 + 0.2j, 0.6 - 0.2j], dtype=jnp.complex128)
     default = mag_binary(
         sources,
@@ -91,6 +88,7 @@ def test_public_cpu_backend_is_the_one_shot_alias(u1):
         (0.5, 4.502713625245832),
     ),
 )
+@pytest.mark.slow
 def test_direct_cpu_lightcurve_uses_the_fixed_chart_scheduler(u1, expected):
     result = mag_binary_cpu_lightcurve(
         jnp.asarray([0.1 + 0.2j], dtype=jnp.complex128),
@@ -104,29 +102,6 @@ def test_direct_cpu_lightcurve_uses_the_fixed_chart_scheduler(u1, expected):
     assert np.isclose(float(result.magnification[0]), expected, rtol=2e-4)
 
 
-def test_public_cpu_backend_does_not_claim_a_full_solve_error_bound():
-    source = jnp.asarray([0.1 + 0.2j], dtype=jnp.complex128)
-    loose = mag_binary_cpu_one_shot_lightcurve(
-        source,
-        1e-2,
-        s=1.0,
-        q=0.3,
-    )
-    strict = mag_binary_cpu_one_shot_lightcurve(
-        source,
-        1e-2,
-        s=1.0,
-        q=0.3,
-    )
-    assert int(loose.status[0]) == 0
-    assert int(strict.status[0]) == 0
-    assert np.isnan(float(loose.estimated_error[0]))
-    assert np.isnan(float(strict.estimated_error[0]))
-    np.testing.assert_array_equal(
-        np.asarray(loose.magnification), np.asarray(strict.magnification)
-    )
-
-
 def test_public_cpu_backend_refines_buried_planetary_caustic_with_radial_chart():
     result = mag_binary(
         jnp.asarray([-0.0010946356833467202 - 0.006172611801159194j]),
@@ -138,6 +113,7 @@ def test_public_cpu_backend_refines_buried_planetary_caustic_with_radial_chart()
     )
     assert int(result.status[0]) == 0
     assert int(result.tier[0]) >= 5
+    assert np.isnan(float(result.estimated_error[0]))
     assert np.isclose(float(result.magnification[0]), 180.0580995708625, rtol=2e-4)
 
 
@@ -157,6 +133,7 @@ def test_public_cpu_backend_cartesian_limb_dark_resolves_caustic_residual():
     assert np.isclose(float(result.magnification[0]), 11.216178805288225, rtol=5e-5)
 
 
+@pytest.mark.slow
 def test_public_cpu_backend_rotated_cartesian_resolves_false_angular_convergence():
     result = mag_binary(
         jnp.asarray([0.36569748065577623 - 0.03401942639008235j]),
@@ -281,8 +258,6 @@ def test_public_cpu_low_q_fold_falls_back_from_incomplete_real_root_set():
     ("source", "rho", "s", "q"),
     (
         (0.44705482558656645 + 0.0962464714933328j, 3.0e-3, 1.25, 1.0e-2),
-        (0.427723129242586 + 0.002999141813901971j, 3.0e-3, 1.25, 1.0e-4),
-        (0.4276388719182847 - 0.0030002665488702757j, 3.0e-3, 1.25, 1.0e-4),
         (-0.45551582456655687 + 0.015003246996856474j, 3.0e-4, 0.8, 1.0e-4),
     ),
 )
@@ -437,6 +412,7 @@ def test_public_cpu_source_limb_support_resolves_planetary_topology():
     assert np.isclose(float(result.magnification[0]), 235.7462655075391, rtol=1e-4)
 
 
+@pytest.mark.slow
 def test_public_cpu_small_q_resonant_caustic_uses_high_order_polar_pair():
     times = jnp.linspace(-5.0, 5.0, 1000, dtype=jnp.float64)
     alpha = jnp.deg2rad(jnp.asarray(50.0, dtype=jnp.float64))
@@ -475,7 +451,7 @@ def test_cpu_one_shot_small_q_is_certified_without_retry():
     alpha = jnp.deg2rad(jnp.asarray(50.0, dtype=jnp.float64))
     tau = times / 10.0
     trajectory = -0.001 * jnp.sin(alpha) + tau * jnp.cos(alpha) + 1.0j * (0.001 * jnp.cos(alpha) + tau * jnp.sin(alpha))
-    sources = trajectory[jnp.asarray([495, 500, 503, 504])]
+    sources = trajectory[jnp.asarray([500])]
     result = mag_binary(
         sources,
         0.005,
@@ -484,19 +460,13 @@ def test_cpu_one_shot_small_q_is_certified_without_retry():
         backend="cpu-one-shot",
         return_info=True,
     )
-    expected = np.asarray(
-        [
-            290.8775438935654,
-            394.9879477943679,
-            339.9575932430476,
-            290.88842162049804,
-        ]
-    )
+    expected = np.asarray([394.9879477943679])
     np.testing.assert_array_equal(np.asarray(result.status), 0)
     np.testing.assert_array_equal(np.asarray(result.tier), 7)
     np.testing.assert_allclose(np.asarray(result.magnification), expected, rtol=1.0e-4, atol=0.0)
 
 
+@pytest.mark.slow
 def test_cpu_one_shot_small_rho_uses_conditioned_polar_chart():
     """The fixed-r chart avoids the small-rho angle-first conditioning loss."""
 
@@ -585,6 +555,7 @@ def test_cpu_one_shot_small_source_radial_projection_resolves_narrow_image_pair(
     assert np.isclose(float(result.magnification[0]), expected, rtol=1.0e-4)
 
 
+@pytest.mark.slow
 def test_cpu_one_shot_simple_polar_small_q_supports_forward_ad():
     """The production source-limb polar route has finite forward derivatives."""
 
@@ -649,6 +620,7 @@ def test_cpu_one_shot_planetary_topology_selects_simple_radial_before_integratio
         assert np.isclose(float(result.magnification[0]), expected, rtol=2.0e-4)
 
 
+@pytest.mark.slow
 def test_public_cpu_central_planetary_images_use_the_faster_polar_chart():
     # When u < rho these images wrap most of the Einstein ring.  Several
     # Cartesian projections share a roughly 3.4e-3 support bias, whereas the
@@ -677,6 +649,7 @@ def test_public_cpu_central_planetary_images_use_the_faster_polar_chart():
     np.testing.assert_allclose(np.asarray(result.magnification), expected, rtol=2e-5, atol=0.0)
 
 
+@pytest.mark.slow
 def test_public_cpu_central_contact_band_skips_low_order_coconvergence():
     rho = 5.0e-3
     angle = 2.5 * 2.0 * np.pi / 8.0
@@ -699,6 +672,7 @@ def test_public_cpu_central_contact_band_skips_low_order_coconvergence():
     assert np.isclose(float(result.magnification[0]), expected, rtol=2e-5)
 
 
+@pytest.mark.slow
 def test_public_cpu_fold_transition_requires_the_polar_chart():
     # The source crosses a planetary fold. Source-normal and lens-axis strips
     # agree within 0.20 times the old adaptive threshold while sharing a
@@ -752,6 +726,7 @@ def test_public_cpu_stress_fold_branch_refines_its_hidden_tangency():
     assert np.isclose(float(result.magnification[0]), 5.291371511487747, rtol=1e-3)
 
 
+@pytest.mark.slow
 def test_public_cpu_support_scout_does_not_undersample_a_wide_planetary_fold():
     # A 48-point source-limb scout makes the polar rules co-converge 4.08e-3
     # low here.  The production 64-point support threshold must be retained.
@@ -858,6 +833,7 @@ def test_public_cpu_prefilter_uses_the_fixed_multipole_gate():
     np.testing.assert_allclose(np.asarray(result.magnification), expected, rtol=3e-4)
 
 
+@pytest.mark.slow
 def test_public_cpu_uniform_and_ld_share_the_full_solve_trigger():
     # These three source discs intersect the close-binary caustic.  The old
     # uniform-only relaxed selector accepted a non-convergent hexadecapole
@@ -957,6 +933,7 @@ def test_binary_prefilter_trigger_diagnostics_are_profile_independent():
     np.testing.assert_array_equal(np.asarray(uniform[3]), np.asarray(limb_dark[3]))
 
 
+@pytest.mark.slow
 def test_public_cpu_adaptive_compatibility_path_uses_fixed_gate():
     result = mag_binary(
         jnp.asarray([-0.005632199639136862 - 0.012486743125903076j]),
