@@ -9,7 +9,7 @@ dev/
 __pycache__
 .cache/
 .ruff_cache/
-example_cpu/cpu-icrs-benchmark/
+example/cpu/cpu-icrs-benchmark/
 benchmark/
 .pytest_cache/
 docs/.doctrees/
