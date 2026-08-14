@@ -111,6 +111,12 @@ def _planetary_caustic_test(w: Array, rho: float, c_p: float = 2.0, **params) ->
     e1, a = params["e1"], params["a"]
     s = 2 * a
     q = e1 / (1.0 - e1)
-    w_pc = -1 / s
+    # ``w`` uses the symmetric internal lens frame, with the primary at
+    # ``-a`` and the planet at ``+a``.  The leading-order planetary-caustic
+    # centre is ``s - 1 / s`` in the primary-centred frame and therefore
+    # ``a - 1 / s`` here.  Using ``-1 / s`` silently placed this guard one
+    # half-separation too far to the left, which could admit finite sources
+    # crossing a wide planetary caustic into the multipole path.
+    w_pc = a - 1 / s
     delta_pc = 3 * jnp.sqrt(q) / s
     return (w_pc - w).real ** 2 + (w_pc - w).imag ** 2 > c_p * (rho**2 + delta_pc**2)
