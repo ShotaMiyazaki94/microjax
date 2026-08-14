@@ -75,7 +75,6 @@ def _uniform_boundary_case(source, rho, separation, mass_ratio):
         (0.6 - 0.2j, 5e-3, 1.6, 0.1),
     ],
 )
-@pytest.mark.fast
 def test_cpu_uniform_fixed_matches_certified_boundary(w, rho, s, q):
     w = jnp.asarray(w, dtype=jnp.complex128)
     actual = _uniform_fixed_case(w, rho, s, q)
@@ -113,7 +112,6 @@ def test_cpu_uniform_hierarchy_reaches_high_accuracy(w, rho, s, q):
     )
 
 
-@pytest.mark.fast
 def test_cpu_radial_support_is_disjoint_and_nonempty():
     support = build_radial_support(
         jnp.asarray(0.1 + 0.2j, dtype=jnp.complex128),
@@ -159,7 +157,6 @@ def test_tracked_limb_neighbors_close_a_permuted_root_loop():
     )
 
 
-@pytest.mark.fast
 def test_cpu_uniform_fixed_supports_jit():
     solve = jax.jit(
         lambda source: mag_uniform_cpu_fixed(

@@ -12,9 +12,6 @@ from microjax.poly_solver import poly_roots
 
 jax.config.update("jax_enable_x64", True)
 
-pytestmark = pytest.mark.fast
-
-
 def test_companion_roots_match_ehrlich_aberth_polynomial_residuals():
     coefficients = jnp.asarray([1.0, -0.4, 0.7, -1.2, 0.3, 0.2, -0.1])
     roots = companion_roots(coefficients)
@@ -31,6 +28,7 @@ def test_companion_roots_match_ehrlich_aberth_polynomial_residuals():
     assert float(jnp.max(reference_residual)) < 1e-12
 
 
+@pytest.mark.fast
 def test_companion_root_implicit_jvp_satisfies_linearized_polynomial():
     coefficients = jnp.asarray([1.0, -0.4, 0.7, -1.2, 0.3, 0.2, -0.1])
     tangent = jnp.asarray([0.0, 0.1, -0.2, 0.05, 0.03, -0.04, 0.02])

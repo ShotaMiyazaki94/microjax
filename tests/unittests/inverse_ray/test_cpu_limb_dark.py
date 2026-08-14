@@ -79,7 +79,6 @@ def _limb_dark_boundary_case(source, rho, separation, mass_ratio, u1):
     )
 
 
-@pytest.mark.fast
 def test_cpu_zero_limb_darkening_reduces_to_uniform():
     source = jnp.asarray(0.1 + 0.2j, dtype=jnp.complex128)
     limb = _limb_dark_zero_case(source, 1e-2, 1.0, 0.3)
@@ -87,7 +86,6 @@ def test_cpu_zero_limb_darkening_reduces_to_uniform():
     assert np.isclose(float(limb), float(uniform), rtol=1e-12, atol=1e-12)
 
 
-@pytest.mark.fast
 def test_one_shot_geometry_route_is_shared_by_brightness_profiles():
     sources = jnp.asarray(
         [0.05 + 0.02j, 0.001 + 0.001j, -0.12 + 0.08j],
@@ -129,7 +127,6 @@ def test_one_shot_geometry_route_is_shared_by_brightness_profiles():
         (0.6 - 0.2j, 5e-3, 1.6, 0.1, 0.3),
     ],
 )
-@pytest.mark.fast
 def test_cpu_limb_dark_fixed_matches_existing_boundary(w, rho, s, q, u1):
     w = jnp.asarray(w, dtype=jnp.complex128)
     actual = _limb_dark_fixed_case(w, rho, s, q, u1)

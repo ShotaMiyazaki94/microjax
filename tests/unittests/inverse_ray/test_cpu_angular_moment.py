@@ -22,9 +22,6 @@ from microjax.inverse_ray.roots.level_set import binary_level_set
 
 jax.config.update("jax_enable_x64", True)
 
-pytestmark = pytest.mark.fast
-
-
 def test_overlapping_support_split_reuses_inactive_cells_without_moving_edges():
     cells = jnp.asarray(
         [[0.0, 1.0], [1.0, 2.0], [0.0, 0.0], [0.0, 0.0]],
@@ -211,6 +208,7 @@ def test_fixed_ea_polar_area_matches_companion():
     assert int(ea.invalid_root_count) == int(companion.invalid_root_count)
 
 
+@pytest.mark.fast
 def test_angular_moment_returns_finite_magnification():
     value = jax.jit(
         lambda source: mag_uniform_angular_moment_fixed(

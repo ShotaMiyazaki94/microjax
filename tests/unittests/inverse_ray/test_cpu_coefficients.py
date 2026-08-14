@@ -13,9 +13,6 @@ from microjax.point_source import lens_eq
 from microjax.poly_solver import poly_roots
 
 
-pytestmark = pytest.mark.fast
-
-
 def _lens_residuals(images_com, w_com, s, q):
     a = 0.5 * s
     e1 = q / (1.0 + q)
@@ -83,6 +80,7 @@ def test_q_aware_and_existing_coefficients_have_same_physical_images(s, q, w):
     )
 
 
+@pytest.mark.fast
 def test_q_aware_coefficients_support_jit_and_jvp():
     w = jnp.asarray(-0.2 + 0.1j, dtype=jnp.complex128)
 

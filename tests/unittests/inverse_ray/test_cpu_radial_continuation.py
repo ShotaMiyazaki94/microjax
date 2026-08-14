@@ -22,7 +22,6 @@ from microjax.inverse_ray.cpu.support import trace_binary_source_limb
 from microjax.inverse_ray.cpu.support import _physical_image_mask
 
 
-@pytest.mark.fast
 def test_gl11_embedded_g7_moments_and_weights():
     assert np.all(GL11_W > 0.0)
     assert np.all(G7_W_ON_GL11 >= 0.0)
@@ -87,7 +86,6 @@ def test_parallel_complex_root_continuation_matches_independent_rings():
     )
 
 
-@pytest.mark.fast
 def test_parallel_complex_root_continuation_is_jittable_over_sources():
     sources = jnp.asarray([0.1 + 0.1j, 0.02 - 0.03j], dtype=jnp.complex128)
     solve = jax.jit(

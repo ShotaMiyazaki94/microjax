@@ -8,9 +8,6 @@ from microjax.inverse_ray.cpu.sentinel import (
     hidden_caustic_candidate,
 )
 
-pytestmark = pytest.mark.fast
-
-
 def test_binary_reference_points_are_mapped_from_critical_curve():
     references = binary_caustic_reference_points(s=1.0, q=0.1)
     assert references.shape == (4,)
@@ -40,6 +37,7 @@ def test_hidden_caustic_requires_reference_inside_and_no_limb_transition():
     )
 
 
+@pytest.mark.fast
 def test_hidden_caustic_sentinel_supports_jit():
     evaluate = jax.jit(
         lambda source: hidden_caustic_candidate(

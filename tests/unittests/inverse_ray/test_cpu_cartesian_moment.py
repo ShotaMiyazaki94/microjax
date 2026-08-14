@@ -15,9 +15,6 @@ from microjax.inverse_ray.roots.level_set import binary_level_set
 
 jax.config.update("jax_enable_x64", True)
 
-pytestmark = pytest.mark.fast
-
-
 def test_line_coefficients_match_factored_level_set():
     source = jnp.asarray(0.1 + 0.2j, dtype=jnp.complex128)
     offset = jnp.asarray(0.37 - 0.11j, dtype=jnp.complex128)
@@ -42,6 +39,7 @@ def test_line_coefficients_match_factored_level_set():
     np.testing.assert_allclose(ratio, ratio[0], rtol=1e-10, atol=1e-12)
 
 
+@pytest.mark.fast
 def test_cartesian_moment_returns_finite_magnification():
     result = jax.jit(
         lambda source: mag_uniform_cartesian_moment_fixed(

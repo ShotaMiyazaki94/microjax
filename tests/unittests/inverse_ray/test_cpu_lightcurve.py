@@ -30,7 +30,6 @@ def test_public_cpu_backend_matches_vbbl_uniform_reference():
     np.testing.assert_array_equal(np.asarray(result.status), 0)
 
 
-@pytest.mark.fast
 def test_public_binary_has_no_user_accuracy_tolerance_argument():
     assert "rtol" not in inspect.signature(mag_binary).parameters
 
@@ -53,7 +52,6 @@ def test_public_cpu_backend_matches_vbbl_limb_dark_reference():
     assert int(result.status[0]) == 0
 
 
-@pytest.mark.fast
 @pytest.mark.parametrize("u1", (0.0, 0.5))
 def test_public_cpu_backend_is_the_one_shot_alias(u1):
     sources = jnp.asarray([0.1 + 0.2j, 0.6 - 0.2j], dtype=jnp.complex128)
@@ -86,7 +84,6 @@ def test_public_cpu_backend_is_the_one_shot_alias(u1):
         np.testing.assert_array_equal(np.asarray(getattr(default, field)), np.asarray(getattr(alias, field)))
 
 
-@pytest.mark.fast
 @pytest.mark.parametrize(
     ("u1", "expected"),
     (
@@ -107,7 +104,6 @@ def test_direct_cpu_lightcurve_uses_the_fixed_chart_scheduler(u1, expected):
     assert np.isclose(float(result.magnification[0]), expected, rtol=2e-4)
 
 
-@pytest.mark.fast
 def test_public_cpu_backend_does_not_claim_a_full_solve_error_bound():
     source = jnp.asarray([0.1 + 0.2j], dtype=jnp.complex128)
     loose = mag_binary_cpu_one_shot_lightcurve(
@@ -175,7 +171,6 @@ def test_public_cpu_backend_rotated_cartesian_resolves_false_angular_convergence
     assert np.isclose(float(result.magnification[0]), 4.702229917827288, rtol=1e-3)
 
 
-@pytest.mark.fast
 def test_public_cpu_one_shot_routes_a_distant_three_to_five_image_fold_to_polar():
     source = jnp.asarray([-0.29120329365498104 - 0.291203293654981j])
     result = mag_binary(
@@ -232,7 +227,6 @@ def test_public_cpu_one_shot_rejects_low_q_buried_central_caustic():
     assert int(result.status[0]) != 0
 
 
-@pytest.mark.fast
 def test_public_cpu_resolves_buried_contact_at_critical_image_angle():
     """A full angular chart resolves a near-limb buried caustic locally."""
 
@@ -328,7 +322,6 @@ def test_public_cpu_rejects_twinkle_close_planetary_support_gap():
     assert int(result.status[1]) != 0
 
 
-@pytest.mark.fast
 def test_public_cpu_accepts_complete_low_q_radial_chart_away_from_contact():
     """A conservative low-q warning must not reject complete radial support."""
 
@@ -538,7 +531,6 @@ def test_cpu_one_shot_small_rho_uses_conditioned_polar_chart():
     assert np.all(np.isfinite(np.asarray(forward)))
 
 
-@pytest.mark.fast
 @pytest.mark.parametrize(
     "source,rho,s,q,expected,expected_tier",
     [
