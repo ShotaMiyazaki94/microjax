@@ -17,10 +17,11 @@ for a grid of source sizes.
 You can run it from anywhere (no need to `cd`):
 
 ```bash
-python example/fspl_fft/compare_fspl_vbbl.py
+python example/gpu/fspl_fft/compare_fspl_vbbl.py
 ```
 
-This generates `fspl_vs_vbbl.png` alongside the script (in `example/fspl_fft`).
+This generates `fspl_vs_vbbl.png` alongside the script (in
+`example/gpu/fspl_fft`).
 If VBBL is not installed, the script will print a short message and exit cleanly. JAX is
 forced to CPU for consistent timing output; per-ρ timings and speed ratios vs.
 VBBL are printed in milliseconds.

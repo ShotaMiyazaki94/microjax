@@ -36,23 +36,23 @@ The scripts print median timings after the initial JAX compilation has
 completed. A representative CUDA run gave:
 
 ```text
-python example/compare-binary-vbbl/compare_binary_uniform.py
+python example/gpu/compare-binary-vbbl/compare_binary_uniform.py
   number of data points: 1000
   computation time: 0.001 sec (0.001 ms per point) for point-source in microJAX
   computation time: 0.090 sec (0.090 ms per point) for hexadecapole in microJAX
   computation time: 0.745 sec (0.745 ms per point) with VBBinaryLensing
   computation time: 0.219 sec (0.219 ms per point), median of 7, with microJAX mag_binary, n_limb=500
   relative difference vs VBBinaryLensing: median=1.150e-06, p95=7.210e-06, max=2.452e-05
-  output: example/compare-binary-vbbl/compare_binary_uniform.png
+  output: example/gpu/compare-binary-vbbl/compare_binary_uniform.png
 
-python example/compare-binary-vbbl/compare_binary_limb_dark.py
+python example/gpu/compare-binary-vbbl/compare_binary_limb_dark.py
   number of data points: 1000
   computation time: 0.002 sec (0.002 ms per point) for point-source in microJAX
   computation time: 0.093 sec (0.093 ms per point) for hexadecapole in microJAX
   computation time: 1.319 sec (1.319 ms per point) with VBBinaryLensing
   computation time: 0.230 sec (0.230 ms per point), median of 7, with microJAX mag_binary, n_limb=500
   relative difference vs VBBinaryLensing: median=1.265e-05, p95=4.084e-05, max=6.440e-05
-  output: example/compare-binary-vbbl/compare_binary_limb_dark.png
+  output: example/gpu/compare-binary-vbbl/compare_binary_limb_dark.png
 ```
 
 <table>

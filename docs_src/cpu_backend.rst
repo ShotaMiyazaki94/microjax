@@ -245,9 +245,9 @@ Examples
 The repository includes two CPU-specific workflows:
 
 - `CPU/VBM value comparison
-  <https://github.com/ShotaMiyazaki94/microjax/tree/main/example_cpu/compare-binary-vbbl>`_
+  <https://github.com/ShotaMiyazaki94/microjax/tree/main/example/cpu/compare-binary-vbbl>`_
 - `CPU forward Jacobian
-  <https://github.com/ShotaMiyazaki94/microjax/tree/main/example_cpu/jacobian-binary>`_
+  <https://github.com/ShotaMiyazaki94/microjax/tree/main/example/cpu/jacobian-binary>`_
 
 Use the comparison workflow to establish value accuracy for a trajectory and
 the Jacobian workflow to exercise the same public backend under

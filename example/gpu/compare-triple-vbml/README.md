@@ -27,19 +27,19 @@ microJAX package itself.
 Uniform source:
 
 ```bash
-python example/compare-triple-vbml/compare_triple_uniform.py
+python example/gpu/compare-triple-vbml/compare_triple_uniform.py
 ```
 
 Linear limb darkening with `u1 = 0.5`:
 
 ```bash
-python example/compare-triple-vbml/compare_triple_limb_dark.py
+python example/gpu/compare-triple-vbml/compare_triple_limb_dark.py
 ```
 
 For a short CPU smoke run:
 
 ```bash
-python example/compare-triple-vbml/compare_triple_uniform.py --quick
+python example/gpu/compare-triple-vbml/compare_triple_uniform.py --quick
 ```
 
 The scripts separate JAX compilation from repeated execution and report the

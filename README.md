@@ -240,30 +240,31 @@ uses the following full calculation:
   <tr>
     <td>
       <p align="center"><em>Light curve and residuals</em></p>
-      <img src="example/compare-binary-vbbl/compare_binary_uniform.png"
+      <img src="example/gpu/compare-binary-vbbl/compare_binary_uniform.png"
            alt="Uniform-source binary-lens comparison with VBBinaryLensing" width="100%">
       <p align="center"><em>Image-plane check at the maximum-residual sample</em></p>
-      <img src="example/compare-binary-vbbl/compare_binary_uniform_max_residual_icrs.png"
+      <img src="example/gpu/compare-binary-vbbl/compare_binary_uniform_max_residual_icrs.png"
            alt="ICRS image-plane construction at the maximum-residual sample" width="100%">
     </td>
     <td>
-      <img src="example/jacobian-triple/triple_jacobian.png"
+      <img src="example/gpu/jacobian-triple/triple_jacobian.png"
            alt="Triple-lens magnification and forward Jacobian" width="100%">
     </td>
   </tr>
 </table>
 
-Reproducible scripts and their numerical settings live in [example/](example/):
+Reproducible scripts and their numerical settings are grouped by execution
+backend under [example/](example/):
 
-- [jacobian-binary](example/jacobian-binary/) evaluates uniform and
+- [GPU jacobian-binary](example/gpu/jacobian-binary/) evaluates uniform and
   limb-darkened binary-lens light curves and reports their Jacobians;
-- [CPU jacobian-binary](example_cpu/jacobian-binary/) preserves those binary
+- [CPU jacobian-binary](example/cpu/jacobian-binary/) preserves those binary
   trajectories with the CPU ICRS backend and forward-mode AD;
-- [jacobian-triple](example/jacobian-triple/) evaluates uniform and
+- [GPU jacobian-triple](example/gpu/jacobian-triple/) evaluates uniform and
   limb-darkened triple-lens light curves and reports their forward Jacobians;
-- [compare-binary-vbbl](example/compare-binary-vbbl/) compares the binary
+- [GPU compare-binary-vbbl](example/gpu/compare-binary-vbbl/) compares the binary
   solver with VBBinaryLensing and visualizes the maximum-residual sample;
-- [compare-triple-vbml](example/compare-triple-vbml/) compares the triple
+- [GPU compare-triple-vbml](example/gpu/compare-triple-vbml/) compares the triple
   solver with VBMicrolensing for uniform and limb-darkened sources.
 
 Benchmark numbers are hardware-, JAX-, configuration-, and trajectory-specific.

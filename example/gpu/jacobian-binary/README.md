@@ -2,8 +2,8 @@ Binary-lens Jacobian Example
 ============================
 
 This directory is the binary-lens counterpart of
-[`example/jacobian-triple`](../jacobian-triple). It uses the new
-[`microjax.inverse_ray.mag_binary`](../../src/microjax/inverse_ray/lightcurve.py)
+[`example/gpu/jacobian-triple`](../jacobian-triple). It uses the new
+[`microjax.inverse_ray.mag_binary`](../../../src/microjax/inverse_ray/lightcurve.py)
 function to compute uniform-source magnification and its derivatives with
 respect to `t0, tE, u0, q, s, alpha, rho`. In this document, “Jacobian” means
 the array containing the derivative of every light-curve point with respect to
@@ -30,14 +30,14 @@ triple-lens example. A CUDA-enabled JAX installation is strongly recommended:
 
 ```console
 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
-  python example/jacobian-binary/grads_uniform_binary.py --no-plot
+  python example/gpu/jacobian-binary/grads_uniform_binary.py --no-plot
 ```
 
 For the limb-darkened version:
 
 ```console
 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
-  python example/jacobian-binary/grads_limb_dark_binary.py \
+  python example/gpu/jacobian-binary/grads_limb_dark_binary.py \
   --u1 0.5 --no-plot
 ```
 
@@ -52,13 +52,13 @@ The measured reverse-mode run uses about 21.4 GB. On a smaller GPU, reduce
 To run a small CPU-friendly benchmark and generate both plots:
 
 ```console
-python example/jacobian-binary/grads_uniform_binary.py --quick
+python example/gpu/jacobian-binary/grads_uniform_binary.py --quick
 ```
 
 The corresponding limb-darkened CPU smoke run is:
 
 ```console
-python example/jacobian-binary/grads_limb_dark_binary.py --quick
+python example/gpu/jacobian-binary/grads_limb_dark_binary.py --quick
 ```
 
 The first call of each AD mode includes tracing and JIT compilation. The

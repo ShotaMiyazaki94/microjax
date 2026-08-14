@@ -11,10 +11,11 @@ import sys
 from pathlib import Path
 from typing import Sequence, Tuple
 
-# Allow running from any working directory by adding repo root to sys.path
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+# Allow running from any working directory without requiring an editable install.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_ROOT = REPO_ROOT / "src"
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
 # Force JAX to stay on CPU for consistent benchmarking
 os.environ.setdefault("JAX_PLATFORM_NAME", "cpu")

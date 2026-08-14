@@ -2,7 +2,7 @@ CPU Binary-lens Jacobian Example
 ================================
 
 This is the CPU-backend counterpart of
-[`example/jacobian-binary`](../../example/jacobian-binary). It preserves the
+[`example/gpu/jacobian-binary`](../../gpu/jacobian-binary). It preserves the
 same trajectories and differentiates every light-curve sample with respect to
 `t0, tE, u0, q, s, alpha, rho`. The only model-level change is the finite-source
 call: this version uses
@@ -20,13 +20,13 @@ Run
 The full uniform-source example uses the 1,000-point comparison trajectory:
 
 ```console
-python example_cpu/jacobian-binary/code/grads_uniform_binary.py
+python example/cpu/jacobian-binary/code/grads_uniform_binary.py
 ```
 
 The linearly limb-darkened counterpart fixes `u1=0.5` by default:
 
 ```console
-python example_cpu/jacobian-binary/code/grads_limb_dark_binary.py
+python example/cpu/jacobian-binary/code/grads_limb_dark_binary.py
 ```
 
 For a 24-point smoke test, pass `--quick`. The first invocation measures JIT

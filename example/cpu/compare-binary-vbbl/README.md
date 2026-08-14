@@ -1,6 +1,6 @@
 # CPU Binary-Lens Benchmarks
 
-CPU counterpart of `example/compare-binary-vbbl`. One script evaluates
+CPU counterpart of `example/gpu/compare-binary-vbbl`. One script evaluates
 uniform and linearly limb-darkened sources on exactly the same 1,000-point
 trajectory and compares both profiles with VBMicrolensing (VBML).
 The substantive solver change is the magnification call. The default CPU
@@ -19,7 +19,7 @@ error-bound statistics can be checked with separate parameter sweeps; those
 local benchmark datasets are not part of this example.
 
 ```bash
-python example_cpu/compare-binary-vbbl/code/compare_binary_profiles.py
+python example/cpu/compare-binary-vbbl/code/compare_binary_profiles.py
 ```
 
 The Python sources live in `code/`; generated files are written to `outputs/`:

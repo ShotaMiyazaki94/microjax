@@ -142,7 +142,7 @@ plot_boundary_construction(
     time_value=float(t[max_residual_index]),
     relative_residual=float(relative_difference[max_residual_index]),
     limb_darkening=u1,
-    output_path=Path("example/compare-binary-vbbl/compare_binary_limb_dark_max_residual_icrs.png"),
+    output_path=Path("example/gpu/compare-binary-vbbl/compare_binary_limb_dark_max_residual_icrs.png"),
 )
 critical_curves, caustic_curves = critical_and_caustic_curves(nlenses=2, npts=100, s=s, q=q)
 
@@ -183,6 +183,6 @@ ax1.yaxis.set_major_locator(ticker.LogLocator(base=10.0, subs=[1.0, 10**-2, 10**
 ax1.set_ylim(1e-6, 1e-2)
 ax.legend(loc="upper left")
 ax1.set_xlabel("time (days)")
-fig.savefig("example/compare-binary-vbbl/compare_binary_limb_dark.png", dpi=200)
-print("output: example/compare-binary-vbbl/compare_binary_limb_dark.png")
+fig.savefig("example/gpu/compare-binary-vbbl/compare_binary_limb_dark.png", dpi=200)
+print("output: example/gpu/compare-binary-vbbl/compare_binary_limb_dark.png")
 plt.close()
