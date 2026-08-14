@@ -13,7 +13,7 @@ sys.path.insert(0, str(PROJECT_ROOT / 'src'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'microJAX'
-copyright = '2025, Shota Miyazaki'
+copyright = '2025–2026, Shota Miyazaki'
 author = 'Shota Miyazaki'
 
 # -- General configuration ---------------------------------------------------
