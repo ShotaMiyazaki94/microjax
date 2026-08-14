@@ -114,7 +114,7 @@ mu_finite = mag_binary(w, rho, s=s, q=q, u1=0.0, config=config)
 mu_point = mag_point_source(w, nlenses=2, s=s, q=q)
 ```
 
-The scheduler defaults target GPU light-curve workloads while limiting peak
+The default scheduler targets GPU light-curve workloads while limiting peak
 memory. `source_tile_size` controls the number of source positions in each
 outer vectorized batch, and `radial_chunk_size` controls the inner batch of
 radial integration regions. Setting `radial_chunk_size=64` evaluates the full
@@ -135,6 +135,53 @@ config = BinaryMagConfig(
     radial_chunk_size=16,
 )
 ```
+
+Binary lenses also provide a differentiable CPU backend. Its fast path is the
+finite-source multipole approximation. Every rejected point traces the source
+limb once with 64 support samples, measures image topology and the ratio of
+tangential to radial image motion, and selects one fixed Cartesian or polar
+quadrature before evaluating the finite-source integral. Cartesian uniform
+sources use root-free Bernstein strip widths without companion-root repair;
+linear limb darkening integrates the brightness weight on the same image
+intervals. Nearly annular images use angle-first polar radial moments.
+
+`backend="cpu"` is this one-shot scheduler. It evaluates only the selected
+high-order rule and does not form a coarse/fine convergence test. A detected
+structural failure returns a nonzero status immediately: it does not trigger a
+rescue chart, order escalation, retry, or second source-limb trace. `backend="cpu-one-shot"`
+remains as a compatibility alias. The older coverage-oriented adaptive
+scheduler is available only by requesting `backend="cpu-adaptive"`.
+The production CPU scheduler uses one fixed, Roman-calibrated multipole gate;
+there is no user accuracy-tolerance argument. It uses dynamic sequential loops
+and supports forward-mode AD
+(`jax.jvp`/`jax.jacfwd`); reverse-mode AD through those data-dependent loops is
+not part of its API:
+
+```python
+cpu = mag_binary(
+    w,
+    rho,
+    s=s,
+    q=q,
+    u1=0.0,
+    backend="cpu",
+    return_info=True,
+)
+mu_cpu = cpu.magnification
+valid = cpu.status == 0
+```
+
+With `return_info=False`, structurally invalid CPU samples are returned as
+`NaN`. `return_info=True` exposes the best-effort value, selected tier, and
+status. Full one-shot solves report `estimated_error=NaN`: `status == 0`
+does not provide a full-solve relative-error guarantee. External comparison
+thresholds belong to validation scripts, not to this API.
+
+The one-shot-specific status bits are `ONE_SHOT_INVALID_ROOTS` (`1 << 20`),
+`ONE_SHOT_NONFINITE` (`1 << 21`), and
+`ONE_SHOT_UNRESOLVED_GEOMETRY` (`1 << 22`). Lower-level non-zero bits retain
+their structural meanings (capacity, support, or topology). The former
+`ANGULAR_MOMENT_EXHAUSTED` bit is not used by the production one-shot path.
 
 Triple-lens finite-source magnification uses the same source convention:
 
@@ -232,6 +279,8 @@ Reproducible scripts and their numerical settings live in [example/](example/):
 
 - [jacobian-binary](example/jacobian-binary/) evaluates uniform and
   limb-darkened binary-lens light curves and reports their Jacobians;
+- [CPU jacobian-binary](example_cpu/jacobian-binary/) preserves those binary
+  trajectories with the CPU ICRS backend and forward-mode AD;
 - [jacobian-triple](example/jacobian-triple/) evaluates uniform and
   limb-darkened triple-lens light curves and reports their forward Jacobians;
 - [compare-binary-vbbl](example/compare-binary-vbbl/) compares the binary
@@ -250,8 +299,9 @@ mind when using `mag_binary` and `mag_triple`:
 
 - each source position is evaluated either with a fast approximation or with
   the full finite-source calculation;
-- the full calculation uses a fixed amount of work. It does not automatically
-  repeat a difficult calculation with increasingly expensive settings;
+- the accelerator full calculation uses fixed work; the default binary CPU
+  backend likewise selects one fixed Cartesian or polar calculation from one
+  source-limb trace and reports detected structural failures;
 - the returned finite value is a numerical estimate. The public API does not
   provide a guaranteed error bound;
 - if microJAX cannot construct a valid image boundary or integration region,
@@ -262,8 +312,9 @@ mind when using `mag_binary` and `mag_triple`:
   controls, and their best values depend on the accelerator and trajectory;
 - uniform sources and the linear limb-darkening law parameterized by `u1` are
   supported by `mag_binary` and `mag_triple`;
-- finite-source workloads are intended for GPUs. They run on CPUs but may be
-  substantially slower.
+- accelerator workloads remain the target for maximum throughput; the binary
+  CPU backend is separately optimized and can be competitive with VBBL on
+  caustic-heavy batches, though smooth trajectories remain slower.
 
 ## Documentation
 
@@ -313,16 +364,31 @@ exact `0.2.x` release or Git commit.
 Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md)
 before changing the solver or its numerical defaults.
 
-Run the default CPU test suite with:
+For the CPU development loop, run the compact smoke suite:
 
 ```bash
-pytest -q
+pytest -c pytest-cpu-fast.ini -q
 ```
 
-GPU tests are opt-in and are skipped when JAX cannot detect CUDA:
+This covers the low-level CPU kernels plus representative public uniform,
+limb-darkening, one-shot, fail-closed, polar, and forward-AD paths. It runs in
+about one minute on a warm development machine. Run the complete CPU suite with:
 
 ```bash
-pytest -m gpu -q
+pytest -c pytest-cpu.ini -q
+```
+
+The complete CPU suite excludes the explicitly slow AD regressions by default.
+Include those regressions when needed with:
+
+```bash
+pytest -c pytest-cpu.ini -m "not gpu" -q
+```
+
+GPU tests have a separate configuration and are opt-in:
+
+```bash
+pytest -c pytest-gpu.ini -q
 ```
 
 ## License
