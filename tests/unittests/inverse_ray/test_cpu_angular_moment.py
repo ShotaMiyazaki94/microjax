@@ -9,6 +9,7 @@ from microjax.inverse_ray.cpu.angular_moment import (
     _angular_support_cells,
     _ray_intervals,
     _radial_image_bound,
+    _stable_radial_level_value,
     _split_angular_support_at_angle,
     _split_overlapping_angular_support,
     _uniform_result_from_support,
@@ -152,7 +153,7 @@ def test_fixed_ea_fails_back_to_companion_for_nearly_multiple_positive_roots():
     assert int(ea[3][0]) > int(companion[3][0])
 
 
-def test_stable_level_value_rejects_false_close_companion_interval():
+def test_stable_level_value_rejects_near_cancelled_interval():
     source = jnp.asarray(
         -2.037662902008118e-6 + 1.6520468408939938e-6j,
         dtype=jnp.complex128,
@@ -170,13 +171,27 @@ def test_stable_level_value_rejects_false_close_companion_interval():
             q=q,
         )
     )(angles)
-    ordinary = _ray_intervals(coefficients, root_mode="companion")
     stable = _ray_intervals(
         coefficients,
         root_mode="companion",
         stable_context=(angles, source, rho, s, q),
     )
-    assert bool(jnp.any(ordinary[2]))
+
+    # The squared level-set polynomial is almost completely cancelled near
+    # this close root pair. Its final sign depends on the JAX/LAPACK version,
+    # while the unsquared level value remains safely positive.
+    radius = jnp.asarray([[0.9999979]], dtype=jnp.float64)
+    squared_level = jnp.polyval(coefficients[0], radius[0, 0])
+    stable_level = _stable_radial_level_value(
+        angles,
+        radius,
+        source,
+        rho,
+        s=s,
+        q=q,
+    )
+    assert abs(float(squared_level)) < 1.0e-14
+    assert float(stable_level[0, 0]) > 1.0e-10
     assert not bool(jnp.any(stable[2]))
     assert int(stable[3][0]) == 0
 
