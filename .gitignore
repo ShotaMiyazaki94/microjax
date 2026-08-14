@@ -12,7 +12,7 @@ __pycache__
 example/cpu/cpu-icrs-benchmark/
 benchmark/
 benchmark_cpu
-benchmark_gpu/outputs/
+benchmark_gpu/
 .pytest_cache/
 docs/.doctrees/
 docs/.buildinfo.bak
