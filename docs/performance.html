@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Troubleshooting" href="troubleshooting.html" />
+    <link rel="next" title="Solver Caveats" href="caveats.html" />
     <link rel="prev" title="CPU Binary-Lens Backend" href="cpu_backend.html" /> 
 </head>
 
@@ -52,9 +52,10 @@
 <li class="toctree-l2"><a class="reference internal" href="#recommended-a100-configurations">Recommended A100 configurations</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#measurement-scope">Measurement scope</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#benchmark-your-actual-trajectory">Benchmark your actual trajectory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#memory-and-compilation-scope">Memory and compilation scope</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="caveats.html">Solver Caveats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="citing.html">Citing and Reproducibility</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -268,6 +269,17 @@ before stopping the timer:</p>
 </div>
 <p>Scheduler settings change batching only; they are not accuracy controls.</p>
 </section>
+<section id="memory-and-compilation-scope">
+<h2>Memory and compilation scope<a class="headerlink" href="#memory-and-compilation-scope" title="Link to this heading"></a></h2>
+<p>The first invocation for each static configuration includes compilation. Long
+light curves may be split into user-level batches when the complete output and
+its derivatives do not fit in device memory. Report the batch size when it
+affects a benchmark.</p>
+<p><code class="docutils literal notranslate"><span class="pre">n_limb</span></code> changes how finely the accelerator backend follows the source
+circumference. Reducing it may lower cost, but can miss rapidly changing image
+geometry; it is not a memory setting and must be validated independently. It
+does not configure the CPU backend.</p>
+</section>
 </section>
 
 
@@ -275,7 +287,7 @@ before stopping the timer:</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="cpu_backend.html" class="btn btn-neutral float-left" title="CPU Binary-Lens Backend" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="troubleshooting.html" class="btn btn-neutral float-right" title="Troubleshooting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="caveats.html" class="btn btn-neutral float-right" title="Solver Caveats" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

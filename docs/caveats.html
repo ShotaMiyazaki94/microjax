@@ -1,0 +1,186 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solver Caveats &mdash; microJAX  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Citing and Reproducibility" href="citing.html" />
+    <link rel="prev" title="Accelerator Performance Tuning" href="performance.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            microJAX
+              <img src="_static/microjax.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpu_backend.html">CPU Binary-Lens Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Solver Caveats</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#backend-scope-is-explicit">Backend scope is explicit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#finite-values-are-not-accuracy-certificates">Finite values are not accuracy certificates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#rejected-configurations-return-nan">Rejected configurations return NaN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-numerical-graph-is-piecewise">The numerical graph is piecewise</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#use-x64-mode-and-forward-differentiation">Use x64 mode and forward differentiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#configuration-changes-compile-separately">Configuration changes compile separately</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#the-paper-version-is-a-different-solver-line">The paper version is a different solver line</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing and Reproducibility</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">microJAX</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Solver Caveats</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/caveats.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="solver-caveats">
+<h1>Solver Caveats<a class="headerlink" href="#solver-caveats" title="Link to this heading"></a></h1>
+<p>This page collects microJAX-specific constraints that can materially affect a
+scientific result. General JAX installation and device troubleshooting belong
+in the <a class="reference external" href="https://docs.jax.dev/">JAX documentation</a>.</p>
+<section id="backend-scope-is-explicit">
+<h2>Backend scope is explicit<a class="headerlink" href="#backend-scope-is-explicit" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> uses the accelerator-oriented backend unless <code class="docutils literal notranslate"><span class="pre">backend=&quot;cpu&quot;</span></code>
+is requested. The CPU backend is a separate binary-lens implementation, not an
+automatic fallback selected from the available device. <code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code>
+configures the accelerator path and does not tune the CPU path. Finite-source
+triple-lens calculations use the accelerator-oriented implementation.</p>
+</section>
+<section id="finite-values-are-not-accuracy-certificates">
+<h2>Finite values are not accuracy certificates<a class="headerlink" href="#finite-values-are-not-accuracy-certificates" title="Link to this heading"></a></h2>
+<p>The accelerator solver and production CPU solver use bounded work. They do not
+increase the integration order or retry indefinitely until a requested error
+tolerance is met. A finite magnification therefore has no guaranteed relative
+error bound. Validate values and derivatives over the parameter region used in
+an analysis against an independent implementation.</p>
+</section>
+<section id="rejected-configurations-return-nan">
+<h2>Rejected configurations return NaN<a class="headerlink" href="#rejected-configurations-return-nan" title="Link to this heading"></a></h2>
+<p>The ordinary finite-source API returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code> when it detects invalid image
+geometry, exhausted fixed capacity, or a non-finite calculation. Do not replace
+such samples silently or treat them as zero likelihood without recording the
+complete lens and source configuration. For CPU-specific solver investigation,
+advanced diagnostic output is described in <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a>.</p>
+</section>
+<section id="the-numerical-graph-is-piecewise">
+<h2>The numerical graph is piecewise<a class="headerlink" href="#the-numerical-graph-is-piecewise" title="Link to this heading"></a></h2>
+<p>Caustic crossings change image topology, and the solver switches between a
+multipole approximation and a full finite-source calculation. CPU full solves
+also select among fixed integration charts. Values and forward derivatives can
+therefore be non-smooth near route and topology boundaries even when they are
+finite. Automatic differentiation does not certify numerical accuracy.</p>
+</section>
+<section id="use-x64-mode-and-forward-differentiation">
+<h2>Use x64 mode and forward differentiation<a class="headerlink" href="#use-x64-mode-and-forward-differentiation" title="Link to this heading"></a></h2>
+<p>Enable <code class="docutils literal notranslate"><span class="pre">jax_enable_x64</span></code> before constructing arrays or compiling functions.
+The polynomial roots and image-boundary calculations are numerically sensitive
+in single precision. Forward mode (<code class="docutils literal notranslate"><span class="pre">jax.jvp</span></code> or <code class="docutils literal notranslate"><span class="pre">jax.jacfwd</span></code>) is the
+supported light-curve differentiation route; reverse mode through the CPU
+scheduler’s data-dependent loops is not part of its API.</p>
+</section>
+<section id="configuration-changes-compile-separately">
+<h2>Configuration changes compile separately<a class="headerlink" href="#configuration-changes-compile-separately" title="Link to this heading"></a></h2>
+<p>Accelerator scheduler settings and array shapes participate in JAX’s static
+compilation. Changing them creates a separate executable, and the first call
+includes compilation. Warm up the exact backend, source profile, configuration,
+and array shape before measuring runtime. See <a class="reference internal" href="performance.html"><span class="doc">Accelerator Performance Tuning</span></a> for the
+measured accelerator scope.</p>
+</section>
+<section id="the-paper-version-is-a-different-solver-line">
+<h2>The paper version is a different solver line<a class="headerlink" href="#the-paper-version-is-a-different-solver-line" title="Link to this heading"></a></h2>
+<p>The methods paper corresponds to <code class="docutils literal notranslate"><span class="pre">v0.1.1</span></code>. The <code class="docutils literal notranslate"><span class="pre">0.2</span></code> series is a substantial
+redesign rather than a patch-level continuation. Record the exact release or
+Git commit and do not combine results from the two lines without explicit
+cross-validation. See <a class="reference internal" href="citing.html"><span class="doc">Citing and Reproducibility</span></a> for the complete reproducibility checklist.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="performance.html" class="btn btn-neutral float-left" title="Accelerator Performance Tuning" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="citing.html" class="btn btn-neutral float-right" title="Citing and Reproducibility" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025–2026, Shota Miyazaki.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -59,7 +59,7 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a></li>
-<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="caveats.html">Solver Caveats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="citing.html">Citing and Reproducibility</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -199,6 +199,12 @@ invalid regardless of whether that best-effort value is finite.</p>
 not a stable scientific interface. Do not branch an analysis on them. Full
 one-shot solves also report <code class="docutils literal notranslate"><span class="pre">estimated_error=NaN</span></code> because this path does not
 perform a coarse/fine convergence comparison.</p>
+<p>When investigating a rejected configuration, record <code class="docutils literal notranslate"><span class="pre">q,</span> <span class="pre">s,</span> <span class="pre">rho,</span> <span class="pre">x,</span> <span class="pre">y,</span> <span class="pre">u1</span></code>
+before enabling diagnostics. Keep the complete diagnostic result with that
+configuration and distinguish a microJAX rejection from a failure in the
+external reference solver. The older <code class="docutils literal notranslate"><span class="pre">cpu-adaptive</span></code> route may be useful for
+comparison, but it should not be introduced as a silent retry in a production
+model.</p>
 </section>
 <section id="accuracy-contract">
 <h2>Accuracy contract<a class="headerlink" href="#accuracy-contract" title="Link to this heading"></a></h2>

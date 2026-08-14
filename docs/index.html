@@ -48,7 +48,7 @@
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cpu_backend.html">CPU Binary-Lens Backend</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a></li>
-<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="caveats.html">Solver Caveats</a></li>
 <li class="toctree-l1"><a class="reference internal" href="citing.html">Citing and Reproducibility</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -177,15 +177,17 @@ see <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU 
 <li class="toctree-l2"><a class="reference internal" href="performance.html#recommended-a100-configurations">Recommended A100 configurations</a></li>
 <li class="toctree-l2"><a class="reference internal" href="performance.html#measurement-scope">Measurement scope</a></li>
 <li class="toctree-l2"><a class="reference internal" href="performance.html#benchmark-your-actual-trajectory">Benchmark your actual trajectory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="performance.html#memory-and-compilation-scope">Memory and compilation scope</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#jax-cannot-see-my-gpu">JAX cannot see my GPU</a></li>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#mag-binary-is-slow-or-runs-out-of-memory">mag_binary is slow or runs out of memory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#cpu-samples-return-nan">CPU samples return NaN</a></li>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#gradient-computations-stall">Gradient computations stall</a></li>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#import-errors-for-optional-dependencies">Import errors for optional dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#still-stuck">Still stuck?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="caveats.html">Solver Caveats</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#backend-scope-is-explicit">Backend scope is explicit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#finite-values-are-not-accuracy-certificates">Finite values are not accuracy certificates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#rejected-configurations-return-nan">Rejected configurations return NaN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#the-numerical-graph-is-piecewise">The numerical graph is piecewise</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#use-x64-mode-and-forward-differentiation">Use x64 mode and forward differentiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#configuration-changes-compile-separately">Configuration changes compile separately</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#the-paper-version-is-a-different-solver-line">The paper version is a different solver line</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="citing.html">Citing and Reproducibility</a><ul>
