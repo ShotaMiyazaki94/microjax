@@ -378,8 +378,8 @@ about 20 seconds on a warm development machine. Run the standard CPU suite with:
 pytest -q
 ```
 
-The standard CPU suite excludes the explicitly slow AD regressions by default.
-Include those regressions when needed with:
+The standard CPU suite excludes the explicitly slow numerical and AD
+regressions by default. Include those regressions when needed with:
 
 ```bash
 pytest -m "not gpu" -q
