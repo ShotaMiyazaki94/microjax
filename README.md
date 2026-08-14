@@ -372,17 +372,17 @@ pytest -c pytest-cpu-fast.ini -q
 
 This covers the low-level CPU kernels plus representative public uniform,
 limb-darkening, one-shot, fail-closed, polar, and forward-AD paths. It runs in
-about one minute on a warm development machine. Run the complete CPU suite with:
+about 20 seconds on a warm development machine. Run the standard CPU suite with:
 
 ```bash
-pytest -c pytest-cpu.ini -q
+pytest -q
 ```
 
-The complete CPU suite excludes the explicitly slow AD regressions by default.
+The standard CPU suite excludes the explicitly slow AD regressions by default.
 Include those regressions when needed with:
 
 ```bash
-pytest -c pytest-cpu.ini -m "not gpu" -q
+pytest -m "not gpu" -q
 ```
 
 GPU tests have a separate configuration and are opt-in:
