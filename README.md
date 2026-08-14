@@ -4,7 +4,7 @@
 
 # microJAX
 
-**Differentiable, GPU-accelerated microlensing models in JAX.**
+**Differentiable microlensing models for CPUs and GPUs in JAX.**
 
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![JAX](https://img.shields.io/badge/built%20with-JAX-blue)](https://github.com/jax-ml/jax)
@@ -136,26 +136,10 @@ config = BinaryMagConfig(
 )
 ```
 
-Binary lenses also provide a differentiable CPU backend. Its fast path is the
-finite-source multipole approximation. Every rejected point traces the source
-limb once with 64 support samples, measures image topology and the ratio of
-tangential to radial image motion, and selects one fixed Cartesian or polar
-quadrature before evaluating the finite-source integral. Cartesian uniform
-sources use root-free Bernstein strip widths without companion-root repair;
-linear limb darkening integrates the brightness weight on the same image
-intervals. Nearly annular images use angle-first polar radial moments.
-
-`backend="cpu"` is this one-shot scheduler. It evaluates only the selected
-high-order rule and does not form a coarse/fine convergence test. A detected
-structural failure returns a nonzero status immediately: it does not trigger a
-rescue chart, order escalation, retry, or second source-limb trace. `backend="cpu-one-shot"`
-remains as a compatibility alias. The older coverage-oriented adaptive
-scheduler is available only by requesting `backend="cpu-adaptive"`.
-The production CPU scheduler uses one fixed, Roman-calibrated multipole gate;
-there is no user accuracy-tolerance argument. It uses dynamic sequential loops
-and supports forward-mode AD
-(`jax.jvp`/`jax.jacfwd`); reverse-mode AD through those data-dependent loops is
-not part of its API:
+Binary lenses also provide a differentiable CPU backend. Select it with
+`backend="cpu"`; `backend="cpu-one-shot"` is a compatibility alias, while
+`backend="cpu-adaptive"` retains the older research scheduler. Use
+`return_info=True` when validating a parameter region:
 
 ```python
 cpu = mag_binary(
@@ -171,17 +155,11 @@ mu_cpu = cpu.magnification
 valid = cpu.status == 0
 ```
 
-With `return_info=False`, structurally invalid CPU samples are returned as
-`NaN`. `return_info=True` exposes the best-effort value, selected tier, and
-status. Full one-shot solves report `estimated_error=NaN`: `status == 0`
-does not provide a full-solve relative-error guarantee. External comparison
-thresholds belong to validation scripts, not to this API.
-
-The one-shot-specific status bits are `ONE_SHOT_INVALID_ROOTS` (`1 << 20`),
-`ONE_SHOT_NONFINITE` (`1 << 21`), and
-`ONE_SHOT_UNRESOLVED_GEOMETRY` (`1 << 22`). Lower-level non-zero bits retain
-their structural meanings (capacity, support, or topology). The former
-`ANGULAR_MOMENT_EXHAUSTED` bit is not used by the production one-shot path.
+With `return_info=False`, structurally invalid CPU samples become `NaN`.
+`status == 0` means that no known structural failure was detected; it is not
+an accuracy certificate. The [CPU backend guide](docs/cpu_backend.html)
+documents the execution contract, diagnostics, validation, and forward-mode
+automatic differentiation.
 
 Triple-lens finite-source magnification uses the same source convention:
 
@@ -319,6 +297,7 @@ mind when using `mag_binary` and `mag_triple`:
 ## Documentation
 
 - [Hosted documentation](https://shotamiyazaki94.github.io/microjax/)
+- [CPU binary-lens backend guide](docs/cpu_backend.html)
 - [Contributing guide](CONTRIBUTING.md)
 - [Changelog](CHANGELOG.md)
 

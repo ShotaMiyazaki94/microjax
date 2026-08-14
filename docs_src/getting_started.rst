@@ -1,8 +1,8 @@
 Getting Started
 ===============
 
-Use this guide to prepare an environment, confirm that JAX detects your
-accelerator, and run a quick smoke test.
+Use this guide to prepare an environment, confirm that JAX detects the intended
+CPU or accelerator device, and run a quick smoke test.
 
 Prerequisites
 -------------
@@ -60,6 +60,8 @@ Up next
 -------
 
 - :doc:`usage` walks through binary and triple lens examples.
-- :doc:`performance` gives measured GPU scheduler recommendations.
+- :doc:`cpu_backend` documents the binary-lens CPU solver, diagnostics, and
+  forward-mode differentiation.
+- :doc:`performance` gives measured accelerator scheduler recommendations.
 - :doc:`troubleshooting` lists common pitfalls and quick fixes.
 - :doc:`modules` provides API-level details for every public entry point.

@@ -1,5 +1,10 @@
-Performance Tuning
-==================
+Accelerator Performance Tuning
+==============================
+
+This page describes the accelerator backend controlled by
+``BinaryMagConfig`` and ``TripleMagConfig``. The binary-lens CPU backend has
+fixed internal scheduling and does not use these settings; see
+:doc:`cpu_backend` for CPU timing and warm-up guidance.
 
 The finite-source light-curve functions first evaluate a fast approximation
 over the complete trajectory. Only source positions rejected by that
