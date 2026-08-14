@@ -40,7 +40,7 @@ CPU samples return NaN or a non-zero status
 - ``estimated_error=NaN`` is expected for a structurally successful full
   one-shot solve; it is not itself a failure flag.
 - Record the full ``q, s, rho, x, y, u1`` configuration when reporting the
-  miss. The benchmark runner writes replayable microJAX and VBM miss files.
+  miss, and distinguish a microJAX failure from a reference-solver failure.
 - Use ``cpu-adaptive`` explicitly when comparing with the older adaptive
   research path. Do not silently add retries to the production one-shot path.
 

@@ -176,10 +176,9 @@ Before using the backend in an inference run:
 - retain non-zero status configurations rather than silently discarding them;
 - record the microJAX Git commit, JAX/JAXLIB versions, platform, and x64 mode.
 
-The repository benchmark records microJAX misses and VBM reference failures in
-separate replay files. See the `CPU benchmark README
-<https://github.com/ShotaMiyazaki94/microjax/tree/main/benchmark>`_ for commands,
-classification criteria, and output names.
+When running an external validation sweep, retain microJAX misses and reference
+solver failures separately. Store the complete lens and source configuration
+for each miss so that it can be replayed independently.
 
 Forward-mode differentiation
 ----------------------------
