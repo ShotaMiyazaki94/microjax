@@ -71,6 +71,44 @@ def binary_level_set_fourier(
     degree rather than by an accuracy-resolution knob.
     """
 
+    coefficients = binary_level_set_fourier_raw(
+        r,
+        w_center_shifted,
+        rho,
+        shifted,
+        a=a,
+        e1=e1,
+        chart_center=chart_center,
+    )
+    r = jnp.asarray(r)
+    raw_scale = jnp.abs(coefficients[0]) + 2.0 * jnp.sum(jnp.abs(coefficients[1:]))
+    tiny = jnp.finfo(r.dtype).tiny
+    scale = jnp.maximum(raw_scale, tiny)
+    coefficients = coefficients / scale
+    padding = 64.0 * jnp.finfo(r.dtype).eps
+    return FourierLevelSet(coefficients, padding, raw_scale == 0.0)
+
+
+def binary_level_set_fourier_raw(
+    r: float,
+    w_center_shifted: complex,
+    rho: float,
+    shifted: float,
+    *,
+    a: float,
+    e1: float,
+    chart_center: complex = 0.0 + 0.0j,
+) -> Array:
+    """Return the unnormalised positive Fourier modes of the binary level set.
+
+    Unlike :func:`binary_level_set_fourier`, every returned mode is a degree-at-
+    most-six polynomial in ``r``.  Keeping that polynomial structure is useful
+    for interval proofs in radial Bernstein form; normalising each ring would
+    destroy it.  The represented real function is
+
+    ``c[0] + 2 * real(sum(c[k] * exp(1j*k*theta), k=1..3))``.
+    """
+
     # Write the denominator and numerator as Laurent polynomials in
     # ``u = exp(i theta)``. Their squared moduli then give the four
     # non-negative Fourier modes by a four-term correlation.  Constructing the
@@ -112,13 +150,7 @@ def binary_level_set_fourier(
 
     numerator_modes = jnp.stack([positive_mode(numerator, mode) for mode in range(4)])
     denominator_modes = jnp.stack([positive_mode(denominator, mode) if mode < 3 else 0.0j for mode in range(4)])
-    coefficients = numerator_modes - rho**2 * denominator_modes
-    raw_scale = jnp.abs(coefficients[0]) + 2.0 * jnp.sum(jnp.abs(coefficients[1:]))
-    tiny = jnp.finfo(r.dtype).tiny
-    scale = jnp.maximum(raw_scale, tiny)
-    coefficients = coefficients / scale
-    padding = 64.0 * jnp.finfo(r.dtype).eps
-    return FourierLevelSet(coefficients, padding, raw_scale == 0.0)
+    return numerator_modes - rho**2 * denominator_modes
 
 
 def triple_level_set(
