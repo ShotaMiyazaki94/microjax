@@ -80,26 +80,22 @@ Set ``u1`` to a non-zero value for the normalized linear limb-darkening law::
 
    mu_ld = mag_binary(w, rho, s=0.95, q=5e-4, u1=0.5, config=config)
 
-For the binary-lens CPU one-shot backend, select ``backend="cpu"``. CPU
-diagnostics are available with ``return_info=True``:
+For the binary-lens CPU one-shot backend, select ``backend="cpu"``:
 
 .. code-block:: python
 
-   cpu = mag_binary(
+   mu_cpu = mag_binary(
        w,
        rho,
        s=0.95,
        q=5e-4,
        u1=0.5,
        backend="cpu",
-       return_info=True,
    )
-   mu_cpu = cpu.magnification
-   valid_cpu = cpu.status == 0
 
 The CPU path has fixed internal support and quadrature settings;
 ``BinaryMagConfig`` does not tune it. See :doc:`cpu_backend` for backend
-selection, diagnostics, forward-mode differentiation, and validation.
+selection, forward-mode differentiation, and validation.
 
 Triple lenses
 -------------
@@ -198,13 +194,11 @@ independent calculations over the intended parameter range.
 Failure behavior
 ----------------
 
-The public finite-source functions normally return ``NaN`` if they cannot
+The public finite-source functions return ``NaN`` if they cannot
 construct a valid image boundary or integration region, or if a calculation
-becomes non-finite. For a CPU call with ``return_info=True``, inspect
-``status`` and treat a non-zero value as invalid even if the diagnostic
-magnification is finite. A finite result is still a numerical estimate without
-a guaranteed error bound. Downstream likelihood code should check validity
-explicitly and validate accuracy independently.
+becomes non-finite. A finite result is still a numerical estimate without a
+guaranteed error bound. Downstream likelihood code should check for non-finite
+values and validate accuracy independently.
 
 Performance and reproducibility
 -------------------------------

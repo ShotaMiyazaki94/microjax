@@ -32,7 +32,7 @@ Highlights
   sampling grid.
 - GPU-oriented trajectory batching and forward-mode Jacobians.
 - A differentiable CPU binary-lens backend with fixed Cartesian and polar
-  full-solve routes and explicit fail-closed diagnostics.
+  full-solve routes and fail-closed behavior.
 - Parallax and binary orbital-motion trajectory utilities.
 
 Quick peek
@@ -89,8 +89,7 @@ accelerator path and the production CPU one-shot path use bounded work; they do
 not automatically retry a difficult calculation with increasingly expensive
 settings. A returned finite value is a numerical estimate, not a value with a
 guaranteed error bound. If microJAX cannot construct valid image boundaries or
-integration regions, the ordinary magnification API returns ``NaN``. CPU
-callers can request structured diagnostics with ``return_info=True``. Validate
+integration regions, the magnification API returns ``NaN``. Validate
 magnifications and derivatives over the parameter region used in an analysis.
 
 Citing microJAX

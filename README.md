@@ -56,25 +56,11 @@ from microjax.inverse_ray import mag_binary
 w = jnp.asarray([0.10 + 0.20j, 0.60 - 0.20j])
 rho, s, q = 0.01, 1.0, 0.3
 
-# Accelerator-oriented backend (default)
-mu_accelerator = mag_binary(w, rho, s=s, q=q)
-
-# Binary-lens CPU backend with diagnostics
-cpu = mag_binary(
-    w,
-    rho,
-    s=s,
-    q=q,
-    backend="cpu",
-    return_info=True,
-)
-mu_cpu = cpu.magnification
-valid_cpu = cpu.status == 0
+mu = mag_binary(w, rho, s=s, q=q, backend="cpu")
 ```
 
 The first call includes JAX compilation. The CPU backend has a distinct
-execution and diagnostic contract; read the CPU guide before using it in an
-inference pipeline.
+execution model; read the CPU guide before using it in an inference pipeline.
 
 ## Documentation
 
@@ -94,9 +80,9 @@ Runnable workflows and their recorded outputs are grouped under
 
 microJAX is research software. Returned finite-source values are numerical
 estimates without guaranteed error bounds, and difficult configurations may
-return `NaN` or a non-zero CPU status. Validate magnifications and derivatives
-over the parameter region used in an analysis. The documentation describes
-backend-specific failure handling and reproducibility requirements.
+return `NaN`. Validate magnifications and derivatives over the parameter region
+used in an analysis. The documentation describes backend-specific failure
+handling and reproducibility requirements.
 
 ## Citation
 
