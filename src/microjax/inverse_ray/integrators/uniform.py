@@ -56,6 +56,7 @@ def mag_uniform_boundary(
     radial_chunk_size: int = SEQUENTIAL_RADIAL_CHUNK_SIZE,
     fixed_radial_order: int = 31,
     _planetary_local_chart: bool = False,
+    _radial_interval_capacity: int = RADIAL_INTERVAL_CAPACITY,
 ) -> Union[Array, BoundaryMagnificationResult]:
     """Integrate a uniform binary source from exact angular boundary roots.
 
@@ -69,10 +70,15 @@ def mag_uniform_boundary(
 
     if radial_strategy not in ("adaptive", "fixed"):
         raise ValueError("radial_strategy must be 'adaptive' or 'fixed'")
-    if fixed_radial_order not in (31, 47):
-        raise ValueError("fixed_radial_order must be 31 or 47")
+    if fixed_radial_order not in (19, 31, 47):
+        raise ValueError("fixed_radial_order must be 19, 31, or 47")
     if radial_chunk_size <= 0:
         raise ValueError("radial_chunk_size must be positive")
+    if not 1 <= _radial_interval_capacity <= RADIAL_INTERVAL_CAPACITY:
+        raise ValueError(
+            "_radial_interval_capacity must be between 1 and "
+            f"{RADIAL_INTERVAL_CAPACITY}"
+        )
     if _planetary_local_chart and (radial_strategy != "fixed" or certify_topology):
         raise ValueError("the planetary chart requires fixed, uncertified radial integration")
 
@@ -118,6 +124,7 @@ def mag_uniform_boundary(
             w_center_shifted=w_center_shifted,
             origin_inside=origin_inside,
             jacobian_radial_margin=jacobian_radial_margin,
+            interval_capacity=_radial_interval_capacity,
         )
     else:
         topology = define_radial_topology(
@@ -128,6 +135,7 @@ def mag_uniform_boundary(
             origin_inside=origin_inside,
             track_roots=track_limb_roots,
             binary_margin_parameters=((shifted, a, e1) if jacobian_radial_margin else None),
+            interval_capacity=_radial_interval_capacity,
         )
 
     real_dtype, complex_dtype = integration_dtypes(w_center)
@@ -262,10 +270,10 @@ def mag_uniform_boundary(
         radial_error = radial.error
         status = jnp.bitwise_and(radial.status, jnp.bitwise_not(jnp.int32(RADIAL_TOLERANCE)))
     # Fourier coefficient roundoff is correlated across all radial nodes and
-    # must not be accumulated once per G15/K31 evaluation. Near a tangency the
+    # must not be accumulated once per radial-node evaluation. Near a tangency the
     # worst local root sensitivity scales as sqrt(eps), so retain one global
     # x64 roundoff floor while the node-wise propagation carries measured root
-    # residuals and embedded radial disagreement. This is an empirical
+    # residuals and the rule-specific radial diagnostic. This is an empirical
     # numerical certificate, not a formal interval-arithmetic bound.
     small_source_weight = jnp.minimum(
         1.0,

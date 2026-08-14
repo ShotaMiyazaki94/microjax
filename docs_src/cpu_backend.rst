@@ -106,6 +106,6 @@ Examples
 The repository includes two CPU workflows:
 
 - `CPU/VBM value comparison
-  <https://github.com/ShotaMiyazaki94/microjax/tree/main/example/cpu/compare-binary-vbbl>`_
+  <https://github.com/ShotaMiyazaki94/microjax/tree/main/example/cpu/compare-binary-vbml>`_
 - `CPU forward Jacobian
   <https://github.com/ShotaMiyazaki94/microjax/tree/main/example/cpu/jacobian-binary>`_

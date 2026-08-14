@@ -11,6 +11,8 @@ __pycache__
 .ruff_cache/
 example/cpu/cpu-icrs-benchmark/
 benchmark/
+benchmark_cpu
+benchmark_gpu/outputs/
 .pytest_cache/
 docs/.doctrees/
 docs/.buildinfo.bak

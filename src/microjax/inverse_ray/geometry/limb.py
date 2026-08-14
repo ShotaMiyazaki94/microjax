@@ -7,7 +7,9 @@ topology construction, and area integration belong to higher layers.
 
 import jax.numpy as jnp
 from microjax.point_source import lens_eq, _images_point_source
+from microjax.poly_solver import poly_roots
 from microjax.lens_geometry import triple_lens_geometry
+from .coefficients import binary_quintic_coefficients
 from .lens import binary_geometry
 from typing import Tuple
 
@@ -40,7 +42,10 @@ def _polish_binary_limb_images(
     polished = image
     for _ in range(2):
         residual = lens_eq(polished, nlenses=2, a=a, e1=e1) - w_limb_shift[None, :]
-        shear = e1 / (jnp.conjugate(polished) - a) ** 2 + (1.0 - e1) / (jnp.conjugate(polished) + a) ** 2
+        shear = (
+            e1 / (jnp.conjugate(polished) - a) ** 2
+            + (1.0 - e1) / (jnp.conjugate(polished) + a) ** 2
+        )
         shear_abs = jnp.abs(shear)
         determinant = (1.0 - shear_abs) * (1.0 + shear_abs)
         step = (-residual + shear * jnp.conjugate(residual)) / jnp.where(
@@ -53,7 +58,9 @@ def _polish_binary_limb_images(
             step,
             0.0 + 0.0j,
         )
-        candidate_residual = lens_eq(candidate, nlenses=2, a=a, e1=e1) - w_limb_shift[None, :]
+        candidate_residual = (
+            lens_eq(candidate, nlenses=2, a=a, e1=e1) - w_limb_shift[None, :]
+        )
         improves = (
             jnp.isfinite(candidate.real)
             & jnp.isfinite(candidate.imag)
@@ -61,7 +68,9 @@ def _polish_binary_limb_images(
         )
         polished = jnp.where(improves, candidate, polished)
 
-    final_residual = jnp.abs(lens_eq(polished, nlenses=2, a=a, e1=e1) - w_limb_shift[None, :])
+    final_residual = jnp.abs(
+        lens_eq(polished, nlenses=2, a=a, e1=e1) - w_limb_shift[None, :]
+    )
     polished_mask = jnp.isfinite(final_residual) & (final_residual < 1.0e-6)
     return (
         jnp.where(needs_repair, polished, image),
@@ -97,15 +106,23 @@ def _polish_triple_limb_images(
         residual = lens_eq(polished, nlenses=3, **lens_params) - w_limb_shift[None, :]
         shear = jnp.sum(
             lens_masses[:, None, None]
-            / (jnp.conjugate(polished)[None, :, :] - jnp.conjugate(lens_positions)[:, None, None]) ** 2,
+            / (
+                jnp.conjugate(polished)[None, :, :]
+                - jnp.conjugate(lens_positions)[:, None, None]
+            )
+            ** 2,
             axis=0,
         )
         shear_abs = jnp.abs(shear)
         determinant = (1.0 - shear_abs) * (1.0 + shear_abs)
         nonsingular = jnp.abs(determinant) > determinant_floor
-        step = (-residual + shear * jnp.conjugate(residual)) / jnp.where(nonsingular, determinant, 1.0)
+        step = (-residual + shear * jnp.conjugate(residual)) / jnp.where(
+            nonsingular, determinant, 1.0
+        )
         candidate = polished + jnp.where(mask & nonsingular, step, 0.0 + 0.0j)
-        candidate_residual = lens_eq(candidate, nlenses=3, **lens_params) - w_limb_shift[None, :]
+        candidate_residual = (
+            lens_eq(candidate, nlenses=3, **lens_params) - w_limb_shift[None, :]
+        )
         improves = (
             jnp.isfinite(candidate.real)
             & jnp.isfinite(candidate.imag)
@@ -113,7 +130,9 @@ def _polish_triple_limb_images(
         )
         polished = jnp.where(improves, candidate, polished)
 
-    final_residual = jnp.abs(lens_eq(polished, nlenses=3, **lens_params) - w_limb_shift[None, :])
+    final_residual = jnp.abs(
+        lens_eq(polished, nlenses=3, **lens_params) - w_limb_shift[None, :]
+    )
     polished_mask = mask & jnp.isfinite(final_residual) & (final_residual < 1.0e-6)
     return polished, polished_mask
 
@@ -164,10 +183,25 @@ def calc_source_limb(
         raise ValueError("Only 2 or 3 lenses are supported.")
 
     w_limb_shift = w_limb - shifted
-    image, mask = _images_point_source(w_limb_shift, nlenses=nlenses, **_params)
     if nlenses == 2:
-        image, mask = _polish_binary_limb_images(image, mask, w_limb_shift, _params["a"], _params["e1"])
+        # Construct the binary quintic at its physical low-q scale while
+        # retaining one independent batched solve per limb point.  This is the
+        # accelerator path: unlike the CPU continuation tracer, it exposes the
+        # complete limb dimension to XLA/GPU parallelism.
+        quintic = binary_quintic_coefficients(w_limb, s=s, q=q)
+        image_com = jnp.moveaxis(poly_roots(quintic.coefficients), -1, 0)
+        image_com = image_com + quintic.image_shift
+        image = image_com - shifted
+        residual = jnp.abs(
+            lens_eq(image, nlenses=2, a=_params["a"], e1=_params["e1"])
+            - w_limb_shift[None, :]
+        )
+        mask = jnp.isfinite(residual) & (residual < 1.0e-6)
+        image, mask = _polish_binary_limb_images(
+            image, mask, w_limb_shift, _params["a"], _params["e1"]
+        )
     else:
+        image, mask = _images_point_source(w_limb_shift, nlenses=nlenses, **_params)
         image, mask = _polish_triple_limb_images(
             image, mask, w_limb_shift, geometry.a, geometry.e1, geometry.e2, r3, psi
         )

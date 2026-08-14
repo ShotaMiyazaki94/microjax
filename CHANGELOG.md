@@ -52,8 +52,12 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 - User-configurable source tiling and radial-region scheduling through
   `BinaryMagConfig` and `TripleMagConfig`.
 - Parallax and binary orbital-motion trajectory utilities.
-- A triple-lens Jacobian example and binary-lens VBBinaryLensing comparison
-  records.
+- Forward-mode binary- and triple-lens Jacobian examples for uniform and
+  linearly limb-darkened sources, including compile-plus-first and compiled
+  GPU timing figures.
+- Combined uniform/limb-darkened GPU comparisons against VBMicrolensing, with
+  benchmark JSON, residual figures, and maximum-residual image-boundary
+  diagnostics.
 
 ### Changed
 
@@ -65,9 +69,24 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
   the public functions return `NaN`.
 - Public binary- and triple-lens configuration contains `n_limb` plus advanced
   static scheduler controls; numerical accuracy settings remain internal.
-- A100 measurements set the binary radial scheduler default to 64 regions;
-  the triple-lens default remains 8 because it was faster for the measured
-  trajectory with 888 full solves out of 1000 positions.
+- The public binary accelerator default now uses the A100 dense-benchmark fast
+  route: 64 source-limb samples, 512 source points per outer tile, a 40-cell
+  local radial kernel, one fixed 19-point radial rule, and no retry or
+  mass-ratio chart branch. The matching GPU benchmark defaults to the fast
+  chart and 128 configurations per launch.
+- The public triple accelerator default now uses 128 source-limb samples, a
+  100-point outer tile, and an eight-cell radial chunk. On the checked
+  1,000-point VBMicrolensing trajectory this kept uniform and limb-darkened
+  maximum relative errors below `1e-3`; wider binary-style source or radial
+  batches reduced triple forward-Jacobian throughput.
+- Accelerator examples now read their limb counts from the public
+  configuration defaults. Their source files and generated products use a
+  consistent `code/` and `outputs/` layout, with separate `uniform/` and
+  `limb_dark/` Jacobian outputs.
+- Active binary-lens and FSPL numerical comparisons now use VBMicrolensing
+  consistently, including the explicit limb-darkened APIs. VBBinaryLensing is
+  retained only for historical fixture provenance and orbital-motion
+  compatibility tests.
 - The finite-source point-lens FFTLog implementation is now imported from
   `microjax.fspl`; the former `microjax.fastlens` package name has been
   removed.
@@ -105,6 +124,10 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
   `microjax.contour` backend. Use `microjax.inverse_ray` for binary- and
   triple-lens finite-source calculations. The paper-era implementation remains
   available from the `v0.1.1` tag and distribution.
+- Reverse-mode comparison code and reverse-Jacobian artifacts from the GPU
+  Jacobian examples. The examples now benchmark only the supported production
+  forward-mode path; their `ad_benchmark.png` figures compare magnification
+  with the forward Jacobian, not forward mode with reverse mode.
 
 ## 0.1.1 — paper version
 

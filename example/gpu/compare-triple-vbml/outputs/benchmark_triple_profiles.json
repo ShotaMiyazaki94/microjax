@@ -1,0 +1,64 @@
+{
+  "platform": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+  "device": "cuda:0",
+  "jax_version": "0.10.2",
+  "vbmicrolensing_version": "5.5",
+  "parameters": {
+    "t0": 0.0,
+    "tE": 10.0,
+    "u0": 0.1,
+    "alpha": 0.8726646259971648,
+    "rho": 0.01,
+    "s": 1.1,
+    "q": 0.1,
+    "q3": 0.01,
+    "r3": 1.236931687685298,
+    "psi": 1.3258176636680326,
+    "limb_dark_u1": 0.5
+  },
+  "configuration": {
+    "points": 1000,
+    "n_limb": 128,
+    "repeats": 3,
+    "rtol": 0.001,
+    "vbmicrolensing_accuracy": 0.0001,
+    "diagnostic_n_limb": 80,
+    "quick": false
+  },
+  "profiles": {
+    "uniform": {
+      "u1": 0.0,
+      "microjax_warmup_seconds": 10.061436271294951,
+      "microjax_seconds": 0.941325125284493,
+      "vbmicrolensing_seconds": 1.2065957076847553,
+      "microjax_ms_per_point": 0.941325125284493,
+      "vbmicrolensing_ms_per_point": 1.2065957076847553,
+      "gpu_over_vbmicrolensing": 0.7801495722960345,
+      "nonfinite_pairs": 0,
+      "finite_residuals_above_rtol": 0,
+      "finite_relative_error": {
+        "median": 1.1324267090378613e-06,
+        "p95": 5.938615473548585e-06,
+        "p99": 2.6574918470527854e-05,
+        "maximum": 0.0009902866529137484
+      }
+    },
+    "limb_dark": {
+      "u1": 0.5,
+      "microjax_warmup_seconds": 9.462801304645836,
+      "microjax_seconds": 0.9790726527571678,
+      "vbmicrolensing_seconds": 10.891527455300093,
+      "microjax_ms_per_point": 0.9790726527571678,
+      "vbmicrolensing_ms_per_point": 10.891527455300093,
+      "gpu_over_vbmicrolensing": 0.08989305281333394,
+      "nonfinite_pairs": 0,
+      "finite_residuals_above_rtol": 0,
+      "finite_relative_error": {
+        "median": 2.5328576139887614e-05,
+        "p95": 4.8985330487694516e-05,
+        "p99": 5.7875313648842986e-05,
+        "maximum": 0.0005919438573542153
+      }
+    }
+  }
+}

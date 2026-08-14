@@ -6,10 +6,9 @@ but stays fully differentiable and JIT-friendly. The main entry points are
 """
 
 import jax.numpy as jnp
-from microjax.fspl.fftlog_jax import fftlog, hankel
+from microjax.fspl.fftlog_jax import hankel
 from microjax.fspl.special import gamma, j1, j2, j1p5
 from microjax.fspl.special import ellipk, ellipe
-from jax import lax
 
 
 def fspl_point(u):
@@ -154,7 +153,7 @@ class fspl_ld1(fspl):
         ----------
         a1 : float, optional
             Linear LD coefficient in the ``I(r)=1 - a1*(1 - sqrt(1 - (r/R)^2))``
-            convention (default 0.5). Matches VBBinaryLensing ``u1``.
+            convention (default 0.5). Matches VBMicrolensing ``a1``.
         **kwargs :
             Forwarded to :class:`fspl`.
         """
@@ -191,7 +190,6 @@ class fspl_ld2(fspl):
         k = jnp.atleast_1d(k)
         x = k * rho
         nu = 2
-        a_base = jnp.ones(x.shape) * 1.0 / (2 + 2)
         small = 1e-6
         const = 2**nu * gamma(nu) * nu / 8.0  # limit of j2(x) ~ x^2/8
         a_small = jnp.where(x < small, const, 0.0)

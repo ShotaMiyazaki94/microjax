@@ -32,9 +32,14 @@ def make_trajectory(u0, tE, t0, alpha, n=100, span=3.0):
 
 def test_binary_config_has_the_a100_tuned_defaults():
     assert DEFAULT_BINARY_CONFIG == BinaryMagConfig()
-    assert DEFAULT_BINARY_CONFIG.n_limb == 500
-    assert DEFAULT_BINARY_CONFIG.source_tile_size == 100
-    assert DEFAULT_BINARY_CONFIG.radial_chunk_size == 64
+    assert DEFAULT_BINARY_CONFIG.n_limb == 64
+    assert DEFAULT_BINARY_CONFIG.source_tile_size == 512
+    assert DEFAULT_BINARY_CONFIG.radial_chunk_size == 40
+
+
+def test_binary_config_rejects_fewer_than_64_limbs():
+    with pytest.raises(ValueError, match="at least 64"):
+        BinaryMagConfig(n_limb=63)
 
 
 def test_chunked_active_map_skips_fully_inactive_chunks():
@@ -128,7 +133,16 @@ def test_small_q_public_path_matches_local_chart_value_and_forward_q():
         return _uniform_single_pass(point, rho, s, mass_ratio, True)
 
     public_value, public_forward = jax.jvp(public, (q,), (jnp.ones_like(q),))
-    local_value, local_forward = jax.jvp(local, (q,), (jnp.ones_like(q),))
+    # The public accelerator is JIT compiled.  The polynomial-root custom JVP
+    # performs its fixed polishing in the compiled graph, so compare it with
+    # the same transformed local graph instead of eager JVP execution.
+    local_value, local_forward = jax.jit(
+        lambda mass_ratio: jax.jvp(
+            local,
+            (mass_ratio,),
+            (jnp.ones_like(mass_ratio),),
+        )
+    )(q)
 
     assert np.isclose(float(public_value), float(local_value), rtol=5e-7, atol=1e-8)
     assert np.isclose(float(public_forward), float(local_forward), rtol=1e-3, atol=1e-3)
@@ -169,7 +183,11 @@ def test_binary_scheduler_config_reaches_source_and_radial_batches(monkeypatch, 
     def fake_boundary(w_center, rho, **kwargs):
         del rho
         radial_settings.append(
-            (kwargs["radial_chunk_size"], kwargs["parallel_regions"])
+            (
+                kwargs["radial_chunk_size"],
+                kwargs["parallel_regions"],
+                kwargs["fixed_radial_order"],
+            )
         )
         zero = jnp.asarray(0.0, dtype=w_center.real.dtype)
         return BoundaryMagnificationResult(w_center.real, zero, jnp.int32(0))
@@ -185,7 +203,7 @@ def test_binary_scheduler_config_reaches_source_and_radial_batches(monkeypatch, 
     monkeypatch.setattr(lightcurve_module, "_tiled_vmap_active_scalar", fake_tiled_map)
 
     points = jnp.arange(5, dtype=jnp.float64).astype(jnp.complex128)
-    config = BinaryMagConfig(n_limb=40, source_tile_size=3, radial_chunk_size=64)
+    config = BinaryMagConfig(n_limb=64, source_tile_size=3, radial_chunk_size=64)
     result = lightcurve_module._mag_binary_single_pass_impl.__wrapped__(
         points,
         1e-2,
@@ -197,7 +215,9 @@ def test_binary_scheduler_config_reaches_source_and_radial_batches(monkeypatch, 
 
     assert result.shape == points.shape
     assert tile_sizes and set(tile_sizes) == {3}
-    assert radial_settings and set(radial_settings) == {(64, False)}
+    assert radial_settings and set(radial_settings) == {
+        (64, False, 19),
+    }
 
 
 def test_far_field_uses_multipole_matches_internal():
@@ -321,19 +341,19 @@ def test_binary_grid_fp32_matches_baseline_on_small_case(u1):
     ],
 )
 @pytest.mark.gpu
-def test_binary_lightcurve_matches_vbbl(s, q, u0, tE, rho, alpha):
+def test_binary_lightcurve_matches_vbml(s, q, u0, tE, rho, alpha):
     if not has_cuda():
         pytest.skip("CUDA GPU not available")
-    VB = pytest.importorskip("VBBinaryLensing")
-    VBBL = VB.VBBinaryLensing()
-    VBBL.a1 = 0.0
-    VBBL.RelTol = 1e-5
+    vb = pytest.importorskip("VBMicrolensing")
+    vbml = vb.VBMicrolensing()
+    vbml.RelTol = 1e-5
+    vbml.Tol = 1e-5
 
     t0 = 0.0
     npts = 100
     t, w = make_trajectory(u0=u0, tE=tE, t0=t0, alpha=alpha, n=npts, span=1.0)
     params_vb = [jnp.log(s), jnp.log(q), u0, alpha - jnp.pi, jnp.log(rho), jnp.log(tE), t0]
-    mag_vb, _, _ = jnp.array(VBBL.BinaryLightCurve(params_vb, t))
+    mag_vb, _, _ = jnp.array(vbml.BinaryLightCurve(params_vb, t))
 
     mags = mag_binary(
         w,

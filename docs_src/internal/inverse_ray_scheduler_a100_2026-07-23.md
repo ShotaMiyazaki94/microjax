@@ -1,7 +1,8 @@
 # A100 inverse-ray scheduler sweep — 2026-07-23
 
-This is the internal measurement record used to select the public
-`BinaryMagConfig` and `TripleMagConfig` scheduler defaults.
+This is the historical scheduler measurement record used to select the
+triple scheduler and the original binary scheduler. A later dense binary audit
+selected the current 512/40 fast route documented in `benchmark_gpu/README.md`.
 
 ## Definitions
 
@@ -27,7 +28,7 @@ do not define a full-solve-count threshold.
 | Driver | 570.211.01 |
 | JAX | 0.10.2 |
 | Precision | `jax_enable_x64=True` |
-| Source-boundary samples | `n_limb=500` |
+| Source-boundary samples | `n_limb=500` (historical sweep workload) |
 | Timing | `block_until_ready`, compilation excluded |
 | Repeats | 7 for the binary-uniform 25-point grid; 5 for the other 100-position grids; 3–5 for 1000-position and JVP checks |
 | Source tiles tested | 8, 16, 32, 64, 100 |
@@ -103,7 +104,7 @@ binary lenses at the same count, tile 100 was faster.
 
 ## Default-selection benchmark trajectories
 
-### Binary VBBL-comparison benchmark trajectory
+### Binary VBML-comparison benchmark trajectory
 
 - Trajectory size: 1000.
 - Lens/source parameters: `s=0.85`, `q=0.03`, `rho=5e-3`, `u1=0`.
@@ -151,12 +152,18 @@ These peaks occupy less than 1% of the measured 40 GiB device. The current
 default decision therefore prioritizes measured execution time rather than
 the radial-8 memory reduction.
 
-## Default decision
+## Current default decision
 
-| Config | `source_tile_size` | `radial_chunk_size` | Measurement basis |
-|---|---:|---:|---|
-| `BinaryMagConfig` | 100 | 64 | Fastest primal and JVP at 544 full solves |
-| `TripleMagConfig` | 100 | 8 | Fastest primal and JVP at 888 full solves |
+| Config | `n_limb` | `source_tile_size` | `radial_chunk_size` | Measurement basis |
+|---|---:|---:|---:|---|
+| `BinaryMagConfig` | 64 | 512 | 40 | Later 443,700-point dense fast-route audit |
+| `TripleMagConfig` | 128 | 100 | 8 | Scheduler sweep here plus the 1000-point VBML accuracy/Jacobian audit |
+
+The triple benchmark trajectory sends 888/1000 uniform and 885/1000
+limb-darkened points to full ICRS. At 128 limbs its maximum relative errors
+against VBMicrolensing were `9.903e-4` and `5.919e-4`, respectively. On the
+same A100, the 100/8 forward Jacobian took about 2.21 s; widening the source
+tile to 512 took 3.71 s and widening the radial chunk to 16 took 3.02 s.
 
 For a known full-solve count at or below 100, use the smallest candidate tile
 in `8, 16, 32, 64, 100` that is not smaller than the count, then benchmark the

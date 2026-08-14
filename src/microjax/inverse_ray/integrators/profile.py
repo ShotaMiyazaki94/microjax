@@ -20,7 +20,11 @@ from ..geometry.topology import (
     define_radial_topology,
 )
 from ..quadrature.angular import integrate_angular_profile
-from ..quadrature.radial import RadialIntegrand, adaptive_radial_integral, fixed_radial_integral
+from ..quadrature.radial import (
+    RadialIntegrand,
+    adaptive_radial_integral,
+    fixed_radial_integral,
+)
 from ..roots.angular import (
     ANGULAR_CAPACITY,
     ANGULAR_DEGENERATE,
@@ -29,7 +33,12 @@ from ..roots.angular import (
     angular_intervals_triple_roots,
 )
 from ..roots.level_set import binary_level_set, triple_level_set
-from .charts import _owned_angular_intervals, _planetary_mixed_topology, _triple_compact_mixed_topology
+from .charts import (
+    _owned_angular_intervals,
+    _planetary_mixed_topology,
+    _triple_compact_mixed_topology,
+)
+from .cartesian_gpu import cartesian_limb_dark_from_trace_gpu
 from .common import (
     Array,
     BoundaryMagnificationResult,
@@ -37,6 +46,12 @@ from .common import (
     integration_dtypes,
     unwrap_boundary_result,
 )
+
+
+def _binary_profile_limb_count(n_limb: int, deep_topology_sampling: bool) -> int:
+    """Keep topology density independent of the angular root iteration budget."""
+
+    return 4 * n_limb - 3 if deep_topology_sampling else 2 * n_limb - 1
 
 
 def mag_radial_profile_boundary(
@@ -62,12 +77,17 @@ def mag_radial_profile_boundary(
     jacobian_radial_margin: bool = True,
     max_radial_subdivisions: int = 8,
     robust_roots: bool = True,
+    deep_topology_sampling: bool = True,
     radial_strategy: str = "adaptive",
     certify_topology: bool = True,
     radial_chunk_size: int = SEQUENTIAL_RADIAL_CHUNK_SIZE,
+    fixed_radial_order: int = 31,
     angular_profile_subdivisions: int = 1,
     _planetary_local_chart: bool = False,
+    _planetary_cartesian_chart: bool = False,
+    _linear_limb_u1: Optional[float] = None,
     _compact_local_chart: bool = False,
+    _radial_interval_capacity: int = RADIAL_INTERVAL_CAPACITY,
 ) -> Union[Array, BoundaryMagnificationResult]:
     """Integrate an axisymmetric profile over boundary-root intervals.
 
@@ -75,20 +95,45 @@ def mag_radial_profile_boundary(
     intensity_flux is its positive unlensed disk flux. Binary calls support
     adaptive/fixed radial strategies. Optional binary planetary and generic
     triple compact-image charts retain one fixed-shape integration graph.
+    ``deep_topology_sampling`` increases only the source-limb support trace;
+    it is independent of the angular root solver selected by ``robust_roots``.
 
     With return_info=True, return magnification, error, and status bits.
     """
 
     if radial_strategy not in ("adaptive", "fixed"):
         raise ValueError("radial_strategy must be 'adaptive' or 'fixed'")
+    if fixed_radial_order not in (19, 31, 47):
+        raise ValueError("fixed_radial_order must be 19, 31, or 47")
     if radial_chunk_size <= 0:
         raise ValueError("radial_chunk_size must be positive")
-    if _planetary_local_chart and (nlenses != 2 or radial_strategy != "fixed" or certify_topology):
+    if not 1 <= _radial_interval_capacity <= RADIAL_INTERVAL_CAPACITY:
         raise ValueError(
-            "the single-pass planetary chart requires binary fixed, " "uncertified radial-profile integration"
+            "_radial_interval_capacity must be between 1 and "
+            f"{RADIAL_INTERVAL_CAPACITY}"
         )
-    if _compact_local_chart and (nlenses != 3 or radial_strategy != "fixed" or certify_topology):
-        raise ValueError("the compact-image chart requires triple fixed, uncertified radial-profile integration")
+    if _planetary_local_chart and (
+        nlenses != 2 or radial_strategy != "fixed" or certify_topology
+    ):
+        raise ValueError(
+            "the single-pass planetary chart requires binary fixed, "
+            "uncertified radial-profile integration"
+        )
+    if _planetary_cartesian_chart and (
+        nlenses != 2 or radial_strategy != "fixed" or certify_topology
+    ):
+        raise ValueError(
+            "the single-pass Cartesian chart requires binary fixed, "
+            "uncertified integration"
+        )
+    if _planetary_cartesian_chart and _linear_limb_u1 is None:
+        raise ValueError("the Cartesian chart requires a linear limb coefficient")
+    if _compact_local_chart and (
+        nlenses != 3 or radial_strategy != "fixed" or certify_topology
+    ):
+        raise ValueError(
+            "the compact-image chart requires triple fixed, uncertified radial-profile integration"
+        )
 
     if nlenses == 2:
         binary_lens = binary_geometry(s, q)
@@ -125,19 +170,39 @@ def mag_radial_profile_boundary(
             else None
         )
     else:
-        raise NotImplementedError("mag_radial_profile_boundary supports binary and triple lenses")
+        raise NotImplementedError(
+            "mag_radial_profile_boundary supports binary and triple lenses"
+        )
 
     w_center_shifted = w_center - shifted
     if nlenses == 2:
-        nested_limb_count = 4 * Nlimb - 3 if robust_roots else 2 * Nlimb - 1
+        nested_limb_count = _binary_profile_limb_count(Nlimb, deep_topology_sampling)
         nested_image_limb, nested_mask_limb = calc_source_limb(
             w_center, rho, nested_limb_count, nlenses=2, **lens_params
         )
+        if _planetary_cartesian_chart:
+            cartesian = cartesian_limb_dark_from_trace_gpu(
+                nested_image_limb,
+                nested_mask_limb,
+                jnp.asarray(w_center),
+                jnp.asarray(rho),
+                s=jnp.asarray(s),
+                q=jnp.asarray(q),
+                u1=jnp.asarray(_linear_limb_u1),
+            )
+            result = BoundaryMagnificationResult(
+                cartesian.magnification,
+                jnp.asarray(jnp.nan, dtype=cartesian.magnification.dtype),
+                cartesian.status,
+            )
+            return unwrap_boundary_result(result, return_info, RADIAL_TOPOLOGY)
         if certify_topology:
             image_limb = nested_image_limb[:, ::2]
             mask_limb = nested_mask_limb[:, ::2]
     else:
-        image_limb, mask_limb = calc_source_limb(w_center, rho, Nlimb, nlenses=nlenses, **lens_params)
+        image_limb, mask_limb = calc_source_limb(
+            w_center, rho, Nlimb, nlenses=nlenses, **lens_params
+        )
     if nlenses == 2:
         origin_inside = (
             binary_level_set(
@@ -194,6 +259,7 @@ def mag_radial_profile_boundary(
                 w_center_shifted=w_center_shifted,
                 origin_inside=origin_inside,
                 jacobian_radial_margin=jacobian_radial_margin,
+                interval_capacity=_radial_interval_capacity,
             )
         else:
             topology = define_radial_topology(
@@ -205,6 +271,7 @@ def mag_radial_profile_boundary(
                 track_roots=track_limb_roots,
                 binary_margin_parameters=binary_margin_parameters,
                 lens_margin_parameters=lens_margin_parameters,
+                interval_capacity=_radial_interval_capacity,
             )
 
     if nlenses == 3:
@@ -217,8 +284,12 @@ def mag_radial_profile_boundary(
     rho_grid = jnp.asarray(rho, dtype=real_dtype)
     intensity_flux_grid = jnp.asarray(intensity_flux, dtype=real_dtype)
     valid_flux = jnp.isfinite(intensity_flux_grid) & (intensity_flux_grid > 0.0)
-    safe_intensity_flux_grid = jnp.where(valid_flux, intensity_flux_grid, jnp.asarray(1.0, dtype=real_dtype))
-    shifted_grid = jnp.asarray(shifted, dtype=real_dtype if nlenses == 2 else complex_dtype)
+    safe_intensity_flux_grid = jnp.where(
+        valid_flux, intensity_flux_grid, jnp.asarray(1.0, dtype=real_dtype)
+    )
+    shifted_grid = jnp.asarray(
+        shifted, dtype=real_dtype if nlenses == 2 else complex_dtype
+    )
     a_grid = jnp.asarray(a, dtype=real_dtype)
     e1_grid = jnp.asarray(e1, dtype=real_dtype)
     if nlenses == 3:
@@ -233,12 +304,16 @@ def mag_radial_profile_boundary(
     normalization = rho_grid**2 * safe_intensity_flux_grid
     cell_tolerance = 64.0 * jnp.finfo(real_dtype).eps
     if endpoint_value_bound is None:
-        endpoint_intensity = jnp.abs(radial_intensity(jnp.asarray(1.0, dtype=real_dtype)))
+        endpoint_intensity = jnp.abs(
+            radial_intensity(jnp.asarray(1.0, dtype=real_dtype))
+        )
     else:
         endpoint_intensity = jnp.asarray(endpoint_value_bound, dtype=real_dtype)
 
     def radial_integrand(r, interval_parameter=0.0 + 0.0j):
-        chart_center = interval_parameter[0] if _compact_local_chart else interval_parameter
+        chart_center = (
+            interval_parameter[0] if _compact_local_chart else interval_parameter
+        )
         if nlenses == 2:
             intervals = angular_intervals_binary_roots(
                 r,
@@ -334,7 +409,8 @@ def mag_radial_profile_boundary(
     def integrate_topology(selected_topology, selected_centers=None):
         quadrature_chunk_size = (
             selected_topology.intervals.shape[0]
-            if parallel_regions and selected_topology.intervals.shape[0] <= RADIAL_INTERVAL_CAPACITY
+            if parallel_regions
+            and selected_topology.intervals.shape[0] <= RADIAL_INTERVAL_CAPACITY
             else radial_chunk_size
         )
         if radial_strategy == "fixed":
@@ -347,6 +423,7 @@ def mag_radial_profile_boundary(
                 initial_status=flux_status,
                 chunk_size=quadrature_chunk_size,
                 subdivisions=max_radial_subdivisions,
+                single_cell_order=fixed_radial_order,
                 interval_parameters=selected_centers,
             )
         else:
@@ -360,7 +437,9 @@ def mag_radial_profile_boundary(
                 chunk_size=quadrature_chunk_size,
                 max_subdivisions=max_radial_subdivisions,
             )
-        return integrated._replace(status=jnp.bitwise_or(integrated.status, selected_topology.status))
+        return integrated._replace(
+            status=jnp.bitwise_or(integrated.status, selected_topology.status)
+        )
 
     if nlenses != 2 or certify_topology:
         radial = integrate_topology(topology, interval_parameters)
@@ -368,8 +447,14 @@ def mag_radial_profile_boundary(
         estimated_error = radial.error / normalization
         status = radial.status
     if nlenses == 2:
-        retry_breakpoint_capacity = RADIAL_RETRY_BREAKPOINT_CAPACITY if robust_roots else RADIAL_INTERVAL_CAPACITY
-        retry_interval_capacity = RADIAL_RETRY_INTERVAL_CAPACITY if robust_roots else RADIAL_INTERVAL_CAPACITY
+        retry_breakpoint_capacity = (
+            RADIAL_RETRY_BREAKPOINT_CAPACITY
+            if robust_roots
+            else RADIAL_INTERVAL_CAPACITY
+        )
+        retry_interval_capacity = (
+            RADIAL_RETRY_INTERVAL_CAPACITY if robust_roots else RADIAL_INTERVAL_CAPACITY
+        )
         nested_centers = None
         if _planetary_local_chart:
             nested_topology, nested_centers = _planetary_mixed_topology(
@@ -381,6 +466,7 @@ def mag_radial_profile_boundary(
                 w_center_shifted=w_center_shifted,
                 origin_inside=origin_inside,
                 jacobian_radial_margin=jacobian_radial_margin,
+                interval_capacity=_radial_interval_capacity,
             )
         else:
             nested_topology = define_radial_topology(
@@ -399,7 +485,9 @@ def mag_radial_profile_boundary(
             coarse_magnification = magnification
             magnification = nested_radial.value / normalization
             topology_error = jnp.abs(nested_radial.value - radial.value) / normalization
-            estimated_error = jnp.maximum(nested_radial.error / normalization, topology_error)
+            estimated_error = jnp.maximum(
+                nested_radial.error / normalization, topology_error
+            )
             coarse_status = jnp.bitwise_and(
                 radial.status,
                 jnp.bitwise_not(jnp.int32(RADIAL_CAPACITY | RADIAL_TOLERANCE)),
@@ -410,7 +498,9 @@ def mag_radial_profile_boundary(
             topology_error = jnp.asarray(0.0, dtype=real_dtype)
             estimated_error = nested_radial.error / normalization
             status = nested_radial.status
-        tolerance = angular_atol_grid + (relative_tolerance_grid * jnp.abs(magnification))
+        tolerance = angular_atol_grid + (
+            relative_tolerance_grid * jnp.abs(magnification)
+        )
         if certify_topology:
             status = jnp.bitwise_or(
                 status,
@@ -423,7 +513,9 @@ def mag_radial_profile_boundary(
                     jnp.int32(RADIAL_TOPOLOGY),
                 ),
             )
-        tolerance_failed = (status == RADIAL_OK) & ~(jnp.isfinite(estimated_error) & (estimated_error <= tolerance))
+        tolerance_failed = (status == RADIAL_OK) & ~(
+            jnp.isfinite(estimated_error) & (estimated_error <= tolerance)
+        )
         status = jnp.bitwise_or(
             status,
             jnp.where(

@@ -1,0 +1,45 @@
+{
+  "device": "cuda:0",
+  "device_kind": "NVIDIA A100-PCIE-40GB",
+  "platform": "Linux-6.8.0-111-generic-x86_64-with-glibc2.35",
+  "jax_version": "0.10.2",
+  "api": "microjax.inverse_ray.mag_triple",
+  "automatic_differentiation": "jax.jacfwd",
+  "parameter_names": [
+    "t0",
+    "tE",
+    "u0",
+    "q",
+    "s",
+    "alpha",
+    "rho",
+    "q3",
+    "r3",
+    "psi"
+  ],
+  "config": {
+    "n_points": 1000,
+    "n_limb": 128,
+    "repeats": 3
+  },
+  "warmup_seconds": {
+    "value": 10.581117687746882,
+    "forward": 21.793012897484004
+  },
+  "run_seconds": {
+    "value": [
+      0.9454298056662083,
+      0.9410905325785279,
+      0.9409939032047987
+    ],
+    "forward": [
+      2.213759120553732,
+      2.211600534617901,
+      2.20984076987952
+    ]
+  },
+  "median_seconds": {
+    "value": 0.9410905325785279,
+    "forward": 2.211600534617901
+  }
+}

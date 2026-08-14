@@ -42,14 +42,39 @@ class _BoundaryMagConfig:
 
 @dataclass(frozen=True)
 class BinaryMagConfig(_BoundaryMagConfig):
-    """Static configuration for ``mag_binary``."""
+    """Static configuration for the accelerator ``mag_binary`` fast path.
 
-    radial_chunk_size: int = 64
+    The defaults expose at least 512 independent source points to the GPU and
+    retain 64 source-limb samples. The 40-lane radial buffer covers the audited
+    local-chart topology in one parallel launch without paying for the complete
+    64-slot general-purpose buffer. Every fast radial cell uses one externally
+    audited 19-point rule across the full binary mass-ratio range.
+    """
+
+    n_limb: int = 64
+    source_tile_size: int = 512
+    radial_chunk_size: int = 40
+
+    def __post_init__(self) -> None:
+        """Retain the validated 64-limb minimum of the binary GPU path."""
+
+        super().__post_init__()
+        if self.n_limb < 64:
+            raise ValueError("binary n_limb must be at least 64")
 
 
 @dataclass(frozen=True)
 class TripleMagConfig(_BoundaryMagConfig):
-    """Static configuration for ``mag_triple``."""
+    """Static configuration for the accelerator ``mag_triple`` path.
+
+    The A100 triple-lens audit selected 128 source-limb samples. The smaller
+    100-point outer tile and eight-cell radial chunk retain substantially more
+    throughput for the ten-direction forward Jacobian than the wider binary
+    scheduler while keeping the audited comparison track below ``1e-3``
+    relative error.
+    """
+
+    n_limb: int = 128
 
 
 DEFAULT_BINARY_CONFIG = BinaryMagConfig()

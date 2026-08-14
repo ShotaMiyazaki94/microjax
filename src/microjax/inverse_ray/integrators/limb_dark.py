@@ -30,12 +30,16 @@ def mag_limb_dark_boundary(
     jacobian_radial_margin: bool = True,
     max_radial_subdivisions: int = 8,
     robust_roots: bool = True,
+    deep_topology_sampling: bool = True,
     radial_strategy: str = "adaptive",
     certify_topology: bool = True,
     radial_chunk_size: int = SEQUENTIAL_RADIAL_CHUNK_SIZE,
+    fixed_radial_order: int = 31,
     angular_profile_subdivisions: int = 1,
     _planetary_local_chart: bool = False,
+    _planetary_cartesian_chart: bool = False,
     _compact_local_chart: bool = False,
+    _radial_interval_capacity: int = 64,
 ) -> Union[Array, BoundaryMagnificationResult]:
     """Linear limb-darkening through the generic radial-profile backend."""
 
@@ -64,11 +68,16 @@ def mag_limb_dark_boundary(
         jacobian_radial_margin=jacobian_radial_margin,
         max_radial_subdivisions=max_radial_subdivisions,
         robust_roots=robust_roots,
+        deep_topology_sampling=deep_topology_sampling,
         radial_strategy=radial_strategy,
         certify_topology=certify_topology,
         radial_chunk_size=radial_chunk_size,
+        fixed_radial_order=fixed_radial_order,
         angular_profile_subdivisions=angular_profile_subdivisions,
         _planetary_local_chart=_planetary_local_chart,
+        _planetary_cartesian_chart=_planetary_cartesian_chart,
+        _linear_limb_u1=u1_array,
         _compact_local_chart=_compact_local_chart,
+        _radial_interval_capacity=_radial_interval_capacity,
         return_info=return_info,
     )

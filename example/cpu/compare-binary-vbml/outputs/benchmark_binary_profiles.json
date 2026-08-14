@@ -1,0 +1,102 @@
+{
+  "configuration": {
+    "s": 0.9,
+    "q": 0.01,
+    "rho": 0.005,
+    "u1": 0.5,
+    "rtol": 0.001,
+    "alpha_deg": 40.0,
+    "t_e": 30.0,
+    "u0": 0.0,
+    "half_span_te": 0.5,
+    "points": 1000,
+    "n_limb": 64,
+    "repeats": 3
+  },
+  "reference": "VBMicrolensing",
+  "vbml_timing_tolerance": 0.0001,
+  "vbml_residual_tolerance": 1e-06,
+  "vbmicrolensing_version": "5.5",
+  "point_source_seconds": 0.006460418924689293,
+  "profiles": {
+    "uniform": {
+      "u1": 0.0,
+      "hexadecapole_seconds": 0.054761131294071674,
+      "microjax_seconds": 0.8124877931550145,
+      "vbml_seconds": 0.12636581528931856,
+      "vbml_residual_seconds": 0.4116245023906231,
+      "microjax_ms_per_point": 0.8124877931550145,
+      "vbml_ms_per_point": 0.12636581528931856,
+      "vbml_residual_ms_per_point": 0.4116245023906231,
+      "cpu_over_vbml": 6.429648645836675,
+      "tier_counts": {
+        "-1": 589,
+        "5": 266,
+        "6": 29,
+        "7": 64,
+        "8": 49,
+        "9": 3
+      },
+      "status_counts": {
+        "0": 964,
+        "4194304": 36
+      },
+      "nonzero_status": 36,
+      "structurally_valid_residuals_above_rtol": 0,
+      "vbml_reference_above_rtol": 0,
+      "relative_error_reference": "VBMicrolensing Tol=RelTol=1.0e-06",
+      "vbml_reference_relative_error": "VBML (1.0e-04) vs VBML (1.0e-06)",
+      "status_zero_relative_error": {
+        "median": 7.0956603630929386e-09,
+        "p95": 1.1113106423800505e-07,
+        "p99": 7.209714182512544e-07,
+        "maximum": 6.085044249243305e-06
+      },
+      "status_zero_vbml_reference_relative_error": {
+        "median": 1.1396934257251642e-06,
+        "p95": 8.294652316642323e-06,
+        "p99": 1.6151861916978885e-05,
+        "maximum": 2.554418759657104e-05
+      }
+    },
+    "limb_dark": {
+      "u1": 0.5,
+      "hexadecapole_seconds": 0.052654627710580826,
+      "microjax_seconds": 0.8406962370499969,
+      "vbml_seconds": 0.8871501395478845,
+      "vbml_residual_seconds": 11.59699289035052,
+      "microjax_ms_per_point": 0.8406962370499969,
+      "vbml_ms_per_point": 0.8871501395478845,
+      "vbml_residual_ms_per_point": 11.59699289035052,
+      "cpu_over_vbml": 0.9476369326599421,
+      "tier_counts": {
+        "-1": 589,
+        "5": 266,
+        "6": 29,
+        "7": 64,
+        "8": 49,
+        "9": 3
+      },
+      "status_counts": {
+        "0": 1000
+      },
+      "nonzero_status": 0,
+      "structurally_valid_residuals_above_rtol": 0,
+      "vbml_reference_above_rtol": 0,
+      "relative_error_reference": "VBMicrolensing Tol=RelTol=1.0e-06",
+      "vbml_reference_relative_error": "VBML (1.0e-04) vs VBML (1.0e-06)",
+      "status_zero_relative_error": {
+        "median": 2.987732597420972e-07,
+        "p95": 2.1762191129768097e-06,
+        "p99": 6.6190136003349175e-06,
+        "maximum": 3.741958120412373e-05
+      },
+      "status_zero_vbml_reference_relative_error": {
+        "median": 6.229256800425981e-06,
+        "p95": 3.83844589177277e-05,
+        "p99": 4.9567760255175696e-05,
+        "maximum": 6.427066297018364e-05
+      }
+    }
+  }
+}

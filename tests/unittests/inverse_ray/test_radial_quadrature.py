@@ -93,6 +93,26 @@ def test_fixed_radial_quadrature_carries_interval_parameters():
     assert np.all(np.asarray(jacobian[2:]) == 0.0)
 
 
+def test_fixed_g19_fast_rule_integrates_smooth_cell_once():
+    intervals = _padded_intervals((0.0, 1.0))
+
+    def integrand(radius):
+        return RadialIntegrand(radius**2, jnp.asarray(0.0), jnp.int32(RADIAL_OK))
+
+    result = fixed_radial_integral(
+        integrand,
+        intervals,
+        jnp.int32(1),
+        jnp.asarray(1e-12),
+        chunk_size=4,
+        subdivisions=1,
+        single_cell_order=19,
+    )
+
+    assert int(result.status) == RADIAL_OK
+    assert np.isclose(float(result.value), 1.0 / 3.0, atol=1e-13)
+
+
 def test_radial_quadrature_propagates_topology_status():
     intervals = _padded_intervals((0.0, 1.0))
 

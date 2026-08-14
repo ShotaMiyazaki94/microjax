@@ -1,0 +1,79 @@
+{
+  "configuration": {
+    "s": 0.9,
+    "q": 0.01,
+    "rho": 0.005,
+    "u1": 0.5,
+    "rtol": 0.001,
+    "alpha_deg": 40.0,
+    "t_e": 30.0,
+    "u0": 0.0,
+    "half_span_te": 0.5,
+    "points": 1000,
+    "n_limb": 64,
+    "repeats": 3
+  },
+  "reference": "VBMicrolensing",
+  "vbml_timing_tolerance": 0.0001,
+  "vbml_residual_tolerance": 1e-06,
+  "vbmicrolensing_version": "5.5",
+  "point_source_seconds": 0.004320462234318256,
+  "profiles": {
+    "uniform": {
+      "u1": 0.0,
+      "hexadecapole_seconds": 0.0910999933257699,
+      "microjax_seconds": 0.0755939930677414,
+      "vbml_seconds": 0.122413813136518,
+      "vbml_residual_seconds": 0.389987263828516,
+      "microjax_ms_per_point": 0.0755939930677414,
+      "vbml_ms_per_point": 0.122413813136518,
+      "vbml_residual_ms_per_point": 0.389987263828516,
+      "gpu_over_vbml": 0.6175282930157372,
+      "nonfinite": 0,
+      "finite_residuals_above_rtol": 0,
+      "vbml_reference_above_rtol": 0,
+      "relative_error_reference": "VBMicrolensing Tol=RelTol=1.0e-06",
+      "vbml_reference_relative_error": "VBML (1.0e-04) vs VBML (1.0e-06)",
+      "finite_relative_error": {
+        "median": 6.9815895053249346e-09,
+        "p95": 1.4424832861878153e-07,
+        "p99": 6.008600938089712e-07,
+        "maximum": 0.0007433661548109986
+      },
+      "finite_vbml_reference_relative_error": {
+        "median": 1.1403170562079777e-06,
+        "p95": 1.0349750159328294e-05,
+        "p99": 1.7326952965661227e-05,
+        "maximum": 2.554418760864601e-05
+      }
+    },
+    "limb_dark": {
+      "u1": 0.5,
+      "hexadecapole_seconds": 0.08970976434648037,
+      "microjax_seconds": 0.08673642203211784,
+      "vbml_seconds": 0.8280272763222456,
+      "vbml_residual_seconds": 11.03179522510618,
+      "microjax_ms_per_point": 0.08673642203211784,
+      "vbml_ms_per_point": 0.8280272763222456,
+      "vbml_residual_ms_per_point": 11.03179522510618,
+      "gpu_over_vbml": 0.10475068214825618,
+      "nonfinite": 0,
+      "finite_residuals_above_rtol": 0,
+      "vbml_reference_above_rtol": 0,
+      "relative_error_reference": "VBMicrolensing Tol=RelTol=1.0e-06",
+      "vbml_reference_relative_error": "VBML (1.0e-04) vs VBML (1.0e-06)",
+      "finite_relative_error": {
+        "median": 3.197887554459954e-07,
+        "p95": 1.7867043852472926e-06,
+        "p99": 6.696368774464978e-06,
+        "maximum": 0.000511498990234744
+      },
+      "finite_vbml_reference_relative_error": {
+        "median": 6.229256801220092e-06,
+        "p95": 3.8384458916255505e-05,
+        "p99": 4.956776022882831e-05,
+        "maximum": 6.42706623408762e-05
+      }
+    }
+  }
+}

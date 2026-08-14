@@ -73,12 +73,11 @@ Construct a source trajectory and pass the circular-source radius ``rho`` to
        + 1j * (u0 * jnp.cos(alpha) + tau * jnp.sin(alpha))
    )
 
-   config = BinaryMagConfig(n_limb=500)
-   mu = mag_binary(w, rho, s=0.95, q=5e-4, config=config)
+   mu = mag_binary(w, rho, s=0.95, q=5e-4)
 
 Set ``u1`` to a non-zero value for the normalized linear limb-darkening law::
 
-   mu_ld = mag_binary(w, rho, s=0.95, q=5e-4, u1=0.5, config=config)
+   mu_ld = mag_binary(w, rho, s=0.95, q=5e-4, u1=0.5)
 
 For the binary-lens CPU one-shot backend, select ``backend="cpu"``:
 
@@ -130,10 +129,14 @@ source-boundary sampling and static scheduling:
    is recommended for normal use.
 
 ``source_tile_size``
-   Number of full-solve source positions in an outer vectorized tile.
+   Number of full-solve source positions in an outer vectorized tile. The
+   binary default is 512 so ordinary GPU calls expose at least 500 positions
+   concurrently when available.
 
 ``radial_chunk_size``
-   Number of radial image regions in an inner vectorized chunk.
+   Number of local-chart radial image regions in an inner vectorized chunk.
+   The binary fast path uses this local chart across the full mass-ratio range
+   with one fixed 19-point radial rule and no comparison retries.
 
 Both scheduler sizes must be positive integers.
 

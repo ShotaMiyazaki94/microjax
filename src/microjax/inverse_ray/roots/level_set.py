@@ -123,23 +123,37 @@ def binary_level_set_fourier_raw(
     midpoint_offset = chart_center - shifted
     conjugate_offset = jnp.conjugate(midpoint_offset)
     source_offset = midpoint_offset - jnp.asarray(w_center_shifted, dtype=complex_dtype)
+    # Form the lens factors before multiplying them.  Near the low-mass lens,
+    # ``conjugate_offset**2 - a**2`` subtracts two O(a**2) values to recover
+    # an O(sqrt(q)) planetary scale.  The factored form retains that scale
+    # directly, matching the q-aware construction used by the limb quintic.
+    plus_offset = conjugate_offset - a
+    minus_offset = conjugate_offset + a
     denominator = jnp.asarray(
         [
             r**2,
-            2.0 * r * conjugate_offset,
-            conjugate_offset**2 - a**2,
+            r * (plus_offset + minus_offset),
+            plus_offset * minus_offset,
+        ],
+        dtype=complex_dtype,
+    )
+    deflection = jnp.asarray(
+        [
+            r,
+            e1 * minus_offset + (1.0 - e1) * plus_offset,
         ],
         dtype=complex_dtype,
     )
     numerator = jnp.asarray(
         [
-            source_offset * r**2,
-            r**3 + 2.0 * source_offset * r * conjugate_offset - r,
-            source_offset * (conjugate_offset**2 - a**2)
-            + 2.0 * r**2 * conjugate_offset
-            - conjugate_offset
-            + a * (1.0 - 2.0 * e1),
-            r * (conjugate_offset**2 - a**2),
+            source_offset * denominator[0],
+            source_offset * denominator[1]
+            + r * denominator[0]
+            - deflection[0],
+            source_offset * denominator[2]
+            + r * denominator[1]
+            - deflection[1],
+            r * denominator[2],
         ],
         dtype=complex_dtype,
     )

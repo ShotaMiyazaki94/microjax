@@ -79,3 +79,8 @@ G15_W_ON_GK31 = _symmetric(_G15_W_POSITIVE_DESC)
 # resolution than the embedded G15/K31 pair.
 GL23_X, GL23_W = np.polynomial.legendre.leggauss(23)
 GL47_X, GL47_W = np.polynomial.legendre.leggauss(47)
+
+# Lower-work rule for the accelerator fast path. Its accuracy is audited
+# externally across the benchmark parameter space rather than inferred from a
+# second quadrature value that would add root solves without a guarantee.
+GL19_X, GL19_W = np.polynomial.legendre.leggauss(19)

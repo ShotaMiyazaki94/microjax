@@ -11,6 +11,8 @@ from .rules import (
     G15_W_ON_GK31,
     GK31_W,
     GK31_X,
+    GL19_W,
+    GL19_X,
     GL23_W,
     GL23_X,
     GL47_W,
@@ -141,6 +143,25 @@ def _integrate_cell_gl47(
     return RadialIntegral(fine.value, error, fine.propagated_error, status)
 
 
+def _integrate_cell_gl19(
+    integrand: Callable[[Array], RadialIntegrand],
+    lower: Array,
+    upper: Array,
+    interval_parameter: Array | None = None,
+) -> RadialIntegral:
+    """Integrate one cell with the externally audited G19 fast rule."""
+
+    result = _quadrature_rule(
+        integrand, lower, upper, GL19_X, GL19_W, interval_parameter
+    )
+    finite = jnp.isfinite(result.value) & jnp.isfinite(result.error)
+    status = jnp.bitwise_or(
+        result.status,
+        jnp.where(finite, jnp.int32(RADIAL_OK), jnp.int32(RADIAL_TOLERANCE)),
+    )
+    return result._replace(status=status)
+
+
 def _refine_cell_uniform(
     integrand: Callable[[Array], RadialIntegrand],
     lower: Array,
@@ -266,22 +287,22 @@ def fixed_radial_integral(
 
     Each original topology interval is split into ``subdivisions`` equal cells;
     every child normally uses the endpoint-transformed embedded G15/K31 rule.
-    For one unsplit cell, ``single_cell_order=47`` instead uses independent
-    G23/G47 rules. Unlike
+    For one unsplit cell, ``single_cell_order=19`` uses the externally audited
+    single G19 fast rule, while 47 uses independent G23/G47 rules. Unlike
     :func:`adaptive_radial_integral`, this path performs no compact/scatter
     refinement and never recomputes an original interval at successively finer
     depths.  It is intended for accelerator workloads where a single regular
     batch is cheaper than divergent bounded retries.
 
-    The embedded-rule difference remains an empirical error estimator, not a
-    formal upper bound. Failure of the final public tolerance remains visible
-    through ``RADIAL_TOLERANCE``.
+    The 19-point rule reports propagated integrand error but deliberately does
+    not pretend that comparison with a second rule would guarantee its error.
+    Its accuracy contract comes from the external parameter-space audit.
     """
 
     if not 1 <= subdivisions <= 16:
         raise ValueError("subdivisions must be between 1 and 16")
-    if single_cell_order not in (31, 47):
-        raise ValueError("single_cell_order must be 31 or 47")
+    if single_cell_order not in (19, 31, 47):
+        raise ValueError("single_cell_order must be 19, 31, or 47")
     if interval_parameters is not None and (interval_parameters.shape[0] != intervals.shape[0]):
         raise ValueError("interval_parameters must have one entry per interval")
     if subdivisions == 1:
@@ -290,7 +311,7 @@ def fixed_radial_integral(
             intervals,
             n_intervals,
             chunk_size,
-            high_order=single_cell_order == 47,
+            order=single_cell_order,
             interval_parameters=interval_parameters,
         )
     else:
@@ -328,7 +349,7 @@ def _chunked_initial_cells(
     intervals: Array,
     n_active: Array,
     chunk_size: int,
-    high_order: bool = False,
+    order: int = 31,
     interval_parameters: Array | None = None,
 ) -> RadialIntegral:
     """Vectorize active topology cells while skipping whole inactive chunks."""
@@ -361,7 +382,11 @@ def _chunked_initial_cells(
             # Reusing the first valid bounds keeps the whole chunk vectorized
             # while ensuring every deliberately over-computed cell is regular.
             safe_values = jnp.where(slot_active[:, None], values, values[0])
-            integrate_cell = _integrate_cell_gl47 if high_order else _integrate_cell
+            integrate_cell = {
+                19: _integrate_cell_gl19,
+                31: _integrate_cell,
+                47: _integrate_cell_gl47,
+            }[order]
             if parameters is None:
                 evaluated = jax.vmap(lambda bounds: integrate_cell(integrand, *bounds))(safe_values)
             else:

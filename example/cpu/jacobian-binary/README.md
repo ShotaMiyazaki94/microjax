@@ -2,10 +2,11 @@ CPU Binary-lens Jacobian Example
 ================================
 
 This is the CPU-backend counterpart of
-[`example/gpu/jacobian-binary`](../../gpu/jacobian-binary). It preserves the
-same trajectories and differentiates every light-curve sample with respect to
-`t0, tE, u0, q, s, alpha, rho`. The only model-level change is the finite-source
-call: this version uses
+[`example/gpu/jacobian-binary`](../../gpu/jacobian-binary). It differentiates
+every light-curve sample with respect to `t0, tE, u0, q, s, alpha, rho`. Its
+checked-in trajectories and point count differ from the current GPU example,
+so the bundled timings are not a direct backend speed ratio. The finite-source
+call in this version uses
 `mag_binary(..., backend="cpu", return_info=True)`.
 
 The CPU ICRS scheduler has data-dependent sequential loops, so this example

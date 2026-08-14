@@ -24,7 +24,7 @@ PARAMS = {"s": 0.9, "q": 0.3, "q3": 0.2, "r3": 0.4, "psi": 0.7}
 
 def test_triple_config_has_the_one_pass_defaults():
     assert DEFAULT_TRIPLE_CONFIG == TripleMagConfig()
-    assert DEFAULT_TRIPLE_CONFIG.n_limb == 500
+    assert DEFAULT_TRIPLE_CONFIG.n_limb == 128
     assert DEFAULT_TRIPLE_CONFIG.source_tile_size == 100
     assert DEFAULT_TRIPLE_CONFIG.radial_chunk_size == 8
     assert [field.name for field in fields(TripleMagConfig)] == [

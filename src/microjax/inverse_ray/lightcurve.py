@@ -68,10 +68,7 @@ _PARALLEL_REGIONS = False
 # radial-error threshold. Keep it as an internal diagnostic setting rather
 # than presenting it as a user-controlled accuracy knob.
 _BOUNDARY_RELATIVE_TOLERANCE = 1.0e-4
-# Match the existing planetary prefilter regime so HMC sees no additional
-# parameter-space branch boundary. Both kernels stay in one compiled graph;
-# scalar lax.cond executes only the selected source-vmap at runtime.
-_PLANETARY_LOCAL_Q_MAX = 1.0e-2
+_FAST_RADIAL_INTERVAL_CAPACITY = 40
 
 
 def _tiled_vmap_active_scalar(func, data, n_active, tile_size):
@@ -175,7 +172,12 @@ def _binary_prefilter(
     )
     accepted = lax.cond(
         q < 0.01,
-        lambda _: test1 & _planetary_caustic_test(w_points_shifted, rho, s=s, q=q, a=lens.a, e1=lens.e1),
+        lambda _: (
+            test1
+            & _planetary_caustic_test(
+                w_points_shifted, rho, s=s, q=q, a=lens.a, e1=lens.e1
+            )
+        ),
         lambda _: test1,
         operand=None,
     )
@@ -314,7 +316,13 @@ def _validated_magnification(result):
 
     structural_failure = (
         result.status
-        & (ANGULAR_CAPACITY | ANGULAR_DEGENERATE | ANGULAR_ROOT_FAILURE | RADIAL_CAPACITY | RADIAL_TOPOLOGY)
+        & (
+            ANGULAR_CAPACITY
+            | ANGULAR_DEGENERATE
+            | ANGULAR_ROOT_FAILURE
+            | RADIAL_CAPACITY
+            | RADIAL_TOPOLOGY
+        )
     ) != 0
     valid = jnp.isfinite(result.magnification) & ~structural_failure
     return jnp.where(valid, result.magnification, jnp.nan)
@@ -369,7 +377,7 @@ def _mag_binary_single_pass_impl(
 
     multipole, accepted, _, _ = _binary_prefilter(w_points, rho, u1, s, q)
 
-    def make_boundary(use_local_chart):
+    def make_boundary():
         if u1 == 0.0:
 
             def boundary(w):
@@ -382,13 +390,14 @@ def _mag_binary_single_pass_impl(
                     relative_tolerance=_BOUNDARY_RELATIVE_TOLERANCE,
                     parallel_regions=_PARALLEL_REGIONS,
                     max_radial_subdivisions=1,
-                    fixed_radial_order=31,
+                    fixed_radial_order=19,
                     robust_roots=False,
                     certify_topology=False,
                     radial_strategy="fixed",
                     radial_chunk_size=config.radial_chunk_size,
                     return_info=True,
-                    _planetary_local_chart=use_local_chart,
+                    _planetary_local_chart=True,
+                    _radial_interval_capacity=_FAST_RADIAL_INTERVAL_CAPACITY,
                     s=s,
                     q=q,
                 )
@@ -408,12 +417,15 @@ def _mag_binary_single_pass_impl(
                     parallel_regions=_PARALLEL_REGIONS,
                     max_radial_subdivisions=1,
                     robust_roots=False,
+                    deep_topology_sampling=False,
                     radial_strategy="fixed",
                     certify_topology=False,
+                    fixed_radial_order=19,
                     radial_chunk_size=config.radial_chunk_size,
                     angular_profile_subdivisions=1,
                     return_info=True,
-                    _planetary_local_chart=use_local_chart,
+                    _planetary_local_chart=True,
+                    _radial_interval_capacity=_FAST_RADIAL_INTERVAL_CAPACITY,
                     s=s,
                     q=q,
                 )
@@ -427,15 +439,12 @@ def _mag_binary_single_pass_impl(
     tile_size = min(config.source_tile_size, w_points.shape[0])
 
     def solve(boundary):
-        full_values = _tiled_vmap_active_scalar(boundary, full_points, n_active, tile_size)
+        full_values = _tiled_vmap_active_scalar(
+            boundary, full_points, n_active, tile_size
+        )
         return _scatter_full_values(multipole, indices, full_values)
 
-    return lax.cond(
-        q < _PLANETARY_LOCAL_Q_MAX,
-        lambda _: solve(make_boundary(True)),
-        lambda _: solve(make_boundary(False)),
-        operand=None,
-    )
+    return solve(make_boundary())
 
 
 @partial(
