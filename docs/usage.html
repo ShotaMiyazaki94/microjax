@@ -14,12 +14,12 @@
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Performance Tuning" href="performance.html" />
+    <link rel="next" title="CPU Binary-Lens Backend" href="cpu_backend.html" />
     <link rel="prev" title="Getting Started" href="getting_started.html" /> 
 </head>
 
@@ -53,13 +53,14 @@
 <li class="toctree-l2"><a class="reference internal" href="#finite-source-binary-lenses">Finite-source binary lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#triple-lenses">Triple lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#boundary-integration-in-outline">Boundary integration in outline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#accelerator-boundary-integration-in-outline">Accelerator boundary integration in outline</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#differentiation">Differentiation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#failure-behavior">Failure behavior</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#performance-and-reproducibility">Performance and reproducibility</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpu_backend.html">CPU Binary-Lens Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -163,6 +164,24 @@ separation and <code class="docutils literal notranslate"><span class="pre">rho<
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mu_ld</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">5e-4</span><span class="p">,</span> <span class="n">u1</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>For the binary-lens CPU one-shot backend, select <code class="docutils literal notranslate"><span class="pre">backend=&quot;cpu&quot;</span></code>. CPU
+diagnostics are available with <code class="docutils literal notranslate"><span class="pre">return_info=True</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cpu</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span>
+    <span class="n">w</span><span class="p">,</span>
+    <span class="n">rho</span><span class="p">,</span>
+    <span class="n">s</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span>
+    <span class="n">q</span><span class="o">=</span><span class="mf">5e-4</span><span class="p">,</span>
+    <span class="n">u1</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="n">return_info</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">mu_cpu</span> <span class="o">=</span> <span class="n">cpu</span><span class="o">.</span><span class="n">magnification</span>
+<span class="n">valid_cpu</span> <span class="o">=</span> <span class="n">cpu</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">0</span>
+</pre></div>
+</div>
+<p>The CPU path has fixed internal support and quadrature settings;
+<code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> does not tune it. See <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a> for backend
+selection, diagnostics, forward-mode differentiation, and validation.</p>
 </section>
 <section id="triple-lenses">
 <h2>Triple lenses<a class="headerlink" href="#triple-lenses" title="Link to this heading"></a></h2>
@@ -184,8 +203,8 @@ separation and <code class="docutils literal notranslate"><span class="pre">rho<
 </section>
 <section id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">TripleMagConfig</span></code> expose source-boundary sampling
-and static accelerator scheduling:</p>
+<p>For the accelerator backend, <code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">TripleMagConfig</span></code> expose
+source-boundary sampling and static scheduling:</p>
 <dl class="simple">
 <dt><code class="docutils literal notranslate"><span class="pre">n_limb</span></code></dt><dd><p>Number of points placed on the circular source boundary before those points
 are mapped into the image plane. Larger values follow rapid changes of the
@@ -202,13 +221,15 @@ evaluates the complete fixed-capacity region buffer together.</p>
 <p>Both scheduler sizes must be positive integers.</p>
 <p>The A100-tuned binary defaults are <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">/</span> <span class="pre">64</span></code> for source tile and radial
 chunk. The triple defaults are <code class="docutils literal notranslate"><span class="pre">100</span> <span class="pre">/</span> <span class="pre">8</span></code>. These settings produce separately
-compiled JAX executables. See <a class="reference internal" href="performance.html"><span class="doc">Performance Tuning</span></a> for measured results and
+compiled JAX executables. See <a class="reference internal" href="performance.html"><span class="doc">Accelerator Performance Tuning</span></a> for measured results and
 recommendations indexed by the measured full-solve count.</p>
 </section>
-<section id="boundary-integration-in-outline">
-<h2>Boundary integration in outline<a class="headerlink" href="#boundary-integration-in-outline" title="Link to this heading"></a></h2>
-<p>The solver first tries a fast approximation. Source positions that require the
-full finite-source calculation then follow this sequence:</p>
+<section id="accelerator-boundary-integration-in-outline">
+<h2>Accelerator boundary integration in outline<a class="headerlink" href="#accelerator-boundary-integration-in-outline" title="Link to this heading"></a></h2>
+<p>The accelerator solver first tries a fast approximation. Source positions that
+require the full finite-source calculation then follow this sequence. The CPU
+solver uses a different fixed-chart calculation described in
+<a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a>.</p>
 <ol class="arabic simple">
 <li><p>Sample the circumference of the source and map those points through the
 lens equation.</p></li>
@@ -232,7 +253,8 @@ one cell, the pattern of boundary crossings is expected to stay unchanged.</p>
 <section id="differentiation">
 <h2>Differentiation<a class="headerlink" href="#differentiation" title="Link to this heading"></a></h2>
 <p>Forward-mode differentiation is the recommended route for full light-curve
-Jacobians.</p>
+Jacobians. This example uses the accelerator backend; CPU-specific guidance is
+given in <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">forward_model</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 
@@ -247,10 +269,12 @@ independent calculations over the intended parameter range.</p>
 </section>
 <section id="failure-behavior">
 <h2>Failure behavior<a class="headerlink" href="#failure-behavior" title="Link to this heading"></a></h2>
-<p>The public finite-source functions return <code class="docutils literal notranslate"><span class="pre">NaN</span></code> if they cannot construct a
-valid image boundary or integration region, or if a calculation becomes
-non-finite. A finite result is still a numerical estimate without a guaranteed
-error bound. Downstream likelihood code should check for non-finite values
+<p>The public finite-source functions normally return <code class="docutils literal notranslate"><span class="pre">NaN</span></code> if they cannot
+construct a valid image boundary or integration region, or if a calculation
+becomes non-finite. For a CPU call with <code class="docutils literal notranslate"><span class="pre">return_info=True</span></code>, inspect
+<code class="docutils literal notranslate"><span class="pre">status</span></code> and treat a non-zero value as invalid even if the diagnostic
+magnification is finite. A finite result is still a numerical estimate without
+a guaranteed error bound. Downstream likelihood code should check validity
 explicitly and validate accuracy independently.</p>
 </section>
 <section id="performance-and-reproducibility">
@@ -258,10 +282,11 @@ explicitly and validate accuracy independently.</p>
 <ul class="simple">
 <li><p>The first call includes compilation. Warm up and call <code class="docutils literal notranslate"><span class="pre">block_until_ready</span></code>
 before timing.</p></li>
-<li><p>Finite-source calculations are intended for GPUs, although they also run on
-CPUs.</p></li>
-<li><p>Record microJAX, JAX, and JAXLIB versions; the accelerator model; precision;
-and the complete configuration object with reported results.</p></li>
+<li><p>The accelerator backend is intended for GPUs, although it also runs on CPUs.
+The binary-lens CPU backend is a distinct implementation; see
+<a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a>.</p></li>
+<li><p>Record microJAX, JAX, and JAXLIB versions; the platform and device model;
+precision; backend; and applicable configuration with reported results.</p></li>
 <li><p>Benchmark values committed under <code class="docutils literal notranslate"><span class="pre">example/</span></code> are records for their stated
 hardware and trajectories, not universal guarantees.</p></li>
 </ul>
@@ -273,13 +298,13 @@ hardware and trajectories, not universal guarantees.</p></li>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="getting_started.html" class="btn btn-neutral float-left" title="Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="performance.html" class="btn btn-neutral float-right" title="Performance Tuning" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="cpu_backend.html" class="btn btn-neutral float-right" title="CPU Binary-Lens Backend" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+    <p>&#169; Copyright 2025–2026, Shota Miyazaki.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

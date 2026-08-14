@@ -14,8 +14,8 @@
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -47,7 +47,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpu_backend.html">CPU Binary-Lens Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Accelerator Performance Tuning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -111,7 +112,7 @@ point lens. Construct the source profile once, then call its <code class="docuti
 method with the lens-source separation <code class="docutils literal notranslate"><span class="pre">u</span></code> and source radius <code class="docutils literal notranslate"><span class="pre">rho</span></code>.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fspl_disk">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fspl_disk</span></span><a class="headerlink" href="#fspl_disk" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">fspl_disk</span></span><a class="headerlink" href="#fspl_disk" title="Link to this definition"></a></dt>
 <dd><p>Uniform-brightness circular source.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fspl_disk.A">
@@ -123,7 +124,7 @@ method with the lens-source separation <code class="docutils literal notranslate
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fspl_ld1">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fspl_ld1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fspl_ld1" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">fspl_ld1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fspl_ld1" title="Link to this definition"></a></dt>
 <dd><p>Circular source with linear limb darkening. <code class="docutils literal notranslate"><span class="pre">a1</span></code> is the linear
 limb-darkening coefficient.</p>
 <dl class="py method">
@@ -136,7 +137,7 @@ limb-darkening coefficient.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fspl_ld2">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fspl_ld2</span></span><a class="headerlink" href="#fspl_ld2" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">fspl_ld2</span></span><a class="headerlink" href="#fspl_ld2" title="Link to this definition"></a></dt>
 <dd><p>Circular source with the quadratic radial profile implemented by the FSPL
 solver.</p>
 <dl class="py method">
@@ -166,7 +167,7 @@ solver.</p>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+    <p>&#169; Copyright 2025–2026, Shota Miyazaki.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

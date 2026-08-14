@@ -14,8 +14,8 @@
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -46,7 +46,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpu_backend.html">CPU Binary-Lens Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -80,10 +81,10 @@
              
   <section id="microjax">
 <h1>microJAX<a class="headerlink" href="#microjax" title="Link to this heading"></a></h1>
-<p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax">microJAX</a> is a
-differentiable, GPU-accelerated microlensing modelling library built with JAX.
-It provides point-source calculations and finite-source light curves for
-binary and triple lens systems.</p>
+<p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax">microJAX</a> is a differentiable
+microlensing modelling library built with JAX. It provides a GPU-oriented
+boundary integrator and a separate one-shot CPU backend for finite-source
+binary lenses, together with point-source and triple-lens calculations.</p>
 <p>For source positions far enough from caustics, the current finite-source API
 uses a fast approximation. Where a full calculation is needed, it traces the
 lensed images of the source circumference and integrates the brightness
@@ -107,6 +108,8 @@ reproducible work.</p>
 <li><p>Direct calculation of image-boundary crossing angles, without an angular
 sampling grid.</p></li>
 <li><p>GPU-oriented trajectory batching and forward-mode Jacobians.</p></li>
+<li><p>A differentiable CPU binary-lens backend with fixed Cartesian and polar
+full-solve routes and explicit fail-closed diagnostics.</p></li>
 <li><p>Parallax and binary orbital-motion trajectory utilities.</p></li>
 </ul>
 </section>
@@ -132,8 +135,9 @@ sampling grid.</p></li>
 <span class="n">mu_finite</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The first call includes JAX compilation time. Finite-source calculations run
-on CPUs but are intended primarily for GPU execution.</p>
+<p>The first call includes JAX compilation time. The example above uses the
+accelerator backend. For the CPU binary-lens path, pass <code class="docutils literal notranslate"><span class="pre">backend=&quot;cpu&quot;</span></code> and
+see <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a>.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
@@ -151,13 +155,25 @@ on CPUs but are intended primarily for GPU execution.</p>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#finite-source-binary-lenses">Finite-source binary lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#triple-lenses">Triple lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#configuration">Configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage.html#boundary-integration-in-outline">Boundary integration in outline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#accelerator-boundary-integration-in-outline">Accelerator boundary integration in outline</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#differentiation">Differentiation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#failure-behavior">Failure behavior</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#performance-and-reproducibility">Performance and reproducibility</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Tuning</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="cpu_backend.html">CPU Binary-Lens Backend</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#quick-start">Quick start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#backend-choices">Backend choices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#execution-model">Execution model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#diagnostics">Diagnostics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#status-handling">Status handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#accuracy-contract">Accuracy contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#forward-mode-differentiation">Forward-mode differentiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#compilation-and-performance">Compilation and performance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#examples">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="performance.html#recommended-a100-configurations">Recommended A100 configurations</a></li>
 <li class="toctree-l2"><a class="reference internal" href="performance.html#measurement-scope">Measurement scope</a></li>
 <li class="toctree-l2"><a class="reference internal" href="performance.html#benchmark-your-actual-trajectory">Benchmark your actual trajectory</a></li>
@@ -166,6 +182,7 @@ on CPUs but are intended primarily for GPU execution.</p>
 <li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#jax-cannot-see-my-gpu">JAX cannot see my GPU</a></li>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#mag-binary-is-slow-or-runs-out-of-memory">mag_binary is slow or runs out of memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#cpu-samples-return-nan-or-a-non-zero-status">CPU samples return NaN or a non-zero status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#gradient-computations-stall">Gradient computations stall</a></li>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#import-errors-for-optional-dependencies">Import errors for optional dependencies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#still-stuck">Still stuck?</a></li>
@@ -182,14 +199,14 @@ on CPUs but are intended primarily for GPU execution.</p>
 </section>
 <section id="accuracy-and-limitations">
 <h2>Accuracy and limitations<a class="headerlink" href="#accuracy-and-limitations" title="Link to this heading"></a></h2>
-<p>microJAX is research software under active development. The public
-<code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> and <code class="docutils literal notranslate"><span class="pre">mag_triple</span></code> functions use a fixed amount of work for
-each source position; they do not automatically repeat a difficult calculation
-with increasingly expensive settings. A returned finite value is a numerical
-estimate, not a value with a guaranteed error bound. If microJAX cannot
-construct valid image boundaries or integration regions, it returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.
-Validate magnifications and derivatives over the parameter region used in an
-analysis.</p>
+<p>microJAX is research software under active development. The default
+accelerator path and the production CPU one-shot path use bounded work; they do
+not automatically retry a difficult calculation with increasingly expensive
+settings. A returned finite value is a numerical estimate, not a value with a
+guaranteed error bound. If microJAX cannot construct valid image boundaries or
+integration regions, the ordinary magnification API returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code>. CPU
+callers can request structured diagnostics with <code class="docutils literal notranslate"><span class="pre">return_info=True</span></code>. Validate
+magnifications and derivatives over the parameter region used in an analysis.</p>
 </section>
 <section id="citing-microjax">
 <h2>Citing microJAX<a class="headerlink" href="#citing-microjax" title="Link to this heading"></a></h2>
@@ -224,7 +241,7 @@ release or Git commit.</p>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+    <p>&#169; Copyright 2025–2026, Shota Miyazaki.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

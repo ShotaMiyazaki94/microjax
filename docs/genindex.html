@@ -13,8 +13,8 @@
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="#" />
     <link rel="search" title="Search" href="search.html" /> 
@@ -44,7 +44,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpu_backend.html">CPU Binary-Lens Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a></li>
 <li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -136,13 +137,15 @@
 </li>
       <li><a href="api/trajectory.html#microjax.trajectory.circular_orbital_motion_3d_state">circular_orbital_motion_3d_state() (in module microjax.trajectory)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/trajectory.html#microjax.trajectory.circular_orbital_motion_3d_state_jit">circular_orbital_motion_3d_state_jit() (in module microjax.trajectory)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/trajectory.html#microjax.trajectory.compute_parallax">compute_parallax() (in module microjax.trajectory)</a>
 </li>
       <li><a href="api/trajectory.html#microjax.trajectory.compute_parallax_ephem">compute_parallax_ephem() (in module microjax.trajectory)</a>
+</li>
+      <li><a href="api/inverse_ray_lightcurve.html#microjax.inverse_ray.cpu.CpuMagnificationResult">CpuMagnificationResult (class in microjax.inverse_ray.cpu)</a>
 </li>
       <li><a href="api/point_source.html#microjax.point_source.critical_and_caustic_curves">critical_and_caustic_curves() (in module microjax.point_source)</a>
 </li>
@@ -158,15 +161,17 @@
 </li>
       <li><a href="api/trajectory.html#microjax.trajectory.EarthOrbitalParallaxProjector">EarthOrbitalParallaxProjector (class in microjax.trajectory)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/trajectory.html#microjax.trajectory.elliptic_orbital_motion_3d">elliptic_orbital_motion_3d() (in module microjax.trajectory)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/trajectory.html#microjax.trajectory.elliptic_orbital_motion_3d_jit">elliptic_orbital_motion_3d_jit() (in module microjax.trajectory)</a>
 </li>
       <li><a href="api/trajectory.html#microjax.trajectory.elliptic_orbital_motion_3d_state">elliptic_orbital_motion_3d_state() (in module microjax.trajectory)</a>
 </li>
       <li><a href="api/trajectory.html#microjax.trajectory.elliptic_orbital_motion_3d_state_jit">elliptic_orbital_motion_3d_state_jit() (in module microjax.trajectory)</a>
+</li>
+      <li><a href="api/inverse_ray_lightcurve.html#microjax.inverse_ray.cpu.CpuMagnificationResult.estimated_error">estimated_error (microjax.inverse_ray.cpu.CpuMagnificationResult attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -253,6 +258,8 @@
 </li>
       <li><a href="api/inverse_ray_lightcurve.html#microjax.inverse_ray.lightcurve.mag_triple">mag_triple() (in module microjax.inverse_ray.lightcurve)</a>
 </li>
+      <li><a href="api/inverse_ray_lightcurve.html#microjax.inverse_ray.cpu.CpuMagnificationResult.magnification">magnification (microjax.inverse_ray.cpu.CpuMagnificationResult attribute)</a>
+</li>
       <li><a href="api/utils.html#microjax.utils.match_points">match_points() (in module microjax.utils)</a>
 </li>
       <li><a href="api/utils.html#microjax.utils.max_zero_avoiding">max_zero_avoiding() (in module microjax.utils)</a>
@@ -337,10 +344,14 @@
 <h2 id="N">N</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/likelihood.html#microjax.likelihood.nll_ulens">nll_ulens() (in module microjax.likelihood)</a>
+      <li><a href="api/inverse_ray_lightcurve.html#microjax.inverse_ray.cpu.CpuMagnificationResult.n_limb">n_limb (microjax.inverse_ray.cpu.CpuMagnificationResult attribute)</a>
+</li>
+      <li><a href="api/inverse_ray_lightcurve.html#microjax.inverse_ray.cpu.CpuMagnificationResult.n_radial_nodes">n_radial_nodes (microjax.inverse_ray.cpu.CpuMagnificationResult attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/likelihood.html#microjax.likelihood.nll_ulens">nll_ulens() (in module microjax.likelihood)</a>
+</li>
       <li><a href="api/likelihood.html#microjax.likelihood.nll_ulens_general">nll_ulens_general() (in module microjax.likelihood)</a>
 </li>
   </ul></td>
@@ -385,11 +396,13 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/trajectory.html#microjax.trajectory.set_parallax">set_parallax() (in module microjax.trajectory)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/trajectory.html#microjax.trajectory.set_parallax_ephem">set_parallax_ephem() (in module microjax.trajectory)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/utils.html#microjax.utils.sparse_argsort">sparse_argsort() (in module microjax.utils)</a>
+</li>
+      <li><a href="api/inverse_ray_lightcurve.html#microjax.inverse_ray.cpu.CpuMagnificationResult.status">status (microjax.inverse_ray.cpu.CpuMagnificationResult attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -399,18 +412,20 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/trajectory.html#microjax.trajectory.HeliocentricEphemeris.t">t (microjax.trajectory.HeliocentricEphemeris attribute)</a>
 </li>
+      <li><a href="api/inverse_ray_lightcurve.html#microjax.inverse_ray.cpu.CpuMagnificationResult.tier">tier (microjax.inverse_ray.cpu.CpuMagnificationResult attribute)</a>
+</li>
       <li><a href="api/trajectory.html#microjax.trajectory.to_rotating_lens_frame">to_rotating_lens_frame() (in module microjax.trajectory)</a>
 </li>
       <li><a href="api/utils.html#microjax.utils.trapz_zero_avoiding">trapz_zero_avoiding() (in module microjax.utils)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/trajectory.html#microjax.trajectory.EarthOrbitalParallaxProjector.tree_flatten">tree_flatten() (microjax.trajectory.EarthOrbitalParallaxProjector method)</a>
 
       <ul>
         <li><a href="api/trajectory.html#microjax.trajectory.HeliocentricEphemeris.tree_flatten">(microjax.trajectory.HeliocentricEphemeris method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/trajectory.html#microjax.trajectory.EarthOrbitalParallaxProjector.tree_unflatten">tree_unflatten() (microjax.trajectory.EarthOrbitalParallaxProjector class method)</a>
 
       <ul>
@@ -439,7 +454,7 @@
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+    <p>&#169; Copyright 2025–2026, Shota Miyazaki.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

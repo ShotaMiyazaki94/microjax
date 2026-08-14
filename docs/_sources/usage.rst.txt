@@ -80,6 +80,27 @@ Set ``u1`` to a non-zero value for the normalized linear limb-darkening law::
 
    mu_ld = mag_binary(w, rho, s=0.95, q=5e-4, u1=0.5, config=config)
 
+For the binary-lens CPU one-shot backend, select ``backend="cpu"``. CPU
+diagnostics are available with ``return_info=True``:
+
+.. code-block:: python
+
+   cpu = mag_binary(
+       w,
+       rho,
+       s=0.95,
+       q=5e-4,
+       u1=0.5,
+       backend="cpu",
+       return_info=True,
+   )
+   mu_cpu = cpu.magnification
+   valid_cpu = cpu.status == 0
+
+The CPU path has fixed internal support and quadrature settings;
+``BinaryMagConfig`` does not tune it. See :doc:`cpu_backend` for backend
+selection, diagnostics, forward-mode differentiation, and validation.
+
 Triple lenses
 -------------
 
@@ -103,8 +124,8 @@ The triple-lens API uses the same trajectory and source profile.
 Configuration
 -------------
 
-``BinaryMagConfig`` and ``TripleMagConfig`` expose source-boundary sampling
-and static accelerator scheduling:
+For the accelerator backend, ``BinaryMagConfig`` and ``TripleMagConfig`` expose
+source-boundary sampling and static scheduling:
 
 ``n_limb``
    Number of points placed on the circular source boundary before those points
@@ -127,11 +148,13 @@ chunk. The triple defaults are ``100 / 8``. These settings produce separately
 compiled JAX executables. See :doc:`performance` for measured results and
 recommendations indexed by the measured full-solve count.
 
-Boundary integration in outline
--------------------------------
+Accelerator boundary integration in outline
+--------------------------------------------
 
-The solver first tries a fast approximation. Source positions that require the
-full finite-source calculation then follow this sequence:
+The accelerator solver first tries a fast approximation. Source positions that
+require the full finite-source calculation then follow this sequence. The CPU
+solver uses a different fixed-chart calculation described in
+:doc:`cpu_backend`.
 
 1. Sample the circumference of the source and map those points through the
    lens equation.
@@ -156,7 +179,8 @@ Differentiation
 ---------------
 
 Forward-mode differentiation is the recommended route for full light-curve
-Jacobians.
+Jacobians. This example uses the accelerator backend; CPU-specific guidance is
+given in :doc:`cpu_backend`.
 
 .. code-block:: python
 
@@ -174,10 +198,12 @@ independent calculations over the intended parameter range.
 Failure behavior
 ----------------
 
-The public finite-source functions return ``NaN`` if they cannot construct a
-valid image boundary or integration region, or if a calculation becomes
-non-finite. A finite result is still a numerical estimate without a guaranteed
-error bound. Downstream likelihood code should check for non-finite values
+The public finite-source functions normally return ``NaN`` if they cannot
+construct a valid image boundary or integration region, or if a calculation
+becomes non-finite. For a CPU call with ``return_info=True``, inspect
+``status`` and treat a non-zero value as invalid even if the diagnostic
+magnification is finite. A finite result is still a numerical estimate without
+a guaranteed error bound. Downstream likelihood code should check validity
 explicitly and validate accuracy independently.
 
 Performance and reproducibility
@@ -185,9 +211,10 @@ Performance and reproducibility
 
 - The first call includes compilation. Warm up and call ``block_until_ready``
   before timing.
-- Finite-source calculations are intended for GPUs, although they also run on
-  CPUs.
-- Record microJAX, JAX, and JAXLIB versions; the accelerator model; precision;
-  and the complete configuration object with reported results.
+- The accelerator backend is intended for GPUs, although it also runs on CPUs.
+  The binary-lens CPU backend is a distinct implementation; see
+  :doc:`cpu_backend`.
+- Record microJAX, JAX, and JAXLIB versions; the platform and device model;
+  precision; backend; and applicable configuration with reported results.
 - Benchmark values committed under ``example/`` are records for their stated
   hardware and trajectories, not universal guarantees.

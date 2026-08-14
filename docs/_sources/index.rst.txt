@@ -1,10 +1,10 @@
 microJAX
 ========
 
-`microJAX <https://github.com/ShotaMiyazaki94/microjax>`_ is a
-differentiable, GPU-accelerated microlensing modelling library built with JAX.
-It provides point-source calculations and finite-source light curves for
-binary and triple lens systems.
+`microJAX <https://github.com/ShotaMiyazaki94/microjax>`_ is a differentiable
+microlensing modelling library built with JAX. It provides a GPU-oriented
+boundary integrator and a separate one-shot CPU backend for finite-source
+binary lenses, together with point-source and triple-lens calculations.
 
 For source positions far enough from caustics, the current finite-source API
 uses a fast approximation. Where a full calculation is needed, it traces the
@@ -31,6 +31,8 @@ Highlights
 - Direct calculation of image-boundary crossing angles, without an angular
   sampling grid.
 - GPU-oriented trajectory batching and forward-mode Jacobians.
+- A differentiable CPU binary-lens backend with fixed Cartesian and polar
+  full-solve routes and explicit fail-closed diagnostics.
 - Parallax and binary orbital-motion trajectory utilities.
 
 Quick peek
@@ -58,8 +60,9 @@ Enable double precision before creating arrays or compiling functions.
    mu_point = mag_point_source(w, nlenses=2, s=s, q=q)
    mu_finite = mag_binary(w, rho, s=s, q=q, config=config)
 
-The first call includes JAX compilation time. Finite-source calculations run
-on CPUs but are intended primarily for GPU execution.
+The first call includes JAX compilation time. The example above uses the
+accelerator backend. For the CPU binary-lens path, pass ``backend="cpu"`` and
+see :doc:`cpu_backend`.
 
 .. toctree::
    :maxdepth: 2
@@ -67,6 +70,7 @@ on CPUs but are intended primarily for GPU execution.
 
    getting_started
    usage
+   cpu_backend
    performance
    troubleshooting
 
@@ -79,14 +83,14 @@ on CPUs but are intended primarily for GPU execution.
 Accuracy and limitations
 ------------------------
 
-microJAX is research software under active development. The public
-``mag_binary`` and ``mag_triple`` functions use a fixed amount of work for
-each source position; they do not automatically repeat a difficult calculation
-with increasingly expensive settings. A returned finite value is a numerical
-estimate, not a value with a guaranteed error bound. If microJAX cannot
-construct valid image boundaries or integration regions, it returns ``NaN``.
-Validate magnifications and derivatives over the parameter region used in an
-analysis.
+microJAX is research software under active development. The default
+accelerator path and the production CPU one-shot path use bounded work; they do
+not automatically retry a difficult calculation with increasingly expensive
+settings. A returned finite value is a numerical estimate, not a value with a
+guaranteed error bound. If microJAX cannot construct valid image boundaries or
+integration regions, the ordinary magnification API returns ``NaN``. CPU
+callers can request structured diagnostics with ``return_info=True``. Validate
+magnifications and derivatives over the parameter region used in an analysis.
 
 Citing microJAX
 ---------------

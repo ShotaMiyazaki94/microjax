@@ -14,13 +14,13 @@
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="API Reference" href="modules.html" />
-    <link rel="prev" title="Performance Tuning" href="performance.html" />
+    <link rel="prev" title="Accelerator Performance Tuning" href="performance.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,10 +47,12 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpu_backend.html">CPU Binary-Lens Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Troubleshooting</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#jax-cannot-see-my-gpu">JAX cannot see my GPU</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#mag-binary-is-slow-or-runs-out-of-memory">mag_binary is slow or runs out of memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cpu-samples-return-nan-or-a-non-zero-status">CPU samples return NaN or a non-zero status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#gradient-computations-stall">Gradient computations stall</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#import-errors-for-optional-dependencies">Import errors for optional dependencies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#still-stuck">Still stuck?</a></li>
@@ -104,15 +106,32 @@ or ROCm equivalents).</p></li>
 <section id="mag-binary-is-slow-or-runs-out-of-memory">
 <h2>mag_binary is slow or runs out of memory<a class="headerlink" href="#mag-binary-is-slow-or-runs-out-of-memory" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p>Finite-source calculations run on a CPU but are intended primarily for a
-GPU. A CPU run can be substantially slower.</p></li>
+<li><p>Check which backend is selected. The default <code class="docutils literal notranslate"><span class="pre">&quot;accelerator&quot;</span></code> backend is
+GPU-oriented; <code class="docutils literal notranslate"><span class="pre">backend=&quot;cpu&quot;</span></code> selects the separate binary one-shot CPU
+solver described in <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a>.</p></li>
 <li><p>The first call includes JAX compilation. Measure later calls only after
 waiting for the first result with <code class="docutils literal notranslate"><span class="pre">block_until_ready()</span></code>.</p></li>
 <li><p>Process a very long light curve in several user-level batches if the complete
 output and its derivatives do not fit in device memory.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">n_limb</span></code> controls how finely the source circumference is followed. Reducing
-it can lower cost, but it can also miss rapidly changing image geometry.
-Validate against the default before using a smaller value.</p></li>
+<li><p>On the accelerator backend, <code class="docutils literal notranslate"><span class="pre">n_limb</span></code> controls how finely the source
+circumference is followed. Reducing it can lower cost, but it can also miss
+rapidly changing image geometry. Validate against the default before using a
+smaller value. It does not configure the CPU backend.</p></li>
+</ul>
+</section>
+<section id="cpu-samples-return-nan-or-a-non-zero-status">
+<h2>CPU samples return NaN or a non-zero status<a class="headerlink" href="#cpu-samples-return-nan-or-a-non-zero-status" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Re-run with <code class="docutils literal notranslate"><span class="pre">backend=&quot;cpu&quot;,</span> <span class="pre">return_info=True</span></code> and retain the complete
+<code class="docutils literal notranslate"><span class="pre">CpuMagnificationResult</span></code>.</p></li>
+<li><p>Treat <code class="docutils literal notranslate"><span class="pre">status</span> <span class="pre">==</span> <span class="pre">0</span></code> as the validity condition. A finite best-effort
+magnification accompanying a non-zero status is diagnostic only.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">estimated_error=NaN</span></code> is expected for a structurally successful full
+one-shot solve; it is not itself a failure flag.</p></li>
+<li><p>Record the full <code class="docutils literal notranslate"><span class="pre">q,</span> <span class="pre">s,</span> <span class="pre">rho,</span> <span class="pre">x,</span> <span class="pre">y,</span> <span class="pre">u1</span></code> configuration when reporting the
+miss. The benchmark runner writes replayable microJAX and VBM miss files.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">cpu-adaptive</span></code> explicitly when comparing with the older adaptive
+research path. Do not silently add retries to the production one-shot path.</p></li>
 </ul>
 </section>
 <section id="gradient-computations-stall">
@@ -122,6 +141,9 @@ Validate against the default before using a smaller value.</p></li>
 the polynomial solver is numerically sensitive in single precision.</p></li>
 <li><p>Use <code class="docutils literal notranslate"><span class="pre">jax.jit</span></code> to compile the forward pass before taking gradients; this
 shortens trace lengths and avoids repeated recompilations.</p></li>
+<li><p>For <code class="docutils literal notranslate"><span class="pre">backend=&quot;cpu&quot;</span></code>, use forward mode (<code class="docutils literal notranslate"><span class="pre">jax.jvp</span></code> or <code class="docutils literal notranslate"><span class="pre">jax.jacfwd</span></code>).
+Reverse mode through the CPU scheduler’s data-dependent loops is not part of
+the API.</p></li>
 </ul>
 </section>
 <section id="import-errors-for-optional-dependencies">
@@ -139,7 +161,6 @@ scripts.</p>
 <li><p>JAX/JAXLIB versions and platform (CPU, CUDA, ROCm)</p></li>
 <li><p>A minimal code snippet reproducing the issue</p></li>
 </ul>
-<p>We are happy to help debug problems and improve the documentation.</p>
 </section>
 </section>
 
@@ -147,14 +168,14 @@ scripts.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="performance.html" class="btn btn-neutral float-left" title="Performance Tuning" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="performance.html" class="btn btn-neutral float-left" title="Accelerator Performance Tuning" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="modules.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+    <p>&#169; Copyright 2025–2026, Shota Miyazaki.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
