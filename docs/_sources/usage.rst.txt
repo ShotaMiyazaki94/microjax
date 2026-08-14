@@ -1,8 +1,8 @@
 Usage Guide
 ===========
 
-This guide introduces the public ``0.2`` workflow, the available settings, and
-the checks recommended before using a result in an analysis.
+This guide introduces the public ``0.2`` API through common calculations. See
+:doc:`getting_started` first for installation and environment checks.
 
 Common setup
 ------------
@@ -80,6 +80,23 @@ Set ``u1`` to a non-zero value for the normalized linear limb-darkening law::
 
    mu_ld = mag_binary(w, rho, s=0.95, q=5e-4, u1=0.5, config=config)
 
+For the binary-lens CPU one-shot backend, select ``backend="cpu"``:
+
+.. code-block:: python
+
+   mu_cpu = mag_binary(
+       w,
+       rho,
+       s=0.95,
+       q=5e-4,
+       u1=0.5,
+       backend="cpu",
+   )
+
+The CPU path has fixed internal support and quadrature settings;
+``BinaryMagConfig`` does not tune it. See :doc:`cpu_backend` for backend
+selection, forward-mode differentiation, and validation.
+
 Triple lenses
 -------------
 
@@ -103,60 +120,33 @@ The triple-lens API uses the same trajectory and source profile.
 Configuration
 -------------
 
-``BinaryMagConfig`` and ``TripleMagConfig`` expose source-boundary sampling
-and static accelerator scheduling:
+For the accelerator backend, ``BinaryMagConfig`` and ``TripleMagConfig`` expose
+source-boundary sampling and static scheduling:
 
 ``n_limb``
    Number of points placed on the circular source boundary before those points
    are mapped into the image plane. Larger values follow rapid changes of the
    image boundary more finely, at additional computational cost. The default
-   value is recommended for normal use. This setting does not directly change
-   the number of radial integration points.
+   is recommended for normal use.
 
 ``source_tile_size``
    Number of full-solve source positions in an outer vectorized tile.
 
 ``radial_chunk_size``
-   Number of radial image regions in an inner vectorized chunk. A value of 64
-   evaluates the complete fixed-capacity region buffer together.
+   Number of radial image regions in an inner vectorized chunk.
 
 Both scheduler sizes must be positive integers.
 
-The A100-tuned binary defaults are ``100 / 64`` for source tile and radial
-chunk. The triple defaults are ``100 / 8``. These settings produce separately
-compiled JAX executables. See :doc:`performance` for measured results and
-recommendations indexed by the measured full-solve count.
-
-Boundary integration in outline
--------------------------------
-
-The solver first tries a fast approximation. Source positions that require the
-full finite-source calculation then follow this sequence:
-
-1. Sample the circumference of the source and map those points through the
-   lens equation.
-2. Connect samples that form the same continuous image of the circumference.
-   Each connected sequence is an *image branch*.
-3. For every image branch, find the range of image-plane radius that it
-   occupies. Combine ranges that overlap.
-4. Divide a combined range wherever the number or arrangement of boundary
-   crossings may change. Each resulting radial subinterval is called a
-   *radial cell*.
-5. At selected radii within each cell, calculate the angles where the radius
-   circle crosses the image boundary. Adjacent crossing angles determine which
-   angular arcs lie inside a lensed image.
-6. Integrate the surface brightness along the inside arcs, then integrate over
-   radius to obtain the total lensed flux.
-
-The subdivision in step 4 is important: one image branch can contribute to
-several cells, and one combined radial range can contain several cells. Within
-one cell, the pattern of boundary crossings is expected to stay unchanged.
+The scheduler settings produce separately compiled JAX executables. Keep them
+fixed within a fit and benchmark changes on the actual analysis workload. See
+:doc:`performance`.
 
 Differentiation
 ---------------
 
 Forward-mode differentiation is the recommended route for full light-curve
-Jacobians.
+Jacobians. This example uses the accelerator backend; CPU-specific guidance is
+given in :doc:`cpu_backend`.
 
 .. code-block:: python
 
@@ -165,29 +155,17 @@ Jacobians.
 
    dmu_dq = jax.jacfwd(forward_model)(5e-4)
 
-JAX differentiation does not guarantee that the numerical result is smooth or
-accurate at every point. Caustic crossings can change the number and
-arrangement of images, and the code switches between an approximation and the
-full calculation where appropriate. Compare values and gradients against
-independent calculations over the intended parameter range.
+Automatic differentiation does not certify numerical accuracy. Validate
+values and derivatives over the intended parameter range; see :doc:`caveats`.
 
 Failure behavior
 ----------------
 
-The public finite-source functions return ``NaN`` if they cannot construct a
-valid image boundary or integration region, or if a calculation becomes
-non-finite. A finite result is still a numerical estimate without a guaranteed
-error bound. Downstream likelihood code should check for non-finite values
-explicitly and validate accuracy independently.
+The public finite-source functions return ``NaN`` for detected structural or
+non-finite failures. Check the result before passing it to downstream inference
+code and retain the complete configuration for rejected samples. A finite
+result has no guaranteed error bound; :doc:`caveats` defines the numerical
+contract.
 
-Performance and reproducibility
--------------------------------
-
-- The first call includes compilation. Warm up and call ``block_until_ready``
-  before timing.
-- Finite-source calculations are intended for GPUs, although they also run on
-  CPUs.
-- Record microJAX, JAX, and JAXLIB versions; the accelerator model; precision;
-  and the complete configuration object with reported results.
-- Benchmark values committed under ``example/`` are records for their stated
-  hardware and trajectories, not universal guarantees.
+For timing methodology and reproducibility metadata, see :doc:`performance`
+and :doc:`citing`.

@@ -14,8 +14,8 @@
       <script src="_static/jquery.js?v=5d32c60e"></script>
       <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -46,8 +46,10 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Tuning</a></li>
-<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpu_backend.html">CPU Binary-Lens Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="caveats.html">Solver Caveats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing and Reproducibility</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
@@ -80,60 +82,15 @@
              
   <section id="microjax">
 <h1>microJAX<a class="headerlink" href="#microjax" title="Link to this heading"></a></h1>
-<p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax">microJAX</a> is a
-differentiable, GPU-accelerated microlensing modelling library built with JAX.
-It provides point-source calculations and finite-source light curves for
-binary and triple lens systems.</p>
-<p>For source positions far enough from caustics, the current finite-source API
-uses a fast approximation. Where a full calculation is needed, it traces the
-lensed images of the source circumference and integrates the brightness
-enclosed by those image boundaries. The implementation is compatible with JAX
-transformations including <code class="docutils literal notranslate"><span class="pre">jit</span></code>, <code class="docutils literal notranslate"><span class="pre">vmap</span></code>, and forward-mode automatic
-differentiation.</p>
-<section id="release-lineage">
-<h2>Release lineage<a class="headerlink" href="#release-lineage" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">v0.1.1</span></code> is the archived implementation associated with the methods paper.
-The <code class="docutils literal notranslate"><span class="pre">0.2</span></code> series is a substantial redesign and should not be treated as a
-patch-level update. Record the exact microJAX version or Git commit together
-with the JAX/JAXLIB versions, platform, and numerical configuration in
-reproducible work.</p>
-</section>
-<section id="highlights">
-<h2>Highlights<a class="headerlink" href="#highlights" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Point-source magnification and caustic curves for one to three lenses.</p></li>
-<li><p>Binary and triple finite-source boundary integration.</p></li>
-<li><p>Uniform and linear limb-darkened circular sources.</p></li>
-<li><p>Direct calculation of image-boundary crossing angles, without an angular
-sampling grid.</p></li>
-<li><p>GPU-oriented trajectory batching and forward-mode Jacobians.</p></li>
-<li><p>Parallax and binary orbital-motion trajectory utilities.</p></li>
-</ul>
-</section>
-<section id="quick-peek">
-<h2>Quick peek<a class="headerlink" href="#quick-peek" title="Link to this heading"></a></h2>
-<p>Enable double precision before creating arrays or compiling functions.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-
-<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray</span><span class="w"> </span><span class="kn">import</span> <span class="n">BinaryMagConfig</span><span class="p">,</span> <span class="n">mag_binary</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
-
-<span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">rho</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.02</span>
-<span class="n">t</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">30.0</span><span class="p">,</span> <span class="mf">30.0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
-<span class="n">tau</span> <span class="o">=</span> <span class="n">t</span> <span class="o">/</span> <span class="mf">30.0</span>
-<span class="n">alpha</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">10.0</span><span class="p">)</span>
-<span class="n">w</span> <span class="o">=</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">BinaryMagConfig</span><span class="p">(</span><span class="n">n_limb</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
-<span class="n">mu_point</span> <span class="o">=</span> <span class="n">mag_point_source</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
-<span class="n">mu_finite</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>The first call includes JAX compilation time. Finite-source calculations run
-on CPUs but are intended primarily for GPU execution.</p>
+<p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax">microJAX</a> is a differentiable
+microlensing library built with JAX. It provides point-source calculations for
+one to three lenses, finite-source calculations for binary and triple lenses,
+and trajectory utilities.</p>
+<p>The finite-source API includes a GPU-oriented accelerator backend and a
+separate CPU backend for binary lenses. Both support uniform and linear
+limb-darkened circular sources. Use <a class="reference internal" href="getting_started.html"><span class="doc">Getting Started</span></a> to install the
+package and verify the JAX environment, then continue with <a class="reference internal" href="usage.html"><span class="doc">Usage Guide</span></a> for
+public API examples.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
@@ -151,24 +108,38 @@ on CPUs but are intended primarily for GPU execution.</p>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#finite-source-binary-lenses">Finite-source binary lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#triple-lenses">Triple lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#configuration">Configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage.html#boundary-integration-in-outline">Boundary integration in outline</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#differentiation">Differentiation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#failure-behavior">Failure behavior</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage.html#performance-and-reproducibility">Performance and reproducibility</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Tuning</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="performance.html#recommended-a100-configurations">Recommended A100 configurations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="performance.html#measurement-scope">Measurement scope</a></li>
-<li class="toctree-l2"><a class="reference internal" href="performance.html#benchmark-your-actual-trajectory">Benchmark your actual trajectory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpu_backend.html">CPU Binary-Lens Backend</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#basic-use">Basic use</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#numerical-contract">Numerical contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#forward-mode-differentiation">Forward-mode differentiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#timing">Timing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#examples">Examples</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#jax-cannot-see-my-gpu">JAX cannot see my GPU</a></li>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#mag-binary-is-slow-or-runs-out-of-memory">mag_binary is slow or runs out of memory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#gradient-computations-stall">Gradient computations stall</a></li>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#import-errors-for-optional-dependencies">Import errors for optional dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#still-stuck">Still stuck?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="performance.html#static-scheduler-settings">Static scheduler settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="performance.html#benchmark-the-analysis-workload">Benchmark the analysis workload</a></li>
+<li class="toctree-l2"><a class="reference internal" href="performance.html#memory-and-accuracy">Memory and accuracy</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="caveats.html">Solver Caveats</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#backend-scope-is-explicit">Backend scope is explicit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#finite-values-are-not-accuracy-certificates">Finite values are not accuracy certificates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#rejected-configurations-return-nan">Rejected configurations return NaN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#the-numerical-graph-is-piecewise">The numerical graph is piecewise</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#use-x64-mode-and-forward-differentiation">Use x64 mode and forward differentiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#configuration-changes-compile-separately">Configuration changes compile separately</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#the-paper-version-is-a-different-solver-line">The paper version is a different solver line</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing and Reproducibility</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="citing.html#methods-paper-and-software-archive">Methods paper and software archive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="citing.html#bibtex">BibTeX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="citing.html#reproducible-numerical-results">Reproducible numerical results</a></li>
 </ul>
 </li>
 </ul>
@@ -179,30 +150,20 @@ on CPUs but are intended primarily for GPU execution.</p>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
 </ul>
 </div>
-</section>
-<section id="accuracy-and-limitations">
-<h2>Accuracy and limitations<a class="headerlink" href="#accuracy-and-limitations" title="Link to this heading"></a></h2>
-<p>microJAX is research software under active development. The public
-<code class="docutils literal notranslate"><span class="pre">mag_binary</span></code> and <code class="docutils literal notranslate"><span class="pre">mag_triple</span></code> functions use a fixed amount of work for
-each source position; they do not automatically repeat a difficult calculation
-with increasingly expensive settings. A returned finite value is a numerical
-estimate, not a value with a guaranteed error bound. If microJAX cannot
-construct valid image boundaries or integration regions, it returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code>.
-Validate magnifications and derivatives over the parameter region used in an
-analysis.</p>
-</section>
-<section id="citing-microjax">
-<h2>Citing microJAX<a class="headerlink" href="#citing-microjax" title="Link to this heading"></a></h2>
-<p>If you use microJAX, cite the methods paper and the archived software version
-actually used. The methods paper corresponds to the <code class="docutils literal notranslate"><span class="pre">v0.1.1</span></code> line; work
-using the redesigned solver should additionally report the exact <code class="docutils literal notranslate"><span class="pre">0.2.x</span></code>
-release or Git commit.</p>
+<section id="choosing-a-guide">
+<h2>Choosing a guide<a class="headerlink" href="#choosing-a-guide" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p>Miyazaki, S., &amp; Kawahara, H. 2025, ApJ, 994, 144,
-<a class="reference external" href="https://doi.org/10.3847/1538-4357/ae1005">doi:10.3847/1538-4357/ae1005</a></p></li>
-<li><p>microJAX software archive,
-<a class="reference external" href="https://doi.org/10.5281/zenodo.17247892">doi:10.5281/zenodo.17247892</a></p></li>
+<li><p><a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a> defines the binary-lens CPU interface, supported
+differentiation, and numerical contract.</p></li>
+<li><p><a class="reference internal" href="performance.html"><span class="doc">Accelerator Performance Tuning</span></a> explains accelerator scheduler settings and sound timing
+practice.</p></li>
+<li><p><a class="reference internal" href="caveats.html"><span class="doc">Solver Caveats</span></a> collects microJAX-specific limitations that can affect a
+scientific result.</p></li>
+<li><p><a class="reference internal" href="citing.html"><span class="doc">Citing and Reproducibility</span></a> gives citations and the reproducibility information to report.</p></li>
 </ul>
+<p>The methods-paper implementation is archived as <code class="docutils literal notranslate"><span class="pre">v0.1.1</span></code>. The <code class="docutils literal notranslate"><span class="pre">0.2</span></code>
+series is a substantial solver redesign, so reproducible work should record
+the exact microJAX release or Git commit.</p>
 </section>
 </section>
 <section id="indices-and-tables">
@@ -224,7 +185,7 @@ release or Git commit.</p>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+    <p>&#169; Copyright 2025–2026, Shota Miyazaki.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

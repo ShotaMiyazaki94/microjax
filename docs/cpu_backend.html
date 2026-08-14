@@ -1,0 +1,222 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CPU Binary-Lens Backend &mdash; microJAX  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Accelerator Performance Tuning" href="performance.html" />
+    <link rel="prev" title="Usage Guide" href="usage.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            microJAX
+              <img src="_static/microjax.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">CPU Binary-Lens Backend</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#basic-use">Basic use</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#numerical-contract">Numerical contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#forward-mode-differentiation">Forward-mode differentiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#timing">Timing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Accelerator Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="caveats.html">Solver Caveats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing and Reproducibility</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">microJAX</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">CPU Binary-Lens Backend</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/cpu_backend.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="cpu-binary-lens-backend">
+<h1>CPU Binary-Lens Backend<a class="headerlink" href="#cpu-binary-lens-backend" title="Link to this heading"></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">mag_binary(...,</span> <span class="pre">backend=&quot;cpu&quot;)</span></code> selects microJAX’s CPU-oriented
+finite-source binary-lens solver. It is a separate implementation from the
+default accelerator backend, not an automatic fallback chosen from the
+available JAX device.</p>
+<p>The CPU backend supports binary lenses with uniform or linear limb-darkened
+circular sources. Finite-source triple-lens calculations use the accelerator
+backend.</p>
+<section id="basic-use">
+<h2>Basic use<a class="headerlink" href="#basic-use" title="Link to this heading"></a></h2>
+<p>Enable double precision before constructing arrays or compiling functions:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
+
+<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_binary</span>
+
+<span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mf">0.10</span> <span class="o">+</span> <span class="mf">0.20</span><span class="n">j</span><span class="p">,</span> <span class="mf">0.60</span> <span class="o">-</span> <span class="mf">0.20</span><span class="n">j</span><span class="p">])</span>
+<span class="n">magnification</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span>
+    <span class="n">w</span><span class="p">,</span>
+    <span class="mf">1.0e-2</span><span class="p">,</span>
+    <span class="n">s</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">q</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+    <span class="n">u1</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+    <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The CPU solver has fixed internal scheduling and quadrature settings.
+<code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">n_limb</span></code> configure the accelerator backend and do
+not tune this path. <code class="docutils literal notranslate"><span class="pre">&quot;cpu-one-shot&quot;</span></code> remains an alias of <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code> for
+compatibility. The older <code class="docutils literal notranslate"><span class="pre">&quot;cpu-adaptive&quot;</span></code> backend is retained for research
+comparisons and should not be used as a silent retry in production models.</p>
+</section>
+<section id="numerical-contract">
+<h2>Numerical contract<a class="headerlink" href="#numerical-contract" title="Link to this heading"></a></h2>
+<p>The CPU backend uses bounded work. It applies a multipole approximation where
+its internal gate accepts it and otherwise performs one full finite-source
+solve. It does not increase integration order or retry until a requested
+tolerance is met.</p>
+<p>A finite result is therefore a numerical estimate, not a certified error
+bound. Detected geometry, capacity, root, or non-finite failures are returned
+as <code class="docutils literal notranslate"><span class="pre">NaN</span></code>. Before an inference run:</p>
+<ul class="simple">
+<li><p>validate values over the intended <code class="docutils literal notranslate"><span class="pre">(q,</span> <span class="pre">s,</span> <span class="pre">rho,</span> <span class="pre">w,</span> <span class="pre">u1)</span></code> region against an
+independent implementation;</p></li>
+<li><p>validate derivatives separately from values;</p></li>
+<li><p>retain the full configuration for every microJAX <code class="docutils literal notranslate"><span class="pre">NaN</span></code>;</p></li>
+<li><p>record failures or non-convergence from the reference solver separately.</p></li>
+</ul>
+<p>For investigation of an individual rejection, <code class="docutils literal notranslate"><span class="pre">return_info=True</span></code> exposes a
+best-effort result and internal diagnostic state. Those fields are debugging
+details rather than a stable scientific interface; routine modeling should
+use the ordinary magnification result.</p>
+</section>
+<section id="forward-mode-differentiation">
+<h2>Forward-mode differentiation<a class="headerlink" href="#forward-mode-differentiation" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">jax.jvp</span></code> and <code class="docutils literal notranslate"><span class="pre">jax.jacfwd</span></code> are supported. Reverse-mode differentiation
+through the CPU solver’s data-dependent loops is not part of the public API.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">parameters</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mf">0.10</span><span class="p">,</span> <span class="mf">0.20</span><span class="p">,</span> <span class="mf">1.0e-2</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">])</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">values</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+    <span class="k">return</span> <span class="n">mag_binary</span><span class="p">(</span>
+        <span class="n">source</span><span class="p">,</span>
+        <span class="n">values</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+        <span class="n">s</span><span class="o">=</span><span class="n">values</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+        <span class="n">q</span><span class="o">=</span><span class="n">values</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+        <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="n">value</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">model</span><span class="p">)(</span><span class="n">parameters</span><span class="p">)</span>
+<span class="n">jacobian</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jacfwd</span><span class="p">(</span><span class="n">model</span><span class="p">))(</span><span class="n">parameters</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Caustic crossings and internal route changes can make the numerical graph
+piecewise. A finite derivative does not by itself establish accuracy or
+smoothness in a surrounding parameter region.</p>
+</section>
+<section id="timing">
+<h2>Timing<a class="headerlink" href="#timing" title="Link to this heading"></a></h2>
+<p>The first call includes tracing and compilation. Warm up the same array shape
+and source profile, then synchronize each timed result with
+<code class="docutils literal notranslate"><span class="pre">block_until_ready()</span></code>. Compare complete trajectories: runtime depends on how
+many positions require a full finite-source calculation. See
+<a class="reference internal" href="performance.html"><span class="doc">Accelerator Performance Tuning</span></a> for a timing example; its configuration controls apply
+only to the accelerator backend.</p>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
+<p>The repository includes two CPU workflows:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax/tree/main/example/cpu/compare-binary-vbbl">CPU/VBM value comparison</a></p></li>
+<li><p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax/tree/main/example/cpu/jacobian-binary">CPU forward Jacobian</a></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="usage.html" class="btn btn-neutral float-left" title="Usage Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="performance.html" class="btn btn-neutral float-right" title="Accelerator Performance Tuning" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025–2026, Shota Miyazaki.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

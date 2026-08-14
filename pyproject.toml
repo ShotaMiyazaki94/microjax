@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "microjaxx"
-description = "GPU-accelerated, differentiable microlensing modeling in JAX"
+description = "Differentiable microlensing modeling for CPUs and GPUs in JAX"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.9"
 license = "MIT"
@@ -16,7 +16,7 @@ license-files = [
 authors = [
   { name = "Shota Miyazaki", email = "miyazaki@ir.isas.jaxa.jp" }
 ]
-keywords = ["jax", "microlensing", "astronomy", "gpu", "differentiable"]
+keywords = ["jax", "microlensing", "astronomy", "cpu", "gpu", "differentiable"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
@@ -46,6 +46,8 @@ dev = [
   "ruff",
   "build",
   "twine",
+  "Sphinx>=7,<9",
+  "sphinx-rtd-theme>=3,<4",
   # Tests rely on SciPy special functions for cross-checks
   "scipy>=1.10",
 ]

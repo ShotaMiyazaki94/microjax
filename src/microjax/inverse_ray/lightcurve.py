@@ -47,6 +47,11 @@ from .roots.angular import (
 from .geometry.topology import RADIAL_CAPACITY, RADIAL_TOPOLOGY
 from microjax.multipole import mag_hexadecapole
 from microjax.point_source import _images_point_source
+from .cpu.lightcurve import (
+    _CPU_MULTIPOLE_GATE,
+    mag_binary_cpu_hybrid_lightcurve,
+    mag_binary_cpu_one_shot_hybrid_lightcurve,
+)
 
 # Consistent array alias used across modules
 Array = jnp.ndarray
@@ -111,14 +116,17 @@ def _binary_prefilter(
     u1: float,
     s: float,
     q: float,
-) -> tuple[Array, Array]:
-    """Return the multipole baseline and its acceptance mask."""
+    c_m: float = 1.0e-2,
+    c_f: float = 5.0,
+    gamma: float = 2.0e-2,
+) -> tuple[Array, Array, Array, Array]:
+    """Return the profile value and profile-independent trigger diagnostics."""
 
     lens = binary_geometry(s, q)
     w_points_shifted = w_points - lens.shifted
 
     z, z_mask = _images_point_source(w_points_shifted, nlenses=2, a=lens.a, e1=lens.e1)
-    mu_multi, delta_mu_multi = mag_hexadecapole(
+    mu_multi, profile_delta_mu_multi = mag_hexadecapole(
         z,
         z_mask,
         rho,
@@ -129,17 +137,41 @@ def _binary_prefilter(
         a=lens.a,
         e1=lens.e1,
     )
+    # The fast/full decision must describe lens/source geometry, not the
+    # requested brightness profile.  Linear limb darkening rescales the
+    # quadrupole and hexadecapole terms and can otherwise move an identical
+    # source disc across the selector threshold.  Always use the uniform
+    # value and correction as the shared trigger diagnostics, while retaining
+    # the requested-profile multipole value above for accepted points.
+    if u1 == 0.0:
+        trigger_mu_multi = mu_multi
+        trigger_delta_mu_multi = profile_delta_mu_multi
+    else:
+        trigger_mu_multi, trigger_delta_mu_multi = mag_hexadecapole(
+            z,
+            z_mask,
+            rho,
+            nlenses=2,
+            u1=0.0,
+            s=s,
+            q=q,
+            a=lens.a,
+            e1=lens.e1,
+        )
     test1 = _caustics_proximity_test(
         w_points_shifted,
         z,
         z_mask,
         rho,
-        delta_mu_multi,
+        trigger_delta_mu_multi,
         nlenses=2,
         s=s,
         q=q,
         a=lens.a,
         e1=lens.e1,
+        c_m=c_m,
+        c_f=c_f,
+        gamma=gamma,
     )
     accepted = lax.cond(
         q < 0.01,
@@ -147,7 +179,61 @@ def _binary_prefilter(
         lambda _: test1,
         operand=None,
     )
-    return mu_multi, accepted
+    trigger_scale = jnp.maximum(jnp.abs(trigger_mu_multi), 1.0)
+    return mu_multi, accepted, trigger_delta_mu_multi, trigger_scale
+
+
+@partial(
+    jit,
+    static_argnames=("u1", "adaptive"),
+)
+def _mag_binary_cpu_impl(
+    w_points: Array,
+    rho: float,
+    *,
+    s: float,
+    q: float,
+    u1: float,
+    adaptive: bool,
+):
+    """Fuse the CPU multipole prefilter and selected one-shot scheduler."""
+
+    # Full-solve triggering is deliberately profile-independent: uniform and
+    # limb-darkened sources use the same geometric multipole selector.  A
+    # formerly relaxed uniform-only gate admitted non-convergent
+    # hexadecapole series for source discs intersecting a close-binary
+    # caustic, while the identical LD geometry correctly entered full ICRS.
+    multipole, accepted, multipole_error, multipole_trigger_scale = _binary_prefilter(
+        w_points,
+        rho,
+        u1,
+        s,
+        q,
+    )
+    if adaptive:
+        return mag_binary_cpu_hybrid_lightcurve(
+            w_points,
+            multipole,
+            accepted,
+            multipole_error,
+            multipole_trigger_scale,
+            rho,
+            s=s,
+            q=q,
+            u1=u1,
+            rtol=_CPU_MULTIPOLE_GATE,
+        )
+    return mag_binary_cpu_one_shot_hybrid_lightcurve(
+        w_points,
+        multipole,
+        accepted,
+        multipole_error,
+        multipole_trigger_scale,
+        rho,
+        s=s,
+        q=q,
+        u1=u1,
+    )
 
 
 def _triple_prefilter(
@@ -281,7 +367,7 @@ def _mag_binary_single_pass_impl(
     settings. Returned finite values do not carry a guaranteed error bound.
     """
 
-    multipole, accepted = _binary_prefilter(w_points, rho, u1, s, q)
+    multipole, accepted, _, _ = _binary_prefilter(w_points, rho, u1, s, q)
 
     def make_boundary(use_local_chart):
         if u1 == 0.0:
@@ -341,9 +427,7 @@ def _mag_binary_single_pass_impl(
     tile_size = min(config.source_tile_size, w_points.shape[0])
 
     def solve(boundary):
-        full_values = _tiled_vmap_active_scalar(
-            boundary, full_points, n_active, tile_size
-        )
+        full_values = _tiled_vmap_active_scalar(boundary, full_points, n_active, tile_size)
         return _scatter_full_values(multipole, indices, full_values)
 
     return lax.cond(
@@ -476,8 +560,50 @@ def mag_binary(
     q: float,
     u1: float = 0.0,
     config: BinaryMagConfig = DEFAULT_BINARY_CONFIG,
+    backend: str = "accelerator",
+    return_info: bool = False,
 ) -> Array:
-    """Validate the public API before entering the JIT-compiled implementation."""
+    """Calculate a binary-lens finite-source light curve.
+
+    ``backend="accelerator"`` preserves the established one-pass GPU-oriented
+    scheduler. ``backend="cpu"`` selects the differentiable one-shot CPU
+    scheduler: after the multipole prefilter, it traces the source limb once,
+    selects one fixed high-order Cartesian or polar rule from the traced image
+    state, and never retries. ``cpu-one-shot`` is a
+    compatibility alias for the same default CPU path. The former adaptive
+    CPU scheduler remains available explicitly as ``backend="cpu-adaptive"``.
+    Exact radial tangencies stabilize the polar chart without treating
+    ``n_limb`` as an accuracy order. The production CPU uses one fixed,
+    calibrated multipole shortcut gate; it is not a full-solve error
+    guarantee. For full one-shot solves, ``estimated_error`` is NaN and
+    non-zero ``status`` denotes only a detected structural failure. CPU
+    diagnostics are returned when ``return_info=True``; otherwise structurally
+    invalid points are mapped to ``NaN``.
+    """
+
+    if backend in ("cpu", "cpu-one-shot", "cpu-adaptive"):
+        result = _mag_binary_cpu_impl(
+            w_points,
+            rho,
+            s=s,
+            q=q,
+            u1=u1,
+            adaptive=backend == "cpu-adaptive",
+        )
+        if return_info:
+            return result
+        return jnp.where(result.status == 0, result.magnification, jnp.nan)
+
+    if backend not in ("accelerator", "gpu"):
+        raise ValueError(
+            "backend must be 'accelerator', 'gpu', 'cpu', "
+            "'cpu-one-shot', or 'cpu-adaptive'"
+        )
+    if return_info:
+        raise ValueError(
+            "return_info is available only for backend='cpu', "
+            "backend='cpu-one-shot', or backend='cpu-adaptive'"
+        )
 
     return _mag_binary_single_pass_impl(
         w_points,
@@ -487,9 +613,6 @@ def mag_binary(
         u1=u1,
         config=config,
     )
-
-
-mag_binary.__doc__ = _mag_binary_single_pass_impl.__doc__
 
 
 def mag_triple(

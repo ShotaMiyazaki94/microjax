@@ -16,6 +16,12 @@ For a code contribution:
 
 ## Tests
 
+For a compact CPU development loop, run:
+
+```bash
+pytest -c pytest-cpu-fast.ini -q
+```
+
 Run the default test suite with:
 
 ```bash
@@ -32,7 +38,7 @@ pytest -m slow -q
 GPU-specific tests require a CUDA-capable JAX installation:
 
 ```bash
-pytest -m gpu -q
+pytest -c pytest-gpu.ini -q
 ```
 
 Numerical changes should include an independent comparison or regression case

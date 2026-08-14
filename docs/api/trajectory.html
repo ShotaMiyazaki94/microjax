@@ -14,8 +14,8 @@
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="../_static/documentation_options.js?v=5929fcd5"></script>
-      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -46,8 +46,10 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance Tuning</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpu_backend.html">CPU Binary-Lens Backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance.html">Accelerator Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../caveats.html">Solver Caveats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../citing.html">Citing and Reproducibility</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul class="current">
@@ -134,7 +136,7 @@
 <p>Trajectory utilities for microJAX.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="microjax.trajectory.EarthOrbitalParallaxProjector">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">EarthOrbitalParallaxProjector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#microjax.trajectory.HeliocentricEphemeris" title="microjax.trajectory.parallax.HeliocentricEphemeris"><span class="pre">HeliocentricEphemeris</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">RA_deg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dec_deg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tref</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_HJD</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">light_time_iters</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">au_c_day</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.005775518331436995</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.trajectory.EarthOrbitalParallaxProjector" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">EarthOrbitalParallaxProjector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eph</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#microjax.trajectory.HeliocentricEphemeris" title="microjax.trajectory.parallax.HeliocentricEphemeris"><span class="pre">HeliocentricEphemeris</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">RA_deg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Dec_deg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tref</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_HJD</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">light_time_iters</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">au_c_day</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.005775518331436995</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.trajectory.EarthOrbitalParallaxProjector" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Map heliocentric Earth ephemeris to sky-plane offsets.</p>
 <p>Applies optional light-time correction (HJD) and stores reference position
@@ -146,14 +148,14 @@ and velocity at <code class="docutils literal notranslate"><span class="pre">tre
 
 <dl class="py method">
 <dt class="sig sig-object py" id="microjax.trajectory.EarthOrbitalParallaxProjector.tree_unflatten">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">tree_unflatten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">aux</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.trajectory.EarthOrbitalParallaxProjector.tree_unflatten" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">tree_unflatten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">aux</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.trajectory.EarthOrbitalParallaxProjector.tree_unflatten" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="microjax.trajectory.HeliocentricEphemeris">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">HeliocentricEphemeris</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.trajectory.HeliocentricEphemeris" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">microjax.trajectory.</span></span><span class="sig-name descname"><span class="pre">HeliocentricEphemeris</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Array</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.trajectory.HeliocentricEphemeris" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Uniform heliocentric ephemeris.</p>
 <dl class="py attribute">
@@ -193,7 +195,7 @@ and velocity at <code class="docutils literal notranslate"><span class="pre">tre
 <p><code class="docutils literal notranslate"><span class="pre">t</span></code> must be uniformly spaced for <code class="docutils literal notranslate"><span class="pre">interp_uniform_linear</span></code> to apply.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="microjax.trajectory.HeliocentricEphemeris.from_horizons_vectors_table">
-<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_horizons_vectors_table</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">table_np</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#microjax.trajectory.HeliocentricEphemeris" title="microjax.trajectory.parallax.HeliocentricEphemeris"><span class="pre">HeliocentricEphemeris</span></a></span></span><a class="headerlink" href="#microjax.trajectory.HeliocentricEphemeris.from_horizons_vectors_table" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_horizons_vectors_table</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">table_np</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#microjax.trajectory.HeliocentricEphemeris" title="microjax.trajectory.parallax.HeliocentricEphemeris"><span class="pre">HeliocentricEphemeris</span></a></span></span><a class="headerlink" href="#microjax.trajectory.HeliocentricEphemeris.from_horizons_vectors_table" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -203,7 +205,7 @@ and velocity at <code class="docutils literal notranslate"><span class="pre">tre
 
 <dl class="py method">
 <dt class="sig sig-object py" id="microjax.trajectory.HeliocentricEphemeris.tree_unflatten">
-<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">tree_unflatten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">aux</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.trajectory.HeliocentricEphemeris.tree_unflatten" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">tree_unflatten</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">aux</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.trajectory.HeliocentricEphemeris.tree_unflatten" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -802,7 +804,7 @@ to remove linear motion when forming residual parallax offsets.</p>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2025, Shota Miyazaki.</p>
+    <p>&#169; Copyright 2025–2026, Shota Miyazaki.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

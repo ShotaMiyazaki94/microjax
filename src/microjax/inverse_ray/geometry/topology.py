@@ -140,7 +140,8 @@ def _lens_branch_margin(
         axis=0,
     )
     source_derivative = 1j * jnp.asarray(rho, dtype=real_dtype) * jnp.exp(1j * angles)[None, :]
-    determinant = 1.0 - jnp.abs(shear) ** 2
+    shear_abs = jnp.abs(shear)
+    determinant = (1.0 - shear_abs) * (1.0 + shear_abs)
     nonsingular = determinant != 0.0
     safe_determinant = jnp.where(nonsingular, determinant, 1.0)
     image_derivative = (source_derivative - shear * jnp.conjugate(source_derivative)) / safe_determinant
@@ -284,6 +285,7 @@ def define_radial_topology(
     radial_origin: Array = 0.0 + 0.0j,
     sampled_turning_points: bool = True,
     filter_roundoff_turning_points: bool = False,
+    turning_radii_override: Array | None = None,
     breakpoint_capacity: int = _BREAKPOINT_CAPACITY,
     interval_capacity: int = RADIAL_INTERVAL_CAPACITY,
 ) -> RadialTopology:
@@ -309,6 +311,10 @@ def define_radial_topology(
     midpoint-frame lens positions, and mass fractions for the generic implicit
     image-motion guard. ``binary_margin_parameters`` remains as a compatibility
     shorthand and produces the same two-lens arrays.
+
+    ``turning_radii_override`` may replace sampled parabolic vertices with
+    exact radial tangencies in the original ``image_limb`` layout. Non-finite
+    entries leave the ordinary sampled estimate unchanged.
     """
 
     if track_roots:
@@ -381,6 +387,15 @@ def define_radial_topology(
         & ((jnp.abs(left_slope) + jnp.abs(right_slope)) > slope_floor)
     )
     polished_radii = _polish_sampled_turning_radii(radii, turning, scale)
+    if turning_radii_override is not None:
+        turning_radii_override = jnp.asarray(turning_radii_override, dtype=radii.dtype)
+        if turning_radii_override.shape != radii.shape:
+            raise ValueError("turning_radii_override must match image_limb shape")
+        polished_radii = jnp.where(
+            turning & jnp.isfinite(turning_radii_override),
+            turning_radii_override,
+            polished_radii,
+        )
     segment_endpoint = valid & ~(previous_valid & next_valid)
     sample_slots = jnp.arange(radii.shape[1])[None, :]
     branch_min_index = jnp.argmin(jnp.where(valid, radii, jnp.inf), axis=1)
@@ -458,6 +473,14 @@ def define_radial_topology(
     )
     overflow = raw_candidate_overflow | (n_candidates > breakpoint_capacity) | (n_intervals_raw > interval_capacity)
     status = jnp.where(overflow, jnp.int32(RADIAL_CAPACITY), jnp.int32(RADIAL_OK))
+    # A topology with no finite algebraic trace (or no finite physical branch)
+    # is not an empty lens image.  Mark it explicitly so callers cannot turn a
+    # failed root trace into a falsely certified zero-area integral.
+    trace_valid = jnp.all(jnp.isfinite(image_limb)) & jnp.any(valid)
+    status = jnp.bitwise_or(
+        status,
+        jnp.where(trace_valid, jnp.int32(RADIAL_OK), jnp.int32(RADIAL_TOPOLOGY)),
+    )
     return RadialTopology(
         intervals,
         n_intervals,
