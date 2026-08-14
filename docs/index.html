@@ -83,62 +83,14 @@
   <section id="microjax">
 <h1>microJAX<a class="headerlink" href="#microjax" title="Link to this heading"></a></h1>
 <p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax">microJAX</a> is a differentiable
-microlensing modelling library built with JAX. It provides a GPU-oriented
-boundary integrator and a separate one-shot CPU backend for finite-source
-binary lenses, together with point-source and triple-lens calculations.</p>
-<p>For source positions far enough from caustics, the current finite-source API
-uses a fast approximation. Where a full calculation is needed, it traces the
-lensed images of the source circumference and integrates the brightness
-enclosed by those image boundaries. The implementation is compatible with JAX
-transformations including <code class="docutils literal notranslate"><span class="pre">jit</span></code>, <code class="docutils literal notranslate"><span class="pre">vmap</span></code>, and forward-mode automatic
-differentiation.</p>
-<section id="release-lineage">
-<h2>Release lineage<a class="headerlink" href="#release-lineage" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">v0.1.1</span></code> is the archived implementation associated with the methods paper.
-The <code class="docutils literal notranslate"><span class="pre">0.2</span></code> series is a substantial redesign and should not be treated as a
-patch-level update. Record the exact microJAX version or Git commit together
-with the JAX/JAXLIB versions, platform, and numerical configuration in
-reproducible work.</p>
-</section>
-<section id="highlights">
-<h2>Highlights<a class="headerlink" href="#highlights" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Point-source magnification and caustic curves for one to three lenses.</p></li>
-<li><p>Binary and triple finite-source boundary integration.</p></li>
-<li><p>Uniform and linear limb-darkened circular sources.</p></li>
-<li><p>Direct calculation of image-boundary crossing angles, without an angular
-sampling grid.</p></li>
-<li><p>GPU-oriented trajectory batching and forward-mode Jacobians.</p></li>
-<li><p>A differentiable CPU binary-lens backend with fixed Cartesian and polar
-full-solve routes and fail-closed behavior.</p></li>
-<li><p>Parallax and binary orbital-motion trajectory utilities.</p></li>
-</ul>
-</section>
-<section id="quick-peek">
-<h2>Quick peek<a class="headerlink" href="#quick-peek" title="Link to this heading"></a></h2>
-<p>Enable double precision before creating arrays or compiling functions.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">jax</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">jax.numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">jnp</span>
-
-<span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray</span><span class="w"> </span><span class="kn">import</span> <span class="n">BinaryMagConfig</span><span class="p">,</span> <span class="n">mag_binary</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">microjax.point_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_point_source</span>
-
-<span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">rho</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.02</span>
-<span class="n">t</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">30.0</span><span class="p">,</span> <span class="mf">30.0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
-<span class="n">tau</span> <span class="o">=</span> <span class="n">t</span> <span class="o">/</span> <span class="mf">30.0</span>
-<span class="n">alpha</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="mf">10.0</span><span class="p">)</span>
-<span class="n">w</span> <span class="o">=</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
-
-<span class="n">config</span> <span class="o">=</span> <span class="n">BinaryMagConfig</span><span class="p">(</span><span class="n">n_limb</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
-<span class="n">mu_point</span> <span class="o">=</span> <span class="n">mag_point_source</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">nlenses</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">)</span>
-<span class="n">mu_finite</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>The first call includes JAX compilation time. The example above uses the
-accelerator backend. For the CPU binary-lens path, pass <code class="docutils literal notranslate"><span class="pre">backend=&quot;cpu&quot;</span></code> and
-see <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a>.</p>
+microlensing library built with JAX. It provides point-source calculations for
+one to three lenses, finite-source calculations for binary and triple lenses,
+and trajectory utilities.</p>
+<p>The finite-source API includes a GPU-oriented accelerator backend and a
+separate CPU backend for binary lenses. Both support uniform and linear
+limb-darkened circular sources. Use <a class="reference internal" href="getting_started.html"><span class="doc">Getting Started</span></a> to install the
+package and verify the JAX environment, then continue with <a class="reference internal" href="usage.html"><span class="doc">Usage Guide</span></a> for
+public API examples.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
@@ -198,21 +150,20 @@ see <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU 
 <li class="toctree-l1"><a class="reference internal" href="modules.html">API Reference</a></li>
 </ul>
 </div>
-</section>
-<section id="accuracy-and-limitations">
-<h2>Accuracy and limitations<a class="headerlink" href="#accuracy-and-limitations" title="Link to this heading"></a></h2>
-<p>microJAX is research software under active development. The default
-accelerator path and the production CPU one-shot path use bounded work; they do
-not automatically retry a difficult calculation with increasingly expensive
-settings. A returned finite value is a numerical estimate, not a value with a
-guaranteed error bound. If microJAX cannot construct valid image boundaries or
-integration regions, the magnification API returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code>. Validate
-magnifications and derivatives over the parameter region used in an analysis.</p>
-</section>
-<section id="citing-microjax">
-<h2>Citing microJAX<a class="headerlink" href="#citing-microjax" title="Link to this heading"></a></h2>
-<p>See <a class="reference internal" href="citing.html"><span class="doc">Citing and Reproducibility</span></a> for the methods-paper and software citations, BibTeX, and the
-environment information that should accompany reproducible numerical results.</p>
+<section id="choosing-a-guide">
+<h2>Choosing a guide<a class="headerlink" href="#choosing-a-guide" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a> defines the binary-lens CPU interface, supported
+differentiation, and numerical contract.</p></li>
+<li><p><a class="reference internal" href="performance.html"><span class="doc">Accelerator Performance Tuning</span></a> explains accelerator scheduler settings and sound timing
+practice.</p></li>
+<li><p><a class="reference internal" href="caveats.html"><span class="doc">Solver Caveats</span></a> collects microJAX-specific limitations that can affect a
+scientific result.</p></li>
+<li><p><a class="reference internal" href="citing.html"><span class="doc">Citing and Reproducibility</span></a> gives citations and the reproducibility information to report.</p></li>
+</ul>
+<p>The methods-paper implementation is archived as <code class="docutils literal notranslate"><span class="pre">v0.1.1</span></code>. The <code class="docutils literal notranslate"><span class="pre">0.2</span></code>
+series is a substantial solver redesign, so reproducible work should record
+the exact microJAX release or Git commit.</p>
 </section>
 </section>
 <section id="indices-and-tables">
