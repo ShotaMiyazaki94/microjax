@@ -107,6 +107,13 @@ not a stable scientific interface. Do not branch an analysis on them. Full
 one-shot solves also report ``estimated_error=NaN`` because this path does not
 perform a coarse/fine convergence comparison.
 
+When investigating a rejected configuration, record ``q, s, rho, x, y, u1``
+before enabling diagnostics. Keep the complete diagnostic result with that
+configuration and distinguish a microJAX rejection from a failure in the
+external reference solver. The older ``cpu-adaptive`` route may be useful for
+comparison, but it should not be introduced as a silent retry in a production
+model.
+
 Accuracy contract
 -----------------
 

@@ -72,7 +72,7 @@ see :doc:`cpu_backend`.
    usage
    cpu_backend
    performance
-   troubleshooting
+   caveats
    citing
 
 .. toctree::

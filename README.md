@@ -70,7 +70,7 @@ execution model; read the CPU guide before using it in an inference pipeline.
 - [CPU binary-lens backend](docs/cpu_backend.html)
 - [Accelerator performance tuning](docs/performance.html)
 - [API reference](docs/modules.html)
-- [Troubleshooting](docs/troubleshooting.html)
+- [Solver caveats](docs/caveats.html)
 - [Citation and reproducibility](docs/citing.html)
 
 Runnable workflows and their recorded outputs are grouped under

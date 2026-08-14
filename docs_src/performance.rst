@@ -170,3 +170,16 @@ before stopping the timer:
    elapsed = time.perf_counter() - start
 
 Scheduler settings change batching only; they are not accuracy controls.
+
+Memory and compilation scope
+----------------------------
+
+The first invocation for each static configuration includes compilation. Long
+light curves may be split into user-level batches when the complete output and
+its derivatives do not fit in device memory. Report the batch size when it
+affects a benchmark.
+
+``n_limb`` changes how finely the accelerator backend follows the source
+circumference. Reducing it may lower cost, but can miss rapidly changing image
+geometry; it is not a memory setting and must be validated independently. It
+does not configure the CPU backend.

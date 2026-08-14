@@ -63,6 +63,6 @@ Up next
 - :doc:`cpu_backend` documents the binary-lens CPU solver and forward-mode
   differentiation.
 - :doc:`performance` gives measured accelerator scheduler recommendations.
-- :doc:`troubleshooting` lists common pitfalls and quick fixes.
+- :doc:`caveats` summarizes microJAX-specific numerical and API caveats.
 - :doc:`citing` gives BibTeX and reproducibility-reporting requirements.
 - :doc:`modules` provides API-level details for every public entry point.
