@@ -30,13 +30,14 @@ mag_binary is slow or runs out of memory
   rapidly changing image geometry. Validate against the default before using a
   smaller value. It does not configure the CPU backend.
 
-CPU samples return NaN or a non-zero status
--------------------------------------------
+CPU samples return NaN
+----------------------
 
-- Re-run with ``backend="cpu", return_info=True`` and retain the complete
-  ``CpuMagnificationResult``.
-- Treat ``status == 0`` as the validity condition. A finite best-effort
-  magnification accompanying a non-zero status is diagnostic only.
+- First retain the complete lens and source configuration that produced the
+  failure.
+- For solver debugging, re-run with ``backend="cpu", return_info=True``. A
+  non-zero ``status`` confirms a detected structural failure; the accompanying
+  best-effort magnification is diagnostic only.
 - ``estimated_error=NaN`` is expected for a structurally successful full
   one-shot solve; it is not itself a failure flag.
 - Record the full ``q, s, rho, x, y, u1`` configuration when reporting the

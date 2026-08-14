@@ -110,7 +110,7 @@ reproducible work.</p>
 sampling grid.</p></li>
 <li><p>GPU-oriented trajectory batching and forward-mode Jacobians.</p></li>
 <li><p>A differentiable CPU binary-lens backend with fixed Cartesian and polar
-full-solve routes and explicit fail-closed diagnostics.</p></li>
+full-solve routes and fail-closed behavior.</p></li>
 <li><p>Parallax and binary orbital-motion trajectory utilities.</p></li>
 </ul>
 </section>
@@ -166,8 +166,7 @@ see <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU 
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#quick-start">Quick start</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#backend-choices">Backend choices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#execution-model">Execution model</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#diagnostics">Diagnostics</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#status-handling">Status handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#advanced-diagnostics">Advanced diagnostics</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#accuracy-contract">Accuracy contract</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#forward-mode-differentiation">Forward-mode differentiation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#compilation-and-performance">Compilation and performance</a></li>
@@ -183,7 +182,7 @@ see <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU 
 <li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#jax-cannot-see-my-gpu">JAX cannot see my GPU</a></li>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#mag-binary-is-slow-or-runs-out-of-memory">mag_binary is slow or runs out of memory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#cpu-samples-return-nan-or-a-non-zero-status">CPU samples return NaN or a non-zero status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#cpu-samples-return-nan">CPU samples return NaN</a></li>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#gradient-computations-stall">Gradient computations stall</a></li>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#import-errors-for-optional-dependencies">Import errors for optional dependencies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#still-stuck">Still stuck?</a></li>
@@ -211,8 +210,7 @@ accelerator path and the production CPU one-shot path use bounded work; they do
 not automatically retry a difficult calculation with increasingly expensive
 settings. A returned finite value is a numerical estimate, not a value with a
 guaranteed error bound. If microJAX cannot construct valid image boundaries or
-integration regions, the ordinary magnification API returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code>. CPU
-callers can request structured diagnostics with <code class="docutils literal notranslate"><span class="pre">return_info=True</span></code>. Validate
+integration regions, the magnification API returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code>. Validate
 magnifications and derivatives over the parameter region used in an analysis.</p>
 </section>
 <section id="citing-microjax">

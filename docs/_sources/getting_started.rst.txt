@@ -60,8 +60,8 @@ Up next
 -------
 
 - :doc:`usage` walks through binary and triple lens examples.
-- :doc:`cpu_backend` documents the binary-lens CPU solver, diagnostics, and
-  forward-mode differentiation.
+- :doc:`cpu_backend` documents the binary-lens CPU solver and forward-mode
+  differentiation.
 - :doc:`performance` gives measured accelerator scheduler recommendations.
 - :doc:`troubleshooting` lists common pitfalls and quick fixes.
 - :doc:`citing` gives BibTeX and reproducibility-reporting requirements.

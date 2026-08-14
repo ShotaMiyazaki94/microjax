@@ -25,23 +25,18 @@ Enable double precision before creating arrays or compiling functions:
    from microjax.inverse_ray import mag_binary
 
    w = jnp.asarray([0.10 + 0.20j, 0.60 - 0.20j])
-   result = mag_binary(
+   magnification = mag_binary(
        w,
        1.0e-2,
        s=1.0,
        q=0.3,
        u1=0.0,
        backend="cpu",
-       return_info=True,
    )
 
-   magnification = result.magnification
-   valid = result.status == 0
-
-With ``return_info=False`` (the default), :func:`~microjax.inverse_ray.mag_binary`
-returns the magnification array directly and replaces structurally invalid CPU
-samples with ``NaN``. Use ``return_info=True`` when validating a parameter
-region or recording failure statistics.
+The ordinary API returns the magnification array directly and replaces detected
+structural failures with ``NaN``. Check for non-finite values before passing a
+light curve to downstream inference code.
 
 Backend choices
 ---------------
@@ -88,92 +83,44 @@ For each source position the CPU scheduler performs the following operations:
    state.
 6. Evaluate one fixed high-order quadrature and return immediately.
 
-The full-solve graph does not compare a coarse and fine answer. A detected
-root, support, topology, capacity, or non-finite failure is reported instead
-of starting a rescue chart, retracing the limb, or increasing the quadrature
-order. This fail-closed design keeps the compiled graph bounded and makes a
-miss observable to callers.
+The full-solve graph does not compare a coarse and fine answer. On a detected
+root, support, topology, capacity, or non-finite failure it returns ``NaN``
+instead of starting a rescue chart, retracing the limb, or increasing the
+quadrature order. This fail-closed design keeps the compiled graph bounded.
 
 Uniform sources use root-free Bernstein strip isolation for Cartesian charts.
 Linear limb darkening (``u1 > 0``) integrates the normalized brightness weight
 over the same image geometry. Nearly annular images use angle-first polar
 radial moments.
 
-Diagnostics
------------
+Advanced diagnostics
+--------------------
 
-``return_info=True`` returns a
-:class:`microjax.inverse_ray.cpu.CpuMagnificationResult` with one value per
-source position.
+Routine modeling does not require diagnostic flags. For debugging a rejected
+configuration, ``return_info=True`` returns a
+:class:`microjax.inverse_ray.cpu.CpuMagnificationResult` containing the
+best-effort value and internal routing information. A non-zero ``status`` is
+invalid regardless of whether that best-effort value is finite.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 24 76
-
-   * - Field
-     - Meaning
-   * - ``magnification``
-     - Best available magnification. It remains available for diagnostics
-       when ``status`` is non-zero, but should not be treated as valid.
-   * - ``estimated_error``
-     - Multipole correction diagnostic on the fast path. Full one-shot solves
-       report ``NaN`` because they do not provide a coarse/fine error estimate.
-   * - ``tier``
-     - Selected route diagnostic. ``-1`` denotes the multipole path; current
-       full-solve tiers 5--9 denote Cartesian, high Cartesian, source-radial,
-       polar, and high polar routes respectively.
-   * - ``n_limb``
-     - Number of source-limb support samples used by the selected full solve;
-       zero for the multipole path.
-   * - ``n_radial_nodes``
-     - Route-specific integration-work diagnostic; zero for the multipole
-       path.
-   * - ``status``
-     - Bit mask of detected structural failures. Zero means that no known
-       structural failure was detected; it is not an accuracy certificate.
-
-Do not use an exact tier number as a scientific selection criterion. Tiers
-make routing observable for profiling and regression diagnosis and may change
-when the implementation changes.
-
-Status handling
----------------
-
-The one-shot-specific public status bits are exported from
-``microjax.inverse_ray.cpu``:
-
-.. code-block:: python
-
-   from microjax.inverse_ray.cpu import (
-       ONE_SHOT_INVALID_ROOTS,
-       ONE_SHOT_NONFINITE,
-       ONE_SHOT_UNRESOLVED_GEOMETRY,
-   )
-
-   invalid_roots = (result.status & ONE_SHOT_INVALID_ROOTS) != 0
-   nonfinite = (result.status & ONE_SHOT_NONFINITE) != 0
-   unresolved = (result.status & ONE_SHOT_UNRESOLVED_GEOMETRY) != 0
-
-Other non-zero bits come from lower-level capacity, support, and topology
-checks. The stable validity rule is therefore ``status == 0`` rather than a
-list of accepted bit values. The public call with ``return_info=False``
-applies this rule automatically.
+Individual status bits and exact tier numbers are implementation diagnostics,
+not a stable scientific interface. Do not branch an analysis on them. Full
+one-shot solves also report ``estimated_error=NaN`` because this path does not
+perform a coarse/fine convergence comparison.
 
 Accuracy contract
 -----------------
 
-The CPU backend returns numerical estimates, not guaranteed error bounds.
-``status == 0`` means only that the solver did not detect a structural failure.
-It does not mean that the relative error is below ``1e-3`` or any other target.
-Likewise, ``estimated_error=NaN`` on a full solve is intentional and does not by
-itself indicate failure.
+The CPU backend returns numerical estimates, not guaranteed error bounds. A
+finite result means only that the solver did not detect a structural failure;
+it does not mean that the relative error is below ``1e-3`` or any other target.
 
 Before using the backend in an inference run:
 
 - validate values over the intended ``(q, s, rho, w, u1)`` region against an
   independent implementation;
 - validate derivatives separately from values;
-- retain non-zero status configurations rather than silently discarding them;
+- retain configurations that return ``NaN`` rather than silently discarding
+  them;
 - record the microJAX Git commit, JAX/JAXLIB versions, platform, and x64 mode.
 
 When running an external validation sweep, retain microJAX misses and reference
@@ -204,9 +151,9 @@ data-dependent sequential loops is not part of the API.
    value = jax.jit(model)(parameters)
    jacobian = jax.jit(jax.jacfwd(model))(parameters)
 
-Route selection and fail-closed status boundaries are discrete. A finite
-forward derivative does not prove that the selected numerical route is
-accurate or smooth over a larger neighbourhood.
+Route-selection boundaries are discrete. A finite forward derivative does not
+prove that the selected numerical route is accurate or smooth over a larger
+neighbourhood.
 
 Compilation and performance
 ---------------------------

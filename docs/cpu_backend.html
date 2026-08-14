@@ -51,8 +51,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick start</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#backend-choices">Backend choices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#execution-model">Execution model</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#diagnostics">Diagnostics</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#status-handling">Status handling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#advanced-diagnostics">Advanced diagnostics</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#accuracy-contract">Accuracy contract</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#forward-mode-differentiation">Forward-mode differentiation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#compilation-and-performance">Compilation and performance</a></li>
@@ -112,24 +111,19 @@ finite-source calculations continue to use the accelerator-oriented backend.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray</span><span class="w"> </span><span class="kn">import</span> <span class="n">mag_binary</span>
 
 <span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mf">0.10</span> <span class="o">+</span> <span class="mf">0.20</span><span class="n">j</span><span class="p">,</span> <span class="mf">0.60</span> <span class="o">-</span> <span class="mf">0.20</span><span class="n">j</span><span class="p">])</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span>
+<span class="n">magnification</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span>
     <span class="n">w</span><span class="p">,</span>
     <span class="mf">1.0e-2</span><span class="p">,</span>
     <span class="n">s</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
     <span class="n">q</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
     <span class="n">u1</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
     <span class="n">backend</span><span class="o">=</span><span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
-    <span class="n">return_info</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
-
-<span class="n">magnification</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">magnification</span>
-<span class="n">valid</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="mi">0</span>
 </pre></div>
 </div>
-<p>With <code class="docutils literal notranslate"><span class="pre">return_info=False</span></code> (the default), <code class="xref py py-func docutils literal notranslate"><span class="pre">mag_binary()</span></code>
-returns the magnification array directly and replaces structurally invalid CPU
-samples with <code class="docutils literal notranslate"><span class="pre">NaN</span></code>. Use <code class="docutils literal notranslate"><span class="pre">return_info=True</span></code> when validating a parameter
-region or recording failure statistics.</p>
+<p>The ordinary API returns the magnification array directly and replaces detected
+structural failures with <code class="docutils literal notranslate"><span class="pre">NaN</span></code>. Check for non-finite values before passing a
+light curve to downstream inference code.</p>
 </section>
 <section id="backend-choices">
 <h2>Backend choices<a class="headerlink" href="#backend-choices" title="Link to this heading"></a></h2>
@@ -185,96 +179,39 @@ samples.</p></li>
 state.</p></li>
 <li><p>Evaluate one fixed high-order quadrature and return immediately.</p></li>
 </ol>
-<p>The full-solve graph does not compare a coarse and fine answer. A detected
-root, support, topology, capacity, or non-finite failure is reported instead
-of starting a rescue chart, retracing the limb, or increasing the quadrature
-order. This fail-closed design keeps the compiled graph bounded and makes a
-miss observable to callers.</p>
+<p>The full-solve graph does not compare a coarse and fine answer. On a detected
+root, support, topology, capacity, or non-finite failure it returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code>
+instead of starting a rescue chart, retracing the limb, or increasing the
+quadrature order. This fail-closed design keeps the compiled graph bounded.</p>
 <p>Uniform sources use root-free Bernstein strip isolation for Cartesian charts.
 Linear limb darkening (<code class="docutils literal notranslate"><span class="pre">u1</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>) integrates the normalized brightness weight
 over the same image geometry. Nearly annular images use angle-first polar
 radial moments.</p>
 </section>
-<section id="diagnostics">
-<h2>Diagnostics<a class="headerlink" href="#diagnostics" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">return_info=True</span></code> returns a
-<a class="reference internal" href="api/inverse_ray_lightcurve.html#microjax.inverse_ray.cpu.CpuMagnificationResult" title="microjax.inverse_ray.cpu.CpuMagnificationResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">microjax.inverse_ray.cpu.CpuMagnificationResult</span></code></a> with one value per
-source position.</p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 24.0%" />
-<col style="width: 76.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Field</p></th>
-<th class="head"><p>Meaning</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">magnification</span></code></p></td>
-<td><p>Best available magnification. It remains available for diagnostics
-when <code class="docutils literal notranslate"><span class="pre">status</span></code> is non-zero, but should not be treated as valid.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">estimated_error</span></code></p></td>
-<td><p>Multipole correction diagnostic on the fast path. Full one-shot solves
-report <code class="docutils literal notranslate"><span class="pre">NaN</span></code> because they do not provide a coarse/fine error estimate.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">tier</span></code></p></td>
-<td><p>Selected route diagnostic. <code class="docutils literal notranslate"><span class="pre">-1</span></code> denotes the multipole path; current
-full-solve tiers 5–9 denote Cartesian, high Cartesian, source-radial,
-polar, and high polar routes respectively.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">n_limb</span></code></p></td>
-<td><p>Number of source-limb support samples used by the selected full solve;
-zero for the multipole path.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">n_radial_nodes</span></code></p></td>
-<td><p>Route-specific integration-work diagnostic; zero for the multipole
-path.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">status</span></code></p></td>
-<td><p>Bit mask of detected structural failures. Zero means that no known
-structural failure was detected; it is not an accuracy certificate.</p></td>
-</tr>
-</tbody>
-</table>
-<p>Do not use an exact tier number as a scientific selection criterion. Tiers
-make routing observable for profiling and regression diagnosis and may change
-when the implementation changes.</p>
-</section>
-<section id="status-handling">
-<h2>Status handling<a class="headerlink" href="#status-handling" title="Link to this heading"></a></h2>
-<p>The one-shot-specific public status bits are exported from
-<code class="docutils literal notranslate"><span class="pre">microjax.inverse_ray.cpu</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">microjax.inverse_ray.cpu</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">ONE_SHOT_INVALID_ROOTS</span><span class="p">,</span>
-    <span class="n">ONE_SHOT_NONFINITE</span><span class="p">,</span>
-    <span class="n">ONE_SHOT_UNRESOLVED_GEOMETRY</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="n">invalid_roots</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">status</span> <span class="o">&amp;</span> <span class="n">ONE_SHOT_INVALID_ROOTS</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span>
-<span class="n">nonfinite</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">status</span> <span class="o">&amp;</span> <span class="n">ONE_SHOT_NONFINITE</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span>
-<span class="n">unresolved</span> <span class="o">=</span> <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">status</span> <span class="o">&amp;</span> <span class="n">ONE_SHOT_UNRESOLVED_GEOMETRY</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span>
-</pre></div>
-</div>
-<p>Other non-zero bits come from lower-level capacity, support, and topology
-checks. The stable validity rule is therefore <code class="docutils literal notranslate"><span class="pre">status</span> <span class="pre">==</span> <span class="pre">0</span></code> rather than a
-list of accepted bit values. The public call with <code class="docutils literal notranslate"><span class="pre">return_info=False</span></code>
-applies this rule automatically.</p>
+<section id="advanced-diagnostics">
+<h2>Advanced diagnostics<a class="headerlink" href="#advanced-diagnostics" title="Link to this heading"></a></h2>
+<p>Routine modeling does not require diagnostic flags. For debugging a rejected
+configuration, <code class="docutils literal notranslate"><span class="pre">return_info=True</span></code> returns a
+<a class="reference internal" href="api/inverse_ray_lightcurve.html#microjax.inverse_ray.cpu.CpuMagnificationResult" title="microjax.inverse_ray.cpu.CpuMagnificationResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">microjax.inverse_ray.cpu.CpuMagnificationResult</span></code></a> containing the
+best-effort value and internal routing information. A non-zero <code class="docutils literal notranslate"><span class="pre">status</span></code> is
+invalid regardless of whether that best-effort value is finite.</p>
+<p>Individual status bits and exact tier numbers are implementation diagnostics,
+not a stable scientific interface. Do not branch an analysis on them. Full
+one-shot solves also report <code class="docutils literal notranslate"><span class="pre">estimated_error=NaN</span></code> because this path does not
+perform a coarse/fine convergence comparison.</p>
 </section>
 <section id="accuracy-contract">
 <h2>Accuracy contract<a class="headerlink" href="#accuracy-contract" title="Link to this heading"></a></h2>
-<p>The CPU backend returns numerical estimates, not guaranteed error bounds.
-<code class="docutils literal notranslate"><span class="pre">status</span> <span class="pre">==</span> <span class="pre">0</span></code> means only that the solver did not detect a structural failure.
-It does not mean that the relative error is below <code class="docutils literal notranslate"><span class="pre">1e-3</span></code> or any other target.
-Likewise, <code class="docutils literal notranslate"><span class="pre">estimated_error=NaN</span></code> on a full solve is intentional and does not by
-itself indicate failure.</p>
+<p>The CPU backend returns numerical estimates, not guaranteed error bounds. A
+finite result means only that the solver did not detect a structural failure;
+it does not mean that the relative error is below <code class="docutils literal notranslate"><span class="pre">1e-3</span></code> or any other target.</p>
 <p>Before using the backend in an inference run:</p>
 <ul class="simple">
 <li><p>validate values over the intended <code class="docutils literal notranslate"><span class="pre">(q,</span> <span class="pre">s,</span> <span class="pre">rho,</span> <span class="pre">w,</span> <span class="pre">u1)</span></code> region against an
 independent implementation;</p></li>
 <li><p>validate derivatives separately from values;</p></li>
-<li><p>retain non-zero status configurations rather than silently discarding them;</p></li>
+<li><p>retain configurations that return <code class="docutils literal notranslate"><span class="pre">NaN</span></code> rather than silently discarding
+them;</p></li>
 <li><p>record the microJAX Git commit, JAX/JAXLIB versions, platform, and x64 mode.</p></li>
 </ul>
 <p>When running an external validation sweep, retain microJAX misses and reference
@@ -302,9 +239,9 @@ data-dependent sequential loops is not part of the API.</p>
 <span class="n">jacobian</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jacfwd</span><span class="p">(</span><span class="n">model</span><span class="p">))(</span><span class="n">parameters</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Route selection and fail-closed status boundaries are discrete. A finite
-forward derivative does not prove that the selected numerical route is
-accurate or smooth over a larger neighbourhood.</p>
+<p>Route-selection boundaries are discrete. A finite forward derivative does not
+prove that the selected numerical route is accurate or smooth over a larger
+neighbourhood.</p>
 </section>
 <section id="compilation-and-performance">
 <h2>Compilation and performance<a class="headerlink" href="#compilation-and-performance" title="Link to this heading"></a></h2>

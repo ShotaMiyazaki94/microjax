@@ -56,6 +56,6 @@ Record the following with a published result or benchmark:
 - whether timing includes compilation;
 - the independent reference implementation, its version, and its tolerances.
 
-CPU callers using ``return_info=True`` should retain status values alongside
-magnifications. Store microJAX failures separately from failures or
-non-convergence in an external reference solver.
+Store microJAX failures separately from failures or non-convergence in an
+external reference solver. Retain any advanced diagnostic output only when it
+is relevant to reproducing a solver investigation.

@@ -52,7 +52,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Troubleshooting</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#jax-cannot-see-my-gpu">JAX cannot see my GPU</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#mag-binary-is-slow-or-runs-out-of-memory">mag_binary is slow or runs out of memory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#cpu-samples-return-nan-or-a-non-zero-status">CPU samples return NaN or a non-zero status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cpu-samples-return-nan">CPU samples return NaN</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#gradient-computations-stall">Gradient computations stall</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#import-errors-for-optional-dependencies">Import errors for optional dependencies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#still-stuck">Still stuck?</a></li>
@@ -120,13 +120,14 @@ rapidly changing image geometry. Validate against the default before using a
 smaller value. It does not configure the CPU backend.</p></li>
 </ul>
 </section>
-<section id="cpu-samples-return-nan-or-a-non-zero-status">
-<h2>CPU samples return NaN or a non-zero status<a class="headerlink" href="#cpu-samples-return-nan-or-a-non-zero-status" title="Link to this heading"></a></h2>
+<section id="cpu-samples-return-nan">
+<h2>CPU samples return NaN<a class="headerlink" href="#cpu-samples-return-nan" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p>Re-run with <code class="docutils literal notranslate"><span class="pre">backend=&quot;cpu&quot;,</span> <span class="pre">return_info=True</span></code> and retain the complete
-<code class="docutils literal notranslate"><span class="pre">CpuMagnificationResult</span></code>.</p></li>
-<li><p>Treat <code class="docutils literal notranslate"><span class="pre">status</span> <span class="pre">==</span> <span class="pre">0</span></code> as the validity condition. A finite best-effort
-magnification accompanying a non-zero status is diagnostic only.</p></li>
+<li><p>First retain the complete lens and source configuration that produced the
+failure.</p></li>
+<li><p>For solver debugging, re-run with <code class="docutils literal notranslate"><span class="pre">backend=&quot;cpu&quot;,</span> <span class="pre">return_info=True</span></code>. A
+non-zero <code class="docutils literal notranslate"><span class="pre">status</span></code> confirms a detected structural failure; the accompanying
+best-effort magnification is diagnostic only.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">estimated_error=NaN</span></code> is expected for a structurally successful full
 one-shot solve; it is not itself a failure flag.</p></li>
 <li><p>Record the full <code class="docutils literal notranslate"><span class="pre">q,</span> <span class="pre">s,</span> <span class="pre">rho,</span> <span class="pre">x,</span> <span class="pre">y,</span> <span class="pre">u1</span></code> configuration when reporting the
