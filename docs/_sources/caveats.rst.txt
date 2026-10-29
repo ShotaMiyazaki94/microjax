@@ -23,14 +23,21 @@ tolerance is met. A finite magnification therefore has no guaranteed relative
 error bound. Validate values and derivatives over the parameter region used in
 an analysis against an independent implementation.
 
-Rejected configurations return NaN
-----------------------------------
+Failure diagnostics depend on the backend
+-----------------------------------------
 
-The ordinary finite-source API returns ``NaN`` when it detects invalid image
-geometry, exhausted fixed capacity, or a non-finite calculation. Do not replace
-such samples silently or treat them as zero likelihood without recording the
-complete lens and source configuration. For CPU-specific solver investigation,
-advanced diagnostic output is described in :doc:`cpu_backend`.
+The accelerator finite-source API returns ``NaN`` when it detects invalid
+image geometry, exhausted fixed capacity, or a non-finite calculation.
+All CPU binary backends (``cpu``, ``cpu-one-shot`` and ``cpu-adaptive``)
+preserve the best-effort magnification even when ``status`` is nonzero.
+``return_info=True`` exposes the same values and unmasked diagnostic fields.
+The legacy adaptive backend retains its own numerical error diagnostics;
+they do not establish a general accuracy guarantee. A CPU calculation can
+still produce a non-finite value.
+
+Record the complete lens and source configuration for problematic samples.
+For CPU-specific interpretation of values and diagnostics, see
+:doc:`cpu_backend`.
 
 The numerical graph is piecewise
 --------------------------------

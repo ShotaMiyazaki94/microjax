@@ -25,7 +25,7 @@ Enable 64-bit mode before creating arrays and use the public package imports::
 Point-source magnification
 --------------------------
 
-``mag_point_source`` evaluates magnification for one to three point lenses.
+``mag_point_source`` evaluates magnification for binary and triple lenses.
 Source coordinates are complex numbers in Einstein-radius units: the real part
 is x and the imaginary part is y.
 
@@ -37,21 +37,6 @@ is x and the imaginary part is y.
 For a triple lens, add ``q3``, ``r3``, and ``psi``. Here ``q3`` is the third
 mass relative to lens 1, ``r3`` is its separation parameter, and ``psi`` is its
 position angle in radians.
-
-Finite-source point lens
-------------------------
-
-For a circular source magnified by one point lens, construct an FSPL source
-profile and evaluate its ``A(u, rho)`` method. Here ``u`` is the lens-source
-separation and ``rho`` is the source radius, both in Einstein-radius units.
-
-.. code-block:: python
-
-   from microjax.fspl import fspl_disk, fspl_ld1
-
-   u = jnp.linspace(0.0, 1.0, 1000)
-   mu_uniform = fspl_disk().A(u, rho=0.01)
-   mu_limb_darkened = fspl_ld1(a1=0.5).A(u, rho=0.01)
 
 Finite-source binary lenses
 ---------------------------
@@ -73,12 +58,11 @@ Construct a source trajectory and pass the circular-source radius ``rho`` to
        + 1j * (u0 * jnp.cos(alpha) + tau * jnp.sin(alpha))
    )
 
-   config = BinaryMagConfig(n_limb=500)
-   mu = mag_binary(w, rho, s=0.95, q=5e-4, config=config)
+   mu = mag_binary(w, rho, s=0.95, q=5e-4)
 
 Set ``u1`` to a non-zero value for the normalized linear limb-darkening law::
 
-   mu_ld = mag_binary(w, rho, s=0.95, q=5e-4, u1=0.5, config=config)
+   mu_ld = mag_binary(w, rho, s=0.95, q=5e-4, u1=0.5)
 
 For the binary-lens CPU one-shot backend, select ``backend="cpu"``:
 
@@ -130,10 +114,14 @@ source-boundary sampling and static scheduling:
    is recommended for normal use.
 
 ``source_tile_size``
-   Number of full-solve source positions in an outer vectorized tile.
+   Number of full-solve source positions in an outer vectorized tile. The
+   binary default is 512 so ordinary GPU calls expose at least 500 positions
+   concurrently when available.
 
 ``radial_chunk_size``
-   Number of radial image regions in an inner vectorized chunk.
+   Number of local-chart radial image regions in an inner vectorized chunk.
+   The binary fast path uses this local chart across the full mass-ratio range
+   with one fixed 19-point radial rule and no comparison retries.
 
 Both scheduler sizes must be positive integers.
 
@@ -161,11 +149,14 @@ values and derivatives over the intended parameter range; see :doc:`caveats`.
 Failure behavior
 ----------------
 
-The public finite-source functions return ``NaN`` for detected structural or
-non-finite failures. Check the result before passing it to downstream inference
-code and retain the complete configuration for rejected samples. A finite
-result has no guaranteed error bound; :doc:`caveats` defines the numerical
-contract.
+The accelerator finite-source functions return ``NaN`` for detected structural
+or non-finite failures. All CPU binary backends (``cpu``, ``cpu-one-shot`` and
+``cpu-adaptive``) preserve the best-effort magnification even when ``status``
+is nonzero; ``return_info=True`` exposes the same values and unmasked diagnostics.
+A CPU calculation can still produce a non-finite value. Check values and
+diagnostics before downstream inference, and retain the complete configuration
+for problematic samples. A finite result has no guaranteed error bound;
+:doc:`caveats` defines the numerical contract.
 
 For timing methodology and reproducibility metadata, see :doc:`performance`
 and :doc:`citing`.

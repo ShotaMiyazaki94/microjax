@@ -52,7 +52,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Solver Caveats</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#backend-scope-is-explicit">Backend scope is explicit</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#finite-values-are-not-accuracy-certificates">Finite values are not accuracy certificates</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#rejected-configurations-return-nan">Rejected configurations return NaN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#failure-diagnostics-depend-on-the-backend">Failure diagnostics depend on the backend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#the-numerical-graph-is-piecewise">The numerical graph is piecewise</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#use-x64-mode-and-forward-differentiation">Use x64 mode and forward differentiation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#configuration-changes-compile-separately">Configuration changes compile separately</a></li>
@@ -111,13 +111,19 @@ tolerance is met. A finite magnification therefore has no guaranteed relative
 error bound. Validate values and derivatives over the parameter region used in
 an analysis against an independent implementation.</p>
 </section>
-<section id="rejected-configurations-return-nan">
-<h2>Rejected configurations return NaN<a class="headerlink" href="#rejected-configurations-return-nan" title="Link to this heading"></a></h2>
-<p>The ordinary finite-source API returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code> when it detects invalid image
-geometry, exhausted fixed capacity, or a non-finite calculation. Do not replace
-such samples silently or treat them as zero likelihood without recording the
-complete lens and source configuration. For CPU-specific solver investigation,
-advanced diagnostic output is described in <a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a>.</p>
+<section id="failure-diagnostics-depend-on-the-backend">
+<h2>Failure diagnostics depend on the backend<a class="headerlink" href="#failure-diagnostics-depend-on-the-backend" title="Link to this heading"></a></h2>
+<p>The accelerator finite-source API returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code> when it detects invalid
+image geometry, exhausted fixed capacity, or a non-finite calculation.
+All CPU binary backends (<code class="docutils literal notranslate"><span class="pre">cpu</span></code>, <code class="docutils literal notranslate"><span class="pre">cpu-one-shot</span></code> and <code class="docutils literal notranslate"><span class="pre">cpu-adaptive</span></code>)
+preserve the best-effort magnification even when <code class="docutils literal notranslate"><span class="pre">status</span></code> is nonzero.
+<code class="docutils literal notranslate"><span class="pre">return_info=True</span></code> exposes the same values and unmasked diagnostic fields.
+The legacy adaptive backend retains its own numerical error diagnostics;
+they do not establish a general accuracy guarantee. A CPU calculation can
+still produce a non-finite value.</p>
+<p>Record the complete lens and source configuration for problematic samples.
+For CPU-specific interpretation of values and diagnostics, see
+<a class="reference internal" href="cpu_backend.html"><span class="doc">CPU Binary-Lens Backend</span></a>.</p>
 </section>
 <section id="the-numerical-graph-is-piecewise">
 <h2>The numerical graph is piecewise<a class="headerlink" href="#the-numerical-graph-is-piecewise" title="Link to this heading"></a></h2>

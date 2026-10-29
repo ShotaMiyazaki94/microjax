@@ -83,9 +83,8 @@
   <section id="microjax">
 <h1>microJAX<a class="headerlink" href="#microjax" title="Link to this heading"></a></h1>
 <p><a class="reference external" href="https://github.com/ShotaMiyazaki94/microjax">microJAX</a> is a differentiable
-microlensing library built with JAX. It provides point-source calculations for
-one to three lenses, finite-source calculations for binary and triple lenses,
-and trajectory utilities.</p>
+microlensing library built with JAX. It provides point-source and finite-source
+calculations for binary and triple lenses, along with trajectory utilities.</p>
 <p>The finite-source API includes a GPU-oriented accelerator backend and a
 separate CPU backend for binary lenses. Both support uniform and linear
 limb-darkened circular sources. Use <a class="reference internal" href="getting_started.html"><span class="doc">Getting Started</span></a> to install the
@@ -104,7 +103,6 @@ public API examples.</p>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#common-setup">Common setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#point-source-magnification">Point-source magnification</a></li>
-<li class="toctree-l2"><a class="reference internal" href="usage.html#finite-source-point-lens">Finite-source point lens</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#finite-source-binary-lenses">Finite-source binary lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#triple-lenses">Triple lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="usage.html#configuration">Configuration</a></li>
@@ -116,6 +114,7 @@ public API examples.</p>
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#basic-use">Basic use</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#numerical-contract">Numerical contract</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#forward-mode-differentiation">Forward-mode differentiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#value-regression-checks">Value-regression checks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#timing">Timing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="cpu_backend.html#examples">Examples</a></li>
 </ul>
@@ -129,7 +128,7 @@ public API examples.</p>
 <li class="toctree-l1"><a class="reference internal" href="caveats.html">Solver Caveats</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="caveats.html#backend-scope-is-explicit">Backend scope is explicit</a></li>
 <li class="toctree-l2"><a class="reference internal" href="caveats.html#finite-values-are-not-accuracy-certificates">Finite values are not accuracy certificates</a></li>
-<li class="toctree-l2"><a class="reference internal" href="caveats.html#rejected-configurations-return-nan">Rejected configurations return NaN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="caveats.html#failure-diagnostics-depend-on-the-backend">Failure diagnostics depend on the backend</a></li>
 <li class="toctree-l2"><a class="reference internal" href="caveats.html#the-numerical-graph-is-piecewise">The numerical graph is piecewise</a></li>
 <li class="toctree-l2"><a class="reference internal" href="caveats.html#use-x64-mode-and-forward-differentiation">Use x64 mode and forward differentiation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="caveats.html#configuration-changes-compile-separately">Configuration changes compile separately</a></li>

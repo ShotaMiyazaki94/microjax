@@ -19,7 +19,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Finite-source Point Lens" href="fspl.html" />
+    <link rel="next" title="Multipole" href="multipole.html" />
     <link rel="prev" title="API Reference" href="../modules.html" /> 
 </head>
 
@@ -64,7 +64,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#microjax.point_source.mag_point_source"><code class="docutils literal notranslate"><span class="pre">mag_point_source()</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="fspl.html">Finite-source Point Lens</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multipole.html">Multipole</a></li>
 <li class="toctree-l2"><a class="reference internal" href="inverse_ray_lightcurve.html">Inverse-Ray Lightcurve</a></li>
 <li class="toctree-l2"><a class="reference internal" href="poly_solver.html">Polynomial Solver</a></li>
@@ -99,11 +98,13 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="module-microjax.point_source">
-<span id="point-source"></span><h1>Point Source<a class="headerlink" href="#module-microjax.point_source" title="Link to this heading"></a></h1>
-<p>Point-source microlensing utilities (JAX).</p>
+  <section id="point-source">
+<h1>Point Source<a class="headerlink" href="#point-source" title="Link to this heading"></a></h1>
+<p>Point-source magnification, image positions, and caustic calculations for
+binary and triple lenses.</p>
+<p id="module-microjax.point_source">Point-source microlensing utilities (JAX).</p>
 <p>This module provides JAX-friendly implementations of core operations for
-point-source gravitational microlensing by up to three point-mass lenses.</p>
+point-source gravitational microlensing by binary and triple point-mass lenses.</p>
 <section id="functions">
 <h2>Functions<a class="headerlink" href="#functions" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -147,10 +148,9 @@ lens support.</p></li>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>npts</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of sampling points on the unit circle used to construct the
 critical-curve polynomial. Defaults to 200.</p></li>
-<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (1, 2, or 3). Defaults to 2.</p></li>
+<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (2 or 3). Defaults to 2.</p></li>
 <li><p><strong>params</strong> (<em>dict</em>) – <p>Lens configuration parameters:</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">1</span></code>: no additional parameters.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">2</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code> (separation) and <code class="docutils literal notranslate"><span class="pre">q</span></code> (mass ratio <code class="docutils literal notranslate"><span class="pre">m2/m1</span></code>).
 Internally we set <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">=</span> <span class="pre">s</span> <span class="pre">/</span> <span class="pre">2</span></code> and <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">=</span> <span class="pre">q</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q)</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">3</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code>, <code class="docutils literal notranslate"><span class="pre">q</span></code>, <code class="docutils literal notranslate"><span class="pre">q3</span></code> (third mass ratio), <code class="docutils literal notranslate"><span class="pre">r3</span></code>
@@ -170,8 +170,6 @@ the mapped caustics. Both arrays have shape <code class="docutils literal notran
 </dl>
 <p class="rubric">Notes</p>
 <ul class="simple">
-<li><p>For <code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">1</span></code> the critical curve is the unit circle and the caustic
-collapses to the origin.</p></li>
 <li><p>Output is shifted from the first-two-lens midpoint to their centre of
 mass. For a triple lens this public frame remains independent of the
 third body.</p></li>
@@ -186,7 +184,7 @@ third body.</p></li>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>z</strong> (<em>jax.Array</em>) – Complex scalar or array of image-plane coordinates.</p></li>
-<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (1, 2, or 3). Defaults to 2.</p></li>
+<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (2 or 3). Defaults to 2.</p></li>
 <li><p><strong>params</strong> (<em>dict</em>) – Lens configuration parameters. For <code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">2</span></code> expect <code class="docutils literal notranslate"><span class="pre">a</span></code> (half
 separation) and <code class="docutils literal notranslate"><span class="pre">e1</span></code> (mass fraction at <code class="docutils literal notranslate"><span class="pre">+a</span></code>). For <code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">3</span></code>
 expect <code class="docutils literal notranslate"><span class="pre">a</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code>, <code class="docutils literal notranslate"><span class="pre">psi</span></code>, <code class="docutils literal notranslate"><span class="pre">e1</span></code> and <code class="docutils literal notranslate"><span class="pre">e2</span></code>.</p></li>
@@ -212,7 +210,7 @@ JAX as expected.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>z</strong> (<em>jax.Array</em>) – Complex scalar or array of image-plane coordinates.</p></li>
-<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (1, 2, or 3). Defaults to 2.</p></li>
+<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (2 or 3). Defaults to 2.</p></li>
 <li><p><strong>params</strong> (<em>dict</em>) – Lens configuration parameters matching those accepted by
 <a class="reference internal" href="#microjax.point_source.lens_eq" title="microjax.point_source.lens_eq"><code class="xref py py-func docutils literal notranslate"><span class="pre">lens_eq()</span></code></a>.</p></li>
 </ul>
@@ -231,15 +229,14 @@ JAX as expected.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="microjax.point_source.mag_point_source">
 <span class="sig-prename descclassname"><span class="pre">microjax.point_source.</span></span><span class="sig-name descname"><span class="pre">mag_point_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nlenses</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#microjax.point_source.mag_point_source" title="Link to this definition"></a></dt>
-<dd><p>Total point-source magnification for 1–3 lens configurations.</p>
+<dd><p>Total point-source magnification for binary and triple lens configurations.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>w</strong> (<em>jax.Array</em>) – Complex scalar or array of source-plane coordinates.</p></li>
-<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (1, 2, or 3). Defaults to 2.</p></li>
+<li><p><strong>nlenses</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of point-mass lenses (2 or 3). Defaults to 2.</p></li>
 <li><p><strong>params</strong> (<em>dict</em>) – <p>Lens parameters depend on <code class="docutils literal notranslate"><span class="pre">nlenses</span></code>:</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">1</span></code>: no additional parameters required.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nlenses</span> <span class="pre">=</span> <span class="pre">2</span></code>: <code class="docutils literal notranslate"><span class="pre">s</span></code> (separation) and <code class="docutils literal notranslate"><span class="pre">q</span></code> (mass ratio <code class="docutils literal notranslate"><span class="pre">m2/m1</span></code>).
 Internally <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">=</span> <span class="pre">s</span> <span class="pre">/</span> <span class="pre">2</span></code> and <code class="docutils literal notranslate"><span class="pre">e1</span> <span class="pre">=</span> <span class="pre">q</span> <span class="pre">/</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">q)</span></code>; the source is
 shifted to the center of mass for the polynomial construction.</p></li>
@@ -270,7 +267,7 @@ branches returned by <code class="docutils literal notranslate"><span class="pre
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../modules.html" class="btn btn-neutral float-left" title="API Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="fspl.html" class="btn btn-neutral float-right" title="Finite-source Point Lens" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="multipole.html" class="btn btn-neutral float-right" title="Multipole" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

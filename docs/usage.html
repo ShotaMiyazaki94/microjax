@@ -49,7 +49,6 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Usage Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#common-setup">Common setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#point-source-magnification">Point-source magnification</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#finite-source-point-lens">Finite-source point lens</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#finite-source-binary-lenses">Finite-source binary lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#triple-lenses">Triple lenses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a></li>
@@ -115,7 +114,7 @@
 </section>
 <section id="point-source-magnification">
 <h2>Point-source magnification<a class="headerlink" href="#point-source-magnification" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">mag_point_source</span></code> evaluates magnification for one to three point lenses.
+<p><code class="docutils literal notranslate"><span class="pre">mag_point_source</span></code> evaluates magnification for binary and triple lenses.
 Source coordinates are complex numbers in Einstein-radius units: the real part
 is x and the imaginary part is y.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.00</span> <span class="o">+</span> <span class="mf">0.10</span><span class="n">j</span><span class="p">,</span> <span class="mf">0.05</span> <span class="o">+</span> <span class="mf">0.05</span><span class="n">j</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.10</span> <span class="o">+</span> <span class="mf">0.02</span><span class="n">j</span><span class="p">])</span>
@@ -125,19 +124,6 @@ is x and the imaginary part is y.</p>
 <p>For a triple lens, add <code class="docutils literal notranslate"><span class="pre">q3</span></code>, <code class="docutils literal notranslate"><span class="pre">r3</span></code>, and <code class="docutils literal notranslate"><span class="pre">psi</span></code>. Here <code class="docutils literal notranslate"><span class="pre">q3</span></code> is the third
 mass relative to lens 1, <code class="docutils literal notranslate"><span class="pre">r3</span></code> is its separation parameter, and <code class="docutils literal notranslate"><span class="pre">psi</span></code> is its
 position angle in radians.</p>
-</section>
-<section id="finite-source-point-lens">
-<h2>Finite-source point lens<a class="headerlink" href="#finite-source-point-lens" title="Link to this heading"></a></h2>
-<p>For a circular source magnified by one point lens, construct an FSPL source
-profile and evaluate its <code class="docutils literal notranslate"><span class="pre">A(u,</span> <span class="pre">rho)</span></code> method. Here <code class="docutils literal notranslate"><span class="pre">u</span></code> is the lens-source
-separation and <code class="docutils literal notranslate"><span class="pre">rho</span></code> is the source radius, both in Einstein-radius units.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">microjax.fspl</span><span class="w"> </span><span class="kn">import</span> <span class="n">fspl_disk</span><span class="p">,</span> <span class="n">fspl_ld1</span>
-
-<span class="n">u</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
-<span class="n">mu_uniform</span> <span class="o">=</span> <span class="n">fspl_disk</span><span class="p">()</span><span class="o">.</span><span class="n">A</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
-<span class="n">mu_limb_darkened</span> <span class="o">=</span> <span class="n">fspl_ld1</span><span class="p">(</span><span class="n">a1</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">A</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
-</pre></div>
-</div>
 </section>
 <section id="finite-source-binary-lenses">
 <h2>Finite-source binary lenses<a class="headerlink" href="#finite-source-binary-lenses" title="Link to this heading"></a></h2>
@@ -155,12 +141,11 @@ separation and <code class="docutils literal notranslate"><span class="pre">rho<
     <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="p">(</span><span class="n">u0</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span> <span class="o">+</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">alpha</span><span class="p">))</span>
 <span class="p">)</span>
 
-<span class="n">config</span> <span class="o">=</span> <span class="n">BinaryMagConfig</span><span class="p">(</span><span class="n">n_limb</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
-<span class="n">mu</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">5e-4</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+<span class="n">mu</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">5e-4</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Set <code class="docutils literal notranslate"><span class="pre">u1</span></code> to a non-zero value for the normalized linear limb-darkening law:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mu_ld</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">5e-4</span><span class="p">,</span> <span class="n">u1</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mu_ld</span> <span class="o">=</span> <span class="n">mag_binary</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">5e-4</span><span class="p">,</span> <span class="n">u1</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>For the binary-lens CPU one-shot backend, select <code class="docutils literal notranslate"><span class="pre">backend=&quot;cpu&quot;</span></code>:</p>
@@ -206,9 +191,13 @@ are mapped into the image plane. Larger values follow rapid changes of the
 image boundary more finely, at additional computational cost. The default
 is recommended for normal use.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">source_tile_size</span></code></dt><dd><p>Number of full-solve source positions in an outer vectorized tile.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">source_tile_size</span></code></dt><dd><p>Number of full-solve source positions in an outer vectorized tile. The
+binary default is 512 so ordinary GPU calls expose at least 500 positions
+concurrently when available.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">radial_chunk_size</span></code></dt><dd><p>Number of radial image regions in an inner vectorized chunk.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">radial_chunk_size</span></code></dt><dd><p>Number of local-chart radial image regions in an inner vectorized chunk.
+The binary fast path uses this local chart across the full mass-ratio range
+with one fixed 19-point radial rule and no comparison retries.</p>
 </dd>
 </dl>
 <p>Both scheduler sizes must be positive integers.</p>
@@ -232,11 +221,14 @@ values and derivatives over the intended parameter range; see <a class="referenc
 </section>
 <section id="failure-behavior">
 <h2>Failure behavior<a class="headerlink" href="#failure-behavior" title="Link to this heading"></a></h2>
-<p>The public finite-source functions return <code class="docutils literal notranslate"><span class="pre">NaN</span></code> for detected structural or
-non-finite failures. Check the result before passing it to downstream inference
-code and retain the complete configuration for rejected samples. A finite
-result has no guaranteed error bound; <a class="reference internal" href="caveats.html"><span class="doc">Solver Caveats</span></a> defines the numerical
-contract.</p>
+<p>The accelerator finite-source functions return <code class="docutils literal notranslate"><span class="pre">NaN</span></code> for detected structural
+or non-finite failures. All CPU binary backends (<code class="docutils literal notranslate"><span class="pre">cpu</span></code>, <code class="docutils literal notranslate"><span class="pre">cpu-one-shot</span></code> and
+<code class="docutils literal notranslate"><span class="pre">cpu-adaptive</span></code>) preserve the best-effort magnification even when <code class="docutils literal notranslate"><span class="pre">status</span></code>
+is nonzero; <code class="docutils literal notranslate"><span class="pre">return_info=True</span></code> exposes the same values and unmasked diagnostics.
+A CPU calculation can still produce a non-finite value. Check values and
+diagnostics before downstream inference, and retain the complete configuration
+for problematic samples. A finite result has no guaranteed error bound;
+<a class="reference internal" href="caveats.html"><span class="doc">Solver Caveats</span></a> defines the numerical contract.</p>
 <p>For timing methodology and reproducibility metadata, see <a class="reference internal" href="performance.html"><span class="doc">Accelerator Performance Tuning</span></a>
 and <a class="reference internal" href="citing.html"><span class="doc">Citing and Reproducibility</span></a>.</p>
 </section>

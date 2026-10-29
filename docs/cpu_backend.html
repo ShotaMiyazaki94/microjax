@@ -16,6 +16,7 @@
       <script src="_static/documentation_options.js?v=5929fcd5"></script>
       <script src="_static/doctools.js?v=9bcbadda"></script>
       <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -51,6 +52,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#basic-use">Basic use</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#numerical-contract">Numerical contract</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#forward-mode-differentiation">Forward-mode differentiation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#value-regression-checks">Value-regression checks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#timing">Timing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a></li>
 </ul>
@@ -118,32 +120,122 @@ backend.</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>The CPU solver has fixed internal scheduling and quadrature settings.
+<p>The CPU solver has internal scheduling and bounded quadrature settings.
 <code class="docutils literal notranslate"><span class="pre">BinaryMagConfig</span></code> and <code class="docutils literal notranslate"><span class="pre">n_limb</span></code> configure the accelerator backend and do
 not tune this path. <code class="docutils literal notranslate"><span class="pre">&quot;cpu-one-shot&quot;</span></code> remains an alias of <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code> for
 compatibility. The older <code class="docutils literal notranslate"><span class="pre">&quot;cpu-adaptive&quot;</span></code> backend is retained for research
 comparisons and should not be used as a silent retry in production models.</p>
+<p>All three CPU backends, <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;cpu-one-shot&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;cpu-adaptive&quot;</span></code>,
+preserve the best-effort magnification even when <code class="docutils literal notranslate"><span class="pre">status</span></code> is nonzero.
+<code class="docutils literal notranslate"><span class="pre">return_info=True</span></code> exposes the same magnification together with the unmasked
+diagnostics. A non-finite value produced by the calculation remains non-finite.</p>
 </section>
 <section id="numerical-contract">
 <h2>Numerical contract<a class="headerlink" href="#numerical-contract" title="Link to this heading"></a></h2>
-<p>The CPU backend uses bounded work. It applies a multipole approximation where
-its internal gate accepts it and otherwise performs one full finite-source
-solve. It does not increase integration order or retry until a requested
-tolerance is met.</p>
-<p>A finite result is therefore a numerical estimate, not a certified error
-bound. Detected geometry, capacity, root, or non-finite failures are returned
-as <code class="docutils literal notranslate"><span class="pre">NaN</span></code>. Before an inference run:</p>
+<p>The default <code class="docutils literal notranslate"><span class="pre">&quot;cpu&quot;</span></code> path and its <code class="docutils literal notranslate"><span class="pre">&quot;cpu-one-shot&quot;</span></code> alias use bounded work.
+They apply a multipole approximation where the internal gate accepts it and
+otherwise perform one full finite-source solve. Their Cartesian and theta-first
+integrals use an internal relative stopping indicator and a fixed maximum
+amount of work. Neither path retries another chart or keeps increasing work
+until a user-requested tolerance is met.</p>
+<p>Uniform and linear limb-darkened sources share one full solver with two
+integration routes: Cartesian (with x/y chosen as an internal axis) and polar
+theta-first. One 112-sample source-limb trace selects the route before
+integration. Each
+source position then integrates that chart within a fixed work budget: it does not
+evaluate a second coordinate chart. The
+route name is an execution diagnostic, not an accuracy ranking.</p>
+<p>Route selection uses only the traced image state: physical image
+counts and transitions, ghost-root residuals and angles, projected extrema,
+and radial versus tangential image motion. There are no <code class="docutils literal notranslate"><span class="pre">q</span></code>, <code class="docutils literal notranslate"><span class="pre">s</span></code>, <code class="docutils literal notranslate"><span class="pre">rho</span></code>,
+or source-position regions that select a support family. Cartesian orientation
+is chosen by comparing the x and y projections of the same traced image limb.</p>
+<p>Cartesian integration cells are bounded by refined
+projection tangencies and source-limb critical crossings. Fixed Newton seeds
+come from the image trace, observed image-count transitions, and the closest
+rejected image pair. A single source probe between hidden critical crossings
+can reveal an image pair absent from the original limb samples. A physical
+trace point inside a cell proves occupancy; cells without that evidence use
+one midpoint ray. Finite event searches are not a completeness certificate.</p>
+<p>Theta-first integration refines every candidate angular endpoint and adds
+critical-crossing angles and four common polar charts. Root-slot changes can
+otherwise resemble branch endings and leave an occupied angular sector out of
+the support. Converged tangencies and critical positions use implicit forward
+derivatives of their defining lens equations. When an angular
+tangency fails to converge and the fitted trace endpoint is returned, AD
+follows that fitted endpoint instead of freezing its parameter dependence.</p>
+<p>Both charts share the two-moment interface. Each ray evaluates
+the uniform area and the linear-profile moment together; the final flux mixes
+them using <code class="docutils literal notranslate"><span class="pre">u1</span></code>. If these image integrals are <span class="math notranslate nohighlight">\(M_0\)</span> and <span class="math notranslate nohighlight">\(M_1\)</span>,
+the magnification is</p>
+<div class="math notranslate nohighlight">
+\[A(u) = \frac{(1-u)M_0 + u M_1}{\pi\rho^2(1-u/3)}.\]</div>
+<p>At <code class="docutils literal notranslate"><span class="pre">u1=0</span></code>, this is exactly the uniform image-area integral. There is no
+separate uniform full-solve dispatch. Both moment indicators remain active at
+zero coefficient, so support, chart choice, and quadrature work are independent
+of the brightness coefficient. Each support cell starts with two panels of five
+Gauss-Legendre nodes in a sine-squared coordinate, which regularizes endpoint
+singularities. A positive three-node embedded rule reuses samples to rank the panels.
+Cartesian and theta-first integration then retain all five values when extending
+a panel to an eleven-node Gauss-Kronrod rule: only six new rays are evaluated.
+An already extended panel can be bisected into two fresh five-node panels at a
+cost of ten rays. Both moments must separately meet the internal relative
+indicator <code class="docutils literal notranslate"><span class="pre">1e-4</span></code> in two consecutive allocations, with at least one refinement
+for nonempty support. The total work is bounded by 84 times the number of active
+cells, shared across the cells rather than capped separately per cell.
+These are work bounds, not error bounds.</p>
+<p>Cartesian and theta-first rays retain eight inner profile nodes. Embedded
+discrepancies never trigger another route, a larger work budget, or a retry.
+All default CPU full solves use this same cached allocator. The older
+uniform-only three-chart helper and <code class="docutils literal notranslate"><span class="pre">cpu-adaptive</span></code> remain available for
+explicit research comparisons; the default scheduler does not call them.</p>
+<p>The cache lives within one integration call and retains moving-endpoint and
+parameter dependencies for forward AD. It stores only the five reusable Gauss
+samples per panel; the eleven-node extension is temporary. Reduced panel
+statuses compose with the six new ray statuses, avoiding a second status cache.
+It is not reused between different
+source positions or lens parameters. The internal result tracks convergence,
+budget exhaustion, and all evaluated rays, including discarded parent panels.
+Public structural status remains separate: a zero status does not imply that
+the embedded relative stopping condition was met. The standard Cartesian and
+theta-first profile kernels do not supply an independent inner-profile error
+estimate, and neither embedded difference detects missing support or roots.</p>
+<p>The Cartesian and theta-first kernels form their line-intersection
+sextics in a locally centered coordinate before solving them. The origin
+<code class="docutils literal notranslate"><span class="pre">s</span> <span class="pre">*</span> <span class="pre">(1-q)</span> <span class="pre">/</span> <span class="pre">(1+q)</span></code> changes sign under lens exchange and reduces cancellation
+near the lower-mass lens. Each line uses one real companion solve and a fixed
+polynomial polishing schedule. During moment integration, accepted real roots
+receive one further Newton correction in the unexpanded physical lens equation.
+It must reduce the physical residual and stay within a quarter of the nearest
+real-root separation; complex pairs keep their original classification.
+Real roots carry the implicit derivative of the physical equation. Support
+occupancy checks retain the cheaper polynomial-only solve. This correction
+does not recover missing roots or establish root completeness. Integration
+remains an inverse-ray area integral.</p>
+<p>The common solver and denser trace improve numerical consistency at a measured
+execution cost, especially for uniform sources. The unification is not a speed
+claim. The compact validation inputs and their reference limitations are
+included in <code class="docutils literal notranslate"><span class="pre">tests/data/cpu_accuracy/</span></code>; the full local research archive is
+not distributed with the repository.</p>
+<p>A result is therefore a numerical estimate, not a certified error bound.
+For the one-shot solver, <code class="docutils literal notranslate"><span class="pre">status</span></code> is a diagnostic bit field for suspicious
+trace, support, capacity, or root state; it is not an accuracy failure
+definition. The legacy adaptive solver retains its own numerical error
+diagnostics, including <code class="docutils literal notranslate"><span class="pre">estimated_error</span></code>. These differ from the one-shot
+diagnostics and do not establish a general accuracy guarantee. The common
+best-effort return convention applies to both solver families. Before an
+inference run:</p>
 <ul class="simple">
 <li><p>validate values over the intended <code class="docutils literal notranslate"><span class="pre">(q,</span> <span class="pre">s,</span> <span class="pre">rho,</span> <span class="pre">w,</span> <span class="pre">u1)</span></code> region against an
 independent implementation;</p></li>
 <li><p>validate derivatives separately from values;</p></li>
-<li><p>retain the full configuration for every microJAX <code class="docutils literal notranslate"><span class="pre">NaN</span></code>;</p></li>
+<li><p>inspect nonzero status for unexpectedly inaccurate or non-finite values;</p></li>
 <li><p>record failures or non-convergence from the reference solver separately.</p></li>
 </ul>
-<p>For investigation of an individual rejection, <code class="docutils literal notranslate"><span class="pre">return_info=True</span></code> exposes a
-best-effort result and internal diagnostic state. Those fields are debugging
-details rather than a stable scientific interface; routine modeling should
-use the ordinary magnification result.</p>
+<p>For investigation of an individual discrepancy, <code class="docutils literal notranslate"><span class="pre">return_info=True</span></code> exposes
+the same best-effort result and its internal diagnostic state. Those fields are
+debugging details rather than a stable scientific interface; benchmark failure
+rates are defined from the final magnification relative to a reference solver.</p>
 </section>
 <section id="forward-mode-differentiation">
 <h2>Forward-mode differentiation<a class="headerlink" href="#forward-mode-differentiation" title="Link to this heading"></a></h2>
@@ -166,8 +258,34 @@ through the CPU solver’s data-dependent loops is not part of the public API.</
 </pre></div>
 </div>
 <p>Caustic crossings and internal route changes can make the numerical graph
-piecewise. A finite derivative does not by itself establish accuracy or
+piecewise. Forward AD follows the selected support and subdivision schedule;
+it does not differentiate discrete panel selection. A finite derivative or
+agreement with finite differences of that schedule does not by itself establish accuracy or
 smoothness in a surrounding parameter region.</p>
+</section>
+<section id="value-regression-checks">
+<h2>Value-regression checks<a class="headerlink" href="#value-regression-checks" title="Link to this heading"></a></h2>
+<p>For routine checks, run from the repository root:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>tools/cpu_accuracy.py<span class="w"> </span>--output-dir<span class="w"> </span>results/cpu-accuracy/compact-01
+</pre></div>
+</div>
+<p>This checks 1,144 frozen difficult and broadly sampled positions for both
+uniform brightness and linear LD with <code class="docutils literal notranslate"><span class="pre">u1=0.5</span></code>. A separate 512-position
+supplemental check is available through <code class="docutils literal notranslate"><span class="pre">--suite</span> <span class="pre">holdout</span></code>. The collections
+use disjoint lens configurations from the same caustic-centered grid; they
+are not samples of a general observational input distribution.</p>
+<p>The saved full-grid comparison contains 443,700 positions. There is one
+difference above 0.1% among 440,781 usable LD references; 2,919 LD references
+are missing or invalid. Uniform has 115 raw differences above 0.1%: 114 have
+unresolved reference disagreements, and one is a known bad reference that is
+replaced by an independently checked value in the compact fixtures. These
+counts do not establish an unconditional accuracy bound.</p>
+<p>Missing or unresolved references do not count as accuracy passes. The checker
+reports their values against the saved baseline separately and detects new
+regressions against the comparable references. See
+<code class="docutils literal notranslate"><span class="pre">docs_src/internal/cpu_accuracy_validation.md</span></code> for the policy, commands and
+optional full-grid input requirements. These checks do not replace derivative
+tests or measure execution speed.</p>
 </section>
 <section id="timing">
 <h2>Timing<a class="headerlink" href="#timing" title="Link to this heading"></a></h2>
@@ -177,6 +295,18 @@ and source profile, then synchronize each timed result with
 many positions require a full finite-source calculation. See
 <a class="reference internal" href="performance.html"><span class="doc">Accelerator Performance Tuning</span></a> for a timing example; its configuration controls apply
 only to the accelerator backend.</p>
+<p>A local x64 CPU measurement on 2026-10-14 covered 12,325 configurations of
+36 positions each, with LD coefficient 0.5. Median warm full-solve time was
+1.3128 ms/point for microJAX, 1.7372 ms/point for VBMicrolensing 5.3.5 with
+<code class="docutils literal notranslate"><span class="pre">RelTol=1e-4</span></code>, and 0.4367 ms/point with <code class="docutils literal notranslate"><span class="pre">RelTol=1e-3</span></code>; both reference
+settings used <code class="docutils literal notranslate"><span class="pre">Tol=1e-4</span></code>. The faster VBM setting remains faster.</p>
+<p>Each value is a configuration’s group-mean time, not a separately timed
+position. The measurement excludes JIT compilation, worker startup, IPC and
+the microJAX multipole shortcut. The two VBM settings exclude 14 and 9
+configurations respectively because of timeout or invalid group results.
+These one-machine, one-pass measurements are workload-specific and do not
+provide uniform-source timings. The full timing data and generated figures
+remain in the optional local research archive.</p>
 </section>
 <section id="examples">
 <h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
