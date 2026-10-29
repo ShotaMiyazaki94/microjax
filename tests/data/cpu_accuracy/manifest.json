@@ -81,7 +81,7 @@
   ],
   "format_version": 1,
   "full_grid_rows": 443700,
-  "generator_sha256": "8cf3009ccd0b4ac2d63cf23cc0f8fdbea4dca6f23f772d3f31cc90dc83908f1f",
+  "generator_sha256": "b70424621e32d92745ff2ca9a56e7f9606f0703bb79e1cd938dd360dda3d7552",
   "historical_regression_rows": [
     1334,
     1351,
@@ -4303,6 +4303,7 @@
     "seed": "microjax-cpu-accuracy-v1-20261029",
     "survey": "384 rows from distinct other configurations; covers every available exact q/s/rho level and 5x5x5-by-route strata, filled by stable hash ranking."
   },
+  "source_hash_scope": "Historical validated baseline, not the current checkout; removed modules may appear as provenance only.",
   "source_sha256": {
     "__init__.py": "7cf66a0142b88a7216f4a8714707db50594c34638c9a24eee385d35b2466bab3",
     "coeffs.py": "96e72c7e8c7c093a155192b604e8b58cb685c3ce62c9a0f4543dc24982ef6969",

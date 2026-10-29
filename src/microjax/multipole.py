@@ -256,7 +256,7 @@ def mag_hexadecapole(
     u1 : float, optional
         Linear limb-darkening coefficient. Defaults to ``0`` (uniform source).
     nlenses : int, optional
-        Number of lenses (1, 2, or 3). Defaults to 2.
+        Number of lenses (2 or 3). Defaults to 2.
     **params
         Additional lens parameters in the mid-point coordinate system. For
         binaries this expects ``a`` and ``e1``; for triples ``a``, ``r3``,
@@ -278,11 +278,12 @@ def mag_hexadecapole(
     corrections through the ``Gamma`` parameter.
     """
 
+    if nlenses not in (2, 3):
+        raise ValueError("`nlenses` must be 2 or 3.")
+
     factorial = lambda n: jnp.exp(gammaln(n + 1))
 
-    if nlenses == 1:
-        W = lambda k: (-1) ** (k - 1) * factorial(k - 1) * 1.0 / z**k
-    elif nlenses == 2:
+    if nlenses == 2:
         a, e1 = params["a"], params["e1"]
         W = (
             lambda k: (-1) ** (k - 1)
@@ -304,9 +305,6 @@ def mag_hexadecapole(
                 + (1.0 - e1 - e2) / (z - r3_complex) ** k
             )
         )
-    else:
-        raise ValueError("`nlenses` has to be set to be <= 3.")
-
     Ws = vmap(W)(jnp.arange(2, 7))
 
     mu_ps, delta_mu_quad, delta_mu_hex = jax.checkpoint(

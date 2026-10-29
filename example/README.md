@@ -3,7 +3,7 @@
 Examples are grouped by the backend they are intended to exercise:
 
 - [`gpu/`](gpu/) contains the accelerator-oriented binary and triple lens
-  workflows and the FSPL comparison.
+  workflows.
 - [`cpu/`](cpu/) contains examples for the binary-lens CPU backend.
 
 Run commands from the repository root unless an example README says otherwise.

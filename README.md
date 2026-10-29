@@ -12,10 +12,13 @@
 [![DOI](https://zenodo.org/badge/774485090.svg)](https://doi.org/10.5281/zenodo.17247892)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-microJAX models point and finite sources in single-, binary-, and triple-lens
+microJAX models point and finite sources in binary- and triple-lens
 microlensing systems. It provides an accelerator-oriented boundary integrator,
 a separate binary-lens CPU backend, forward-mode automatic differentiation,
 caustic calculations, and trajectory utilities.
+
+Single-lens models are maintained separately in
+[singlens](https://github.com/ShotaMiyazaki94/singlens).
 
 ## Installation
 

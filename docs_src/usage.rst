@@ -25,7 +25,7 @@ Enable 64-bit mode before creating arrays and use the public package imports::
 Point-source magnification
 --------------------------
 
-``mag_point_source`` evaluates magnification for one to three point lenses.
+``mag_point_source`` evaluates magnification for binary and triple lenses.
 Source coordinates are complex numbers in Einstein-radius units: the real part
 is x and the imaginary part is y.
 
@@ -37,21 +37,6 @@ is x and the imaginary part is y.
 For a triple lens, add ``q3``, ``r3``, and ``psi``. Here ``q3`` is the third
 mass relative to lens 1, ``r3`` is its separation parameter, and ``psi`` is its
 position angle in radians.
-
-Finite-source point lens
-------------------------
-
-For a circular source magnified by one point lens, construct an FSPL source
-profile and evaluate its ``A(u, rho)`` method. Here ``u`` is the lens-source
-separation and ``rho`` is the source radius, both in Einstein-radius units.
-
-.. code-block:: python
-
-   from microjax.fspl import fspl_disk, fspl_ld1
-
-   u = jnp.linspace(0.0, 1.0, 1000)
-   mu_uniform = fspl_disk().A(u, rho=0.01)
-   mu_limb_darkened = fspl_ld1(a1=0.5).A(u, rho=0.01)
 
 Finite-source binary lenses
 ---------------------------
