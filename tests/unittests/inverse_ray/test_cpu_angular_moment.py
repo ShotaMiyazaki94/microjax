@@ -8,8 +8,10 @@ from microjax.inverse_ray.cpu.angular_moment import (
     AngularSupport,
     _angular_support_cells,
     _ray_intervals,
+    _ray_intervals_from_roots,
     _radial_image_bound,
     _stable_radial_level_value,
+    _trace_sector_union_mask,
     _split_angular_support_at_angle,
     _split_overlapping_angular_support,
     _uniform_result_from_support,
@@ -53,6 +55,45 @@ def test_overlapping_support_split_reuses_inactive_cells_without_moving_edges():
     )
 
 
+def test_trace_sector_union_does_not_sweep_across_inactive_edge():
+    cells = jnp.asarray(
+        [[0.0, 0.2], [0.2, 0.6], [0.6, 0.8]],
+        dtype=jnp.float64,
+    )
+    angles = jnp.asarray([[0.1, 0.7]], dtype=jnp.float64)
+    physical_limb = jnp.exp(1.0j * angles)
+    physical_mask = jnp.ones_like(angles, dtype=bool)
+    following_limb = jnp.roll(physical_limb, -1, axis=1)
+    outgoing_edge_active = jnp.zeros_like(physical_mask)
+
+    active = _trace_sector_union_mask(
+        cells,
+        physical_limb,
+        physical_mask,
+        following_limb,
+        outgoing_edge_active,
+        support_uncertain=jnp.asarray(False),
+    )
+
+    np.testing.assert_array_equal(np.asarray(active), [True, False, True])
+
+
+def test_angular_support_exposes_lossless_support_1d_contract():
+    support = AngularSupport(
+        cells=jnp.asarray([[0.0, 1.0], [1.0, 2.0], [0.0, 0.0]]),
+        active=jnp.asarray([True, True, False]),
+        topology_uncertain=jnp.asarray(False),
+        minimum_ghost_residual=jnp.asarray(1.0),
+        limb_topology=jnp.asarray(False),
+        tangencies_valid=jnp.asarray([True, True]),
+    )
+    contract = support.as_support_1d()
+    np.testing.assert_array_equal(np.asarray(contract.cells), np.asarray(support.cells))
+    np.testing.assert_array_equal(np.asarray(contract.active), np.asarray(support.active))
+    np.testing.assert_array_equal(np.asarray(contract.core), np.asarray(support.active))
+    assert contract.payload is support
+
+
 def test_structural_angle_split_inserts_exact_boundary_once():
     support = AngularSupport(
         cells=jnp.asarray([[0.0, 1.0], [1.0, 2.0], [0.0, 0.0]]),
@@ -71,6 +112,33 @@ def test_structural_angle_split_inserts_exact_boundary_once():
     np.testing.assert_allclose(
         np.sort(np.asarray(split.cells[split.active]).reshape(-1)),
         [0.0, 0.25, 0.25, 1.0, 1.0, 2.0],
+    )
+
+
+def test_structural_angle_split_revives_both_halves_of_inactive_guard_cell():
+    """A rejected-root angle must not lose half of its conservative sector."""
+
+    support = AngularSupport(
+        cells=jnp.asarray(
+            [[0.0, 1.0], [1.0, 2.0], [2.0, 3.0], [0.0, 0.0]],
+            dtype=jnp.float64,
+        ),
+        active=jnp.asarray([True, False, False, False]),
+        topology_uncertain=jnp.asarray(True),
+        minimum_ghost_residual=jnp.asarray(1.0),
+        limb_topology=jnp.asarray(False),
+        tangencies_valid=jnp.asarray([True]),
+    )
+
+    split, applied = _split_angular_support_at_angle(
+        support, jnp.asarray(1.5), enabled=True
+    )
+
+    assert bool(applied)
+    active_cells = np.asarray(split.cells[split.active])
+    np.testing.assert_allclose(
+        np.sort(active_cells.reshape(-1)),
+        [0.0, 1.0, 1.0, 1.5, 1.5, 2.0],
     )
 
 
@@ -196,6 +264,64 @@ def test_stable_level_value_rejects_near_cancelled_interval():
     assert int(stable[3][0]) == 0
 
 
+def test_stable_level_does_not_create_area_from_unresolved_complex_pair(monkeypatch):
+    # Supply the root classification rather than depending on LAPACK to put
+    # a nearly multiple pair on a particular side of the real-root threshold.
+    # The tiny negative mapped level must not manufacture a whole [0, 1] cell
+    # when no positive roots were accepted and the polynomial is cancelling.
+    from microjax.inverse_ray.cpu import angular_moment
+
+    candidates = np.asarray([0.5 + 4e-7j, 0.5 - 4e-7j, -1.0, -2.0, -3.0, -4.0])
+    polynomial = np.poly(candidates).real
+    polynomial /= np.max(np.abs(polynomial))
+    assert abs(np.polyval(polynomial, 0.5)) < 1e-12
+    coefficients = jnp.asarray(polynomial[None, :], dtype=jnp.float64)
+    roots = jnp.asarray(candidates[None, :], dtype=jnp.complex128)
+    monkeypatch.setattr(
+        angular_moment,
+        "_stable_radial_level_value",
+        lambda _angles, points, _source, _rho, **_lens: jnp.full_like(points, -jnp.finfo(points.dtype).eps),
+    )
+    lower, upper, inside, invalid = _ray_intervals_from_roots(
+        coefficients,
+        roots,
+        stable_context=(jnp.asarray([0.0]), jnp.asarray(0.0j), jnp.asarray(1.0), 1.0, 0.1),
+    )
+    assert float(jnp.sum(jnp.where(inside, upper - lower, 0.0))) == 0.0
+    assert float(lower[0, 0]) == 0.0
+    assert float(upper[0, 0]) == 1.0
+    assert int(invalid[0]) == 0
+
+
+def test_marginal_companion_ray_does_not_manufacture_a_broad_interval():
+    # This physical ray has a very narrow occupied interval. Different
+    # eigensolvers may resolve its candidates as real or as a conjugate pair;
+    # neither classification may turn the entire radial domain into image area.
+    source = jnp.asarray(
+        -1.4999573888723472 + 0.010965537139530405j,
+        dtype=jnp.complex128,
+    )
+    rho = jnp.asarray(3.0e-5, dtype=jnp.float64)
+    angle = jnp.asarray(6.279239655504644, dtype=jnp.float64)
+    coefficients = binary_radial_level_set_coefficients(
+        angle, source, rho, s=0.5, q=1.0e-5
+    )[None, :]
+    lower, upper, inside, invalid = _ray_intervals(
+        coefficients,
+        root_mode="companion",
+        stable_context=(jnp.asarray([angle]), source, rho, 0.5, 1.0e-5),
+    )
+    # Independent 90-decimal solutions of the unexpanded lens equation, with
+    # the binary64 inputs above treated as exact. This checks containment, not
+    # completeness of the companion solver's nearly multiple root candidates.
+    physical_lower = 0.49998892961983111624
+    physical_upper = 0.50000614649415968412
+    active = np.asarray(inside & (upper > lower))
+    assert np.all(np.asarray(lower)[active] >= physical_lower - 1e-12)
+    assert np.all(np.asarray(upper)[active] <= physical_upper + 1e-12)
+    assert int(invalid[0]) == 0
+
+
 def test_fixed_ea_polar_area_matches_companion():
     source = jnp.asarray(0.1 + 0.2j, dtype=jnp.complex128)
     support = _angular_support_cells(source, 1e-2, s=1.0, q=0.3, n_limb=64)
@@ -289,7 +415,7 @@ def test_polar_support_uses_an_isolated_root_branch_as_a_tangency_seed():
     assert np.isclose(float(result.magnification), 6.577297831349562, rtol=1e-4)
 
 
-def test_endpoint_preserving_union_skips_only_empty_atomic_cells():
+def test_trace_sector_union_skips_only_empty_atomic_cells():
     source = jnp.asarray(0.1 + 0.2j, dtype=jnp.complex128)
     rho = jnp.asarray(1.0e-2)
     support = _angular_support_cells(source, rho, s=1.0, q=0.3, n_limb=64)
@@ -320,7 +446,7 @@ def test_endpoint_preserving_union_skips_only_empty_atomic_cells():
     )
 
 
-def test_endpoint_preserving_union_keeps_all_cells_when_support_is_uncertain():
+def test_trace_sector_union_keeps_full_partition_for_trace_proven_guard():
     support = _angular_support_cells(
         jnp.asarray(0.3667626068246604 - 0.03417414721542691j),
         jnp.asarray(1.0e-3),
@@ -331,4 +457,7 @@ def test_endpoint_preserving_union_keeps_all_cells_when_support_is_uncertain():
     partition_active = support.cells[:, 1] > support.cells[:, 0]
 
     assert bool(support.topology_uncertain)
+    # This short-lived fold is exactly the trace-proven crossing case in which
+    # a physical-limb-only sweep can omit the newborn image sector.  The
+    # conservative guard therefore retains the complete 1-D partition.
     np.testing.assert_array_equal(support.active, partition_active)

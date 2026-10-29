@@ -29,7 +29,11 @@ from ..geometry.topology import RADIAL_CAPACITY, RADIAL_OK, RADIAL_TOPOLOGY
 from ..roots.level_set import (
     binary_level_set_fourier,
 )
-from .support import tracked_limb_neighbors
+from .support import (
+    limb_edge_activity_from_masks,
+    make_support_1d,
+    tracked_limb_neighbors,
+)
 
 Array = jnp.ndarray
 
@@ -48,6 +52,18 @@ class SimplePolarTopology(NamedTuple):
     n_intervals: Array
     status: Array
     n_tangencies: Array
+
+    def as_support_1d(self):
+        """Expose radial topology cells through the shared support contract."""
+
+        active = jnp.arange(self.intervals.shape[0], dtype=jnp.int32) < self.n_intervals
+        return make_support_1d(
+            self.intervals,
+            active,
+            endpoint_valid=self.status == jnp.int32(RADIAL_OK),
+            overflow=self.status == jnp.int32(RADIAL_CAPACITY),
+            payload=self,
+        )
 
 
 class LimbTangencies(NamedTuple):
@@ -208,6 +224,8 @@ def refine_limb_tangencies(
     s: Array,
     q: Array,
     phases: Array | None = None,
+    neighbors: tuple[Array, Array, Array, Array] | None = None,
+    edge_activity: tuple[Array, Array] | None = None,
 ) -> LimbTangencies:
     """Project sampled limb phases onto the radial-contact equations.
 
@@ -218,21 +236,36 @@ def refine_limb_tangencies(
     by :func:`build_simple_polar_topology`.
     """
 
-    previous, following, previous_mask, following_mask = tracked_limb_neighbors(
-        image_limb, physical_mask
-    )
+    if neighbors is None:
+        neighbors = tracked_limb_neighbors(image_limb, physical_mask)
+    previous, following, previous_mask, following_mask = neighbors
+    if edge_activity is None:
+        edge_activity = limb_edge_activity_from_masks(
+            physical_mask,
+            previous_mask,
+            following_mask,
+        )
+    incoming_edge_active, outgoing_edge_active = edge_activity
     radius = jnp.abs(image_limb)
     previous_radius = jnp.abs(previous)
     following_radius = jnp.abs(following)
     previous_angle_step = jnp.abs(jnp.angle(image_limb * jnp.conjugate(previous)))
     following_angle_step = jnp.abs(jnp.angle(following * jnp.conjugate(image_limb)))
     radial_neighbor_step = jnp.maximum(
-        jnp.where(previous_mask, jnp.abs(radius - previous_radius), 0.0),
-        jnp.where(following_mask, jnp.abs(following_radius - radius), 0.0),
+        jnp.where(
+            incoming_edge_active,
+            jnp.abs(radius - previous_radius),
+            0.0,
+        ),
+        jnp.where(
+            outgoing_edge_active,
+            jnp.abs(following_radius - radius),
+            0.0,
+        ),
     )
     angular_neighbor_step = jnp.maximum(
-        jnp.where(previous_mask, previous_angle_step, 0.0),
-        jnp.where(following_mask, following_angle_step, 0.0),
+        jnp.where(incoming_edge_active, previous_angle_step, 0.0),
+        jnp.where(outgoing_edge_active, following_angle_step, 0.0),
     )
     real_dtype = radius.dtype
     eps = jnp.finfo(real_dtype).eps
@@ -388,7 +421,7 @@ def refine_limb_tangencies(
     motion_floor = jnp.sqrt(eps) * radial_scale
     sampled_turning = (
         physical_mask
-        & following_mask
+        & outgoing_edge_active
         & jnp.isfinite(radial_phase_derivative)
         & jnp.isfinite(following_radial_derivative)
         & (radial_phase_derivative * following_radial_derivative <= 0.0)
@@ -399,7 +432,7 @@ def refine_limb_tangencies(
         )
     )
     seed_mask = physical_mask & sampled_turning
-    following_image = jnp.roll(image_limb, -1, axis=1)
+    following_image = following
     choose_following = (
         jnp.abs(following_radial_derivative)
         < jnp.abs(radial_phase_derivative)
@@ -454,12 +487,21 @@ def build_simple_polar_topology(
     q: Array,
     origin_inside: Array = False,
     phases: Array | None = None,
+    neighbors: tuple[Array, Array, Array, Array] | None = None,
+    edge_activity: tuple[Array, Array] | None = None,
 ) -> SimplePolarTopology:
     """Build conservative radial cells without topology-specific cases."""
 
-    previous, following, previous_mask, following_mask = tracked_limb_neighbors(
-        image_limb, physical_mask
-    )
+    if neighbors is None:
+        neighbors = tracked_limb_neighbors(image_limb, physical_mask)
+    previous, following, previous_mask, following_mask = neighbors
+    if edge_activity is None:
+        edge_activity = limb_edge_activity_from_masks(
+            physical_mask,
+            previous_mask,
+            following_mask,
+        )
+    incoming_edge_active, outgoing_edge_active = edge_activity
     radii = jnp.abs(image_limb)
     previous_radii = jnp.abs(previous)
     following_radii = jnp.abs(following)
@@ -468,22 +510,22 @@ def build_simple_polar_topology(
     branch_minimum = jnp.min(jnp.where(valid, radii, jnp.inf), axis=1)
     branch_maximum = jnp.max(jnp.where(valid, radii, -jnp.inf), axis=1)
     previous_step = jnp.where(
-        valid & previous_mask,
+        valid & incoming_edge_active,
         jnp.abs(radii - previous_radii),
         0.0,
     )
     following_step = jnp.where(
-        valid & following_mask,
+        valid & outgoing_edge_active,
         jnp.abs(following_radii - radii),
         0.0,
     )
     previous_angle_step = jnp.where(
-        valid & previous_mask,
+        valid & incoming_edge_active,
         jnp.abs(jnp.angle(image_limb * jnp.conjugate(previous))),
         0.0,
     )
     following_angle_step = jnp.where(
-        valid & following_mask,
+        valid & outgoing_edge_active,
         jnp.abs(jnp.angle(following * jnp.conjugate(image_limb))),
         0.0,
     )
@@ -535,6 +577,8 @@ def build_simple_polar_topology(
         s=s,
         q=q,
         phases=phases,
+        neighbors=neighbors,
+        edge_activity=edge_activity,
     )
     tangent_radius = tangencies.radius
     tangent_active = tangencies.active

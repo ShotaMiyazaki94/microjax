@@ -9,18 +9,16 @@ from jax import jit, lax, tree_util
 
 from .cartesian_moment import mag_uniform_cartesian_cpu_adaptive
 from .cartesian_limb_dark import mag_limb_dark_cartesian_adaptive
-from .one_shot import mag_limb_dark_cpu_one_shot, mag_uniform_cpu_one_shot
+from .one_shot import mag_binary_cpu_one_shot
 from .uniform import CpuMagnificationResult
 
 Array = jnp.ndarray
 
-# The trace locates support extrema; it is not an integration quadrature. This
-# is a static capacity: the Roman uniform path uses a 52-sample Cartesian
-# scout, rebuilds polar support at 64 only after chart rejection, and reserves
-# 96 for the separately compiled high-accuracy continuation and LD refinement.
+# The trace locates support extrema; it is not an integration quadrature.  A
+# single moderate capacity is shared by the trace-only selector and the chosen
+# integral, avoiding a second route-dependent scout/rebuild.
 _CPU_SUPPORT_CAPACITY = 96
-_CPU_ONE_SHOT_UNIFORM_SUPPORT = 64
-_CPU_ONE_SHOT_LD_SUPPORT = 64
+_CPU_ONE_SHOT_SUPPORT = 112
 # Production CPU uses one calibrated multipole shortcut policy.  This is a
 # scheduler constant, not a user-visible accuracy promise: the one-shot full
 # solve has a fixed quadrature rule and does not refine when this value changes.
@@ -43,48 +41,29 @@ def mag_binary_cpu_one_shot_lightcurve(
 ) -> CpuMagnificationResult:
     """Evaluate the state-conditioned ICRS graph without any retry."""
 
+    # Retained in this internal API for callers of the old uniform scheduler.
+    # The common moment kernel uses the same polar root policy for every u1.
+    del polar_root_mode
     w_points = jnp.asarray(w_points)
-    if u1 == 0.0:
 
-        def evaluate(source):
-            solved = mag_uniform_cpu_one_shot(
-                source,
-                rho,
-                s=s,
-                q=q,
-                n_limb=_CPU_ONE_SHOT_UNIFORM_SUPPORT,
-                cartesian_root_mode=cartesian_root_mode,
-                polar_root_mode=polar_root_mode,
-            )
-            return CpuMagnificationResult(
-                solved.magnification,
-                solved.estimated_error,
-                jnp.int32(4) + solved.stage,
-                jnp.int32(_CPU_ONE_SHOT_UNIFORM_SUPPORT),
-                solved.n_slices,
-                solved.status,
-            )
-
-    else:
-
-        def evaluate(source):
-            solved = mag_limb_dark_cpu_one_shot(
-                source,
-                rho,
-                s=s,
-                q=q,
-                u1=u1,
-                n_limb=_CPU_ONE_SHOT_LD_SUPPORT,
-                cartesian_root_mode=cartesian_root_mode,
-            )
-            return CpuMagnificationResult(
-                solved.magnification,
-                solved.estimated_error,
-                jnp.int32(4) + solved.stage,
-                jnp.int32(_CPU_ONE_SHOT_LD_SUPPORT),
-                solved.n_slices,
-                solved.status,
-            )
+    def evaluate(source):
+        solved = mag_binary_cpu_one_shot(
+            source,
+            rho,
+            s=s,
+            q=q,
+            u1=u1,
+            n_limb=_CPU_ONE_SHOT_SUPPORT,
+            cartesian_root_mode=cartesian_root_mode,
+        )
+        return CpuMagnificationResult(
+            solved.magnification,
+            solved.estimated_error,
+            jnp.int32(4) + solved.stage,
+            jnp.int32(_CPU_ONE_SHOT_SUPPORT),
+            solved.n_slices,
+            solved.status,
+        )
 
     return lax.map(evaluate, w_points)
 
@@ -109,6 +88,7 @@ def mag_binary_cpu_one_shot_hybrid_lightcurve(
 ) -> CpuMagnificationResult:
     """Use multipoles first and one state-conditioned full solve otherwise."""
 
+    del polar_root_mode
     w_points = jnp.asarray(w_points)
     scale = multipole_trigger_scale
     # ``multipole_error`` is a correction diagnostic rather than a rigorous
@@ -140,35 +120,18 @@ def mag_binary_cpu_one_shot_hybrid_lightcurve(
     n_active = jnp.sum(~multipole_certified, dtype=jnp.int32)
     indices = jnp.nonzero(~multipole_certified, size=n_points, fill_value=0)[0]
 
-    if u1 == 0.0:
-
-        def solve(source, external, external_error):
-            return mag_uniform_cpu_one_shot(
-                source,
-                rho,
-                s=s,
-                q=q,
-                n_limb=_CPU_ONE_SHOT_UNIFORM_SUPPORT,
-                external_magnification=external,
-                external_estimated_error=external_error,
-                cartesian_root_mode=cartesian_root_mode,
-                polar_root_mode=polar_root_mode,
-            )
-
-    else:
-
-        def solve(source, external, external_error):
-            return mag_limb_dark_cpu_one_shot(
-                source,
-                rho,
-                s=s,
-                q=q,
-                u1=u1,
-                n_limb=_CPU_ONE_SHOT_LD_SUPPORT,
-                external_magnification=external,
-                external_estimated_error=external_error,
-                cartesian_root_mode=cartesian_root_mode,
-            )
+    def solve(source, external, external_error):
+        return mag_binary_cpu_one_shot(
+            source,
+            rho,
+            s=s,
+            q=q,
+            u1=u1,
+            n_limb=_CPU_ONE_SHOT_SUPPORT,
+            external_magnification=external,
+            external_estimated_error=external_error,
+            cartesian_root_mode=cartesian_root_mode,
+        )
 
     def evaluate_rejected(compact_index, values):
         point_index = indices[compact_index]
@@ -181,7 +144,7 @@ def mag_binary_cpu_one_shot_hybrid_lightcurve(
             solved.magnification,
             solved.estimated_error,
             jnp.int32(4) + solved.stage,
-            jnp.int32(_CPU_ONE_SHOT_UNIFORM_SUPPORT if u1 == 0.0 else _CPU_ONE_SHOT_LD_SUPPORT),
+            jnp.int32(_CPU_ONE_SHOT_SUPPORT),
             solved.n_slices,
             solved.status,
         )

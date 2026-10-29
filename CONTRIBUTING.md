@@ -45,3 +45,17 @@ Numerical changes should include an independent comparison or regression case
 appropriate to the affected calculation. Performance measurements should
 report the device, precision, JAX/JAXLIB versions, input size, and whether
 compilation time is included.
+
+For CPU finite-source values, use the frozen compact screen during development:
+
+```bash
+python tools/cpu_accuracy.py --output-dir results/cpu-accuracy/compact-01
+```
+
+This checks 1,144 difficult and broadly sampled positions for both uniform and
+linear limb darkening. Run `--suite holdout` after selecting a candidate, and
+`--suite full` before adopting major numerical algorithm changes. Each run
+requires a new output directory. Unresolved references are reported separately;
+a passed regression gate is not an accuracy certificate. See the
+[CPU accuracy validation guide](docs_src/internal/cpu_accuracy_validation.md)
+for the selection policy, reference audit and full-grid data requirements.

@@ -1,60 +1,75 @@
 """State-conditioned one-shot CPU ICRS schedulers.
 
 The routines in this module deliberately separate *routing* from *rescue*.
-One source-limb trace is used to choose a coordinate chart and one fixed
-high-order quadrature before the area integral is evaluated.  The production
-path deliberately makes no per-point accuracy estimate.  Non-zero status
-reports only a detected structural failure; it never triggers another chart,
-order, or trace.
+One source-limb trace chooses Cartesian (with an x/y axis choice) or polar
+theta-first. Uniform and linear limb darkening use the same two image moments;
+only the final brightness-weighted normalization depends on the coefficient.
+Both paths reuse GL5 samples in GK11 panels, with empirical relative stopping
+inside a bounded ray budget. There is no tolerance-based chart
+retry. Non-zero status reports only a detected structural failure; it never
+triggers another chart, order, or trace.
 
 This makes the steady-state work auditable and keeps the forward-mode JAX
 graph substantially smaller than the historical adaptive retry ladder.
+The older uniform-only three-chart helper remains for explicit comparisons;
+it is not called by the default CPU scheduler.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import partial
 from typing import NamedTuple
 
 import jax
 import jax.numpy as jnp
 
-from .angular_limb_dark import (
-    _mag_limb_dark_angular_moment_from_support,
-    _mag_limb_dark_angular_moment_gk15_pair_from_support,
-)
+from .angular_limb_dark import _mag_limb_dark_angular_moment_from_support
 from .angular_moment import (
     ANGULAR_MOMENT_SUPPORT,
     ANGULAR_MOMENT_TOPOLOGY,
+    _angular_trace_edge_consistent,
     _angular_support_cells_from_trace,
     _split_angular_support_at_angle,
     _split_overlapping_angular_support,
-    _uniform_nested_cc_from_support,
     _uniform_result_from_support,
 )
-from .cartesian_limb_dark import (
-    _mag_limb_dark_cartesian_gk15_from_support,
-    _mag_limb_dark_cartesian_impl,
-)
+from .angular_projection_support import _angular_support_cells_from_events
+from .cartesian_limb_dark import _mag_limb_dark_cartesian_impl
 from .cartesian_moment import (
     CartesianAdaptiveResult,
-    _cartesian_gk15_from_support,
+    _cartesian_support_1d,
     _cartesian_result_from_support,
     _cartesian_support_cells_from_trace,
-    _cartesian_trace_diagnostics,
 )
 from .radial_continuation import _mag_uniform_radial_from_trace
-from .sentinel import nearest_caustic_limb_reference
-from .support import trace_binary_source_limb, tracked_limb_neighbors
+from .projection_support import _cartesian_support_cells_from_events
+from .projection_moments import integrate_adaptive_moments
+from .support import (
+    LimbTrace,
+    Support1D,
+    trace_binary_source_limb_record,
+    unwrap_support_1d,
+)
 
 Array = jnp.ndarray
 
-# Public stage labels.  ``lightcurve.py`` adds four so these remain compatible
-# with the existing tier convention while making the chosen route observable.
+# Both profile charts share one cached two-moment rule. The budget is shared across
+# the support, rather than imposing an independent cap on every active cell.
+_LD_ADAPTIVE_BUDGET = 84
+_LD_ADAPTIVE_RTOL = 1e-4
+_integrate_ld_moments = partial(
+    integrate_adaptive_moments, budget=_LD_ADAPTIVE_BUDGET, rtol=_LD_ADAPTIVE_RTOL
+)
+
+# Public stage labels.  Cartesian x/y are an axis choice inside one integral,
+# so expose one Cartesian stage rather than making the diagnostic look like a
+# fourth numerical route.
 ONE_SHOT_CARTESIAN = 1
-ONE_SHOT_CARTESIAN_HIGH = 2
-ONE_SHOT_RADIAL = 3
-ONE_SHOT_POLAR = 4
-ONE_SHOT_POLAR_HIGH = 5
+ONE_SHOT_CARTESIAN_X_FIRST = ONE_SHOT_CARTESIAN
+ONE_SHOT_CARTESIAN_Y_FIRST = ONE_SHOT_CARTESIAN
+ONE_SHOT_POLAR_RADIAL_FIRST = 3
+ONE_SHOT_POLAR_THETA_FIRST = 4
 
 # Structural status bits specific to the one-shot scheduler. Existing
 # support/topology bits are inherited from the fixed-order kernels.
@@ -62,36 +77,34 @@ ONE_SHOT_INVALID_ROOTS = 1 << 20
 ONE_SHOT_NONFINITE = 1 << 21
 ONE_SHOT_UNRESOLVED_GEOMETRY = 1 << 22
 
-_UNIFORM_CARTESIAN_EXTERNAL = 0
-_UNIFORM_CARTESIAN_INTERNAL = 1
-_UNIFORM_CARTESIAN_HIGH = 2
-_UNIFORM_POLAR = 3
-_UNIFORM_POLAR_HIGH = 4
-_UNIFORM_CONDITIONED_POLAR = 5
-_UNIFORM_ROUTE_COUNT = 6
-
-# Below this scale the planetary image loops are strongly anisotropic.  A
-# source-normal projection makes the line-level sextic nearly tangent to the
-# narrow pair, whereas the source-radial projection separates its real roots.
-# The same conditioning limit also precedes the rho**2 cancellation of the
-# angle-first radial polynomial.  This is a chart choice, not an accuracy
-# retry: it changes neither the limb trace nor the fixed quadrature budget.
-_SMALL_SOURCE_RADIAL_CHART = 2.0e-4
-
+# Cartesian x/y are coordinate choices of one kernel, not separate numerical
+# routes. The legacy uniform-only helper retains these three route labels.
+# The default common-profile solver compiles only Cartesian and theta-first.
+_CPU_ROUTE_CARTESIAN = 0
+_CPU_ROUTE_CARTESIAN_X_FIRST = _CPU_ROUTE_CARTESIAN
+_CPU_ROUTE_CARTESIAN_Y_FIRST = _CPU_ROUTE_CARTESIAN
+_CPU_ROUTE_POLAR_RADIAL_FIRST = 1
+_CPU_ROUTE_POLAR_THETA_FIRST = 2
+_CPU_ROUTE_COUNT = 3
 
 class OneShotState(NamedTuple):
     """Axis-independent state measured from the single source-limb trace."""
 
     topology_uncertain: Array
     limb_topology: Array
+    edge_active: Array
     ghost_residual_ratio: Array
+    ghost_image_angle: Array
+    transition_image_angle: Array
+    transition_image_angle_2: Array
     polar_conditioning: Array
+    maximum_angular_step: Array
     active_images_min: Array
     active_images_max: Array
 
 
 class OneShotGeometryPrepared(NamedTuple):
-    """Brightness-independent trace, support, and route selection."""
+    """Trace, support, and chart selected from the allowed kernel set."""
 
     image_limb: Array
     physical_mask: Array
@@ -102,124 +115,10 @@ class OneShotGeometryPrepared(NamedTuple):
     state: OneShotState
     primary_axis: Array
     primary_support: tuple[Array, Array, Array, Array, Array]
+    primary_support_1d: Support1D
+    partition_theta: Array
     route: Array
-
-
-def _unresolved_buried_caustic_contact(
-    w_center: Array,
-    rho: Array,
-    s: Array,
-    q: Array,
-    state: OneShotState,
-) -> Array:
-    """Flag a buried caustic too close to the sampled source boundary.
-
-    A 3 -> 3 image count around the complete limb cannot seed the two image
-    loops created wholly inside the disk.  Rejecting every such state is too
-    conservative: a caustic deeply inside the source can be covered by the
-    radial rings even when it is absent from the physical limb roots.  The
-    dimensionless reference-point clearance therefore rejects only a caustic
-    close enough to the source boundary that the fixed limb trace can miss its
-    narrow contact structure.
-    """
-
-    _, clearance = nearest_caustic_limb_reference(
-        w_center,
-        rho,
-        s=s,
-        q=q,
-    )
-    return (
-        state.topology_uncertain
-        & (state.active_images_min == 3)
-        & (state.active_images_max == 3)
-        & (clearance <= 0.1)
-    )
-
-
-def _buried_caustic_contact_angle(
-    w_center: Array,
-    rho: Array,
-    s: Array,
-    q: Array,
-    state: OneShotState,
-) -> tuple[Array, Array]:
-    """Return a buried-contact flag and its critical-image polar angle."""
-
-    critical, clearance = nearest_caustic_limb_reference(
-        w_center,
-        rho,
-        s=s,
-        q=q,
-    )
-    contact = (
-        state.topology_uncertain
-        & (state.active_images_min == 3)
-        & (state.active_images_max == 3)
-        & (clearance <= 0.1)
-    )
-    return contact, jnp.mod(jnp.angle(critical), 2.0 * jnp.pi)
-
-
-def _polar_support_unreliable(
-    w_center: Array,
-    rho: Array,
-    s: Array,
-    q: Array,
-    state: OneShotState,
-    *,
-    limb_dark: bool,
-    buried_contact_resolved: Array | bool = False,
-) -> Array:
-    """Reject traced polar supports known not to contain every image loop."""
-
-    tiny = jnp.finfo(rho.dtype).tiny
-    source_ratio = jnp.abs(w_center) / jnp.maximum(rho, tiny)
-    caustic_to_source = jnp.sqrt(q) / jnp.maximum(rho, tiny)
-    resonant_zone = jnp.abs(jnp.log(s)) <= 1.5 * jnp.cbrt(q)
-    low_q_planetary = (q <= 1.0e-5) & state.topology_uncertain & (source_ratio >= 10.0)
-    unresolved_small_source_planetary = (
-        (q <= 3.0e-4)
-        & state.topology_uncertain
-        & state.limb_topology
-        & (source_ratio >= 10.0)
-        & (caustic_to_source >= 20.0)
-    )
-    underresolved_resonant = (
-        (q <= 1.0e-3)
-        & resonant_zone
-        & state.topology_uncertain
-        & (caustic_to_source >= 3.0)
-    )
-    return (
-        (
-            _unresolved_buried_caustic_contact(w_center, rho, s, q, state)
-            & ~jnp.asarray(buried_contact_resolved)
-        )
-        | low_q_planetary
-        | unresolved_small_source_planetary
-        | (underresolved_resonant & ~jnp.asarray(limb_dark))
-    )
-
-
-def _high_polar_noncontact_override(
-    w_center: Array,
-    rho: Array,
-    tangencies_valid: Array,
-) -> Array:
-    """Allow a co-converged high-polar pair away from radial contact.
-
-    The high route is also selected for conservative low-q topology warnings.
-    Away from the annular contact band, its traced angular cells are complete
-    when at most two fitted tangencies are unresolved.  Keeping the override
-    below ten source radii excludes the distant planetary-support omissions;
-    keeping it outside 0.7--1.3 excludes the origin-contact failures.  This is
-    a pre-integration state condition, not a retry or an accuracy escalation.
-    """
-
-    source_ratio = jnp.abs(w_center) / jnp.maximum(rho, jnp.finfo(rho.dtype).tiny)
-    noncontact = (source_ratio < 0.7) | ((source_ratio > 1.3) & (source_ratio < 10.0))
-    return noncontact & (jnp.sum(~tangencies_valid, dtype=jnp.int32) <= 2)
+    limb_trace: LimbTrace
 
 
 def _closed_angular_extrema_parity_valid(
@@ -235,47 +134,63 @@ def _closed_angular_extrema_parity_valid(
     on the same incomplete radial moment.
     """
 
-    # ``AngularSupport.active`` is now the endpoint-preserving union mask, not
+    # ``AngularSupport.active`` is now the trace-sector union mask, not
     # the number of cells in the extrema partition.  Parity belongs to the
     # partition itself and therefore counts every nonempty atomic cell.
     cell_count = jnp.sum(cells[:, 1] > cells[:, 0], dtype=jnp.int32)
     return jnp.asarray(limb_topology) | ((cell_count & jnp.int32(1)) == 1)
 
 
-def _unresolved_distant_topology(
-    w_center: Array,
-    rho: Array,
-    s: Array,
-    q: Array,
-    state: OneShotState,
-    use_polar: Array,
-    *,
-    limb_dark: bool,
-) -> Array:
-    """Detect a distant fold not represented reliably by the selected chart."""
+def _trace_transition_support_valid(state: OneShotState) -> Array:
+    """Validate a topology transition from the trace's structural fields.
 
-    source_ratio = jnp.abs(w_center) / jnp.maximum(rho, jnp.finfo(rho.dtype).tiny)
-    exposed_fold = (
-        state.limb_topology
-        & (state.active_images_min == 3)
-        & (state.active_images_max == 5)
+    A 3-to-5 transition is already represented conservatively by the trace:
+    same-multiplicity edges are kept, the transition edges are cut, and the
+    angular support falls back to its complete partition when topology is
+    uncertain.  The previous implementation added several empirical bands in
+    ghost residual and conditioning that rejected otherwise finite,
+    structurally valid traces.  Those bands made the diagnostic status depend
+    on arbitrary numerical thresholds rather than on the trace itself.
+    """
+
+    # ``ghost_residual_ratio == inf`` is the normal, well-conditioned state:
+    # there is no non-physical root slot to measure.  Require a finite ghost
+    # residual only when the trace itself is topology-uncertain and therefore
+    # actually relies on that diagnostic.
+    ghost_valid = (~state.topology_uncertain) | jnp.isfinite(
+        state.ghost_residual_ratio
     )
-    buried_fold = (state.active_images_min == 3) & (state.active_images_max == 3)
-    caustic_to_source = jnp.sqrt(q) / jnp.maximum(rho, jnp.finfo(rho.dtype).tiny)
-    small_planet = (q <= 1.0e-3) & (caustic_to_source >= 3.0) & ~jnp.asarray(limb_dark)
-    tiny_planet = (q <= 1.0e-5) & ~jnp.asarray(limb_dark)
-    unresolved_large_resonant = (
-        (q <= 1.0e-2) & (caustic_to_source >= 20.0) & ~jnp.asarray(limb_dark)
+    metrics_finite = (
+        ghost_valid
+        & jnp.isfinite(state.polar_conditioning)
+        & jnp.isfinite(state.maximum_angular_step)
     )
-    nonresonant_planet = (
-        (q <= 1.0e-2) & (jnp.abs(jnp.log(s)) > jnp.cbrt(q)) & (caustic_to_source >= 1.0)
+    return metrics_finite
+
+
+def _flag_unresolved_trace_transition(
+    result: CartesianAdaptiveResult,
+    state: OneShotState,
+) -> CartesianAdaptiveResult:
+    """Preserve a trace-only structural warning across the supported charts."""
+
+    buried_unresolved = (
+        (state.active_images_min == 3)
+        & (state.active_images_max == 3)
+        & (state.ghost_residual_ratio >= 100.0)
+        & (state.ghost_residual_ratio < 1000.0)
+        & (state.polar_conditioning >= 1000.0)
     )
-    return (
-        ~use_polar
-        & state.topology_uncertain
-        & (exposed_fold | buried_fold)
-        & (source_ratio >= 10.0)
-        & (tiny_planet | small_planet | unresolved_large_resonant | nonresonant_planet)
+    trace_valid = _trace_transition_support_valid(state) & ~buried_unresolved
+    return result._replace(
+        status=jnp.bitwise_or(
+            result.status,
+            jnp.where(
+                trace_valid,
+                jnp.int32(0),
+                jnp.int32(ONE_SHOT_UNRESOLVED_GEOMETRY),
+            ),
+        )
     )
 
 
@@ -289,7 +204,7 @@ def _trace_state(
 ):
     """Trace once and extract the state used by both brightness profiles."""
 
-    image_limb, physical_mask = trace_binary_source_limb(
+    trace = trace_binary_source_limb_record(
         w_center,
         rho,
         s=s,
@@ -297,43 +212,92 @@ def _trace_state(
         n_limb=n_limb,
         include_all_roots=False,
     )
-    neighbors = tracked_limb_neighbors(image_limb, physical_mask)
-    topology, ghost, limb_topology = _cartesian_trace_diagnostics(
-        w_center,
-        rho,
-        s=s,
-        q=q,
-        image_limb=image_limb,
-        physical_mask=physical_mask,
+    image_limb = trace.image_limb
+    physical_mask = trace.physical_mask
+    image_counts = trace.image_counts
+    limb_topology = jnp.any(image_counts != image_counts[0])
+    residual = trace.residual
+    ghost_residuals = jnp.where(~physical_mask, residual, jnp.inf)
+    ghost = jnp.min(ghost_residuals)
+    ghost_index = jnp.argmin(ghost_residuals.reshape(-1))
+    ghost_image = image_limb.reshape(-1)[ghost_index]
+    # ``argmin(inf)`` is arbitrary when no non-physical root exists.  Never
+    # turn that sentinel into a real angular split: a ghost guard is valid
+    # only when the trace contains a finite, rejected root.
+    ghost_image_angle = jnp.where(
+        jnp.isfinite(ghost),
+        jnp.mod(jnp.angle(ghost_image), 2.0 * jnp.pi),
+        jnp.asarray(0.0, dtype=w_center.real.dtype),
+    )
+    # A 3->5 transition has two newborn/dead roots at the phase where the
+    # image count changes.  Keep the two smallest-residual physical roots at
+    # that transition as angular guard seeds.  This is derived entirely from
+    # the canonical trace; it does not solve the lens equation again and does
+    # not reconnect the cut edge.
+    transition_columns = (
+        (image_counts != jnp.roll(image_counts, 1))
+        | (image_counts != jnp.roll(image_counts, -1))
+    )
+    transition_residuals = jnp.where(
+        physical_mask & transition_columns[None, :],
+        residual,
+        jnp.inf,
+    )
+    transition_index = jnp.argmin(transition_residuals.reshape(-1))
+    transition_first = transition_residuals.reshape(-1)[transition_index]
+    transition_remaining = transition_residuals.reshape(-1).at[transition_index].set(
+        jnp.inf
+    )
+    transition_index_2 = jnp.argmin(transition_remaining)
+    transition_second = transition_remaining[transition_index_2]
+    transition_flat_limb = image_limb.reshape(-1)
+    transition_angle = jnp.where(
+        jnp.isfinite(transition_first),
+        jnp.mod(jnp.angle(transition_flat_limb[transition_index]), 2.0 * jnp.pi),
+        jnp.asarray(0.0, dtype=w_center.real.dtype),
+    )
+    transition_angle_2 = jnp.where(
+        jnp.isfinite(transition_second),
+        jnp.mod(jnp.angle(transition_flat_limb[transition_index_2]), 2.0 * jnp.pi),
+        jnp.asarray(0.0, dtype=w_center.real.dtype),
+    )
+    topology = (
+        limb_topology
+        | (ghost <= 4.0 * rho)
+        | ~jnp.all(jnp.isfinite(jnp.where(physical_mask, image_limb, 0.0j)))
     )
 
-    _, following_limb, _, following_mask = neighbors
-    connected = physical_mask & following_mask
-    radius = jnp.abs(image_limb)
-    following_radius = jnp.abs(following_limb)
-    angular_step = jnp.abs(jnp.angle(following_limb * jnp.conjugate(image_limb)))
+    following_limb = trace.following_limb
+    outgoing_edge_active = trace.outgoing_edge_active
+    angular_step = trace.angular_step
     tangential_motion = jnp.sum(
         jnp.where(
-            connected,
-            0.5 * (radius + following_radius) * angular_step,
+            outgoing_edge_active,
+            0.5
+            * (jnp.abs(image_limb) + jnp.abs(following_limb))
+            * angular_step,
             0.0,
         )
     )
     radial_motion = jnp.sum(
-        jnp.where(connected, jnp.abs(following_radius - radius), 0.0)
+        jnp.where(outgoing_edge_active, trace.radial_step, 0.0)
     )
     motion_floor = 128.0 * jnp.finfo(w_center.real.dtype).eps
     polar_conditioning = tangential_motion / jnp.maximum(radial_motion, motion_floor)
-    image_counts = jnp.sum(physical_mask, axis=0, dtype=jnp.int32)
     state = OneShotState(
         topology,
         limb_topology,
+        outgoing_edge_active,
         ghost / jnp.maximum(rho, jnp.finfo(rho.dtype).tiny),
+        ghost_image_angle,
+        transition_angle,
+        transition_angle_2,
         polar_conditioning,
+        jnp.max(jnp.where(outgoing_edge_active, angular_step, 0.0)),
         jnp.min(image_counts),
         jnp.max(image_counts),
     )
-    return image_limb, physical_mask, neighbors, state
+    return trace, state
 
 
 def _fixed_cartesian_result(result, *, stage: int) -> CartesianAdaptiveResult:
@@ -364,19 +328,33 @@ def _fixed_cartesian_result(result, *, stage: int) -> CartesianAdaptiveResult:
     )
 
 
+def _cartesian_stage(axis: Array) -> Array:
+    """Return the single public label for the shared Cartesian kernel."""
+
+    del axis
+    return jnp.int32(ONE_SHOT_CARTESIAN)
+
+
 def _fixed_polar_result(
     result,
     *,
     stage: int,
     support_valid: Array | bool,
+    replace_support_status: Array | bool = False,
 ) -> CartesianAdaptiveResult:
     """Expose one fixed polar value with structural diagnostics only."""
 
     # Fixed polar kernels use bit 0 for a non-finite reduction. Normalize that
     # private bit into the public ONE_SHOT_NONFINITE flag below.
     soft = jnp.bitwise_or(jnp.int32(1), jnp.int32(ANGULAR_MOMENT_TOPOLOGY))
-    if stage == ONE_SHOT_POLAR_HIGH:
-        soft = jnp.bitwise_or(soft, jnp.int32(ANGULAR_MOMENT_SUPPORT))
+    soft = jnp.bitwise_or(
+        soft,
+        jnp.where(
+            jnp.asarray(replace_support_status),
+            jnp.int32(ANGULAR_MOMENT_SUPPORT),
+            jnp.int32(0),
+        ),
+    )
     status = jnp.bitwise_and(result.status, jnp.bitwise_not(soft))
     status = jnp.bitwise_or(
         status,
@@ -419,207 +397,268 @@ def _prepare_one_shot_geometry(
     q: Array,
     n_limb: int,
     external_available: bool,
+    cartesian_support_builder: Callable = _cartesian_support_cells_from_trace,
+    cartesian_support_size: int = 19,
+    allow_radial: bool = True,
 ) -> OneShotGeometryPrepared:
-    """Trace and route one source without evaluating a brightness moment."""
+    """Trace and route one source without evaluating a brightness moment.
 
-    image_limb, physical_mask, neighbors, state = _trace_state(
+    The support builder, capacity, and allowed charts are static choices for
+    the brightness algorithm. Uniform keeps its native radial kernel; LD
+    compiles only Cartesian/theta. No tolerance-based retry is introduced.
+    """
+
+    del external_available
+    limb_trace, state = _trace_state(
         w_center,
         rho,
         s=s,
         q=q,
         n_limb=n_limb,
     )
-    # The source-normal axis is the stable default for a single Cartesian
-    # support construction.  Very small sources use the orthogonal radial
-    # axis because it separates the anisotropic planetary image pair.  Both
-    # choices are independent of lens parameters q and s; those parameters
-    # must not rotate a chart.  A raw PCA axis can align with the broad image
-    # envelope while merging a narrow lobe into one projection cell, so the
-    # multi-axis selection below remains reserved for fragmented folds.
-    safe_magnitude = jnp.maximum(
-        jnp.abs(w_center),
-        jnp.finfo(w_center.real.dtype).tiny,
+    image_limb = limb_trace.image_limb
+    physical_mask = limb_trace.physical_mask
+    neighbors = (
+        limb_trace.previous_limb,
+        limb_trace.following_limb,
+        limb_trace.previous_mask,
+        limb_trace.following_mask,
     )
-    source_normal_axis = jnp.where(
-        jnp.abs(w_center) > 0.0,
-        1.0j * w_center / safe_magnitude,
-        jnp.asarray(1.0 + 0.0j, dtype=w_center.dtype),
+    edge_activity = (
+        limb_trace.incoming_edge_active,
+        limb_trace.outgoing_edge_active,
     )
-    source_radial_axis = jnp.where(
-        jnp.abs(w_center) > 0.0,
-        w_center / safe_magnitude,
-        jnp.asarray(1.0 + 0.0j, dtype=w_center.dtype),
+    incoming_edge_active, outgoing_edge_active = edge_activity
+    previous_limb, following_limb, previous_mask, following_mask = neighbors
+    image_counts = limb_trace.image_counts
+    incoming_same_count = image_counts == jnp.roll(image_counts, 1)
+    outgoing_same_count = image_counts == jnp.roll(image_counts, -1)
+    explicit_same_count_cut = (
+        (~incoming_edge_active | ~outgoing_edge_active)
+        & (incoming_same_count & outgoing_same_count)[None, :]
+        & previous_mask
+        & following_mask
     )
-    small_source = rho <= _SMALL_SOURCE_RADIAL_CHART
-    primary_axis = jnp.where(
-        small_source,
-        source_radial_axis,
-        source_normal_axis,
+
+    def projection_diagnostics(axis):
+        projected = jnp.real(image_limb * jnp.conjugate(axis))
+        projected_previous = jnp.real(previous_limb * jnp.conjugate(axis))
+        projected_following = jnp.real(following_limb * jnp.conjugate(axis))
+        # A cut edge must not be used to connect two trace segments, but a
+        # sampled turn at the cut is still a conservative support endpoint.
+        # Omitting it drops the entire strip between the preceding extremum
+        # and a fold transition (the dominant 3->5 Cartesian failure mode).
+        # The builder keeps the cut endpoint at its sampled coordinate rather
+        # than applying a cross-edge fit, so this does not reconnect topology.
+        projected_turn = (
+            (projected - projected_previous)
+            * (projected_following - projected)
+            <= 0.0
+        )
+        projected_endpoint = physical_mask & (
+            ~previous_mask | ~following_mask | explicit_same_count_cut
+        )
+        extrema = jnp.sum(
+            physical_mask & (projected_turn | projected_endpoint),
+            dtype=jnp.int32,
+        )
+        lower = jnp.min(jnp.where(physical_mask, projected, jnp.inf))
+        upper = jnp.max(jnp.where(physical_mask, projected, -jnp.inf))
+        scale = jnp.maximum(
+            upper - lower,
+            128.0 * jnp.finfo(w_center.real.dtype).eps,
+        )
+        maximum_step = jnp.max(
+            jnp.where(
+                outgoing_edge_active,
+                jnp.abs(projected_following - projected),
+                0.0,
+            )
+        ) / scale
+        trace = (
+            projected,
+            projected_previous,
+            projected_following,
+            incoming_edge_active,
+            outgoing_edge_active,
+        )
+        return extrema, maximum_step, trace
+
+    x_axis = jnp.asarray(1.0 + 0.0j, dtype=w_center.dtype)
+    y_axis = jnp.asarray(0.0 + 1.0j, dtype=w_center.dtype)
+    x_extrema, x_step, x_trace = projection_diagnostics(x_axis)
+    y_extrema, y_step, y_trace = projection_diagnostics(y_axis)
+    # Every resolved projection of a closed image loop has paired extrema.
+    # Prefer y when x violates that parity and y does not.  If parity ties,
+    # compare each count with the generic two extrema per closed image loop;
+    # this includes the common four-x versus six-y buried-loop signature.
+    # These are structural certificates; raw edge-size preferences caused
+    # broad regressions and are deliberately not used for the axis choice.
+    closed_trace = (
+        ~state.limb_topology
+        & (state.active_images_min == 3)
+        & (state.active_images_max == 3)
     )
-    routing_axis = primary_axis * jnp.exp(
-        1.0j * jnp.deg2rad(jnp.asarray(22.5, dtype=w_center.real.dtype))
+    expected_extrema = jnp.int32(2) * state.active_images_min
+    x_parity_bad = (x_extrema & jnp.int32(1)) == 1
+    y_parity_bad = (y_extrema & jnp.int32(1)) == 1
+    use_y_first = closed_trace & (
+        (
+            x_parity_bad
+            & ~y_parity_bad
+        )
+        | (
+            (x_parity_bad == y_parity_bad)
+            & (
+                jnp.abs(y_extrema - expected_extrema)
+                < jnp.abs(x_extrema - expected_extrema)
+            )
+        )
     )
-    source_ratio = jnp.abs(w_center) / jnp.maximum(
-        rho,
-        jnp.finfo(rho.dtype).tiny,
+    primary_axis = jnp.where(use_y_first, y_axis, x_axis)
+    projected_extrema = jnp.where(use_y_first, y_extrema, x_extrema)
+    projection_trace = jax.tree.map(
+        lambda y_value, x_value: jnp.where(use_y_first, y_value, x_value),
+        y_trace,
+        x_trace,
     )
-    # Only these image states can use the routing support's fragmentation
-    # score.  Smooth Cartesian points and ordinary polar points need no
-    # second endpoint union before their actual support is built.
-    annular = state.polar_conditioning >= 25.0
-    routing_candidate = annular | (
+
+    # A closed projected image loop has paired extrema.  An odd number of
+    # sampled turns together with a large traced angular jump identifies a
+    # branch whose narrow turning sector is poorly represented by Cartesian
+    # nodes. Route that trace to the radial-first polar integral.
+    source_phase_step = 2.0 * jnp.pi / jnp.asarray(
+        n_limb, dtype=w_center.real.dtype
+    )
+    underresolved_projected_turn = (
+        ((projected_extrema & jnp.int32(1)) == 1)
+        & (state.maximum_angular_step > 0.3 * source_phase_step)
+    )
+    # Compare the polar trace quality with the worst Cartesian axis using
+    # dimensionless, trace-derived quantities.  ``polar_conditioning`` is
+    # the tangential/radial motion ratio; multiplying by the normalized
+    # angular edge gives the amount of unresolved image motion represented by
+    # one source-limb sample.  The Cartesian counterpart is the largest
+    # normalized projected edge.  This is a relative chart comparison, not a
+    # parameter-space threshold.
+    polar_motion_score = state.polar_conditioning * (
+        state.maximum_angular_step / jnp.maximum(source_phase_step, 1.0e-30)
+    )
+    # For closed traces compare against the worst projected gap: unlike a
+    # transition, the polar chart has no cut-edge guard and must beat both
+    # Cartesian projections before it is selected.
+    cartesian_motion_score = jnp.maximum(x_step, y_step)
+    # A transition stays Cartesian when the trace is densely sampled around
+    # the fold.  If the ordered image motion contains a resolved angular gap
+    # and the polar motion is not effectively radial-free, the polar support
+    # is the safer chart.  Both witnesses are measured from the trace; the
+    # conditioning floor rejects the numerically singular zero-radial-motion
+    # case without looking at (q, s, rho) parameter regions.
+    cartesian_selected_score = jnp.where(use_y_first, y_step, x_step)
+    transition_chart_better = (
         state.limb_topology
         & (state.active_images_min == 3)
         & (state.active_images_max == 5)
-        & (state.polar_conditioning >= 10.0)
+        & (
+            state.maximum_angular_step
+            > 0.004 * source_phase_step
+        )
+        & (state.polar_conditioning > 1.0)
+        & (polar_motion_score > cartesian_selected_score)
     )
     common = dict(
-        topology_uncertain=jnp.asarray(False),
+        w_center=w_center,
+        rho=rho,
+        s=s,
+        q=q,
+        # The historical uniform-support builder uses sampled envelopes.
+        # The injected LD event builder uses its common fixed Newton schedule
+        # and ignores this legacy refinement option.
+        refine_extrema=False,
+        topology_uncertain=state.topology_uncertain,
         minimum_ghost_residual=state.ghost_residual_ratio * rho,
         limb_topology=state.limb_topology,
         maximum_extrema=20,
         neighbors=neighbors,
+        edge_activity=edge_activity,
     )
-    def build_routing_support(_):
-        return _cartesian_support_cells_from_trace(
+
+    # All route predicates below are measurements of the image trace. No
+    # region in (q, s, rho, w) selects a support or quadrature chart.
+    closed_conditioned = (
+        ~state.topology_uncertain
+        & ~state.limb_topology
+        & (polar_motion_score > cartesian_motion_score)
+    )
+    conditioned_trace = (
+        transition_chart_better
+        | closed_conditioned
+        | (
+            state.topology_uncertain
+            & ~state.limb_topology
+        )
+        | (~state.limb_topology & underresolved_projected_turn)
+    ) & (state.maximum_angular_step > 0.004 * source_phase_step)
+    radial_first_trace = (
+        allow_radial
+        & ~state.topology_uncertain
+        & ~state.limb_topology
+        & (state.active_images_min == 5)
+        & (state.polar_conditioning >= 10.0)
+    )
+    resolved_closed_three_cartesian = (
+        ~state.topology_uncertain
+        & ~state.limb_topology
+        & (state.active_images_min == 3)
+        & (state.active_images_max == 3)
+        & (cartesian_motion_score <= 4.0e-4)
+    )
+    theta_first_trace = (
+        transition_chart_better
+        | (conditioned_trace & ~radial_first_trace)
+    ) & ~resolved_closed_three_cartesian
+    # x/y is an axis choice inside the shared Cartesian kernel, not a route.
+    cartesian_route = jnp.int32(_CPU_ROUTE_CARTESIAN)
+    standard_route = jnp.where(
+        theta_first_trace,
+        jnp.int32(_CPU_ROUTE_POLAR_THETA_FIRST),
+        cartesian_route,
+    )
+    route = jnp.where(
+        radial_first_trace,
+        jnp.int32(_CPU_ROUTE_POLAR_RADIAL_FIRST),
+        standard_route,
+    )
+
+    def build_primary_support(_):
+        return cartesian_support_builder(
             image_limb,
             physical_mask,
-            axis=routing_axis,
+            axis=primary_axis,
+            projection_trace=projection_trace,
             **common,
         )
 
-    def empty_routing_support(_):
+    def empty_primary_support(_):
         return (
-            jnp.zeros((19, 2), dtype=w_center.real.dtype),
-            jnp.zeros((19,), dtype=bool),
+            jnp.zeros((cartesian_support_size, 2), dtype=w_center.real.dtype),
+            jnp.zeros((cartesian_support_size,), dtype=bool),
             jnp.asarray(False),
             jnp.asarray(jnp.inf, dtype=w_center.real.dtype),
             jnp.asarray(False),
         )
 
-    routing_support = jax.lax.cond(
-        jax.lax.stop_gradient(routing_candidate),
-        build_routing_support,
-        empty_routing_support,
-        operand=None,
-    )
-    routing_cells, routing_active, *_ = routing_support
-    routing_widths = jnp.where(
-        routing_active,
-        routing_cells[:, 1] - routing_cells[:, 0],
-        0.0,
-    )
-    routing_total_width = jnp.sum(routing_widths)
-    routing_max_fraction = jnp.max(routing_widths) / jnp.maximum(
-        routing_total_width,
-        jnp.finfo(w_center.real.dtype).tiny,
-    )
-    # These are order flags, not chart selectors.  Keep them next to the
-    # chart predicates below so the source-ratio and annular tests have one
-    # canonical implementation.
-    contact = annular & (source_ratio >= 0.70) & (source_ratio <= 1.30)
-    high_polar = contact | (state.topology_uncertain & (q <= 1.0e-3))
-    # The two former cases (fold and no-fold) partition on limb_topology, so
-    # their union is simply the ghost-distance guard itself.
-    high_cartesian = state.ghost_residual_ratio <= 2.0
-    fragmented_annulus = annular & (routing_max_fraction <= 0.55)
-    exposed_distant_fold = (
-        state.limb_topology
-        & (state.active_images_min == 3)
-        & (state.active_images_max == 5)
-        & (state.ghost_residual_ratio <= 1.1)
-        & (state.polar_conditioning <= 2.0)
-        & (source_ratio >= 10.0)
-    )
-    # Chart choice is based on the traced image state.  The caustic sentinel
-    # that produced ``topology_uncertain`` already used the lens parameters to
-    # account for hidden structure; repeating a q cut here only made the chart
-    # selector parameter-dependent a second time.  The source-ratio guard
-    # keeps this state route local to the source rather than to distant image
-    # topology.
-    central_planetary_topology = state.topology_uncertain & (source_ratio <= 10.0)
-    # When the traced limb advances much farther tangentially than radially,
-    # Cartesian strips can share a missing image lobe even with independent
-    # line roots.  This is a chart-conditioning test, not a lens-parameter or
-    # coordinate special case: the same source-limb trace selects the radial
-    # chart before either area rule is evaluated.
-    long_topology_arc = state.limb_topology & (state.polar_conditioning >= 15.0)
-    use_polar = fragmented_annulus | exposed_distant_fold | central_planetary_topology
-    needs_internal = (
-        ~jnp.asarray(external_available)
-        | state.topology_uncertain
-        | (state.ghost_residual_ratio <= 5.0)
-        | (
-            (state.active_images_min == 5)
-            & (state.polar_conditioning >= 10.0)
-            & (source_ratio <= 6.0)
-        )
-    )
-    cartesian_route = jnp.where(
-        needs_internal,
-        jnp.int32(_UNIFORM_CARTESIAN_INTERNAL),
-        jnp.int32(_UNIFORM_CARTESIAN_EXTERNAL),
-    )
-    cartesian_route = jnp.where(
-        high_cartesian,
-        jnp.int32(_UNIFORM_CARTESIAN_HIGH),
-        cartesian_route,
-    )
-    polar_route = jnp.where(
-        high_polar,
-        jnp.int32(_UNIFORM_POLAR_HIGH),
-        jnp.int32(_UNIFORM_POLAR),
-    )
-    standard_route = jnp.where(use_polar, polar_route, cartesian_route)
-    # This is not an axis choice: it selects the radial-first numerical
-    # conditioning used inside the polar chart when the level-set coefficient
-    # scale is known to be delicate.  Keep it separate from the image-state
-    # chart selector above.
-    resonant_radial = (q <= 1.0e-3) & (jnp.abs(jnp.log(s)) <= 1.5 * jnp.cbrt(q))
-    route = jnp.where(
-        state.limb_topology & ~use_polar,
-        jnp.int32(_UNIFORM_CARTESIAN_HIGH),
-        standard_route,
-    )
-    route = jnp.where(
-        resonant_radial | central_planetary_topology | long_topology_arc,
-        jnp.int32(_UNIFORM_CONDITIONED_POLAR),
-        route,
-    )
-    # At very small rho the angle-first level-set coefficients lose the image
-    # pair through rho**2 cancellation.  Use the already selected radial
-    # Cartesian projection instead of spending the high-polar budget on an
-    # incomplete angular support.  Conditioned-polar states above remain
-    # untouched because their fixed-r equation is independently stable.
-    route = jnp.where(
-        small_source & (route == _UNIFORM_POLAR_HIGH),
-        jnp.int32(_UNIFORM_CARTESIAN_HIGH),
-        route,
-    )
-
-    route_is_polar = (
-        (route == _UNIFORM_POLAR)
-        | (route == _UNIFORM_POLAR_HIGH)
-        | (route == _UNIFORM_CONDITIONED_POLAR)
-    )
-
-    def build_primary_support(_):
-        return _cartesian_support_cells_from_trace(
-            image_limb,
-            physical_mask,
-            axis=primary_axis,
-            **common,
-        )
-
-    # The routing support above is enough for every polar route.  Construct a
-    # source-axis support only for a Cartesian integral; this keeps the
-    # brightness-independent scheduler from paying for an unused support.
+    # A Cartesian support is part of the Cartesian integral itself.  Polar
+    # routes build only angular support later, so keep a shape-compatible
+    # placeholder here instead of constructing unused projection geometry.
     primary_support = jax.lax.cond(
-        ~jax.lax.stop_gradient(route_is_polar),
+        jax.lax.stop_gradient(route == _CPU_ROUTE_CARTESIAN),
         build_primary_support,
-        lambda _: routing_support,
+        empty_primary_support,
         operand=None,
     )
+    primary_support_1d = _cartesian_support_1d(primary_support)
+
     return OneShotGeometryPrepared(
         image_limb,
         physical_mask,
@@ -627,7 +666,14 @@ def _prepare_one_shot_geometry(
         state,
         primary_axis,
         primary_support,
+        primary_support_1d,
+        # Every theta-first route uses the same partition contract.  In
+        # particular, an unresolved 3->5 projection can select theta after
+        # ``conditioned_trace`` is formed; keeping the older predicate here
+        # silently disabled its crossing-edge guard.
+        jax.lax.stop_gradient(theta_first_trace),
         jax.lax.stop_gradient(route),
+        limb_trace,
     )
 
 
@@ -650,155 +696,67 @@ def _solve_uniform_one_shot_prepared(
 ) -> CartesianAdaptiveResult:
     """Evaluate one statically selected uniform route from a shared trace."""
 
-    effective_root_mode = (
-        "companion" if cartesian_root_mode == "production" else cartesian_root_mode
-    )
+    effective_root_mode = "companion" if cartesian_root_mode == "production" else cartesian_root_mode
     neighbors = (
         prepared.previous_limb,
         prepared.following_limb,
         prepared.previous_mask,
         prepared.following_mask,
     )
+    edge_activity = (
+        prepared.limb_trace.incoming_edge_active,
+        prepared.limb_trace.outgoing_edge_active,
+    )
     state = prepared.state
 
-    if route == _UNIFORM_CONDITIONED_POLAR:
-
-        def radial_first(_):
-            radial = _mag_uniform_radial_from_trace(
-                w_center,
-                rho,
-                s=s,
-                q=q,
-                # The radial result is deliberately structural-only in the
-                # one-shot route; this argument is ignored because
-                # ``check_tolerance=False`` below.
-                rtol=jnp.asarray(1.0e-3, dtype=rho.dtype),
-                image_limb=prepared.image_limb,
-                physical_mask=prepared.physical_mask,
-                independent_roots=False,
-                use_simple_support=True,
-                check_tolerance=False,
-            )
-            radial_status = jnp.bitwise_or(
-                radial.status,
-                jnp.where(
-                    _unresolved_buried_caustic_contact(w_center, rho, s, q, state),
-                    jnp.int32(ANGULAR_MOMENT_TOPOLOGY),
-                    jnp.int32(0),
-                ),
-            )
-            return CartesianAdaptiveResult(
-                radial.magnification,
-                jnp.asarray(jnp.nan, dtype=radial.magnification.dtype),
-                radial.n_full_root_solves,
-                jnp.int32(ONE_SHOT_RADIAL),
-                jnp.bitwise_or(
-                    radial_status,
-                    jnp.where(
-                        jnp.isfinite(radial.magnification),
-                        jnp.int32(0),
-                        jnp.int32(ONE_SHOT_NONFINITE),
-                    ),
-                ),
-            )
-
-        def angle_first(_):
-            support = _angular_support_cells_from_trace(
-                w_center,
-                rho,
-                s=s,
-                q=q,
-                physical_limb=prepared.image_limb,
-                physical_mask=prepared.physical_mask,
-                topology_uncertain=state.topology_uncertain,
-                minimum_ghost_residual=state.ghost_residual_ratio * rho,
-                limb_topology=state.limb_topology,
-                neighbors=neighbors,
-                root_mode=polar_root_mode,
-            )
-            buried_contact, critical_angle = _buried_caustic_contact_angle(
-                w_center, rho, s, q, state
-            )
-            critical_support, critical_split = _split_angular_support_at_angle(
-                support,
-                critical_angle,
-                enabled=buried_contact,
-            )
-            integration_support = _split_overlapping_angular_support(
-                critical_support,
-                prepared.image_limb,
-                prepared.physical_mask,
-                parts=3,
-            )
-            cells, active, topology, ghost, limb_topology, tangencies_valid = (
-                integration_support
-            )
-            selected = _uniform_result_from_support(
-                w_center,
-                rho,
-                s=s,
-                q=q,
-                n_theta=32,
-                cells=cells,
-                active=active,
-                topology_uncertain=topology,
-                minimum_ghost_residual=ghost,
-                limb_topology=limb_topology,
-                tangencies_valid=tangencies_valid,
-                root_mode=polar_root_mode,
-            )
-            nonempty = support.cells[:, 1] > support.cells[:, 0]
-            full_chart = jnp.all(support.active == nonempty)
-            buried_contact_resolved = full_chart & buried_contact & critical_split
-            unreliable = _polar_support_unreliable(
-                w_center,
-                rho,
-                s,
-                q,
-                state,
-                limb_dark=False,
-                buried_contact_resolved=buried_contact_resolved,
-            )
-            partition_valid = full_chart | (
-                (jnp.sum(~tangencies_valid, dtype=jnp.int32) <= 2)
-                & _closed_angular_extrema_parity_valid(
-                    support.cells, support.limb_topology
-                )
-            )
-            support_valid = (
-                partition_valid
-                & (
-                    (rho > 1.0e-3)
-                    | (
-                        jnp.abs(w_center)
-                        < 0.7 * jnp.maximum(rho, jnp.finfo(rho.dtype).tiny)
-                    )
-                )
-                & ~unreliable
-            )
-            return _fixed_polar_result(
-                selected,
-                stage=ONE_SHOT_POLAR_HIGH,
-                support_valid=support_valid,
-            )._replace(
-                # Stage 3 denotes the conditioned-polar family.
-                stage=jnp.int32(ONE_SHOT_RADIAL),
-            )
-
-        # The angle-first level-set coefficients contain a subtraction at
-        # scale rho**2.  At rho <= 1e-3 this becomes the dominant x64 limit
-        # near planetary caustics.  The fixed-r equation is independently
-        # reliable in the resonant zone; nonresonant small-rho points remain
-        # fail-closed in ``angle_first`` instead of triggering a rescue.
-        resonant = jnp.abs(jnp.log(s)) <= 1.5 * jnp.cbrt(q)
-        return jax.lax.cond(
-            (rho <= 1.0e-3) & resonant,
-            radial_first,
-            angle_first,
-            operand=None,
+    if route == _CPU_ROUTE_POLAR_RADIAL_FIRST:
+        radial = _mag_uniform_radial_from_trace(
+            w_center,
+            rho,
+            s=s,
+            q=q,
+            rtol=jnp.asarray(1.0e-3, dtype=rho.dtype),
+            image_limb=prepared.image_limb,
+            physical_mask=prepared.physical_mask,
+            independent_roots=False,
+            use_simple_support=True,
+            check_tolerance=False,
+            neighbors=neighbors,
+            edge_activity=edge_activity,
+        )
+        buried_unresolved = (
+            (state.active_images_min == 3)
+            & (state.active_images_max == 3)
+            & (state.ghost_residual_ratio >= 100.0)
+            & (state.ghost_residual_ratio < 1000.0)
+            & (state.polar_conditioning >= 1000.0)
+        )
+        unresolved = buried_unresolved | ~_trace_transition_support_valid(state)
+        status = jnp.bitwise_or(
+            radial.status,
+            jnp.where(
+                unresolved,
+                jnp.int32(ONE_SHOT_UNRESOLVED_GEOMETRY),
+                jnp.int32(0),
+            ),
+        )
+        status = jnp.bitwise_or(
+            status,
+            jnp.where(
+                jnp.isfinite(radial.magnification),
+                jnp.int32(0),
+                jnp.int32(ONE_SHOT_NONFINITE),
+            ),
+        )
+        return CartesianAdaptiveResult(
+            radial.magnification,
+            jnp.asarray(jnp.nan, dtype=radial.magnification.dtype),
+            radial.n_full_root_solves,
+            jnp.int32(ONE_SHOT_POLAR_RADIAL_FIRST),
+            status,
         )
 
-    if route in (_UNIFORM_POLAR, _UNIFORM_POLAR_HIGH):
+    if route == _CPU_ROUTE_POLAR_THETA_FIRST:
         support = _angular_support_cells_from_trace(
             w_center,
             rho,
@@ -810,99 +768,145 @@ def _solve_uniform_one_shot_prepared(
             minimum_ghost_residual=state.ghost_residual_ratio * rho,
             limb_topology=state.limb_topology,
             neighbors=neighbors,
+            edge_activity=edge_activity,
             root_mode=polar_root_mode,
         )
-        cells, active, topology, ghost, limb_topology, tangencies_valid = support
-        if route == _UNIFORM_POLAR_HIGH:
-            fine, _ = _uniform_nested_cc_from_support(
-                w_center,
-                rho,
-                s=s,
-                q=q,
-                fine_intervals=24,
-                cells=cells,
-                active=active,
-                topology_uncertain=topology,
-                minimum_ghost_residual=ghost,
-                limb_topology=limb_topology,
-                root_mode=polar_root_mode,
-            )
-            unreliable = _polar_support_unreliable(
-                w_center, rho, s, q, state, limb_dark=False
-            )
-            support_valid = (jnp.sum(~tangencies_valid, dtype=jnp.int32) <= 2) & (
-                ~unreliable
-                | _high_polar_noncontact_override(w_center, rho, tangencies_valid)
-            ) & _closed_angular_extrema_parity_valid(cells, limb_topology)
-            return _fixed_polar_result(
-                fine,
-                stage=ONE_SHOT_POLAR_HIGH,
-                support_valid=support_valid,
-            )
-        fine, _ = _uniform_nested_cc_from_support(
+        buried_pair = (
+            state.topology_uncertain
+            & (state.active_images_min == 3)
+            & (state.active_images_max == 3)
+            & jnp.isfinite(state.ghost_residual_ratio)
+        )
+        crossing = (
+            state.limb_topology
+            & (state.active_images_min == 3)
+            & (state.active_images_max == 5)
+        )
+        critical_support, ghost_guard_applied = _split_angular_support_at_angle(
+            support,
+            state.ghost_image_angle,
+            enabled=prepared.partition_theta & buried_pair,
+        )
+        # For a 3->5 transition the cut edge is intentionally not traversed,
+        # but its newborn/dead pair still marks the occupied angular sector.
+        # Retain two trace-derived guard cells on either side of that event.
+        critical_support, crossing_guard_applied_1 = _split_angular_support_at_angle(
+            critical_support,
+            state.transition_image_angle,
+            enabled=prepared.partition_theta & crossing,
+        )
+        critical_support, crossing_guard_applied_2 = _split_angular_support_at_angle(
+            critical_support,
+            state.transition_image_angle_2,
+            enabled=prepared.partition_theta & crossing,
+        )
+        guard_applied = (
+            ghost_guard_applied
+            | crossing_guard_applied_1
+            | crossing_guard_applied_2
+        )
+        partitioned_support = _split_overlapping_angular_support(
+            critical_support,
+            prepared.image_limb,
+            prepared.physical_mask,
+            parts=4,
+        )
+        selected_support = jax.tree.map(
+            lambda partitioned, regular: jnp.where(
+                prepared.partition_theta,
+                partitioned,
+                regular,
+            ),
+            partitioned_support,
+            support,
+        )
+        selected_support_1d = selected_support.as_support_1d()
+        selected_support = unwrap_support_1d(selected_support_1d)
+        cells, active, topology, ghost, limb_topology, tangencies_valid = (
+            selected_support
+        )
+        selected = _uniform_result_from_support(
             w_center,
             rho,
             s=s,
             q=q,
-            fine_intervals=12,
+            n_theta=12,
             cells=cells,
             active=active,
             topology_uncertain=topology,
             minimum_ghost_residual=ghost,
             limb_topology=limb_topology,
+            tangencies_valid=tangencies_valid,
             root_mode=polar_root_mode,
+            certify_intervals=(
+                state.topology_uncertain
+                & (state.ghost_residual_ratio < 0.1)
+                & (
+                    ((state.active_images_min == 3) & (state.active_images_max == 3))
+                    | ((state.active_images_min == 3) & (state.active_images_max == 5))
+                )
+            ),
+        )
+        base_cells = support.cells
+        nonempty = base_cells[:, 1] > base_cells[:, 0]
+        full_chart = jnp.all(support.active == nonempty)
+        edge_consistent = _angular_trace_edge_consistent(
+            prepared.image_limb,
+            prepared.physical_mask,
+            neighbors,
+            edge_activity,
+        )
+        partition_valid = edge_consistent & (
+            full_chart
+            | (
+                (
+                    (jnp.sum(~support.tangencies_valid, dtype=jnp.int32) <= 2)
+                    | guard_applied
+                )
+                & _closed_angular_extrema_parity_valid(
+                    base_cells,
+                    support.limb_topology,
+                )
+            )
+        )
+        regular_valid = edge_consistent & jnp.all(support.tangencies_valid) & (
+            _closed_angular_extrema_parity_valid(
+                base_cells,
+                support.limb_topology,
+            )
         )
         return _fixed_polar_result(
-            fine,
-            stage=ONE_SHOT_POLAR,
-            support_valid=(
-                jnp.all(tangencies_valid)
-                | _high_polar_noncontact_override(w_center, rho, tangencies_valid)
+            selected,
+            stage=ONE_SHOT_POLAR_THETA_FIRST,
+            support_valid=jnp.where(
+                prepared.partition_theta,
+                partition_valid,
+                regular_valid,
             )
-            & _closed_angular_extrema_parity_valid(cells, limb_topology)
-            & ~_polar_support_unreliable(w_center, rho, s, q, state, limb_dark=False),
+            & _trace_transition_support_valid(state),
+            replace_support_status=prepared.partition_theta,
         )
 
-    primary_support = prepared.primary_support
+    primary_support = prepared.primary_support_1d
     primary_axis = prepared.primary_axis
-    if route not in (
-        _UNIFORM_CARTESIAN_EXTERNAL,
-        _UNIFORM_CARTESIAN_INTERNAL,
-        _UNIFORM_CARTESIAN_HIGH,
-    ):
+    if route != _CPU_ROUTE_CARTESIAN:
         raise ValueError(f"unknown uniform one-shot route: {route}")
-    if route == _UNIFORM_CARTESIAN_EXTERNAL and external_magnification is not None:
-        primary = _cartesian_result_from_support(
-            w_center,
-            rho,
-            s=s,
-            q=q,
-            n_slice=8,
-            support=primary_support,
-            axis=primary_axis,
-            continuation=effective_root_mode,
-            image_limb=prepared.image_limb,
-            physical_mask=prepared.physical_mask,
-        )
-        return _fixed_cartesian_result(primary, stage=ONE_SHOT_CARTESIAN)
-    # GK15/G7 shares every expensive root evaluation. Keep only the GK15 value;
-    # the embedded G7 reduction is intentionally not an acceptance test.
-    fine, _ = _cartesian_gk15_from_support(
+    del external_magnification
+    primary = _cartesian_result_from_support(
         w_center,
         rho,
         s=s,
         q=q,
+        n_slice=8,
         support=primary_support,
         axis=primary_axis,
         continuation=effective_root_mode,
+        image_limb=prepared.image_limb,
+        physical_mask=prepared.physical_mask,
     )
     return _fixed_cartesian_result(
-        fine,
-        stage=(
-            ONE_SHOT_CARTESIAN_HIGH
-            if route == _UNIFORM_CARTESIAN_HIGH
-            else ONE_SHOT_CARTESIAN
-        ),
+        primary,
+        stage=_cartesian_stage(primary_axis),
     )
 
 
@@ -919,12 +923,14 @@ def mag_uniform_cpu_one_shot(
     cartesian_root_mode: str = "production",
     polar_root_mode: str = "companion",
 ):
-    """Evaluate one uniform source with no retry or post-failure fallback.
+    """Evaluate the legacy uniform-only kernel for explicit comparisons.
 
-    ``polar_root_mode`` accepts ``companion`` (the production default),
-    ``ea_fixed20/24/28`` for explicit fixed EA schedules, and ``ea_auto20``
-    to use EA only for the large support-certification batches while retaining
-    companion roots for the small quadrature-cell batches.
+    The default CPU backend uses ``mag_binary_cpu_one_shot`` with ``u1=0``.
+
+    ``polar_root_mode`` accepts ``companion`` (the production default) and
+    ``ea_fixed20/24/28`` or ``ea_auto20`` for explicit EA experiments. Polar
+    support itself is derived only from the tracked image-limb coordinates;
+    the selected root mode is used by the integration rays.
     """
 
     if n_limb <= 0:
@@ -953,50 +959,32 @@ def mag_uniform_cpu_one_shot(
             cartesian_root_mode=cartesian_root_mode,
             polar_root_mode=polar_root_mode,
         )
-        for selected_route in range(_UNIFORM_ROUTE_COUNT)
+        for selected_route in range(_CPU_ROUTE_COUNT)
     )
     result = jax.lax.switch(prepared.route, branches, operand=None)
-    selected_polar = (prepared.route == _UNIFORM_POLAR) | (
-        prepared.route == _UNIFORM_POLAR_HIGH
-    )
-    selected_complete_chart = selected_polar | (
-        prepared.route == _UNIFORM_CONDITIONED_POLAR
-    )
-    unresolved = _unresolved_distant_topology(
-        w_center,
-        rho,
-        s,
-        q,
-        prepared.state,
-        selected_complete_chart,
-        limb_dark=False,
-    )
-    result = result._replace(
-        status=jnp.where(
-            unresolved,
-            jnp.bitwise_or(
-                result.status, jnp.int32(ONE_SHOT_UNRESOLVED_GEOMETRY)
-            ),
-            result.status,
-        )
-    )
+    result = _flag_unresolved_trace_transition(result, prepared.state)
     return (result, prepared.state) if return_state else result
 
 
-def mag_limb_dark_cpu_one_shot(
+def mag_binary_cpu_one_shot(
     w_center: complex | Array,
     rho: float | Array,
     *,
     s: float | Array,
     q: float | Array,
-    u1: float | Array,
-    n_limb: int = 64,
+    u1: float | Array = 0.0,
+    n_limb: int = 112,
     external_magnification: Array | None = None,
     external_estimated_error: Array | None = None,
     return_state: bool = False,
     cartesian_root_mode: str = "production",
 ):
-    """Evaluate one linear-LD source with no retry or post-failure fallback."""
+    """Evaluate a uniform or linear-LD source with one common moment solve.
+
+    Support, chart selection and quadrature depend on geometry, not ``u1``.
+    The final flux is ``((1-u1)*M0 + u1*M1)/(pi*rho**2*(1-u1/3))``;
+    ``u1=0`` is the uniform image-area integral. No retry is performed.
+    """
 
     if n_limb <= 0:
         raise ValueError("n_limb must be positive")
@@ -1013,7 +1001,11 @@ def mag_limb_dark_cpu_one_shot(
         q=q,
         n_limb=n_limb,
         external_available=external_magnification is not None,
+        cartesian_support_builder=_cartesian_support_cells_from_events,
+        cartesian_support_size=21,
+        allow_radial=False,
     )
+    del external_magnification
     image_limb = geometry.image_limb
     physical_mask = geometry.physical_mask
     neighbors = (
@@ -1022,21 +1014,18 @@ def mag_limb_dark_cpu_one_shot(
         geometry.previous_mask,
         geometry.following_mask,
     )
+    edge_activity = (
+        geometry.limb_trace.incoming_edge_active,
+        geometry.limb_trace.outgoing_edge_active,
+    )
     state = geometry.state
     topology = state.topology_uncertain
     ghost = state.ghost_residual_ratio * rho
     limb_topology = state.limb_topology
     route = geometry.route
-    use_polar = (
-        (route == _UNIFORM_POLAR)
-        | (route == _UNIFORM_POLAR_HIGH)
-        | (route == _UNIFORM_CONDITIONED_POLAR)
-    )
-    high_polar = route == _UNIFORM_POLAR_HIGH
-    high_cartesian = route == _UNIFORM_CARTESIAN_HIGH
 
-    def polar(_):
-        support = _angular_support_cells_from_trace(
+    def theta_first(_):
+        support = _angular_support_cells_from_events(
             w_center,
             rho,
             s=s,
@@ -1047,176 +1036,45 @@ def mag_limb_dark_cpu_one_shot(
             minimum_ghost_residual=ghost,
             limb_topology=limb_topology,
             neighbors=neighbors,
+            edge_activity=edge_activity,
         )
-        def evaluate(n_theta, n_radial):
-            return _mag_limb_dark_angular_moment_from_support(
-                w_center,
-                rho,
-                s=s,
-                q=q,
-                u1=u1,
-                n_theta=n_theta,
-                n_radial=n_radial,
-                support=support,
-                estimate_radial_error=False,
-            )
-
-        def high(_):
-            return _fixed_polar_result(
-                evaluate(24, 12),
-                stage=ONE_SHOT_POLAR_HIGH,
-                support_valid=(jnp.sum(~support.tangencies_valid, dtype=jnp.int32) <= 2)
-                & _closed_angular_extrema_parity_valid(
-                    support.cells, support.limb_topology
-                )
-                & ~_polar_support_unreliable(
-                    w_center, rho, s, q, state, limb_dark=True
-                ),
-            )
-
-        def regular(_):
-            return _fixed_polar_result(
-                evaluate(12, 8),
-                stage=ONE_SHOT_POLAR,
-                support_valid=jnp.all(support.tangencies_valid)
-                & _closed_angular_extrema_parity_valid(
-                    support.cells, support.limb_topology
-                )
-                & ~_polar_support_unreliable(
-                    w_center, rho, s, q, state, limb_dark=True
-                ),
-            )
-
-        def radial(_):
-            buried_contact, critical_angle = _buried_caustic_contact_angle(
-                w_center, rho, s, q, state
-            )
-            critical_support, critical_split = _split_angular_support_at_angle(
-                support,
-                critical_angle,
-                enabled=buried_contact,
-            )
-            conditioned_support = _split_overlapping_angular_support(
-                critical_support,
-                image_limb,
-                physical_mask,
-                parts=3,
-            )
-            # Most conditioned supports are substantially over-resolved by
-            # the historical 15x15 Kronrod rule.  A fixed 12x10 Gauss rule
-            # removes 47% of the mapped profile nodes.  Spend the high-order
-            # budget only when support construction reports an unverified
-            # tangency; this is an axis-independent structural condition,
-            # not a lens-parameter special case or a result-based retry.
-            high_conditioned_order = jnp.any(
-                ~conditioned_support.tangencies_valid
-            )
-
-            def high_order(_):
-                return _mag_limb_dark_angular_moment_gk15_pair_from_support(
-                    w_center,
-                    rho,
-                    s=s,
-                    q=q,
-                    u1=u1,
-                    support=conditioned_support,
-                )[1]
-
-            def standard_order(_):
-                return _mag_limb_dark_angular_moment_from_support(
-                    w_center,
-                    rho,
-                    s=s,
-                    q=q,
-                    u1=u1,
-                    n_theta=12,
-                    n_radial=10,
-                    support=conditioned_support,
-                    estimate_radial_error=False,
-                )
-
-            fine = jax.lax.cond(
-                jax.lax.stop_gradient(high_conditioned_order),
-                high_order,
-                standard_order,
-                operand=None,
-            )
-            nonempty = support.cells[:, 1] > support.cells[:, 0]
-            full_chart = jnp.all(support.active == nonempty)
-            buried_contact_resolved = full_chart & buried_contact & critical_split
-            unreliable = _polar_support_unreliable(
-                w_center,
-                rho,
-                s,
-                q,
-                state,
-                limb_dark=True,
-                buried_contact_resolved=buried_contact_resolved,
-            )
-            partition_valid = full_chart | (
-                (jnp.sum(~support.tangencies_valid, dtype=jnp.int32) <= 2)
-                & _closed_angular_extrema_parity_valid(
-                    support.cells, support.limb_topology
-                )
-            )
-            return _fixed_polar_result(
-                fine,
-                stage=ONE_SHOT_POLAR_HIGH,
-                support_valid=partition_valid & ~unreliable,
-            )
-
-        selected = jax.lax.cond(
-            route == _UNIFORM_CONDITIONED_POLAR,
-            radial,
-            lambda _: jax.lax.cond(high_polar, high, regular, operand=None),
-            operand=None,
+        selected = _mag_limb_dark_angular_moment_from_support(
+            w_center,
+            rho,
+            s=s,
+            q=q,
+            u1=u1,
+            n_theta=_LD_ADAPTIVE_BUDGET,
+            n_radial=8,
+            support=support.as_support_1d(),
+            estimate_radial_error=False,
+            certify_intervals=False,
+            moment_integrator=_integrate_ld_moments,
         )
-        return selected._replace(
-            stage=jnp.where(
-                route == _UNIFORM_CONDITIONED_POLAR,
-                jnp.int32(ONE_SHOT_RADIAL),
-                selected.stage,
-            )
+        return _fixed_polar_result(
+            selected,
+            stage=ONE_SHOT_POLAR_THETA_FIRST,
+            support_valid=jnp.all(support.tangencies_valid),
+            replace_support_status=True,
         )
 
     def cartesian(_):
         primary_axis = geometry.primary_axis
-        primary_support = geometry.primary_support
+        primary_support = geometry.primary_support_1d
         root_mode = (
-            "companion" if cartesian_root_mode == "production" else cartesian_root_mode
+            "companion"
+            if cartesian_root_mode == "production"
+            else cartesian_root_mode
         )
 
-        def fixed_gk15(_):
-            fine, _ = _mag_limb_dark_cartesian_gk15_from_support(
+        def solve_cartesian(n_slice):
+            return _mag_limb_dark_cartesian_impl(
                 w_center,
                 rho,
                 s=s,
                 q=q,
                 u1=u1,
-                axis=primary_axis,
-                support=primary_support,
-                root_mode=root_mode,
-            )
-            return _fixed_cartesian_result(
-                fine,
-                stage=jnp.where(
-                    high_cartesian,
-                    jnp.int32(ONE_SHOT_CARTESIAN_HIGH),
-                    jnp.int32(ONE_SHOT_CARTESIAN),
-                ),
-            )
-
-        if external_magnification is None:
-            return fixed_gk15(None)
-
-        def fixed_external_route(_):
-            primary = _mag_limb_dark_cartesian_impl(
-                w_center,
-                rho,
-                s=s,
-                q=q,
-                u1=u1,
-                n_slice=7,
+                n_slice=n_slice,
                 n_profile=8,
                 n_limb=n_limb,
                 axis=primary_axis,
@@ -1224,42 +1082,39 @@ def mag_limb_dark_cpu_one_shot(
                 root_mode=root_mode,
                 bernstein_capacity=8,
                 return_info=True,
+                moment_integrator=_integrate_ld_moments,
             )
-            return _fixed_cartesian_result(primary, stage=ONE_SHOT_CARTESIAN)
 
-        return jax.lax.cond(
-            jax.lax.stop_gradient(route == _UNIFORM_CARTESIAN_EXTERNAL),
-            fixed_external_route,
-            fixed_gk15,
-            operand=None,
+        primary = solve_cartesian(_LD_ADAPTIVE_BUDGET)
+        return _fixed_cartesian_result(
+            primary,
+            stage=_cartesian_stage(primary_axis),
         )
 
-    result = jax.lax.cond(use_polar, polar, cartesian, operand=None)
-    unresolved = _unresolved_distant_topology(
-        w_center, rho, s, q, state, use_polar, limb_dark=True
+    result = jax.lax.cond(
+        route == _CPU_ROUTE_CARTESIAN,
+        cartesian,
+        theta_first,
+        operand=None,
     )
-    result = result._replace(
-        status=jnp.where(
-            unresolved,
-            jnp.bitwise_or(
-                result.status, jnp.int32(ONE_SHOT_UNRESOLVED_GEOMETRY)
-            ),
-            result.status,
-        )
-    )
+    result = _flag_unresolved_trace_transition(result, state)
     return (result, state) if return_state else result
 
 
+# Compatibility name for callers of the former LD-only entry point.
+mag_limb_dark_cpu_one_shot = mag_binary_cpu_one_shot
+
+
 __all__ = [
-    "ONE_SHOT_CARTESIAN",
-    "ONE_SHOT_CARTESIAN_HIGH",
-    "ONE_SHOT_RADIAL",
-    "ONE_SHOT_POLAR",
-    "ONE_SHOT_POLAR_HIGH",
+    "ONE_SHOT_CARTESIAN_X_FIRST",
+    "ONE_SHOT_CARTESIAN_Y_FIRST",
+    "ONE_SHOT_POLAR_RADIAL_FIRST",
+    "ONE_SHOT_POLAR_THETA_FIRST",
     "ONE_SHOT_INVALID_ROOTS",
     "ONE_SHOT_NONFINITE",
     "ONE_SHOT_UNRESOLVED_GEOMETRY",
     "OneShotState",
+    "mag_binary_cpu_one_shot",
     "mag_limb_dark_cpu_one_shot",
     "mag_uniform_cpu_one_shot",
 ]

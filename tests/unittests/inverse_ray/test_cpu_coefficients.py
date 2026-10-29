@@ -8,6 +8,11 @@ from microjax.inverse_ray.cpu.coefficients import binary_quintic_coefficients
 from microjax.inverse_ray.cpu.support import (
     _physical_image_mask,
     trace_binary_source_limb,
+    trace_binary_source_limb_record,
+)
+from microjax.inverse_ray.cpu.cartesian_moment import (
+    _cartesian_support_1d,
+    _cartesian_support_cells_from_trace,
 )
 from microjax.point_source import lens_eq
 from microjax.poly_solver import poly_roots
@@ -118,3 +123,93 @@ def test_limb_trace_returns_the_roots_used_for_its_physical_mask():
         in_axes=(1, 0),
     )(images, sources).T
     np.testing.assert_array_equal(np.asarray(physical_mask), np.asarray(recomputed))
+
+
+def test_canonical_limb_trace_cuts_edges_at_image_multiplicity_changes():
+    """The canonical record exposes one mask-aware, same-count edge graph."""
+
+    source = jnp.asarray(-0.1473754964687426 + 0.07700093692907822j)
+    trace = trace_binary_source_limb_record(
+        source,
+        3.0e-3,
+        s=1.0,
+        q=1.0e-2,
+        n_limb=64,
+    )
+
+    counts = np.asarray(trace.image_counts)
+    expected_outgoing = (
+        np.asarray(trace.physical_mask)
+        & np.asarray(trace.following_mask)
+        & (counts == np.roll(counts, -1))[None, :]
+    )
+    expected_incoming = (
+        np.asarray(trace.physical_mask)
+        & np.asarray(trace.previous_mask)
+        & (counts == np.roll(counts, 1))[None, :]
+    )
+    np.testing.assert_array_equal(
+        np.asarray(trace.incoming_edge_active), expected_incoming
+    )
+    np.testing.assert_array_equal(
+        np.asarray(trace.outgoing_edge_active), expected_outgoing
+    )
+    np.testing.assert_array_equal(np.asarray(trace.edge_active), expected_outgoing)
+    np.testing.assert_allclose(
+        np.asarray(trace.residual)[np.asarray(trace.physical_mask)],
+        0.0,
+        atol=1.0e-6,
+    )
+    assert trace.image_limb.shape == (5, 64)
+    assert trace.phases.shape == (64,)
+
+
+def test_cartesian_support_uses_explicit_cut_edges_as_segment_endpoints():
+    coordinates = jnp.asarray([0.0, 1.0, 2.0, 3.0], dtype=jnp.float64)
+    image_limb = jnp.zeros((5, 4), dtype=jnp.complex128).at[0].set(coordinates)
+    physical_mask = jnp.zeros((5, 4), dtype=bool).at[0].set(True)
+    previous = jnp.roll(image_limb, 1, axis=1)
+    following = jnp.roll(image_limb, -1, axis=1)
+    previous_mask = jnp.roll(physical_mask, 1, axis=1)
+    following_mask = jnp.roll(physical_mask, -1, axis=1)
+    incoming = physical_mask & previous_mask
+    outgoing = physical_mask & following_mask
+    # Cut the edge 1 -> 2 in both matched directions.
+    outgoing = outgoing.at[0, 1].set(False)
+    incoming = incoming.at[0, 2].set(False)
+
+    support = _cartesian_support_cells_from_trace(
+        image_limb,
+        physical_mask,
+        topology_uncertain=jnp.asarray(False),
+        minimum_ghost_residual=jnp.asarray(1.0),
+        limb_topology=jnp.asarray(True),
+        neighbors=(previous, following, previous_mask, following_mask),
+        edge_activity=(incoming, outgoing),
+    )
+
+    finite_boundaries = np.asarray(support[0])[np.asarray(support[1])].reshape(-1)
+    assert np.any(finite_boundaries == 1.0)
+    assert np.any(finite_boundaries == 2.0)
+
+
+def test_cartesian_support_exposes_lossless_support_1d_contract():
+    source = jnp.asarray(0.1 + 0.2j, dtype=jnp.complex128)
+    image_limb, physical_mask = trace_binary_source_limb(
+        source,
+        1.0e-2,
+        s=1.0,
+        q=0.3,
+        n_limb=32,
+    )
+    support = _cartesian_support_cells_from_trace(
+        image_limb,
+        physical_mask,
+        topology_uncertain=jnp.asarray(False),
+        minimum_ghost_residual=jnp.asarray(1.0),
+        limb_topology=jnp.asarray(False),
+    )
+    contract = _cartesian_support_1d(support)
+    np.testing.assert_array_equal(np.asarray(contract.cells), np.asarray(support[0]))
+    np.testing.assert_array_equal(np.asarray(contract.active), np.asarray(support[1]))
+    assert contract.payload is support

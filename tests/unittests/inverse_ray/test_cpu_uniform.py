@@ -5,6 +5,8 @@ import pytest
 
 from microjax.inverse_ray.cpu.support import (
     build_radial_support,
+    radial_support_from_limb,
+    trace_binary_source_limb,
     tracked_limb_neighbors,
 )
 from microjax.inverse_ray.cpu.uniform import (
@@ -118,6 +120,23 @@ def test_cpu_radial_support_is_disjoint_and_nonempty():
     assert intervals.shape[0] > 0
     assert np.all(intervals[:, 1] > intervals[:, 0])
     assert np.all(intervals[1:, 0] >= intervals[:-1, 1])
+
+
+def test_radial_support_exposes_lossless_support_1d_contract():
+    source = jnp.asarray(0.1 + 0.2j, dtype=jnp.complex128)
+    image_limb, physical_mask = trace_binary_source_limb(
+        source,
+        1.0e-2,
+        s=1.0,
+        q=0.3,
+        n_limb=32,
+    )
+    support = radial_support_from_limb(image_limb, physical_mask)
+    contract = support.as_support_1d()
+    np.testing.assert_array_equal(np.asarray(contract.cells), np.asarray(support.intervals))
+    np.testing.assert_array_equal(np.asarray(contract.active), np.asarray(support.active))
+    np.testing.assert_array_equal(np.asarray(contract.core), np.asarray(support.active))
+    assert contract.payload is support
 
 
 def test_tracked_limb_neighbors_close_a_permuted_root_loop():

@@ -1,4 +1,9 @@
-"""Plot the production CPU ICRS state for one binary-source position."""
+"""Illustrate a binary-source boundary with legacy CPU support helpers.
+
+The reconstruction uses older support and quadrature rules. The caller's
+measured residual and route identify a sample; this plot does not replay the
+current shared CPU solver's support or GL5/GK11 allocation.
+"""
 
 from __future__ import annotations
 
@@ -31,9 +36,21 @@ from microjax.point_source import critical_and_caustic_curves
 
 jax.config.update("jax_enable_x64", True)
 
+ROUTE_LABELS = {
+    5: "Cartesian",
+    6: "Cartesian",
+    7: "Polar r-first",
+    8: "Polar theta-first",
+    9: "Polar theta-first",
+}
 
-def _production_trace(w_center, rho, *, s, q, n_limb, limb_darkening):
-    """Return the trace, Cartesian chart, and diagnostics used in production."""
+
+def _route_label(internal_tier: int) -> str:
+    return ROUTE_LABELS.get(int(internal_tier), "Unknown route")
+
+
+def _legacy_trace(w_center, rho, *, s, q, n_limb, limb_darkening):
+    """Reconstruct illustrative geometry using the older profile-specific helpers."""
 
     if limb_darkening == 0.0:
         prepared = _prepare_uniform_one_shot(
@@ -89,7 +106,7 @@ def _production_trace(w_center, rho, *, s, q, n_limb, limb_darkening):
         "limb_topology": limb_topology,
         "axis": primary_axis,
         "cartesian_support": primary_support,
-        # The public tier is the authoritative LD route label.
+        # The caller supplies the measured route; this trace is illustrative.
         "route": None,
     }
 
@@ -172,7 +189,7 @@ def _contiguous_domains(cells):
 
 
 def _cartesian_width_profile(abscissa, projection_axis, w_center, rho, s, q):
-    """Evaluate the production strip-width kernel for plot-only samples."""
+    """Evaluate the legacy strip-width kernel for illustrative samples."""
 
     lens = binary_geometry(s, q)
     lens_radius = jnp.maximum(
@@ -211,7 +228,7 @@ def _polar_integrand_profile(
     selected_tier,
     limb_darkening,
 ):
-    """Evaluate the production radial moment passed to angular quadrature."""
+    """Evaluate a legacy radial-moment profile for illustration."""
 
     angles = jnp.asarray(angles, dtype=w_center.real.dtype)
     coefficients = jax.vmap(
@@ -241,7 +258,7 @@ def _polar_integrand_profile(
         profile = (1.0 - limb_darkening) * uniform + limb_darkening * residual
     else:
         n_radial = 12 if selected_tier == 9 else 8
-        uniform, residual, invalid = _profile_ray_moments(
+        uniform, residual, _radial_error, invalid = _profile_ray_moments(
             angles,
             coefficients,
             w_center,
@@ -482,15 +499,19 @@ def plot_boundary_construction(
     selected_n_slices: int,
     output_path: Path,
 ) -> dict:
-    """Save an exact production-route diagnostic at one ICRS sample."""
+    """Save a legacy boundary illustration at a measured CPU sample.
+
+    The measured route and residual are supplied by the caller. The support
+    cells and quadrature markers are reconstructed with older helpers.
+    """
 
     if selected_tier not in (5, 6, 7, 8, 9):
-        raise ValueError(f"tier {selected_tier} is not a CPU ICRS route")
+        raise ValueError("unknown internal CPU ICRS route code")
     output_path = Path(output_path)
     w_center = jnp.asarray(w_center, dtype=jnp.complex128)
     rho_array = jnp.asarray(rho, dtype=jnp.float64)
     trace = jax.block_until_ready(
-        _production_trace(
+        _legacy_trace(
             w_center,
             rho_array,
             s=jnp.asarray(s, dtype=jnp.float64),
@@ -538,10 +559,12 @@ def plot_boundary_construction(
         )
 
     profile_label = "uniform" if limb_darkening == 0.0 else rf"$u_1={limb_darkening:g}$"
+    selected_route = _route_label(selected_tier)
     fig.suptitle(
-        rf"Largest status-zero ICRS residual: $t={time_value:.6g}$, "
-        rf"rel. diff $={relative_residual:.3e}$, tier {selected_tier} "
-        rf"({chart_summary['chart']})" "\n"
+        "Legacy boundary illustration; "
+        rf"measured CPU route: {selected_route}" "\n"
+        rf"Largest status-zero residual: $t={time_value:.6g}$, "
+        rf"rel. diff $={relative_residual:.3e}$" "\n"
         rf"profile: {profile_label}; "
         rf"$s={s:g}$, $q={q:g}$, $\rho={rho:g}$"
     )
@@ -555,16 +578,17 @@ def plot_boundary_construction(
         "source_imag": float(w_center.imag),
         "relative_residual": float(relative_residual),
         "limb_darkening_u1": float(limb_darkening),
-        "selected_tier": int(selected_tier),
+        "selected_route": selected_route,
         "selected_n_slices": int(selected_n_slices),
         "n_limb": int(n_limb),
-        "production_route": chart_summary,
+        "reconstruction_kind": "legacy_illustration",
+        "illustrative_chart": chart_summary,
     }
     output_path.with_suffix(".json").write_text(
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
     print(
-        f"largest-residual {chart_summary['chart']} CPU ICRS diagnostic: {output_path}"
+        f"legacy {chart_summary['chart']} boundary illustration: {output_path}"
     )
     return summary
 

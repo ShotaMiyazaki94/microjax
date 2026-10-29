@@ -3,18 +3,120 @@
 from __future__ import annotations
 
 import jax.numpy as jnp
-from jax import lax
+from jax import lax, vmap
 
 from ..geometry.lens import binary_geometry
 from ..geometry.mapping import distance_from_source
 from ..roots.angular import angular_intervals_binary_roots
 from .angular_profile import integrate_mu_residual
-from .quadrature import integrate_gk15
+from .quadrature import GkIntegral, integrate_gk15
 from .sentinel import hidden_caustic_candidate
-from .support import build_radial_support
+from .support import PolarOccupancyAtlas, build_radial_support, unwrap_support_1d
 from .uniform import CPU_TIER_EXHAUSTED, CpuMagnificationResult
 
 Array = jnp.ndarray
+
+
+def _active_angular_union(
+    atlas: PolarOccupancyAtlas,
+    radius: Array,
+) -> tuple[Array, Array]:
+    """Return a fixed six-slot linearized union of circular atlas arcs."""
+
+    two_pi = jnp.asarray(2.0 * jnp.pi, dtype=radius.dtype)
+    radial_active = (
+        atlas.active
+        & (radius >= atlas.radial_bounds[:, 0])
+        & (radius <= atlas.radial_bounds[:, 1])
+    )
+    span = atlas.angular_bounds[:, 1] - atlas.angular_bounds[:, 0]
+    lower = jnp.mod(atlas.angular_bounds[:, 0], two_pi)
+    upper = lower + span
+    first = jnp.stack((lower, jnp.minimum(upper, two_pi)), axis=1)
+    second = jnp.stack((jnp.zeros_like(lower), upper - two_pi), axis=1)
+    first_active = radial_active & (first[:, 1] > first[:, 0])
+    second_active = radial_active & (second[:, 1] > second[:, 0])
+    intervals = jnp.concatenate((first, second), axis=0)
+    active = jnp.concatenate((first_active, second_active), axis=0)
+    order = jnp.argsort(jnp.where(active, intervals[:, 0], jnp.inf))
+    intervals = intervals[order]
+    active = active[order]
+    output = jnp.zeros_like(intervals)
+
+    def merge_step(carry, item):
+        merged, count, current_lower, current_upper, has_current = carry
+        bounds, is_active = item
+        overlaps = is_active & has_current & (bounds[0] <= current_upper)
+        starts = is_active & ~has_current
+        separates = is_active & has_current & ~overlaps
+        merged = lax.cond(
+            separates,
+            lambda values: values.at[count].set(
+                jnp.stack((current_lower, current_upper))
+            ),
+            lambda values: values,
+            merged,
+        )
+        count = count + separates.astype(jnp.int32)
+        current_lower = jnp.where(starts | separates, bounds[0], current_lower)
+        current_upper = jnp.where(
+            overlaps,
+            jnp.maximum(current_upper, bounds[1]),
+            jnp.where(starts | separates, bounds[1], current_upper),
+        )
+        has_current = has_current | is_active
+        return (merged, count, current_lower, current_upper, has_current), None
+
+    initial = (
+        output,
+        jnp.int32(0),
+        jnp.asarray(0.0, dtype=radius.dtype),
+        jnp.asarray(0.0, dtype=radius.dtype),
+        jnp.asarray(False),
+    )
+    (output, count, current_lower, current_upper, has_current), _ = lax.scan(
+        merge_step,
+        initial,
+        (intervals, active),
+    )
+    output = lax.cond(
+        has_current,
+        lambda values: values.at[count].set(
+            jnp.stack((current_lower, current_upper))
+        ),
+        lambda values: values,
+        output,
+    )
+    count = count + has_current.astype(jnp.int32)
+    # Five circular image arcs can become six linear intervals when the
+    # component crossing zero is represented on [0, 2pi].
+    return output[:6], jnp.arange(6, dtype=jnp.int32) < jnp.minimum(count, 6)
+
+
+def _filter_intervals_by_atlas(intervals, atlas, radius):
+    """Keep full-circle inside intervals covered by the trace atlas."""
+
+    sectors, sector_active = _active_angular_union(atlas, radius)
+    interval_active = (
+        jnp.arange(intervals.intervals.shape[0], dtype=jnp.int32)
+        < intervals.n_intervals
+    )
+    midpoint = jnp.mod(
+        0.5 * (intervals.intervals[:, 0] + intervals.intervals[:, 1]),
+        2.0 * jnp.pi,
+    )
+    covered = jnp.any(
+        sector_active[None, :]
+        & (midpoint[:, None] >= sectors[None, :, 0])
+        & (midpoint[:, None] <= sectors[None, :, 1]),
+        axis=1,
+    )
+    retained = interval_active & covered
+    order = jnp.argsort(~retained)
+    return intervals._replace(
+        intervals=intervals.intervals[order],
+        n_intervals=jnp.sum(retained, dtype=jnp.int32),
+    )
 
 
 def _mag_limb_dark_cpu_fixed_impl(
@@ -27,20 +129,26 @@ def _mag_limb_dark_cpu_fixed_impl(
     n_limb,
     radial_splits,
     include_ghost_support,
+    support=None,
+    occupancy_atlas: PolarOccupancyAtlas | None = None,
+    radial_integrator=integrate_gk15,
+    moment_integrator=None,
 ):
     w_center = jnp.asarray(w_center)
     real_dtype = w_center.real.dtype
     rho = jnp.asarray(rho, dtype=real_dtype)
     u1 = jnp.asarray(u1, dtype=real_dtype)
     lens = binary_geometry(s, q)
-    support = build_radial_support(
-        w_center,
-        rho,
-        s=lens.s,
-        q=lens.q,
-        n_limb=n_limb,
-        include_all_roots=include_ghost_support,
-    )
+    if support is None:
+        support = build_radial_support(
+            w_center,
+            rho,
+            s=lens.s,
+            q=lens.q,
+            n_limb=n_limb,
+            include_all_roots=include_ghost_support,
+        )
+    support = unwrap_support_1d(support)
     physical_counts = jnp.sum(support.image_mask, axis=0)
     limb_transition = jnp.any(physical_counts != physical_counts[0])
     w_midpoint = w_center - lens.shifted
@@ -60,9 +168,17 @@ def _mag_limb_dark_cpu_fixed_impl(
             e1=lens.e1,
             robust_roots=True,
         )
-        active = jnp.arange(intervals.intervals.shape[0]) < intervals.n_intervals
+        if occupancy_atlas is not None:
+            intervals = _filter_intervals_by_atlas(
+                intervals,
+                occupancy_atlas,
+                radius,
+            )
+        interval_active = (
+            jnp.arange(intervals.intervals.shape[0]) < intervals.n_intervals
+        )
         widths = intervals.intervals[:, 1] - intervals.intervals[:, 0]
-        angular_measure = jnp.sum(jnp.where(active, widths, 0.0))
+        angular_measure = jnp.sum(jnp.where(interval_active, widths, 0.0))
 
         def mu(theta):
             distance = distance_from_source(
@@ -79,24 +195,51 @@ def _mag_limb_dark_cpu_fixed_impl(
                 0.0,
                 (1.0 - normalized) * (1.0 + normalized),
             )
-            return jnp.sqrt(radicand)
-
+            # Clipped samples carry no brightness or tangent contribution.
+            # Keep sqrt away from zero so their JVP cannot form 0 * infinity;
+            # testing equality also preserves NaN inputs in the primal value.
+            is_zero = radicand == 0.0
+            safe_radicand = jnp.where(is_zero, 1.0, radicand)
+            return jnp.where(is_zero, 0.0, jnp.sqrt(safe_radicand))
         residual = integrate_mu_residual(mu, intervals)
-        angular_value = intensity_normalization * (
-            (1.0 - u1) * angular_measure + u1 * residual.value
-        )
-        angular_error = intensity_normalization * (
-            jnp.abs(1.0 - u1) * intervals.error + jnp.abs(u1) * residual.error
-        )
-        status = jnp.bitwise_or(intervals.status, residual.status)
-        return radius * angular_value, jnp.abs(radius) * angular_error, status
+        if moment_integrator is None:
+            angular_value = intensity_normalization * (
+                (1.0 - u1) * angular_measure + u1 * residual.value
+            )
+            angular_error = intensity_normalization * (
+                jnp.abs(1.0 - u1) * intervals.error
+                + jnp.abs(u1) * residual.error
+            )
+            status = residual.status
+            return radius * angular_value, jnp.abs(radius) * angular_error, status
 
-    radial = integrate_gk15(
-        radial_integrand,
-        support.intervals,
-        support.active,
-        subdivisions=radial_splits,
-    )
+        return (
+            radius * jnp.stack((angular_measure, residual.value)),
+            jnp.abs(radius) * jnp.stack((intervals.error, residual.error)),
+            residual.status,
+        )
+
+    if moment_integrator is None:
+        radial = radial_integrator(
+            radial_integrand,
+            support.intervals,
+            support.active,
+            subdivisions=radial_splits,
+        )
+    else:
+        moments = moment_integrator(
+            vmap(radial_integrand), support.intervals, support.active,
+        )
+        radial = GkIntegral(
+            intensity_normalization * (
+                (1.0 - u1) * moments.value[0] + u1 * moments.value[1]
+            ),
+            intensity_normalization * (
+                jnp.abs(1.0 - u1) * moments.error[0] + jnp.abs(u1) * moments.error[1]
+            ),
+            moments.status,
+            moments.n_nodes,
+        )
     support_valid = jnp.all(jnp.isfinite(support.image_limb)) & jnp.any(
         support.active
     )

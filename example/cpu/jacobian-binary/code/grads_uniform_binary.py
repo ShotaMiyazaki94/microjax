@@ -27,6 +27,22 @@ PARAMETER_LABELS = (
     r"$\partial A / \partial \alpha$",
     r"$\partial A / \partial \rho$",
 )
+ROUTE_LABELS = {
+    -1: "Multipole shortcut",
+    5: "Cartesian",
+    6: "Cartesian",
+    7: "Polar r-first",
+    8: "Polar theta-first",
+    9: "Polar theta-first",
+}
+
+
+def route_counts(values) -> dict[str, int]:
+    labels = np.asarray(
+        [ROUTE_LABELS.get(int(value), "Unknown route") for value in values]
+    )
+    unique, counts = np.unique(labels, return_counts=True)
+    return dict(zip(unique.tolist(), counts.tolist()))
 
 
 def source_trajectory(params: jax.Array, times: jax.Array) -> jax.Array:
@@ -239,11 +255,14 @@ def run_example(
         raise RuntimeError("CPU magnification or forward Jacobian contains non-finite values")
     if np.any(status != 0):
         values, counts = np.unique(status, return_counts=True)
-        raise RuntimeError(f"CPU ICRS returned nonzero statuses: {dict(zip(values.tolist(), counts.tolist()))}")
+        print(
+            "warning: CPU ICRS returned diagnostic statuses: "
+            f"{dict(zip(values.tolist(), counts.tolist()))}",
+            flush=True,
+        )
 
     medians = {name: float(np.median(result[2])) for name, result in results.items()}
     warmups = {name: float(result[1]) for name, result in results.items()}
-    tier_values, tier_counts = np.unique(np.asarray(diagnostics.tier), return_counts=True)
     status_values, status_counts = np.unique(status, return_counts=True)
     report = {
         "device": str(jax.devices()[0]),
@@ -261,7 +280,7 @@ def run_example(
         "run_seconds": {name: result[2] for name, result in results.items()},
         "median_seconds": medians,
         "forward_over_value": medians["forward"] / medians["value"],
-        "tier_counts": dict(zip(map(str, tier_values.tolist()), tier_counts.tolist())),
+        "route_counts": route_counts(np.asarray(diagnostics.tier)),
         "status_counts": dict(zip(map(str, status_values.tolist()), status_counts.tolist())),
     }
 
@@ -280,7 +299,7 @@ def run_example(
         save_benchmark_plot(output_dir / "ad_benchmark.png", warmups, medians)
 
     print(f"device: {jax.devices()[0]}")
-    print(f"selected CPU tiers: {report['tier_counts']}")
+    print(f"selected CPU routes: {report['route_counts']}")
     print(f"CPU statuses: {report['status_counts']}")
     print(f"outputs: {output_dir}")
 

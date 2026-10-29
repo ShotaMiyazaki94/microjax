@@ -25,3 +25,19 @@ tests/integrate
 _manuscripts
 _archive/
 tmp/
+
+# Local credentials and agent state.
+.env
+.env.*
+!.env.example
+.aws/
+.agents/
+
+# CPU example outputs are generated locally, not publication inputs.
+/example/cpu/*/outputs/
+
+# Local research checkpoints refer to unpublished measurement archives.
+/docs_src/internal/cpu_chart_reduction_2026-10-14.md
+/docs_src/internal/cpu_common_cache_simplification_2026-10-14.md
+/docs_src/internal/cpu_gpu_inspired_experiments_2026-08-17.md
+/docs_src/internal/cpu_uniform_ld_unification_2026-10-14.md

@@ -21,9 +21,10 @@ CPU_TIER_EXHAUSTED = 1 << 16
 class CpuMagnificationResult(NamedTuple):
     """Magnification and diagnostics from one fixed CPU tier.
 
-    For the production one-shot backend, ``status == 0`` means only that no
-    finite-value, root, support, topology, or capacity failure was detected.
-    It makes no accuracy claim; full solves report ``estimated_error`` as NaN.
+    For the production one-shot backend, ``status`` is a diagnostic bit field
+    for suspicious finite-value, root, support, topology, or capacity state.
+    It makes no accuracy claim and does not suppress the best-effort
+    magnification; full solves report ``estimated_error`` as NaN.
     The multipole tier and legacy adaptive backend retain their own numerical
     error diagnostics.
     """

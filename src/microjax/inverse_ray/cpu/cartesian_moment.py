@@ -21,12 +21,27 @@ from .angular_moment import (
     mag_uniform_angular_moment_compact,
     mag_uniform_angular_moment_refined,
 )
+from .certified_intervals import _merge_intervals, repair_rejected_intervals
 from .roots import batched_companion_roots, batched_polished_real_companion_roots
+from .line_roots import binary_line_level_set_coefficients
 from .quadrature import G7_W_ON_GK15, GK15_W, GK15_X
 from .sentinel import hidden_caustic_candidate
-from .support import trace_binary_source_limb, tracked_limb_neighbors
+from .support import (
+    Support1D,
+    limb_edge_activity_from_masks,
+    make_support_1d,
+    trace_binary_source_limb,
+    tracked_limb_neighbors,
+    unwrap_support_1d,
+)
 
 Array = jnp.ndarray
+
+# The mapped-level certificate is still being validated against the complete
+# CPU control grid.  Keep the implementation available for focused probes,
+# but production must remain on the behaviour-preserving companion strip path
+# until its interval merge cannot drop a valid branch.
+_ENABLE_CARTESIAN_INTERVAL_CERTIFICATE = False
 
 _SEXTIC_DEGREE = 6
 _BERNSTEIN_SAMPLE_FRACTION = np.linspace(0.0, 1.0, _SEXTIC_DEGREE + 1)
@@ -101,75 +116,287 @@ class CartesianTopologyProbe(NamedTuple):
 def _normalized_axis(axis: complex | Array, dtype: jnp.dtype) -> Array:
     """Return a unit complex projection axis without introducing NaNs."""
 
-    axis = jnp.asarray(axis, dtype=dtype)
+    # ``coordinate`` arrays passed by endpoint refiners are real-valued, while
+    # the projection axis is intrinsically complex (1 for x, 1j for y).  A
+    # direct cast to the coordinate dtype silently discarded the y component
+    # while JAX traced the inactive refinement branch.  Promote the requested
+    # precision to its matching complex dtype instead.
+    complex_dtype = jnp.promote_types(dtype, jnp.complex64)
+    axis = jnp.asarray(axis, dtype=complex_dtype)
     magnitude = jnp.abs(axis)
-    return jnp.where(magnitude > 0.0, axis / magnitude, jnp.asarray(1.0, dtype=dtype))
+    return jnp.where(
+        magnitude > 0.0,
+        axis / magnitude,
+        jnp.asarray(1.0, dtype=complex_dtype),
+    )
 
 
-def _fixed_polynomial_product_ascending(left: Array, right: Array) -> Array:
-    """Multiply two tiny ascending polynomials with statically unrolled sums."""
-
-    terms = []
-    for output_index in range(left.shape[0] + right.shape[0] - 1):
-        products = [
-            left[left_index] * right[output_index - left_index]
-            for left_index in range(left.shape[0])
-            if 0 <= output_index - left_index < right.shape[0]
-        ]
-        value = products[0]
-        for product in products[1:]:
-            value = value + product
-        terms.append(value)
-    return jnp.stack(terms)
-
-
-def binary_line_level_set_coefficients(
-    offset: complex | Array,
-    direction: complex | Array,
-    w_center: complex | Array,
-    rho: float | Array,
+def _binary_line_factored_level(
+    abscissa: Array,
+    ordinate: Array,
+    w_center: Array,
+    rho: Array,
     *,
-    s: float | Array,
-    q: float | Array,
+    s: Array,
+    q: Array,
+    axis: Array,
 ) -> Array:
-    """Return coefficients of ``H(offset + t * direction)`` for real ``t``."""
+    """Evaluate the normalized mapped disk level without a squared difference.
 
-    w_center = jnp.asarray(w_center)
-    real_dtype = w_center.real.dtype
-    offset = jnp.asarray(offset, dtype=w_center.dtype)
-    direction = jnp.asarray(direction, dtype=w_center.dtype)
-    rho = jnp.asarray(rho, dtype=real_dtype)
+    ``binary_line_level_set_coefficients`` expands ``|N|**2-rho**2|D|**2``.
+    Near a close real-root pair those two terms can agree to nearly machine
+    precision, so the expanded sextic is useful only for candidate roots.  The
+    factored comparison below has the same sign away from a lens pole while
+    avoiding that cancellation.
+    """
+
     lens = binary_geometry(s, q)
+    image = abscissa * axis + ordinate * (1.0j * axis)
+    conjugate_midpoint = jnp.conjugate(image) - lens.shifted
+    denominator = (conjugate_midpoint - lens.a) * (
+        conjugate_midpoint + lens.a
+    )
+    numerator = (image - w_center) * denominator - (
+        conjugate_midpoint + lens.a * (2.0 * lens.e1 - 1.0)
+    )
+    numerator_size = jnp.abs(numerator)
+    source_boundary_size = rho * jnp.abs(denominator)
+    scale = jnp.maximum(
+        numerator_size + source_boundary_size,
+        jnp.finfo(numerator_size.dtype).tiny,
+    )
+    return (numerator_size - source_boundary_size) / scale
 
-    base_bar = jnp.conjugate(offset) - lens.shifted
-    direction_bar = jnp.conjugate(direction)
-    denominator = jnp.asarray(
-        [
-            base_bar**2 - lens.a**2,
-            2.0 * base_bar * direction_bar,
-            direction_bar**2,
-        ],
-        dtype=w_center.dtype,
+
+def _real_root_mask(coefficients: Array, roots: Array) -> Array:
+    """Return the historical polynomial-space real-root acceptance mask."""
+
+    real = roots.real
+    scale = jnp.maximum(1.0, jnp.abs(real))
+    residual = jnp.abs(jax.vmap(jnp.polyval)(coefficients, roots))
+    return (jnp.abs(roots.imag) <= 2.0e-7 * scale) & (residual <= 2.0e-7)
+
+
+def _mapped_sign_companion_intervals(
+    coefficients: Array,
+    abscissa: Array,
+    w_center: Array,
+    rho: Array,
+    *,
+    s: Array,
+    q: Array,
+    axis: Array,
+) -> tuple[Array, Array, Array, Array]:
+    """Keep only companion intervals with a mapped-negative midpoint.
+
+    This is the deliberately small production certificate: the expanded
+    sextic still supplies all candidate endpoints, while one factored lens
+    evaluation per candidate interval decides whether that pair may contribute
+    area.  It neither repairs rejected roots nor moves accepted endpoints.
+    """
+
+    roots = batched_polished_real_companion_roots(coefficients)
+    valid = _real_root_mask(coefficients, roots)
+    real = roots.real
+    root_count = jnp.sum(valid, axis=-1, dtype=jnp.int32)
+    ordered = jnp.sort(jnp.where(valid, real, jnp.inf), axis=-1)
+    pair = jnp.arange(0, coefficients.shape[-1] - 1, 2)
+    active = pair[None, :] + 1 < root_count[:, None]
+    lower = jnp.where(active, ordered[:, pair], 0.0)
+    upper = jnp.where(active, ordered[:, pair + 1], 0.0)
+    midpoint = 0.5 * (lower + upper)
+    midpoint_level = _binary_line_factored_level(
+        abscissa[:, None],
+        midpoint,
+        w_center,
+        rho,
+        s=s,
+        q=q,
+        axis=axis,
     )
-    deflection_constant = -lens.shifted + lens.a * (2.0 * lens.e1 - 1.0)
-    numerator = _fixed_polynomial_product_ascending(
-        jnp.asarray([offset - w_center, direction], dtype=w_center.dtype),
-        denominator,
-    ) - jnp.asarray(
-        [
-            jnp.conjugate(offset) + deflection_constant,
-            direction_bar,
-            0.0 + 0.0j,
-            0.0 + 0.0j,
-        ],
-        dtype=w_center.dtype,
+    certificate_bad = active & (
+        ~jnp.isfinite(midpoint_level) | (midpoint_level >= 0.0)
     )
-    numerator_square = _fixed_polynomial_product_ascending(numerator, jnp.conjugate(numerator))
-    denominator_square = _fixed_polynomial_product_ascending(denominator, jnp.conjugate(denominator))
-    ascending = jnp.real(numerator_square - rho**2 * jnp.pad(denominator_square, (0, 2)))
-    descending = ascending[::-1]
-    scale = jnp.max(jnp.abs(descending))
-    return descending / jnp.maximum(scale, jnp.finfo(real_dtype).tiny)
+    certified_active = active & ~certificate_bad
+    nearly_real = jnp.abs(roots.imag) <= 2.0e-7 * jnp.maximum(
+        1.0, jnp.abs(real)
+    )
+    historical_invalid = jnp.sum(
+        (~valid) & nearly_real,
+        axis=-1,
+        dtype=jnp.int32,
+    ) + jnp.mod(root_count, 2)
+    invalid = historical_invalid + jnp.sum(
+        certificate_bad,
+        axis=-1,
+        dtype=jnp.int32,
+    )
+    return lower, upper, certified_active, invalid
+
+
+def _certified_companion_intervals(
+    coefficients: Array,
+    abscissa: Array,
+    w_center: Array,
+    rho: Array,
+    *,
+    s: Array,
+    q: Array,
+    axis: Array,
+    ordinate_bound: Array,
+) -> tuple[Array, Array, Array, Array]:
+    """Form and factored-level certify at most three Cartesian intervals.
+
+    Companion roots remain candidate seeds and therefore preserve the common
+    fast path.  A rejected conjugate candidate is promoted only when its real
+    centre is inside according to the cancellation-resistant mapped level and
+    is not already covered by an accepted interval.  Only such a batch enters
+    the bounded bracket/bisection repair.
+    """
+
+    roots = batched_polished_real_companion_roots(coefficients)
+    valid = _real_root_mask(coefficients, roots)
+    real = roots.real
+    root_count = jnp.sum(valid, axis=-1, dtype=jnp.int32)
+    batch_size = coefficients.shape[0]
+    bound = jnp.broadcast_to(
+        jnp.asarray(ordinate_bound, dtype=coefficients.dtype),
+        (batch_size,),
+    )
+
+    def stable_level(points):
+        point_shape = (batch_size,) + (1,) * (points.ndim - 1)
+        x = jnp.reshape(abscissa, point_shape)
+        return _binary_line_factored_level(
+            x,
+            points,
+            w_center,
+            rho,
+            s=s,
+            q=q,
+            axis=axis,
+        )
+
+    root_level = stable_level(real)
+    root_order = jnp.argsort(jnp.where(valid, real, jnp.inf), axis=-1)
+    ordered = jnp.take_along_axis(real, root_order, axis=-1)
+    ordered_level = jnp.take_along_axis(root_level, root_order, axis=-1)
+    pair = jnp.arange(0, coefficients.shape[-1] - 1, 2)
+    active = pair[None, :] + 1 < root_count[:, None]
+    lower = jnp.where(active, ordered[:, pair], 0.0)
+    upper = jnp.where(active, ordered[:, pair + 1], 0.0)
+    lower_level = ordered_level[:, pair]
+    upper_level = ordered_level[:, pair + 1]
+
+    real_dtype = coefficients.dtype
+    sign_floor = 64.0 * jnp.finfo(real_dtype).eps
+    endpoint_tolerance = 64.0 * jnp.sqrt(jnp.finfo(real_dtype).eps)
+    domain_tolerance = 64.0 * jnp.finfo(real_dtype).eps * jnp.maximum(
+        bound, 1.0
+    )
+    domain_bad = valid & (
+        (real < -bound[:, None] - domain_tolerance[:, None])
+        | (real > bound[:, None] + domain_tolerance[:, None])
+    )
+
+    midpoint = 0.5 * (lower + upper)
+    midpoint_level = stable_level(midpoint)
+    midpoint_bad = active & (
+        ~jnp.isfinite(midpoint_level) | (midpoint_level >= -sign_floor)
+    )
+    endpoint_bad = active & (
+        ~jnp.isfinite(lower_level)
+        | ~jnp.isfinite(upper_level)
+        | (jnp.abs(lower_level) > endpoint_tolerance)
+        | (jnp.abs(upper_level) > endpoint_tolerance)
+    )
+    refine_interval = active & ~midpoint_bad & endpoint_bad
+    retained_active = active & ~midpoint_bad & ~refine_interval
+
+    covered = jnp.any(
+        (active & ~midpoint_bad)[:, None, :]
+        & (real[:, :, None] >= lower[:, None, :])
+        & (real[:, :, None] <= upper[:, None, :]),
+        axis=-1,
+    )
+    in_domain = (
+        jnp.isfinite(real)
+        & jnp.isfinite(roots.imag)
+        & (real >= -bound[:, None])
+        & (real <= bound[:, None])
+    )
+    rejected_repair_seed = (
+        ~valid
+        & ~covered
+        & in_domain
+        & jnp.isfinite(root_level)
+        & (root_level < -sign_floor)
+    )
+    # An accepted expanded-polynomial pair can still have endpoints far from
+    # the factored boundary.  Its mapped-negative midpoint is a guaranteed
+    # interior seed; the old half-width supplies a local expansion scale.
+    half_width = 0.5 * (upper - lower)
+    fake_roots = midpoint.astype(roots.dtype) + 1.0j * jnp.maximum(
+        half_width,
+        32.0 * jnp.finfo(real_dtype).eps * jnp.maximum(jnp.abs(midpoint), 1.0),
+    )
+    repair_roots = jnp.concatenate((roots, fake_roots), axis=-1)
+    repair_valid = jnp.concatenate(
+        (
+            valid | ~rejected_repair_seed,
+            ~refine_interval,
+        ),
+        axis=-1,
+    )
+    repair_needed = jnp.any(rejected_repair_seed, axis=-1) | jnp.any(
+        refine_interval, axis=-1
+    )
+
+    def repair(_):
+        repaired_lower, repaired_upper, repaired_active, _, repair_invalid = (
+            repair_rejected_intervals(
+                repair_roots,
+                repair_valid,
+                -bound,
+                bound,
+                stable_level,
+            )
+        )
+        merged_lower, merged_upper, merged_active, _, overflow = _merge_intervals(
+            jnp.concatenate((lower, repaired_lower), axis=-1),
+            jnp.concatenate((upper, repaired_upper), axis=-1),
+            jnp.concatenate((retained_active, repaired_active), axis=-1),
+        )
+        return (
+            merged_lower,
+            merged_upper,
+            merged_active,
+            repair_invalid + overflow.astype(jnp.int32),
+        )
+
+    lower, upper, certified_active, repair_invalid = jax.lax.cond(
+        jnp.any(repair_needed),
+        repair,
+        lambda _: (
+            lower,
+            upper,
+            retained_active,
+            jnp.zeros((batch_size,), dtype=jnp.int32),
+        ),
+        operand=None,
+    )
+    nearly_real = jnp.abs(roots.imag) <= 2.0e-7 * jnp.maximum(1.0, jnp.abs(real))
+    historical_invalid = jnp.sum(
+        (~valid) & nearly_real,
+        axis=-1,
+        dtype=jnp.int32,
+    ) + jnp.mod(root_count, 2)
+    certificate_invalid = (
+        jnp.any(domain_bad, axis=-1).astype(jnp.int32)
+        + jnp.sum(midpoint_bad, axis=-1, dtype=jnp.int32)
+    )
+    invalid = historical_invalid + certificate_invalid + repair_invalid
+    return lower, upper, certified_active, invalid
 
 
 def _strip_widths(
@@ -1194,6 +1421,10 @@ def _cartesian_support_cells(
     return _cartesian_support_cells_from_trace(
         image_limb,
         physical_mask,
+        w_center=w_center,
+        rho=rho,
+        s=s,
+        q=q,
         topology_uncertain=traced[0],
         minimum_ghost_residual=traced[1],
         limb_topology=traced[2],
@@ -1210,7 +1441,7 @@ def _cartesian_trace_diagnostics(
     q: Array,
     image_limb: Array,
     physical_mask: Array,
-) -> tuple[Array, Array, Array]:
+) -> tuple[Array, Array]:
     """Compute axis-independent topology diagnostics for one limb trace."""
 
     physical_counts = jnp.sum(physical_mask, axis=0)
@@ -1252,32 +1483,354 @@ def _cartesian_trace_diagnostics(
     return topology_uncertain, minimum_ghost_residual, limb_topology
 
 
+def _refine_projected_limb_extrema(
+    coordinate: Array,
+    transverse: Array,
+    candidate: Array,
+    *,
+    axis: Array,
+    w_center: Array,
+    rho: Array,
+    s: Array,
+    q: Array,
+    maximum_candidates: int = 20,
+) -> tuple[Array, Array]:
+    """Safely polish sampled projection turns against the source-limb level.
+
+    A quadratic fit to three trace samples is a useful fast endpoint, but at a
+    fold it can sit measurably inside the true image limb.  The constrained
+    endpoint is the two-equation system ``H=0, dH/dt=0`` in coordinates
+    ``z = axis * (p + i t)``.  The fixed damped Newton schedule is applied
+    only to candidate turns and returns the original sample on any failed
+    or non-finite solve, so a refinement failure can never remove support.
+    """
+
+    lens = binary_geometry(s, q)
+    axis = _normalized_axis(axis, coordinate.dtype)
+    shifted_source = w_center - lens.shifted
+    flat_p = coordinate.reshape(-1)
+    flat_t = transverse.reshape(-1)
+    flat_candidate = candidate.reshape(-1)
+
+    def residual(state):
+        p, t = state
+        z = axis * (p + 1.0j * t) - lens.shifted
+        zbar = jnp.conjugate(z)
+        d_plus = zbar - lens.a
+        d_minus = zbar + lens.a
+        inv_sum = lens.e1 / d_plus + (1.0 - lens.e1) / d_minus
+        mapped = z - inv_sum - shifted_source
+        square_sum = lens.e1 / d_plus**2 + (1.0 - lens.e1) / d_minus**2
+        d_transverse = 1.0j * (axis - square_sum * jnp.conjugate(axis))
+        level = jnp.real(mapped * jnp.conjugate(mapped)) - rho**2
+        tangent = 2.0 * jnp.real(jnp.conjugate(mapped) * d_transverse)
+        return jnp.stack((level, tangent))
+
+    jacobian = jax.jacfwd(
+        lambda p, t: residual((p, t)),
+        argnums=(0, 1),
+    )
+
+    def polish(values):
+        p, t = values
+
+        def iterate(_, state):
+            current_p, current_t, valid = state
+            f = residual((current_p, current_t))
+            jac_p, jac_t = jacobian(current_p, current_t)
+            jac = jnp.stack((jac_p, jac_t), axis=1)
+            determinant = jac[0, 0] * jac[1, 1] - jac[0, 1] * jac[1, 0]
+            solve_valid = jnp.all(jnp.isfinite(f)) & jnp.all(jnp.isfinite(jac)) & (
+                jnp.abs(determinant) > 1.0e-14
+            )
+            delta = jnp.linalg.solve(
+                jac + jnp.eye(2, dtype=jac.dtype) * 1.0e-18,
+                -f,
+            )
+            delta = jnp.clip(delta, -0.25 * (1.0 + jnp.abs(jnp.asarray([current_p, current_t]))),
+                             0.25 * (1.0 + jnp.abs(jnp.asarray([current_p, current_t]))))
+            next_p = current_p + jnp.where(solve_valid, delta[0], 0.0)
+            next_t = current_t + jnp.where(solve_valid, delta[1], 0.0)
+            next_valid = valid & solve_valid & jnp.all(
+                jnp.isfinite(jnp.stack((next_p, next_t)))
+            )
+            return next_p, next_t, next_valid
+
+        p, t, valid = jax.lax.fori_loop(
+            0,
+            10,
+            iterate,
+            (p, t, jnp.asarray(True)),
+        )
+        final = residual((p, t))
+        valid = valid & jnp.all(jnp.isfinite(final)) & (
+            jnp.abs(final[0]) <= 2.0e-7 * jnp.maximum(rho**2, 1.0e-30)
+        ) & (jnp.abs(final[1]) <= 2.0e-7 * jnp.maximum(rho, 1.0e-15))
+        return p, valid
+
+    # The trace has a fixed 5x64 root/sample capacity, but only the first
+    # ``maximum_candidates`` candidates can reach the fixed support payload.
+    # Running Newton on all 320 lanes was pure overhead for the usual sparse
+    # turn mask.  Compact the candidate lanes before the fixed Newton schedule
+    # and scatter only their corrections back.  A zero update on padded lanes
+    # avoids duplicate-index overwrite when ``nonzero`` fills its capacity.
+    candidate_index = jnp.nonzero(
+        flat_candidate,
+        size=maximum_candidates,
+        fill_value=-1,
+    )[0]
+    safe_index = jnp.maximum(candidate_index, 0)
+    candidate_values = (flat_p[safe_index], flat_t[safe_index])
+    polished, polished_valid = jax.vmap(polish)(candidate_values)
+    selected = jnp.where(
+        (candidate_index >= 0) & polished_valid,
+        polished,
+        flat_p[safe_index],
+    )
+    updates = jnp.where(
+        (candidate_index >= 0) & polished_valid,
+        selected - flat_p[safe_index],
+        0.0,
+    )
+    refined = flat_p.at[safe_index].add(updates)
+    refined_valid = jnp.zeros_like(flat_candidate, dtype=jnp.int32).at[safe_index].add(
+        ((candidate_index >= 0) & polished_valid).astype(jnp.int32)
+    )
+    # ``add`` is safe because candidate indices are unique and padded updates
+    # are exactly zero.  Convert the diagnostic counts back to a boolean mask.
+    refined_valid = refined_valid > 0
+    return refined.reshape(coordinate.shape), refined_valid.reshape(coordinate.shape)
+
+
+def _refine_projected_critical_endpoints(
+    coordinate: Array,
+    transverse: Array,
+    endpoint_mask: Array,
+    incoming_edge_active: Array,
+    outgoing_edge_active: Array,
+    previous: Array,
+    following: Array,
+    previous_transverse: Array,
+    following_transverse: Array,
+    *,
+    axis: Array,
+    w_center: Array,
+    rho: Array,
+    s: Array,
+    q: Array,
+    maximum_candidates: int = 8,
+) -> tuple[Array, Array]:
+    """Project sampled branch births/deaths onto ``H=0, detJ=0``.
+
+    The sampled endpoint remains part of the conservative support.  A
+    converged critical point is returned as an additional breakpoint, so a
+    failed Newton solve can never shrink the integrated projection range.
+    """
+
+    lens = binary_geometry(s, q)
+    axis = _normalized_axis(axis, coordinate.dtype)
+    real_dtype = coordinate.dtype
+    eps = jnp.finfo(real_dtype).eps
+    level_scale = jnp.maximum(rho**2, jnp.finfo(real_dtype).tiny)
+    shifted_source = w_center - lens.shifted
+
+    def equations(state):
+        p, t = state
+        z = axis * (p + 1.0j * t) - lens.shifted
+        zbar = jnp.conjugate(z)
+        d_plus = zbar - lens.a
+        d_minus = zbar + lens.a
+        mapped = (
+            z
+            - lens.e1 / d_plus
+            - (1.0 - lens.e1) / d_minus
+            - shifted_source
+        )
+        shear = lens.e1 / d_plus**2 + (1.0 - lens.e1) / d_minus**2
+        level = (
+            jnp.real(mapped * jnp.conjugate(mapped)) - rho**2
+        ) / level_scale
+        determinant = (1.0 - jnp.abs(shear)) * (1.0 + jnp.abs(shear))
+        return jnp.stack((level, determinant))
+
+    equation_jacobian = jax.jacfwd(equations)
+    previous_step = jnp.where(
+        incoming_edge_active,
+        jnp.abs(coordinate - previous),
+        0.0,
+    )
+    following_step = jnp.where(
+        outgoing_edge_active,
+        jnp.abs(following - coordinate),
+        0.0,
+    )
+    projected_step = jnp.maximum(previous_step, following_step)
+    transverse_step = jnp.maximum(
+        jnp.where(
+            incoming_edge_active,
+            jnp.abs(transverse - previous_transverse),
+            0.0,
+        ),
+        jnp.where(
+            outgoing_edge_active,
+            jnp.abs(following_transverse - transverse),
+            0.0,
+        ),
+    )
+
+    def project_one(initial_p, initial_t, step, t_step, active):
+        initial = jnp.stack((initial_p, initial_t))
+        displacement_limit = jnp.maximum(
+            4.0 * step,
+            4096.0 * eps * jnp.maximum(jnp.abs(initial_p), 1.0),
+        )
+        transverse_limit = jnp.maximum(
+            4.0 * t_step,
+            4096.0 * eps * jnp.maximum(jnp.abs(initial_t), 1.0),
+        )
+
+        def iterate(_, state):
+            residual = equations(state)
+            jacobian = equation_jacobian(state)
+            determinant = (
+                jacobian[0, 0] * jacobian[1, 1]
+                - jacobian[0, 1] * jacobian[1, 0]
+            )
+            safe = jnp.abs(determinant) > 128.0 * eps
+            safe_determinant = jnp.where(safe, determinant, 1.0)
+            delta = jnp.stack(
+                (
+                    (
+                        jacobian[1, 1] * residual[0]
+                        - jacobian[0, 1] * residual[1]
+                    )
+                    / safe_determinant,
+                    (
+                        -jacobian[1, 0] * residual[0]
+                        + jacobian[0, 0] * residual[1]
+                    )
+                    / safe_determinant,
+                )
+            )
+            delta = delta.at[0].set(
+                jnp.clip(delta[0], -displacement_limit, displacement_limit)
+            )
+            delta = delta.at[1].set(
+                jnp.clip(delta[1], -transverse_limit, transverse_limit)
+            )
+            candidate = state - delta
+            valid = (
+                active
+                & safe
+                & jnp.all(jnp.isfinite(candidate))
+                & jnp.all(jnp.isfinite(residual))
+            )
+            return jnp.where(valid, candidate, state)
+
+        # The trace seed is already within one sampled edge of the fold.
+        # Six safeguarded Newton steps reach the acceptance tolerance in
+        # the accepted cases; additional fixed iterations only charge every
+        # crossing without changing its endpoint.
+        refined = jax.lax.fori_loop(0, 6, iterate, initial)
+        residual = equations(refined)
+        converged = (
+            active
+            & jnp.all(jnp.isfinite(refined))
+            & jnp.all(jnp.isfinite(residual))
+            & (jnp.max(jnp.abs(residual)) <= 2.0e-10)
+            & (jnp.abs(refined[0] - initial_p) <= 4.0 * displacement_limit)
+            & (jnp.abs(refined[1] - initial_t) <= 4.0 * transverse_limit)
+        )
+        return refined[0], converged
+
+    flat_mask = endpoint_mask.reshape(-1)
+    candidate_count = jnp.sum(flat_mask, dtype=jnp.int32)
+    indices = jnp.nonzero(
+        flat_mask,
+        size=maximum_candidates,
+        fill_value=-1,
+    )[0]
+    safe_indices = jnp.maximum(indices, 0)
+    selected = jnp.arange(maximum_candidates, dtype=jnp.int32) < jnp.minimum(
+        candidate_count, maximum_candidates
+    )
+    refined, converged = jax.vmap(project_one)(
+        coordinate.reshape(-1)[safe_indices],
+        transverse.reshape(-1)[safe_indices],
+        projected_step.reshape(-1)[safe_indices],
+        transverse_step.reshape(-1)[safe_indices],
+        selected,
+    )
+    return jax.lax.stop_gradient(refined), jax.lax.stop_gradient(converged)
+
+
 def _cartesian_support_cells_from_trace(
     image_limb: Array,
     physical_mask: Array,
     *,
+    w_center: Array | None = None,
+    rho: Array | None = None,
+    s: Array | None = None,
+    q: Array | None = None,
+    refine_extrema: Array | None = None,
     topology_uncertain: Array,
     minimum_ghost_residual: Array,
     limb_topology: Array,
     axis: complex | Array = 1.0 + 0.0j,
     maximum_extrema: int = 20,
     neighbors: tuple[Array, Array, Array, Array] | None = None,
+    edge_activity: tuple[Array, Array] | None = None,
+    projection_trace: tuple[Array, Array, Array, Array, Array] | None = None,
 ) -> tuple[Array, Array, Array, Array, Array]:
     """Construct strip support cells from a shared traced source limb."""
 
     axis = _normalized_axis(axis, image_limb.dtype)
-    coordinate = jnp.real(image_limb * jnp.conjugate(axis))
-    if neighbors is None:
-        neighbors = tracked_limb_neighbors(image_limb, physical_mask)
-    previous_limb, following_limb, previous_mask, following_mask = neighbors
-    previous = jnp.real(previous_limb * jnp.conjugate(axis))
-    following = jnp.real(following_limb * jnp.conjugate(axis))
+    if projection_trace is None:
+        coordinate = jnp.real(image_limb * jnp.conjugate(axis))
+        if neighbors is None:
+            neighbors = tracked_limb_neighbors(image_limb, physical_mask)
+        previous_limb, following_limb, previous_mask, following_mask = neighbors
+        previous = jnp.real(previous_limb * jnp.conjugate(axis))
+        following = jnp.real(following_limb * jnp.conjugate(axis))
+    else:
+        coordinate, previous, following, previous_edge, following_edge = (
+            projection_trace
+        )
+        if neighbors is None:
+            neighbors = tracked_limb_neighbors(image_limb, physical_mask)
+        previous_limb, following_limb, previous_mask, following_mask = neighbors
+    if edge_activity is None:
+        if projection_trace is None:
+            edge_activity = limb_edge_activity_from_masks(
+                physical_mask,
+                previous_mask,
+                following_mask,
+            )
+        else:
+            edge_activity = (previous_edge, following_edge)
+    incoming_edge_active, outgoing_edge_active = edge_activity
     incoming = coordinate - previous
     outgoing = following - coordinate
-    candidate_mask = physical_mask & (
-        (incoming * outgoing <= 0.0) | (~previous_mask) | (~following_mask)
+    image_counts = jnp.sum(physical_mask, axis=0, dtype=jnp.int32)
+    incoming_same_count = image_counts == jnp.roll(image_counts, 1)
+    outgoing_same_count = image_counts == jnp.roll(image_counts, -1)
+    explicit_same_count_cut = (
+        (~incoming_edge_active | ~outgoing_edge_active)
+        & (incoming_same_count & outgoing_same_count)[None, :]
+        & previous_mask
+        & following_mask
     )
-
+    # A canonical cut prevents branch connectivity, not endpoint discovery.
+    # Keep sampled turns at the cut as conservative guard endpoints; only the
+    # smooth quadratic fit below is restricted to edges that are active on
+    # both sides.  Dropping these turns removes a whole projected strip at a
+    # 3->5 fold and causes order-unity underestimates.
+    candidate_mask = physical_mask & (
+        (incoming * outgoing <= 0.0)
+        | (~previous_mask)
+        | (~following_mask)
+        | explicit_same_count_cut
+    )
     # Monodromy can carry a physical image branch into a different algebraic
     # root slot around the periodic closing edge.  Such a slot can be physical
     # throughout the trace yet have no local turning-point candidate of its
@@ -1304,6 +1857,12 @@ def _cartesian_support_cells_from_trace(
     )
     candidate_mask = candidate_mask | fallback
 
+    # An unresolved trace is allowed to over-cover projection space, but it
+    # must not under-cover it.  Retain one sampled minimum and maximum for
+    # every physical root branch as guard endpoints.  Empty projected gaps
+    # contribute zero width in the inner root solve, while the conservative
+    # envelope prevents a missed strip at a 3↔5 cut or a buried loop.
+
     curvature = previous - 2.0 * coordinate + following
     safe_curvature = jnp.where(
         jnp.abs(curvature) > 64.0 * jnp.finfo(coordinate.dtype).eps,
@@ -1312,7 +1871,40 @@ def _cartesian_support_cells_from_trace(
     )
     offset = jnp.clip(0.5 * (previous - following) / safe_curvature, -1.0, 1.0)
     fitted = coordinate + 0.5 * (following - previous) * offset + 0.5 * curvature * offset**2
-    fitted = jnp.where(previous_mask & following_mask, fitted, coordinate)
+    fitted = jnp.where(
+        incoming_edge_active & outgoing_edge_active,
+        fitted,
+        coordinate,
+    )
+    smooth_candidate = candidate_mask & incoming_edge_active & outgoing_edge_active
+    transverse = jnp.imag(image_limb * jnp.conjugate(axis))
+    previous_transverse = jnp.imag(previous_limb * jnp.conjugate(axis))
+    following_transverse = jnp.imag(following_limb * jnp.conjugate(axis))
+
+    if w_center is not None and rho is not None and s is not None and q is not None:
+        def refine_uncertain(_):
+            refined, refined_valid = _refine_projected_limb_extrema(
+                coordinate,
+                transverse,
+                smooth_candidate,
+                axis=axis,
+                w_center=w_center,
+                rho=rho,
+                s=s,
+                q=q,
+                maximum_candidates=maximum_extrema,
+            )
+            return jnp.where(refined_valid, refined, fitted)
+
+        refine_flag = (
+            topology_uncertain if refine_extrema is None else refine_extrema
+        )
+        fitted = jax.lax.cond(
+            jnp.asarray(refine_flag),
+            refine_uncertain,
+            lambda _: fitted,
+            operand=None,
+        )
 
     # A caustic-crossing binary source can expose three persistent-image
     # pairs plus a transient fold pair in one projection.  Each branch may
@@ -1327,21 +1919,121 @@ def _cartesian_support_cells_from_trace(
         fill_value=-1,
     )[0]
     safe_indices = jnp.maximum(indices, 0)
-    selected = fitted.reshape(-1)[safe_indices]
-    selected = jnp.where(indices >= 0, selected, jnp.inf)
-    n_extrema = jnp.sum(flat_mask, dtype=jnp.int32)
+    sampled_selected = fitted.reshape(-1)[safe_indices]
+    sampled_selected = jnp.where(indices >= 0, sampled_selected, jnp.inf)
+    sampled_count = jnp.sum(flat_mask, dtype=jnp.int32)
+
+    # A binary fold event contributes one image pair on each side of the
+    # source-limb cut.  Four fixed slots cover both directed edge endpoints;
+    # the previous capacity of eight evaluated unused Newton lanes.
+    critical_capacity = 4
+    can_refine_critical = (
+        w_center is not None and rho is not None and s is not None and q is not None
+    )
+    if can_refine_critical:
+        endpoint_mask = physical_mask & (~previous_mask | ~following_mask)
+
+        def refine_critical(_):
+            return _refine_projected_critical_endpoints(
+                coordinate,
+                transverse,
+                endpoint_mask,
+                incoming_edge_active,
+                outgoing_edge_active,
+                previous,
+                following,
+                previous_transverse,
+                following_transverse,
+                axis=axis,
+                w_center=w_center,
+                rho=rho,
+                s=s,
+                q=q,
+                maximum_candidates=critical_capacity,
+            )
+
+        critical_selected, critical_valid = jax.lax.cond(
+            jnp.asarray(limb_topology),
+            refine_critical,
+            lambda _: (
+                jnp.zeros((critical_capacity,), dtype=coordinate.dtype),
+                jnp.zeros((critical_capacity,), dtype=bool),
+            ),
+            operand=None,
+        )
+    else:
+        critical_selected = jnp.zeros(
+            (critical_capacity,), dtype=coordinate.dtype
+        )
+        critical_valid = jnp.zeros((critical_capacity,), dtype=bool)
+
+    critical_count = jnp.sum(critical_valid, dtype=jnp.int32)
+    retain_critical = sampled_count + critical_count <= maximum_extrema
+    critical_values = jnp.where(
+        critical_valid & retain_critical,
+        critical_selected,
+        jnp.inf,
+    )
+    selected = jnp.sort(
+        jnp.concatenate((sampled_selected, critical_values))
+    )[:maximum_extrema]
+    raw_n_extrema = sampled_count + critical_count
+    n_extrema = sampled_count + jnp.where(
+        retain_critical,
+        critical_count,
+        jnp.int32(0),
+    )
     trace_finite = jnp.all(jnp.isfinite(image_limb))
     # A finite periodic image branch must expose at least one projection
     # turning point (and a branch endpoint is also a candidate).  If all
     # candidates disappear, the trace is numerically unusable; an empty
     # support must never be allowed to certify a zero-area magnification.
-    topology_uncertain = topology_uncertain | (n_extrema > maximum_extrema)
+    topology_uncertain = topology_uncertain | (raw_n_extrema > maximum_extrema)
     topology_uncertain = topology_uncertain | ~trace_finite | (n_extrema == 0)
     endpoints = jnp.sort(selected)
+    # A topology-uncertain trace is allowed to over-cover, but it must never
+    # lose a sampled projection range.  The fitted turning points can move
+    # slightly inside the extrema when a fold endpoint or a buried branch is
+    # only sparsely sampled.  Widen only the two outermost cells to the
+    # conservative sampled envelope; this keeps the fixed cell budget and
+    # does not invent additional turns or reconnect a cut edge.
+    sampled_lower = jnp.min(jnp.where(finite_physical, coordinate, jnp.inf))
+    sampled_upper = jnp.max(jnp.where(finite_physical, coordinate, -jnp.inf))
+    envelope_valid = (
+        topology_uncertain
+        & jnp.isfinite(sampled_lower)
+        & jnp.isfinite(sampled_upper)
+        & (n_extrema >= 2)
+    )
+    last_endpoint = jnp.minimum(
+        jnp.maximum(n_extrema - 1, 0), jnp.asarray(maximum_extrema - 1, dtype=jnp.int32)
+    )
+    envelope_lower = jnp.minimum(endpoints[0], sampled_lower)
+    envelope_upper = jnp.maximum(endpoints[last_endpoint], sampled_upper)
+    endpoints = endpoints.at[0].set(jnp.where(envelope_valid, envelope_lower, endpoints[0]))
+    endpoints = endpoints.at[last_endpoint].set(
+        jnp.where(envelope_valid, envelope_upper, endpoints[n_extrema - 1])
+    )
     cells = jnp.stack((endpoints[:-1], endpoints[1:]), axis=-1)
     cell_index = jnp.arange(maximum_extrema - 1, dtype=jnp.int32)
     active = (cell_index < n_extrema - 1) & jnp.isfinite(cells[:, 1]) & (cells[:, 1] > cells[:, 0])
+
     return cells, active, topology_uncertain, minimum_ghost_residual, limb_topology
+
+
+def _cartesian_support_1d(support) -> Support1D:
+    """Wrap a Cartesian support without changing its legacy payload."""
+
+    if isinstance(support, Support1D):
+        return support
+    cells, active, topology_uncertain, _, _ = support
+    endpoint_valid = ~jnp.asarray(topology_uncertain)
+    return make_support_1d(
+        cells,
+        active,
+        endpoint_valid=endpoint_valid,
+        payload=support,
+    )
 
 
 def _cartesian_orthogonal_supports(
@@ -1449,6 +2141,7 @@ def _cartesian_result_from_support(
 ) -> CartesianMomentResult:
     """Integrate one Cartesian Gauss rule on precomputed strip support."""
 
+    support = unwrap_support_1d(support)
     cells, active, topology, ghost, limb_topology = support
     axis = _normalized_axis(axis, w_center.dtype)
     nodes, weights = np.polynomial.legendre.leggauss(n_slice)
@@ -1632,12 +2325,49 @@ def _cartesian_result_from_support(
                         operand=None,
                     )
             else:
-                strip_width, invalid = _strip_widths(
-                    coefficients,
-                    continuation=continuation,
-                    ordinate_bound=image_bound,
-                    source_radius=rho,
-                )
+                if continuation == "companion_mapped_sign":
+                    lower, upper, interval_active, invalid = (
+                        _mapped_sign_companion_intervals(
+                            coefficients,
+                            abscissa,
+                            w_center,
+                            rho,
+                            s=s,
+                            q=q,
+                            axis=axis,
+                        )
+                    )
+                    strip_width = jnp.sum(
+                        jnp.where(interval_active, upper - lower, 0.0),
+                        axis=-1,
+                    )
+                elif continuation == "companion_certified" or (
+                    continuation == "companion"
+                    and _ENABLE_CARTESIAN_INTERVAL_CERTIFICATE
+                ):
+                    lower, upper, interval_active, invalid = (
+                        _certified_companion_intervals(
+                            coefficients,
+                            abscissa,
+                            w_center,
+                            rho,
+                            s=s,
+                            q=q,
+                            axis=axis,
+                            ordinate_bound=image_bound,
+                        )
+                    )
+                    strip_width = jnp.sum(
+                        jnp.where(interval_active, upper - lower, 0.0),
+                        axis=-1,
+                    )
+                else:
+                    strip_width, invalid = _strip_widths(
+                        coefficients,
+                        continuation=continuation,
+                        ordinate_bound=image_bound,
+                        source_radius=rho,
+                    )
             return jnp.sum(strip_weights * strip_width), jnp.sum(invalid, dtype=jnp.int32)
 
         return jax.lax.cond(
