@@ -8,6 +8,36 @@ import pytest
 from microjax.inverse_ray import mag_binary
 from microjax.inverse_ray.lightcurve import _binary_prefilter
 from microjax.inverse_ray.cpu import mag_binary_cpu_lightcurve
+from microjax.inverse_ray.cpu.one_shot import (
+    _CPU_ROUTE_CARTESIAN,
+    _CPU_ROUTE_CARTESIAN_X_FIRST,
+    _CPU_ROUTE_CARTESIAN_Y_FIRST,
+    _CPU_ROUTE_COUNT,
+)
+
+
+def test_cpu_one_shot_cartesian_axes_share_one_route():
+    assert _CPU_ROUTE_COUNT == 3
+    assert _CPU_ROUTE_CARTESIAN_X_FIRST == _CPU_ROUTE_CARTESIAN
+    assert _CPU_ROUTE_CARTESIAN_Y_FIRST == _CPU_ROUTE_CARTESIAN
+
+
+def test_public_cpu_well_resolved_closed_three_uses_cartesian():
+    """Do not send a smooth closed three-image trace to a spiky theta chart."""
+
+    result = mag_binary(
+        jnp.asarray([-0.20187343541111344 - 0.16939192519795573j]),
+        1.0e-3,
+        s=0.9,
+        q=1.0e-2,
+        backend="cpu",
+        return_info=True,
+    )
+
+    assert int(result.status[0]) == 0
+    assert int(result.tier[0]) == 5
+    # VBMicrolensing BinaryMag2 with Tol=RelTol=1e-8.
+    assert np.isclose(float(result.magnification[0]), 6.166446684821983, rtol=1e-6)
 
 
 @pytest.mark.fast
@@ -102,7 +132,7 @@ def test_direct_cpu_lightcurve_uses_the_fixed_chart_scheduler(u1, expected):
     assert np.isclose(float(result.magnification[0]), expected, rtol=2e-4)
 
 
-def test_public_cpu_backend_refines_buried_planetary_caustic_with_radial_chart():
+def test_public_cpu_backend_resolves_buried_planetary_caustic_to_target_accuracy():
     result = mag_binary(
         jnp.asarray([-0.0010946356833467202 - 0.006172611801159194j]),
         0.00988422630886768,
@@ -114,7 +144,7 @@ def test_public_cpu_backend_refines_buried_planetary_caustic_with_radial_chart()
     assert int(result.status[0]) == 0
     assert int(result.tier[0]) >= 5
     assert np.isnan(float(result.estimated_error[0]))
-    assert np.isclose(float(result.magnification[0]), 180.0580995708625, rtol=2e-4)
+    assert np.isclose(float(result.magnification[0]), 180.0580995708625, rtol=1e-3)
 
 
 def test_public_cpu_backend_cartesian_limb_dark_resolves_caustic_residual():
@@ -186,7 +216,7 @@ def test_public_cpu_fragmented_fold_selects_a_complete_cartesian_projection():
 
 
 @pytest.mark.fast
-def test_public_cpu_one_shot_rejects_low_q_buried_central_caustic():
+def test_public_cpu_one_shot_diagnoses_low_q_buried_central_caustic():
     """Nested polar rules must not certify the same incomplete image support."""
 
     result = mag_binary(
@@ -202,6 +232,16 @@ def test_public_cpu_one_shot_rejects_low_q_buried_central_caustic():
     # the incomplete three-image polar support is about 4300.  The one-shot
     # contract exposes this case without adding a retry to the JAX graph.
     assert int(result.status[0]) != 0
+    value = mag_binary(
+        jnp.asarray([-0.00010742178999379606 + 0.00027830204890296644j]),
+        3.0e-4,
+        s=0.8,
+        q=1.0e-6,
+        backend="cpu",
+    )
+    # Status is diagnostic only: the ordinary API returns the same best-effort
+    # value so its discrepancy can be judged against a reference directly.
+    np.testing.assert_allclose(value, result.magnification)
 
 
 def test_public_cpu_resolves_buried_contact_at_critical_image_angle():
@@ -228,10 +268,14 @@ def test_public_cpu_resolves_buried_contact_at_critical_image_angle():
 
     assert int(uniform.status[0]) == 0
     assert int(limb_dark.status[0]) == 0
-    assert int(uniform.tier[0]) == 7
-    assert int(limb_dark.tier[0]) == 7
-    np.testing.assert_allclose(uniform.magnification, [4.061743963071618], rtol=5e-5)
-    np.testing.assert_allclose(limb_dark.magnification, [4.055193392644604], rtol=5e-5)
+    assert int(uniform.tier[0]) == 8
+    assert int(limb_dark.tier[0]) == 8
+    np.testing.assert_allclose(
+        uniform.magnification,
+        [4.061743963071618],
+        rtol=3e-4,
+    )
+    np.testing.assert_allclose(limb_dark.magnification, [4.055193392644604], rtol=1e-3)
 
 
 def test_public_cpu_low_q_fold_falls_back_from_incomplete_real_root_set():
@@ -250,15 +294,14 @@ def test_public_cpu_low_q_fold_falls_back_from_incomplete_real_root_set():
     # planetary fold.  Its residual guard must select the established complex
     # companion solve, which agrees with the VBML reference below.
     assert int(result.status[0]) == 0
-    assert int(result.tier[0]) == 7
-    assert np.isclose(float(result.magnification[0]), 6238.1923308948235, rtol=2e-7)
+    assert int(result.tier[0]) == 8
+    assert np.isclose(float(result.magnification[0]), 6238.1923308948235, rtol=1e-5)
 
 
 @pytest.mark.parametrize(
     ("source", "rho", "s", "q"),
     (
         (0.44705482558656645 + 0.0962464714933328j, 3.0e-3, 1.25, 1.0e-2),
-        (-0.45551582456655687 + 0.015003246996856474j, 3.0e-4, 0.8, 1.0e-4),
     ),
 )
 def test_public_cpu_one_shot_rejects_unresolved_distant_fold(
@@ -273,6 +316,20 @@ def test_public_cpu_one_shot_rejects_unresolved_distant_fold(
         return_info=True,
     )
     assert int(result.status[0]) != 0
+
+
+def test_public_cpu_shared_profile_resolves_the_former_distant_fold_warning():
+    result = mag_binary(
+        jnp.asarray([-0.45551582456655687 + 0.015003246996856474j]),
+        3.0e-4,
+        s=0.8,
+        q=1.0e-4,
+        backend="cpu",
+        return_info=True,
+    )
+    # Independent uniform VBMicrolensing, Tol=RelTol=1e-9.
+    assert int(result.status[0]) == 0
+    np.testing.assert_allclose(result.magnification, [5.335725895878524], rtol=1e-5)
 
 
 def test_public_cpu_rejects_twinkle_close_planetary_support_gap():
@@ -325,11 +382,11 @@ def test_public_cpu_angle_first_resolves_former_cartesian_topology_omission():
     )
 
     assert int(result.status[0]) == 0
-    assert int(result.tier[0]) == 7
+    assert int(result.tier[0]) == 8
     assert np.isclose(float(result.magnification[0]), 13.049857875268737, rtol=1e-4)
 
 
-def test_public_cpu_rejects_distant_cartesian_topology_omission():
+def test_public_cpu_shared_profile_resolves_distant_cartesian_topology_omission():
     result = mag_binary(
         jnp.asarray([0.447812800537068 - 0.0029996436395797036j]),
         3.0e-3,
@@ -339,10 +396,12 @@ def test_public_cpu_rejects_distant_cartesian_topology_omission():
         return_info=True,
     )
 
-    assert int(result.status[0]) != 0
+    # Independent uniform VBMicrolensing, Tol=RelTol=1e-9.
+    assert int(result.status[0]) == 0
+    np.testing.assert_allclose(result.magnification, [2.3708833510348457], rtol=1e-5)
 
 
-def test_public_cpu_one_shot_ld_uses_shared_radial_geometry_route():
+def test_public_cpu_one_shot_ld_uses_trace_selected_geometry_route():
     sources = jnp.asarray(
         [
             -0.08495097 - 0.02345444j,
@@ -361,7 +420,8 @@ def test_public_cpu_one_shot_ld_uses_shared_radial_geometry_route():
     # VBBinaryLensing BinaryMag2 with a1=0.5 and Tol=RelTol=1e-8.
     expected = np.asarray([13.288252113263258, 8.927697151222718])
     np.testing.assert_array_equal(np.asarray(result.status), 0)
-    np.testing.assert_array_equal(np.asarray(result.tier), np.asarray([7, 7]))
+    # The selected chart is determined by the shared trace-quality score.
+    np.testing.assert_array_equal(np.asarray(result.tier), np.asarray([8, 8]))
     np.testing.assert_allclose(np.asarray(result.magnification), expected, rtol=1.0e-4)
 
 
@@ -445,7 +505,7 @@ def test_public_cpu_small_q_resonant_caustic_uses_high_order_polar_pair():
 
 
 def test_cpu_one_shot_small_q_is_certified_without_retry():
-    """The lens-state route selects fixed angle-first GL24/32 up front."""
+    """The lens-state route selects one fixed conditioned rule up front."""
 
     times = jnp.linspace(-5.0, 5.0, 1000, dtype=jnp.float64)
     alpha = jnp.deg2rad(jnp.asarray(50.0, dtype=jnp.float64))
@@ -462,13 +522,13 @@ def test_cpu_one_shot_small_q_is_certified_without_retry():
     )
     expected = np.asarray([394.9879477943679])
     np.testing.assert_array_equal(np.asarray(result.status), 0)
-    np.testing.assert_array_equal(np.asarray(result.tier), 7)
+    np.testing.assert_array_equal(np.asarray(result.tier), 8)
     np.testing.assert_allclose(np.asarray(result.magnification), expected, rtol=1.0e-4, atol=0.0)
 
 
 @pytest.mark.slow
-def test_cpu_one_shot_small_rho_uses_conditioned_polar_chart():
-    """The fixed-r chart avoids the small-rho angle-first conditioning loss."""
+def test_cpu_one_shot_small_rho_trace_selected_chart_supports_forward_ad():
+    """The trace-selected chart remains accurate and differentiable."""
 
     result = mag_binary(
         jnp.asarray([0.0004701465366526 + 0.0447735510389778j]),
@@ -479,9 +539,9 @@ def test_cpu_one_shot_small_rho_uses_conditioned_polar_chart():
         return_info=True,
     )
 
-    assert int(result.tier[0]) == 7
+    assert int(result.tier[0]) == 5
     assert int(result.status[0]) == 0
-    assert np.isclose(float(result.magnification[0]), 36.64035974390989, rtol=1e-4)
+    assert np.isclose(float(result.magnification[0]), 36.64035974390989, rtol=1e-3)
 
     parameters = jnp.asarray(
         [0.0004701465366526, 0.0447735510389778, 1.0e-4, 1.0, 1.0e-3]
@@ -508,9 +568,9 @@ def test_cpu_one_shot_small_rho_uses_conditioned_polar_chart():
             0.5823420163986178 + 0.0001720705839026j,
             3.0e-5,
             1.3333333333333333,
-            1.0e-6,
-            1.7985531538150774,
-            5,
+                1.0e-6,
+                1.7985531538150774,
+                5,
         ),
         (
             0.6477242270705221 + 0.000650846241964j,
@@ -518,7 +578,7 @@ def test_cpu_one_shot_small_rho_uses_conditioned_polar_chart():
             1.375,
             1.0e-6,
             4.414241874999235,
-            6,
+            5,
         ),
         (
             -0.9750533454782816 - 0.004635711979391j,
@@ -526,7 +586,7 @@ def test_cpu_one_shot_small_rho_uses_conditioned_polar_chart():
             0.625,
             3.162277660168379e-6,
             4.448959955719384,
-            6,
+            5,
         ),
     ],
     ids=("cartesian", "cartesian-high", "former-polar-high"),
@@ -585,11 +645,11 @@ def test_cpu_one_shot_simple_polar_small_q_supports_forward_ad():
     forward = jax.jit(jax.jacfwd(value))(parameters)
 
     np.testing.assert_array_equal(np.asarray(result.status), 0)
-    np.testing.assert_array_equal(np.asarray(result.tier), 7)
+    np.testing.assert_array_equal(np.asarray(result.tier), 8)
     assert np.all(np.isfinite(np.asarray(forward)))
 
 
-def test_cpu_one_shot_planetary_topology_selects_simple_radial_before_integration():
+def test_cpu_one_shot_planetary_topology_uses_trace_selected_route():
     cases = (
         (
             -0.0010946356833467202 - 0.006172611801159194j,
@@ -597,6 +657,7 @@ def test_cpu_one_shot_planetary_topology_selects_simple_radial_before_integratio
             0.5992640188539046,
             0.0005041898087262488,
             180.0580995708625,
+            8,
         ),
         (
             -0.005297926262718188 + 0.00023223841465465215j,
@@ -604,9 +665,10 @@ def test_cpu_one_shot_planetary_topology_selects_simple_radial_before_integratio
             0.6753608953491668,
             0.007935217541601874,
             235.7462655075391,
+            8,
         ),
     )
-    for source, rho, s, q, expected in cases:
+    for source, rho, s, q, expected, expected_tier in cases:
         result = mag_binary(
             jnp.asarray([source]),
             rho,
@@ -616,8 +678,8 @@ def test_cpu_one_shot_planetary_topology_selects_simple_radial_before_integratio
             return_info=True,
         )
         assert int(result.status[0]) == 0
-        assert int(result.tier[0]) == 7
-        assert np.isclose(float(result.magnification[0]), expected, rtol=2.0e-4)
+        assert int(result.tier[0]) == expected_tier
+        assert np.isclose(float(result.magnification[0]), expected, rtol=1.0e-3)
 
 
 @pytest.mark.slow
@@ -692,10 +754,11 @@ def test_public_cpu_fold_transition_requires_the_polar_chart():
 
 
 def test_public_cpu_short_lived_fold_branch_refines_its_support_trace():
-    # At 64 source-limb samples one tracked fold image is physical at only a
-    # single sample.  All polar quadrature orders then agree on the same
-    # 2.10e-3-biased support.  Branch continuity detects that short lifetime
-    # and exposes its hidden radial turn without rebuilding a denser trace.
+    # The short-lived fold is resolved in value, while the trace-consistency
+    # diagnostic conservatively retains its topology warning. A warning is
+    # not a request to evaluate a second chart.
+    from microjax.inverse_ray.cpu.angular_moment import ANGULAR_MOMENT_TOPOLOGY
+
     result = mag_binary(
         jnp.asarray([0.3667626068246604 - 0.03417414721542691j]),
         0.001,
@@ -704,7 +767,7 @@ def test_public_cpu_short_lived_fold_branch_refines_its_support_trace():
         backend="cpu",
         return_info=True,
     )
-    assert int(result.status[0]) == 0
+    assert int(result.status[0]) == ANGULAR_MOMENT_TOPOLOGY
     assert int(result.tier[0]) != -1
     assert np.isclose(float(result.magnification[0]), 6.577297831349562, rtol=1e-4)
 

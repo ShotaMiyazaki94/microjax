@@ -165,16 +165,45 @@ def _integrate_interval(
     return jax.lax.cond(full_ring, integrate_full, integrate_bounded, operand=None)
 
 
+def _join_periodic_arcs(intervals: AngularIntervals) -> AngularIntervals:
+    """Restore a physical arc cut by the angular chart at zero.
+
+    The root solver packs inside intervals on [0, 2pi]. If both ends are
+    inside, the first and last intervals are pieces of the same circular arc.
+    Joining them gives the Jacobi rule two actual limb endpoints, where mu
+    vanishes, instead of an artificial endpoint with nonzero brightness.
+    The remaining arcs keep their slots; quadrature does not require sorting.
+    A full ring remains one interval and retains its Gauss-Legendre rule.
+    """
+    bounds = intervals.intervals
+    count = intervals.n_intervals
+    last = jnp.maximum(count - 1, 0)
+    two_pi = jnp.asarray(2.0 * jnp.pi, dtype=bounds.dtype)
+    joined = (
+        (count > 1)
+        & (bounds[0, 0] == 0.0)
+        & (bounds[last, 1] == two_pi)
+    )
+    first = jnp.stack((bounds[last, 0], bounds[0, 1] + two_pi))
+    bounds = bounds.at[0].set(jnp.where(joined, first, bounds[0]))
+    count = count - joined.astype(jnp.int32)
+    active = jnp.arange(bounds.shape[0]) < count
+    bounds = jnp.where(active[:, None], bounds, 0.0)
+    return intervals._replace(intervals=bounds, n_intervals=count)
+
+
 def integrate_mu_residual(
     mu: Callable[[Array], Array], intervals: AngularIntervals
 ) -> ResidualIntegral:
     """Integrate ``sqrt(1-u**2)`` over fixed-shape inside arcs.
 
-    Root-bounded arcs use Gauss-Jacobi rules with weight
-    ``sqrt(1-x**2)``.  A completely inside ring has no limb endpoints and
-    therefore uses ordinary Gauss-Legendre rules.
+    Root-bounded arcs use Gauss-Jacobi rules with weight ``sqrt(1-x**2)``.
+    Pieces of one periodic arc crossing zero are joined before applying that
+    rule. A completely inside ring has no limb endpoints and therefore uses
+    ordinary Gauss-Legendre rules.
     """
 
+    intervals = _join_periodic_arcs(intervals)
     active = jnp.arange(intervals.intervals.shape[0]) < intervals.n_intervals
 
     def nonempty(bounds):

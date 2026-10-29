@@ -20,7 +20,12 @@ import jax.numpy as jnp
 from microjax.poly_solver import poly_roots_self_inversive_robust_fixed
 
 from ..geometry.lens import binary_geometry
-from ..geometry.topology import RADIAL_OK, RADIAL_TOLERANCE, define_radial_topology
+from ..geometry.topology import (
+    RADIAL_CAPACITY,
+    RADIAL_OK,
+    RADIAL_TOLERANCE,
+    define_radial_topology,
+)
 from ..roots.angular import (
     ANGULAR_OK,
     ANGULAR_ROOT_FAILURE,
@@ -47,7 +52,7 @@ from .polar_atlas import (
 )
 from .roots import companion_roots, real_companion_roots
 from .simple_polar_support import build_simple_polar_topology
-from .support import trace_binary_source_limb
+from .support import make_support_1d, trace_binary_source_limb
 from .refined_limb import trace_binary_source_limb_two_stage
 
 Array = jnp.ndarray
@@ -624,11 +629,14 @@ def _integrate_cell_limb(
     *,
     s: Array,
     q: Array,
+    estimate_error: bool = True,
 ) -> tuple[Array, Array, Array]:
     """Integrate one cell with the same fixed radial rule in every geometry.
 
-    The cell uses one nested GK15/G7 rule after a ``sin**2`` radial transform. The topology
-    builder supplies two fixed numerical panels per geometric cell. The transform
+    The cell uses GK15 after a ``sin**2`` radial transform. Adaptive callers
+    also form the embedded G7 estimate from the same root evaluations;
+    fixed-route callers skip that unused reduction. The topology builder
+    supplies two fixed numerical panels per geometric cell. The transform
     resolves the square-root endpoint behaviour at source-limb contacts while
     every fixed-radius angular boundary is solved from the same degree-six
     level-set polynomial.
@@ -699,12 +707,16 @@ def _integrate_cell_limb(
                 * jacobian
                 * values
             )
-            low = jnp.sum(
-                jnp.tile(jnp.asarray(G7_W_ON_GK15, dtype=dtype), 2)
-                * jacobian
-                * values
-            )
-            return high, jnp.abs(high - low), jnp.bitwise_or.reduce(statuses)
+            if estimate_error:
+                low = jnp.sum(
+                    jnp.tile(jnp.asarray(G7_W_ON_GK15, dtype=dtype), 2)
+                    * jacobian
+                    * values
+                )
+                error = jnp.abs(high - low)
+            else:
+                error = jnp.asarray(0.0, dtype=dtype)
+            return high, error, jnp.bitwise_or.reduce(statuses)
 
         # The cancellation-resistant level-set coefficients remain scaled at
         # low q, including rings through a lens-pole radius.  Use the same
@@ -849,6 +861,8 @@ def _mag_uniform_radial_from_trace(
     use_simple_support: bool = False,
     limb_phases: Array | None = None,
     check_tolerance: bool = True,
+    neighbors=None,
+    edge_activity=None,
 ) -> RadialContinuationResult:
     """Evaluate the radial rule from an already available source-limb trace."""
 
@@ -886,6 +900,8 @@ def _mag_uniform_radial_from_trace(
             q=q,
             origin_inside=origin_inside,
             phases=limb_phases,
+            neighbors=neighbors,
+            edge_activity=edge_activity,
         )
     else:
         topology = define_radial_topology(
@@ -903,6 +919,19 @@ def _mag_uniform_radial_from_trace(
                 else None
             ),
         )
+    # Route the selected radial topology through the common 1-D contract
+    # while retaining the specialized payload for this fixed kernel.  This is
+    # intentionally a lossless adapter; endpoint/guard policies are changed
+    # only in the subsequent support-certification goal.
+    topology_contract = make_support_1d(
+        topology.intervals,
+        jnp.arange(topology.intervals.shape[0], dtype=jnp.int32)
+        < topology.n_intervals,
+        endpoint_valid=topology.status == 0,
+        overflow=topology.status == RADIAL_CAPACITY,
+        payload=topology,
+    )
+    topology = topology_contract.payload
     normalization = jnp.pi * rho**2
 
     def integrate_one(index, state):
@@ -923,6 +952,7 @@ def _mag_uniform_radial_from_trace(
                 topology.intervals[index],
                 s=s,
                 q=q,
+                estimate_error=check_tolerance,
             )
         elif independent_roots:
             cell_value, cell_error, cell_status = _integrate_cell_independent(

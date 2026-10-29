@@ -45,10 +45,12 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
   supported.
 - A fixed-route CPU scheduler selected by default with `backend="cpu"`.
   `backend="cpu-one-shot"` remains an equivalent compatibility alias. It
-  performs one source-limb trace, chooses one Cartesian or polar quadrature
-  from the resulting image state, and reports a failed certificate without
-  any retry, rescue chart, order escalation, or retracing.  Uniform Cartesian
-  strips use the root-free Bernstein lookup without companion-root repair.
+  performs one source-limb trace and chooses exactly one full-solve route:
+  Cartesian or polar theta-first for both uniform and linear limb darkening. Each route
+  evaluates one area integral with bounded work, without a retry, rescue chart,
+  a larger work cap, or retracing.
+  Route and support choices depend only on image-trace diagnostics, not on
+  regions in ``q``, ``s``, ``rho``, or source-position space.
 - User-configurable source tiling and radial-region scheduling through
   `BinaryMagConfig` and `TripleMagConfig`.
 - Parallax and binary orbital-motion trajectory utilities.
@@ -61,12 +63,40 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 
 ### Changed
 
+- Reduced the common CPU integrator's cache to the five Gauss samples reused
+  by each panel, and removed the duplicate per-ray status cache. Uniform and
+  linear LD keep the same two-moment calculation, quadrature nodes, stopping
+  indicators and work cap; no zero-coefficient specialization is introduced.
+- CPU uniform and linear limb darkening now integrate uniform-area and profile moments
+  together, sharing a bounded ray budget across support cells. Cartesian and
+  theta-first integration now cache five-point Gauss samples and extend a
+  panel to eleven-point Gauss-Kronrod with only six new evaluations. Each
+  moment must meet the internal `1e-4` relative indicator in two consecutive
+  allocations; the shared cap is 84 rays per active cell, including discarded
+  parents. Both routes use this allocator, including at zero limb coefficient. The cache
+  preserves forward derivatives of parameters and moving endpoints. This
+  internal stopping rule is not an accuracy guarantee. Angular endpoint refinement covers
+  root-slot changes, and converged endpoints carry implicit forward derivatives.
+  Failed angular refinements differentiate the fitted trace endpoint actually
+  returned. Real profile-intersection roots receive one guarded physical
+  Newton correction and carry the physical equation's implicit derivative.
+- Unified default CPU uniform and linear-LD full solves into one two-moment
+  kernel. Removed the `u1 == 0` full-solve dispatch and the default uniform
+  radial path; both profiles select Cartesian (with an internal x/y axis
+  choice) or polar theta-first. A common 112-sample boundary trace replaces
+  the previous 56-sample traces, because merely reusing the LD kernel at zero
+  coefficient missed some uniform image area. This costs execution time;
+  it is not a speed improvement. The full 443,700-position audit introduces
+  no new discrepancies above 0.1% against the saved profile-specific references.
+  Existing discrepancies and reference uncertainty remain documented.
+  The former uniform-only helper remains for explicit research comparisons.
 - The recommended finite-source imports now come from `microjax.inverse_ray`.
 - The paper-era two-dimensional image-plane grid has been replaced by an
   integration over the regions enclosed by calculated image boundaries.
 - A returned finite value is a numerical estimate without a guaranteed error
-  bound. If the image boundary or integration region cannot be constructed,
-  the public functions return `NaN`.
+  bound. CPU binary magnification preserves its best-effort value when a
+  diagnostic status is nonzero. Inspect `return_info=True` for suspicious
+  trace, support, or root state; a zero status is not an accuracy certificate.
 - Public binary- and triple-lens configuration contains `n_limb` plus advanced
   static scheduler controls; numerical accuracy settings remain internal.
 - The public binary accelerator default now uses the A100 dense-benchmark fast

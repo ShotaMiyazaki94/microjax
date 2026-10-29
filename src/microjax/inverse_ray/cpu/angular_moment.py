@@ -12,8 +12,14 @@ from microjax.point_source import lens_eq
 
 from ..geometry.lens import binary_geometry
 from .sentinel import hidden_caustic_candidate
-from .support import trace_binary_source_limb, tracked_limb_neighbors
+from .support import (
+    limb_edge_activity_from_masks,
+    make_support_1d,
+    trace_binary_source_limb,
+    tracked_limb_neighbors,
+)
 from .quadrature import G7_W_ON_GK15, GK15_W, GK15_X
+from .certified_intervals import _merge_intervals, repair_rejected_intervals
 from .roots import (
     batched_companion_roots,
     batched_fixed_ea_roots,
@@ -24,6 +30,17 @@ Array = jnp.ndarray
 ANGULAR_MOMENT_TOPOLOGY = 1 << 17
 ANGULAR_MOMENT_EXHAUSTED = 1 << 18
 ANGULAR_MOMENT_SUPPORT = 1 << 19
+
+# The repair is enabled in the kernel, but is requested only by an explicit
+# trace certificate from one-shot.  Ordinary closed traces therefore retain
+# the companion fast path; buried/crossing traces can recover rejected real
+# pairs without a parameter-space branch.
+_ENABLE_HIDDEN_RADIAL_PAIR_REPAIR = False
+
+# Endpoint certification is deliberately opt-in while its effect on the full
+# control grid is measured.  The fast path still uses companion endpoints;
+# the helper below only runs on rays with a clustered candidate pair.
+_ENABLE_ANGULAR_ENDPOINT_CERTIFICATE = True
 
 
 def _radial_image_bound(
@@ -70,6 +87,18 @@ class AngularSupport(NamedTuple):
     minimum_ghost_residual: Array
     limb_topology: Array
     tangencies_valid: Array
+
+    def as_support_1d(self):
+        """Expose angular cells through the common support contract."""
+
+        endpoint_valid = jnp.all(self.tangencies_valid)
+        return make_support_1d(
+            self.cells,
+            self.active,
+            endpoint_valid=endpoint_valid,
+            overflow=self.topology_uncertain,
+            payload=self,
+        )
 
 
 def _clenshaw_curtis_rule(n_intervals: int) -> tuple[np.ndarray, np.ndarray]:
@@ -148,7 +177,12 @@ def _stable_radial_level_value(
     """Evaluate ``|N| - rho |D|`` without squared-level-set cancellation."""
 
     lens = binary_geometry(s, q)
-    unit = jnp.exp(1.0j * angles)[..., None]
+    # Preserve the leading ray axis while accepting additional fixed repair
+    # axes (the rare repair evaluates dyadic brackets as ``(batch, 6, 10)``).
+    # The old ``[..., None]`` form only supported one trailing coordinate axis.
+    trailing = max(0, radii.ndim - angles.ndim)
+    angle_shape = angles.shape + (1,) * trailing
+    unit = jnp.exp(1.0j * jnp.reshape(angles, angle_shape))
     z = radii * unit - lens.shifted
     zbar = jnp.conjugate(z)
     d_plus = zbar - lens.a
@@ -165,10 +199,611 @@ def _stable_radial_level_value(
     return numerator_abs - denominator_abs
 
 
+def _stable_radial_level_ratio(
+    angles: Array,
+    radii: Array,
+    w_center: Array,
+    rho: Array,
+    *,
+    s: Array,
+    q: Array,
+) -> Array:
+    """Return the cancellation-resistant radial level on a unit scale."""
+
+    lens = binary_geometry(s, q)
+    trailing = max(0, radii.ndim - angles.ndim)
+    angle_shape = angles.shape + (1,) * trailing
+    unit = jnp.exp(1.0j * jnp.reshape(angles, angle_shape))
+    z = radii * unit - lens.shifted
+    zbar = jnp.conjugate(z)
+    d_plus = zbar - lens.a
+    d_minus = zbar + lens.a
+    denominator = d_plus * d_minus
+    source_shifted = w_center - lens.shifted
+    numerator = (
+        (z - source_shifted) * denominator
+        - lens.e1 * d_minus
+        - (1.0 - lens.e1) * d_plus
+    )
+    numerator_abs = jnp.abs(numerator)
+    denominator_abs = rho * jnp.abs(denominator)
+    scale = jnp.maximum(
+        numerator_abs + denominator_abs,
+        jnp.finfo(radii.dtype).tiny,
+    )
+    return (numerator_abs - denominator_abs) / scale
+
+
+def _repair_hidden_radial_pairs(
+    angles: Array,
+    roots: Array,
+    valid: Array,
+    lower: Array,
+    upper: Array,
+    inside: Array,
+    w_center: Array,
+    rho: Array,
+    *,
+    s: Array,
+    q: Array,
+) -> tuple[Array, Array, Array]:
+    """Repair rejected conjugate pairs whose factored centre is occupied.
+
+    The expanded sextic remains a cheap candidate generator.  A materially
+    complex candidate is promoted only when the cancellation-free mapped
+    level is negative at its real centre and that centre is not already
+    covered by an accepted interval.  Each conjugate candidate supplies one
+    side of the repaired pair, preserving the sextic's fixed six-root
+    capacity.
+    """
+
+    # This broad pair promotion is deliberately disabled in production.  The
+    # old implementation still evaluated the cancellation-free level,
+    # coverage mask, and ten-step bracket expansion before a constant-false
+    # ``lax.cond`` discarded all of it.  Keep the opt-in implementation for
+    # diagnostics, but make the disabled production path genuinely cheap.
+    if not _ENABLE_HIDDEN_RADIAL_PAIR_REPAIR:
+        return roots.real, valid, jnp.zeros(roots.shape[:-1], dtype=jnp.int32)
+
+    real = roots.real
+    imag = roots.imag
+    real_dtype = real.dtype
+    scale = jnp.maximum(1.0, jnp.abs(real))
+    finite = jnp.isfinite(real) & jnp.isfinite(imag)
+    positive = real >= 0.0
+    # The mapped-level repair is kept behind a conservative certificate while
+    # its bracket proof is being completed.  A rejected companion pair must
+    # never be promoted solely from a small negative centre value: near a
+    # lens pole that can create a spurious interval.  Leave the fast,
+    # behaviour-preserving candidate path active until both endpoint signs and
+    # the midpoint certificate are available.
+    materially_complex = jnp.abs(imag) > 1.0e9 * scale
+    seed = jnp.maximum(real, 0.0)
+    seed_level = _stable_radial_level_value(
+        angles,
+        seed,
+        w_center,
+        rho,
+        s=s,
+        q=q,
+    )
+    covered = jnp.any(
+        inside[:, None, :]
+        & (seed[:, :, None] >= lower[:, None, :])
+        & (seed[:, :, None] <= upper[:, None, :]),
+        axis=-1,
+    )
+    hidden = (
+        jnp.asarray(_ENABLE_HIDDEN_RADIAL_PAIR_REPAIR)
+        & finite
+        & positive
+        & ~valid
+        & materially_complex
+        & jnp.isfinite(seed_level)
+        & (seed_level < 0.0)
+        & ~covered
+    )
+
+    candidate_outer = jnp.max(
+        jnp.where(finite & positive, real, 0.0),
+        axis=-1,
+    )
+    domain_upper = jnp.maximum(candidate_outer + 1.0, 1.0)
+    eps = jnp.finfo(real_dtype).eps
+    initial_step = jnp.maximum(
+        jnp.abs(imag),
+        32.0 * jnp.sqrt(eps) * scale,
+    )
+    initial_step = jnp.minimum(initial_step, 0.25 * domain_upper[:, None])
+
+    def no_repair(_):
+        return real, valid, jnp.zeros(real.shape[:-1], dtype=jnp.int32)
+
+    def repair(_):
+        left = jnp.maximum(seed - initial_step, 0.0)
+        right = jnp.minimum(seed + initial_step, domain_upper[:, None])
+        left_level = _stable_radial_level_value(
+            angles, left, w_center, rho, s=s, q=q
+        )
+        right_level = _stable_radial_level_value(
+            angles, right, w_center, rho, s=s, q=q
+        )
+        # A hidden conjugate pair must be bracketed by two genuine outside
+        # signs.  Treating an in-domain boundary (r=0 or the finite guard
+        # radius) as an outside sign can promote a one-sided/pole-adjacent
+        # negative region into a spurious broad interval.
+        left_found = left_level >= 0.0
+        right_found = right_level >= 0.0
+
+        def expand(_, state):
+            current_left, current_right, found_left, found_right, step = state
+            step = 2.0 * step
+            trial_left = jnp.maximum(seed - step, 0.0)
+            trial_right = jnp.minimum(seed + step, domain_upper[:, None])
+            trial_left_level = _stable_radial_level_value(
+                angles, trial_left, w_center, rho, s=s, q=q
+            )
+            trial_right_level = _stable_radial_level_value(
+                angles, trial_right, w_center, rho, s=s, q=q
+            )
+            use_left = ~found_left
+            use_right = ~found_right
+            current_left = jnp.where(use_left, trial_left, current_left)
+            current_right = jnp.where(use_right, trial_right, current_right)
+            found_left = found_left | (trial_left_level >= 0.0)
+            found_right = found_right | (trial_right_level >= 0.0)
+            return current_left, current_right, found_left, found_right, step
+
+        left, right, left_found, right_found, _ = jax.lax.fori_loop(
+            0,
+            10,
+            expand,
+            (left, right, left_found, right_found, initial_step),
+        )
+        left_domain_inside = (left == 0.0) & (
+            _stable_radial_level_value(
+                angles, left, w_center, rho, s=s, q=q
+            )
+            <= 0.0
+        )
+        right_domain_inside = (right == domain_upper[:, None]) & (
+            _stable_radial_level_value(
+                angles, right, w_center, rho, s=s, q=q
+            )
+            <= 0.0
+        )
+
+        def bisect(_, state):
+            left_out, left_in, right_in, right_out = state
+            left_mid = 0.5 * (left_out + left_in)
+            right_mid = 0.5 * (right_in + right_out)
+            left_mid_inside = _stable_radial_level_value(
+                angles, left_mid, w_center, rho, s=s, q=q
+            ) <= 0.0
+            right_mid_inside = _stable_radial_level_value(
+                angles, right_mid, w_center, rho, s=s, q=q
+            ) <= 0.0
+            left_out = jnp.where(left_mid_inside, left_out, left_mid)
+            left_in = jnp.where(left_mid_inside, left_mid, left_in)
+            right_in = jnp.where(right_mid_inside, right_mid, right_in)
+            right_out = jnp.where(right_mid_inside, right_out, right_mid)
+            return left_out, left_in, right_in, right_out
+
+        _, left_boundary, right_boundary, _ = jax.lax.fori_loop(
+            0,
+            28,
+            bisect,
+            (left, seed, seed, right),
+        )
+        left_boundary = jnp.where(left_domain_inside, 0.0, left_boundary)
+        right_boundary = jnp.where(
+            right_domain_inside,
+            domain_upper[:, None],
+            right_boundary,
+        )
+        success = (
+            hidden
+            & left_found
+            & right_found
+            & jnp.isfinite(left_boundary)
+            & jnp.isfinite(right_boundary)
+            & (right_boundary > left_boundary)
+        )
+        repaired = jnp.where(valid, real, jnp.inf)
+        repaired = jnp.where(success & (imag > 0.0), left_boundary, repaired)
+        repaired = jnp.where(success & (imag < 0.0), right_boundary, repaired)
+        repaired_valid = valid | success
+        # A successful conjugate repair adds exactly two endpoints.  Anything
+        # else is surfaced through the existing invalid-root diagnostic.
+        repaired_count = jnp.sum(success, axis=-1, dtype=jnp.int32)
+        unresolved = jnp.any(hidden & ~success, axis=-1)
+        invalid = unresolved.astype(jnp.int32) + jnp.mod(repaired_count, 2)
+        return repaired, repaired_valid, invalid
+
+    return jax.lax.cond(
+        jnp.any(hidden),
+        repair,
+        no_repair,
+        operand=None,
+    )
+
+
+def _repair_hidden_radial_interval(
+    angles: Array,
+    roots: Array,
+    valid: Array,
+    lower: Array,
+    upper: Array,
+    inside: Array,
+    w_center: Array,
+    rho: Array,
+    *,
+    s: Array,
+    q: Array,
+) -> tuple[Array, Array, Array]:
+    """Bracket one rejected, cancellation-free occupied radial interval.
+
+    The expanded sextic can return a positive candidate with a small but
+    nonzero imaginary part even though the mapped level is negative at its
+    real centre.  Such a candidate is not an accepted endpoint, but it is a
+    useful *seed*.  We certify it only when both sides reach a finite outside
+    level and then bisect those two brackets.  This adds at most one interval
+    to the fixed root-capacity result and never promotes an unbracketed ray.
+    """
+
+    real = roots.real
+    imag = roots.imag
+    scale = jnp.maximum(1.0, jnp.abs(real))
+    finite = jnp.isfinite(real) & jnp.isfinite(imag)
+    positive = real >= 0.0
+    rejected = finite & positive & ~valid
+    seed_levels = _stable_radial_level_value(
+        angles,
+        jnp.maximum(real, 0.0),
+        w_center,
+        rho,
+        s=s,
+        q=q,
+    )
+    hidden = (
+        rejected
+        & jnp.isfinite(seed_levels)
+        & (seed_levels < 0.0)
+        # A sub-ulp imaginary split is the unresolved no-root/tangent case;
+        # it is deliberately left fail-closed.  Materially split candidates
+        # are the ones for which the mapped-level bracket is informative.
+        & (jnp.abs(imag) >= 1.0e-6 * scale)
+    )
+    covered = jnp.any(
+        inside[:, None, :]
+        & (jnp.maximum(real, 0.0)[..., None] >= lower[:, None, :])
+        & (jnp.maximum(real, 0.0)[..., None] <= upper[:, None, :]),
+        axis=-1,
+    )
+    hidden = hidden & ~covered
+    # Select the most deeply occupied rejected candidate, so a spurious
+    # near-pole candidate cannot mask a genuine narrow interval in the same
+    # ray.  ``argmin`` is fixed-shape and cheap compared with the sextic.
+    seed_index = jnp.argmin(jnp.where(hidden, seed_levels, jnp.inf), axis=-1)
+    batch = jnp.arange(real.shape[0], dtype=jnp.int32)
+    seed = real[batch, seed_index]
+    seed_scale = scale[batch, seed_index]
+    seed_imag = jnp.abs(imag[batch, seed_index])
+    near_real_rejected = (
+        finite
+        & positive
+        & ~valid
+        & (jnp.arange(real.shape[-1])[None, :] != seed_index[:, None])
+        & (jnp.abs(imag) <= 1.0e-5 * scale)
+        & (jnp.abs(real - seed[:, None]) >= 1.0e-7 * seed_scale[:, None])
+        & (jnp.abs(real - seed[:, None]) <= 4.0e-5 * seed_scale[:, None])
+        & (seed_levels < 0.0)
+    )
+    hidden = hidden & ~jnp.any(near_real_rejected, axis=-1)[:, None]
+    has_seed = jnp.any(hidden, axis=-1)
+
+    candidate_outer = jnp.max(jnp.where(finite & positive, real, 0.0), axis=-1)
+    domain_upper = jnp.maximum(candidate_outer + 1.0, 1.0)
+    initial_step = jnp.maximum(
+        seed_imag,
+        32.0 * jnp.sqrt(jnp.finfo(real.dtype).eps) * seed_scale,
+    )
+    initial_step = jnp.minimum(initial_step, 0.25 * domain_upper)
+    left = jnp.maximum(seed - initial_step, 0.0)
+    right = jnp.minimum(seed + initial_step, domain_upper)
+    left_level = _stable_radial_level_value(
+        angles, left, w_center, rho, s=s, q=q
+    )
+    right_level = _stable_radial_level_value(
+        angles, right, w_center, rho, s=s, q=q
+    )
+    left_found = has_seed & (left_level >= 0.0)
+    right_found = has_seed & (right_level >= 0.0)
+
+    def expand(_, state):
+        current_left, current_right, found_left, found_right, step = state
+        step = jnp.minimum(2.0 * step, domain_upper)
+        trial_left = jnp.maximum(seed - step, 0.0)
+        trial_right = jnp.minimum(seed + step, domain_upper)
+        trial_left_level = _stable_radial_level_value(
+            angles, trial_left, w_center, rho, s=s, q=q
+        )
+        trial_right_level = _stable_radial_level_value(
+            angles, trial_right, w_center, rho, s=s, q=q
+        )
+        use_left = ~found_left
+        use_right = ~found_right
+        current_left = jnp.where(use_left, trial_left, current_left)
+        current_right = jnp.where(use_right, trial_right, current_right)
+        found_left = found_left | (trial_left_level >= 0.0)
+        found_right = found_right | (trial_right_level >= 0.0)
+        return current_left, current_right, found_left, found_right, step
+
+    left, right, left_found, right_found, _ = jax.lax.fori_loop(
+        0,
+        12,
+        expand,
+        (left, right, left_found, right_found, initial_step),
+    )
+
+    def bisect(_, state):
+        left_out, left_in, right_in, right_out = state
+        left_mid = 0.5 * (left_out + left_in)
+        right_mid = 0.5 * (right_in + right_out)
+        left_mid_inside = _stable_radial_level_value(
+            angles, left_mid, w_center, rho, s=s, q=q
+        ) < 0.0
+        right_mid_inside = _stable_radial_level_value(
+            angles, right_mid, w_center, rho, s=s, q=q
+        ) < 0.0
+        left_out = jnp.where(left_mid_inside, left_out, left_mid)
+        left_in = jnp.where(left_mid_inside, left_mid, left_in)
+        right_in = jnp.where(right_mid_inside, right_mid, right_in)
+        right_out = jnp.where(right_mid_inside, right_out, right_mid)
+        return left_out, left_in, right_in, right_out
+
+    _, left_boundary, right_boundary, _ = jax.lax.fori_loop(
+        0,
+        30,
+        bisect,
+        (left, seed, seed, right),
+    )
+    success = (
+        has_seed
+        & left_found
+        & right_found
+        & jnp.isfinite(left_boundary)
+        & jnp.isfinite(right_boundary)
+        & (right_boundary > left_boundary)
+    )
+    return left_boundary, right_boundary, success
+
+
+def _refine_mapped_radial_intervals(
+    angles: Array,
+    lower: Array,
+    upper: Array,
+    inside: Array,
+    w_center: Array,
+    rho: Array,
+    *,
+    s: Array,
+    q: Array,
+) -> tuple[Array, Array, Array]:
+    """Refine accepted interval endpoints with outside/inside witnesses.
+
+    This is intentionally narrower than a global endpoint certificate.  An
+    interval is refined only when its midpoint is mapped-inside and both
+    neighboring half-cells are mapped-outside.  Thus a noisy candidate root
+    can move to the true lens boundary, while an unbracketed or pole-adjacent
+    candidate is left unchanged.
+    """
+
+    n_intervals = lower.shape[-1]
+    columns = jnp.arange(n_intervals, dtype=jnp.int32)
+    boundary = jnp.concatenate((lower[:, :1], upper), axis=-1)
+    previous_index = jnp.maximum(columns - 1, 0)
+    next_index = jnp.minimum(columns + 2, n_intervals)
+    previous = boundary[:, previous_index]
+    following = boundary[:, next_index]
+    left_probe = 0.5 * (previous + lower)
+    right_probe = 0.5 * (upper + following)
+    midpoint = 0.5 * (lower + upper)
+    midpoint_level = _stable_radial_level_value(
+        angles, midpoint, w_center, rho, s=s, q=q
+    )
+    left_level = _stable_radial_level_value(
+        angles, left_probe, w_center, rho, s=s, q=q
+    )
+    right_level = _stable_radial_level_value(
+        angles, right_probe, w_center, rho, s=s, q=q
+    )
+    left_bracket = inside & (midpoint_level <= 0.0) & (left_level >= 0.0)
+    right_bracket = inside & (midpoint_level <= 0.0) & (right_level >= 0.0)
+
+    def bisect(_, state):
+        left_out, left_in, right_in, right_out = state
+        left_mid = 0.5 * (left_out + left_in)
+        right_mid = 0.5 * (right_in + right_out)
+        left_inside = _stable_radial_level_value(
+            angles, left_mid, w_center, rho, s=s, q=q
+        ) <= 0.0
+        right_inside = _stable_radial_level_value(
+            angles, right_mid, w_center, rho, s=s, q=q
+        ) <= 0.0
+        left_out = jnp.where(left_bracket & left_inside, left_out, left_mid)
+        left_in = jnp.where(left_bracket & left_inside, left_mid, left_in)
+        right_in = jnp.where(right_bracket & right_inside, right_mid, right_in)
+        right_out = jnp.where(right_bracket & right_inside, right_out, right_mid)
+        return left_out, left_in, right_in, right_out
+
+    _, refined_lower, refined_upper, _ = jax.lax.fori_loop(
+        0,
+        28,
+        bisect,
+        (left_probe, midpoint, midpoint, right_probe),
+    )
+    lower = jnp.where(left_bracket, refined_lower, lower)
+    upper = jnp.where(right_bracket, refined_upper, upper)
+    return lower, upper, left_bracket & right_bracket
+
+
+def _certify_clustered_radial_boundaries(
+    angles: Array,
+    boundaries: Array,
+    w_center: Array,
+    rho: Array,
+    *,
+    s: Array,
+    q: Array,
+) -> Array:
+    """Refine close radial endpoint pairs using the mapped level function.
+
+    The sextic supplies the sorted candidate boundaries.  For a clustered
+    pair, the midpoint between adjacent candidates is already an inside or
+    outside witness, so each endpoint has a fixed local bracket.  A bounded
+    bisection then removes the expanded-polynomial cancellation without
+    changing the interval count or creating a new interval.  Non-clustered
+    rays are returned bit-for-bit unchanged.
+    """
+
+    if not _ENABLE_ANGULAR_ENDPOINT_CERTIFICATE:
+        return boundaries
+
+    candidates = boundaries[:, 1:-1]
+    outer = boundaries[:, -1]
+    finite = jnp.isfinite(candidates) & (candidates < outer[:, None])
+    gap = candidates[:, 1:] - candidates[:, :-1]
+    scale = jnp.maximum(1.0, jnp.abs(candidates[:, 1:]))
+    clustered = jnp.any(
+        finite[:, 1:] & finite[:, :-1] & (gap <= 1.0e-3 * scale),
+        axis=-1,
+    )
+    left_gap = candidates - boundaries[:, :-2]
+    right_gap = boundaries[:, 2:] - candidates
+    trust_radius = 0.45 * jnp.minimum(left_gap, right_gap)
+    machine_step = jnp.sqrt(jnp.finfo(candidates.dtype).eps)
+
+    def newton_step(_, current):
+        level = _stable_radial_level_ratio(
+            angles, current, w_center, rho, s=s, q=q
+        )
+        step_size = machine_step * jnp.maximum(1.0, jnp.abs(current))
+        level_plus = _stable_radial_level_ratio(
+            angles, current + step_size, w_center, rho, s=s, q=q
+        )
+        level_minus = _stable_radial_level_ratio(
+            angles, current - step_size, w_center, rho, s=s, q=q
+        )
+        derivative = (level_plus - level_minus) / (2.0 * step_size)
+        correction = -level / derivative
+        accepted = (
+            clustered[:, None]
+            & finite
+            & jnp.isfinite(level)
+            & jnp.isfinite(derivative)
+            & jnp.isfinite(correction)
+            & (jnp.abs(level) <= 1.0e-3)
+            & (jnp.abs(derivative) > jnp.finfo(candidates.dtype).tiny)
+            & (jnp.abs(correction) < trust_radius)
+            & (current + correction > 0.0)
+        )
+        return jnp.where(accepted, current + correction, current)
+
+    candidates = jax.lax.fori_loop(0, 2, newton_step, candidates)
+    return jnp.concatenate(
+        (boundaries[:, :1], candidates, boundaries[:, -1:]), axis=-1
+    )
+
+
+def _ray_intervals_with_certified_repair(
+    coefficients: Array,
+    roots: Array,
+    valid: Array,
+    lower: Array,
+    upper: Array,
+    inside: Array,
+    suspicious_count: Array,
+    angles: Array,
+    w_center: Array,
+    rho: Array,
+    *,
+    s: Array,
+    q: Array,
+    repair_roots: Array | None = None,
+    repair_valid: Array | None = None,
+) -> tuple[Array, Array, Array, Array]:
+    """Merge accepted companion intervals with factored-level repairs.
+
+    The companion sextic remains the candidate generator.  Only rejected
+    roots whose real centre is certified occupied by the cancellation-free
+    mapped level are promoted, and the repaired intervals are merged with
+    the ordinary accepted intervals in the fixed three-interval capacity.
+    """
+
+    real_dtype = coefficients.real.dtype
+    outer = upper[:, -1]
+
+    def stable_level(points):
+        return _stable_radial_level_value(
+            angles,
+            points,
+            w_center,
+            rho,
+            s=s,
+            q=q,
+        )
+
+    repair_roots = roots if repair_roots is None else repair_roots
+    repair_valid = valid if repair_valid is None else repair_valid
+    repaired_lower, repaired_upper, repaired_active, needed, repair_invalid = (
+        repair_rejected_intervals(
+            repair_roots,
+            repair_valid,
+            jnp.zeros_like(outer),
+            outer,
+            stable_level,
+        )
+    )
+    del needed
+
+    merged_lower, merged_upper, merged_active, _, overflow = _merge_intervals(
+        jnp.concatenate((lower, repaired_lower), axis=-1),
+        jnp.concatenate((upper, repaired_upper), axis=-1),
+        jnp.concatenate((inside, repaired_active), axis=-1),
+    )
+    # ``_merge_intervals`` already reports capacity overflow.  Preserve the
+    # ordinary rejected-real diagnostic and add only unresolved certificates.
+    invalid = (
+        suspicious_count
+        + repair_invalid
+        + overflow.astype(jnp.int32)
+    )
+    # The outer quadrature kernel historically allocates one slot per sextic
+    # boundary (seven cells including the two domain ends).  Keep that public
+    # shape even though the certificate itself has at most three disjoint
+    # occupied intervals; inactive tail slots are the old fixed-capacity
+    # representation and cost no extra work in the caller.
+    capacity = lower.shape[-1]
+    padding = capacity - merged_lower.shape[-1]
+    tail_lower = jnp.zeros(merged_lower.shape[:-1] + (padding,), dtype=merged_lower.dtype)
+    tail_upper = jnp.zeros(merged_upper.shape[:-1] + (padding,), dtype=merged_upper.dtype)
+    tail_active = jnp.zeros(merged_active.shape[:-1] + (padding,), dtype=bool)
+    return (
+        jnp.concatenate((merged_lower, tail_lower), axis=-1),
+        jnp.concatenate((merged_upper, tail_upper), axis=-1),
+        jnp.concatenate((merged_active, tail_active), axis=-1),
+        invalid,
+    )
+
+
 def _ray_intervals_from_roots(
     coefficients: Array,
     roots: Array,
     stable_context: tuple[Array, Array, Array, Array, Array] | None = None,
+    certify_hidden: Array | bool = False,
+    repair_roots: Array | None = None,
+    repair_valid: Array | None = None,
 ) -> tuple[Array, Array, Array, Array]:
     """Select positive real intervals from an already solved root batch."""
 
@@ -185,20 +820,38 @@ def _ray_intervals_from_roots(
     boundaries = jnp.concatenate(
         (jnp.zeros_like(outer[:, None]), clean, outer[:, None]), axis=-1
     )
+    if _ENABLE_ANGULAR_ENDPOINT_CERTIFICATE and stable_context is not None:
+        angles, w_center, rho, s, q = stable_context
+        boundaries = _certify_clustered_radial_boundaries(
+            angles,
+            boundaries,
+            w_center,
+            rho,
+            s=s,
+            q=q,
+        )
     lower = boundaries[:, :-1]
     upper = boundaries[:, 1:]
     midpoint = 0.5 * (lower + upper)
     suspicious = (~valid) & nearly_real & positive
     suspicious_count = jnp.sum(suspicious, axis=-1, dtype=jnp.int32)
 
+    values = jax.vmap(jax.vmap(jnp.polyval, in_axes=(None, 0)))(
+        coefficients,
+        midpoint,
+    )
+    polynomial_inside = values <= 0.0
     if stable_context is None:
-        values = jax.vmap(jax.vmap(jnp.polyval, in_axes=(None, 0)))(
-            coefficients,
-            midpoint,
-        )
-        inside = values <= 0.0
+        inside = polynomial_inside
     else:
         angles, w_center, rho, s, q = stable_context
+        coefficient_scale = jnp.maximum(
+            jnp.max(jnp.abs(coefficients), axis=-1, keepdims=True),
+            jnp.finfo(coefficients.real.dtype).tiny,
+        )
+        no_positive_root = ~jnp.any(valid, axis=-1, keepdims=True)
+        cancellation = jnp.abs(values) <= 1.0e-12 * coefficient_scale
+
         stable_level = _stable_radial_level_value(
             angles,
             midpoint,
@@ -207,7 +860,240 @@ def _ray_intervals_from_roots(
             s=s,
             q=q,
         )
-        inside = stable_level <= 0.0
+        false_tangent = no_positive_root & cancellation
+        # A no-root ray whose midpoint is exactly at polynomial cancellation
+        # is the only case where the stable level can manufacture a broad
+        # [0, outer] interval from a nearly multiple complex pair.  Close
+        # only that artificial cell; valid-root rays keep the robust stable
+        # classifier unchanged.
+        inside = jnp.where(false_tangent, False, stable_level <= 0.0)
+
+    # The mapped-level repair and endpoint certificate are opt-in experiments.
+    # When both are disabled, do not rebuild the same boundaries, evaluate the
+    # stable level a second time, or enter the per-ray refinement vmap below.
+    # That work used to run for every angular quadrature batch even though the
+    # repair result was discarded, making the ordinary theta route roughly
+    # twice as expensive without changing its value.  The first classification
+    # above is the production interval result; retain its historical diagnostic
+    # count and return immediately.
+    if not _ENABLE_HIDDEN_RADIAL_PAIR_REPAIR and not _ENABLE_ANGULAR_ENDPOINT_CERTIFICATE:
+        return lower, upper, inside, suspicious_count
+
+    if _ENABLE_HIDDEN_RADIAL_PAIR_REPAIR and stable_context is not None:
+        angles, w_center, rho, s, q = stable_context
+        # ``certify_hidden`` is raised only by the trace-local clustered-root
+        # witness in ``_ray_intervals``.  Keep ordinary theta rays entirely on
+        # the historical fast path; the fixed-shape certificate is evaluated
+        # only for the suspect batch.
+        candidate_roots = roots if repair_roots is None else repair_roots
+        candidate_valid = valid if repair_valid is None else repair_valid
+        candidate_real = candidate_roots.real
+        candidate_scale = jnp.maximum(1.0, jnp.abs(candidate_real))
+        candidate_positive = candidate_real >= 0.0
+        candidate_finite = jnp.isfinite(candidate_real) & jnp.isfinite(
+            candidate_roots.imag
+        )
+        repair_requested = jnp.asarray(certify_hidden, dtype=bool)
+        repair_needed = repair_requested & jnp.any(
+            candidate_finite & candidate_positive & ~candidate_valid,
+        )
+        return jax.lax.cond(
+            jax.lax.stop_gradient(repair_needed),
+            lambda _: _ray_intervals_with_certified_repair(
+                coefficients,
+                roots,
+                valid,
+                lower,
+                upper,
+                inside,
+                suspicious_count,
+                angles,
+                w_center,
+                rho,
+                s=s,
+                q=q,
+                repair_roots=repair_roots,
+                repair_valid=repair_valid,
+            ),
+            lambda _: (lower, upper, inside, suspicious_count),
+            operand=None,
+        )
+
+        # Companion roots are candidates only.  Repair a rejected conjugate
+        # pair on the real axis when the factored mapped level is occupied at
+        # its centre, then re-run the fixed-shape interval assembly with the
+        # repaired endpoints.  This preserves any other accepted intervals in
+        # the same ray; a repaired pair must never replace the whole ray.
+        repaired_roots, repaired_valid, repair_invalid = _repair_hidden_radial_pairs(
+            angles,
+            roots,
+            valid,
+            lower,
+            upper,
+            inside,
+            w_center,
+            rho,
+            s=s,
+            q=q,
+        )
+        repaired_real = repaired_roots.real
+        repaired_radii = jnp.sort(
+            jnp.where(repaired_valid, repaired_real, jnp.inf), axis=-1
+        )
+        repaired_maximum = jnp.max(
+            jnp.where(repaired_valid, repaired_real, 0.0), axis=-1
+        )
+        repaired_outer = jnp.maximum(repaired_maximum + 1.0, 1.0)
+        repaired_clean = jnp.where(
+            jnp.isfinite(repaired_radii), repaired_radii, repaired_outer[:, None]
+        )
+        repaired_boundaries = jnp.concatenate(
+            (
+                jnp.zeros_like(repaired_outer[:, None]),
+                repaired_clean,
+                repaired_outer[:, None],
+            ),
+            axis=-1,
+        )
+        repaired_boundaries = _certify_clustered_radial_boundaries(
+            angles,
+            repaired_boundaries,
+            w_center,
+            rho,
+            s=s,
+            q=q,
+        )
+        lower = repaired_boundaries[:, :-1]
+        upper = repaired_boundaries[:, 1:]
+        repaired_midpoint = 0.5 * (lower + upper)
+        repaired_values = jax.vmap(jax.vmap(jnp.polyval, in_axes=(None, 0)))(
+            coefficients,
+            repaired_midpoint,
+        )
+        repaired_stable_level = _stable_radial_level_value(
+            angles,
+            repaired_midpoint,
+            w_center,
+            rho,
+            s=s,
+            q=q,
+        )
+        repaired_no_positive = ~jnp.any(
+            repaired_valid, axis=-1, keepdims=True
+        )
+        repaired_scale = jnp.maximum(
+            jnp.max(jnp.abs(coefficients), axis=-1, keepdims=True),
+            jnp.finfo(coefficients.real.dtype).tiny,
+        )
+        repaired_cancellation = (
+            jnp.abs(repaired_values) <= 1.0e-12 * repaired_scale
+        )
+        repaired_false_tangent = repaired_no_positive & repaired_cancellation
+        inside = jnp.where(
+            repaired_false_tangent,
+            False,
+            repaired_stable_level <= 0.0,
+        )
+        # ``certify_hidden`` is a per-ray mask in the normal quadrature path
+        # (and a scalar for the small direct tests).  ``lax.cond`` requires a
+        # scalar predicate, so apply the expensive refinement per row.  This
+        # keeps ordinary rays on the unchanged fast path instead of refining
+        # the complete ray batch whenever one marginal ray is present.
+        certify = jnp.broadcast_to(
+            jnp.asarray(certify_hidden, dtype=bool), (inside.shape[0],)
+        )
+
+        def refine_one(row):
+            angle, row_lower, row_upper, row_inside, row_certify = row
+            interval_scale = jnp.maximum(1.0, jnp.abs(row_upper))
+            narrow = jnp.any(
+                row_inside
+                & ((row_upper - row_lower) <= 4.0e-5 * interval_scale)
+            )
+
+            def do_refine(_):
+                refined_lower, refined_upper, refined = (
+                    _refine_mapped_radial_intervals(
+                        angle[None],
+                        row_lower[None],
+                        row_upper[None],
+                        row_inside[None],
+                        w_center,
+                        rho,
+                        s=s,
+                        q=q,
+                    )
+                )
+                return refined_lower[0], refined_upper[0], refined[0]
+
+            return jax.lax.cond(
+                narrow & row_certify,
+                do_refine,
+                lambda _: (
+                    row_lower,
+                    row_upper,
+                    jnp.zeros_like(row_inside),
+                ),
+                operand=None,
+            )
+
+        lower, upper, endpoint_refined = jax.vmap(refine_one)(
+            (angles, lower, upper, inside, certify)
+        )
+        # A rejected positive candidate can still be an occupied mapped-level
+        # centre when the sextic pair has split into a tiny complex conjugate
+        # perturbation.  Add only a bracket-certified interval; all existing
+        # accepted intervals remain untouched.
+        def add_hidden(_):
+            hidden_lower, hidden_upper, hidden_success = (
+                _repair_hidden_radial_interval(
+                    angles,
+                    roots,
+                    repaired_valid,
+                    lower,
+                    upper,
+                    inside,
+                    w_center,
+                    rho,
+                    s=s,
+                    q=q,
+                )
+            )
+            free = ~inside
+            free_index = jnp.argmax(free, axis=-1)
+            has_free = jnp.any(free, axis=-1)
+            hidden_success = hidden_success & has_free & certify
+            row_index = jnp.arange(inside.shape[0], dtype=jnp.int32)
+            old_lower = lower[row_index, free_index]
+            old_upper = upper[row_index, free_index]
+            lower_added = lower.at[row_index, free_index].set(
+                jnp.where(hidden_success, hidden_lower, old_lower)
+            )
+            upper_added = upper.at[row_index, free_index].set(
+                jnp.where(hidden_success, hidden_upper, old_upper)
+            )
+            inside_added = inside.at[row_index, free_index].set(hidden_success)
+            return lower_added, upper_added, inside_added, hidden_success
+
+        lower, upper, inside, hidden_success = jax.lax.cond(
+            jnp.any(certify),
+            add_hidden,
+            lambda _: (
+                lower,
+                upper,
+                inside,
+                jnp.zeros(inside.shape[0], dtype=bool),
+            ),
+            operand=None,
+        )
+        suspicious_count = (
+            jnp.sum(
+                (~repaired_valid) & nearly_real & positive,
+                axis=-1,
+                dtype=jnp.int32,
+            )
+            + repair_invalid
+        )
 
     return lower, upper, inside, suspicious_count
 
@@ -229,10 +1115,15 @@ def _ray_intervals(
     root_mode: str = "companion",
     ordinate_bound: Array | None = None,
     stable_context: tuple[Array, Array, Array, Array, Array] | None = None,
+    certify_hidden: Array | bool = False,
 ) -> tuple[Array, Array, Array, Array]:
     """Return positive radial intervals using a fixed root schedule."""
 
     ea_uncertain = None
+    requested_certify = jnp.asarray(certify_hidden, dtype=bool)
+    clustered_trial = jnp.asarray(False)
+    repair_roots = None
+    repair_valid = None
     if root_mode.startswith("ea_auto"):
         try:
             iterations = int(root_mode.removeprefix("ea_auto"))
@@ -274,11 +1165,53 @@ def _ray_intervals(
                 & (trial_residual > 2.0e-7)
             )
         )
+        repair_roots = None
+        repair_valid = None
+        if stable_context is not None and _ENABLE_HIDDEN_RADIAL_PAIR_REPAIR:
+            # Keep the polished-real roots as the ordinary interval result.
+            # A separate complex companion solve is used only as a candidate
+            # source for rejected-pair repair; replacing the accepted roots
+            # with it would reintroduce the very ULP jump this certificate is
+            # meant to remove.
+            def companion_candidates(_):
+                candidates = batched_companion_roots(coefficients)
+                candidate_real = candidates.real
+                candidate_scale = jnp.maximum(1.0, jnp.abs(candidate_real))
+                candidate_nearly_real = (
+                    jnp.abs(candidates.imag) <= 2.0e-7 * candidate_scale
+                )
+                candidate_positive = candidate_real >= 0.0
+                candidate_residual = jnp.abs(
+                    jax.vmap(jnp.polyval)(coefficients, candidates)
+                )
+                candidate_valid = (
+                    candidate_nearly_real
+                    & candidate_positive
+                    & (candidate_residual <= 2.0e-7)
+                )
+                return candidates, candidate_valid
+
+            def no_candidates(_):
+                return jnp.zeros_like(trial_roots), jnp.zeros_like(trial_nearly_real)
+
+            repair_roots, repair_valid = jax.lax.cond(
+                requested_certify,
+                companion_candidates,
+                no_candidates,
+                operand=None,
+            )
         roots = jax.lax.cond(
             jax.lax.stop_gradient(needs_complex_fallback),
             lambda _: batched_companion_roots(coefficients),
             lambda _: trial_roots,
             operand=None,
+        )
+        # A batch that contains a clustered candidate is sent through the
+        # fixed-shape certificate together.  This preserves the compiled
+        # companion schedule and avoids a per-ray shape-dependent graph while
+        # still keeping the expensive path off ordinary batches.
+        certify_hidden = (
+            requested_certify if _ENABLE_HIDDEN_RADIAL_PAIR_REPAIR else jnp.asarray(False)
         )
     elif root_mode.startswith("ea_fixed"):
         if ordinate_bound is None:
@@ -341,12 +1274,16 @@ def _ray_intervals(
             lambda _: trial_roots,
             operand=None,
         )
+        certify_hidden = needs_companion_fallback
     else:
         raise ValueError(f"unknown radial root_mode: {root_mode}")
     lower, upper, inside, suspicious = _ray_intervals_from_roots(
         coefficients,
         roots,
         stable_context,
+        certify_hidden=certify_hidden,
+        repair_roots=repair_roots,
+        repair_valid=repair_valid,
     )
     if ea_uncertain is not None:
         # Companion is only a legacy-value fallback here, not a proof that the
@@ -362,12 +1299,14 @@ def _ray_moments(
     root_mode: str = "companion",
     ordinate_bound: Array | None = None,
     stable_context: tuple[Array, Array, Array, Array, Array] | None = None,
+    certify_hidden: Array | bool = False,
 ) -> tuple[Array, Array]:
     lower, upper, inside, suspicious = _ray_intervals(
         coefficients,
         root_mode=root_mode,
         ordinate_bound=ordinate_bound,
         stable_context=stable_context,
+        certify_hidden=certify_hidden,
     )
     moment = 0.5 * jnp.sum(
         jnp.where(inside, (upper - lower) * (upper + lower), 0.0), axis=-1
@@ -375,57 +1314,34 @@ def _ray_moments(
     return moment, suspicious
 
 
-def _endpoint_preserving_union_mask(
+def _trace_sector_union_mask(
     cells: Array,
     physical_limb: Array,
     physical_mask: Array,
-    w_center: Array,
-    rho: Array,
+    following_limb: Array,
+    outgoing_edge_active: Array,
     *,
-    s: Array,
-    q: Array,
     support_uncertain: Array,
-    root_mode: str = "companion",
-    ordinate_bound: Array | None = None,
+    conservative_guard: Array | bool = False,
 ) -> Array:
-    """Return the occupied atomic cells without merging their endpoints.
+    """Return polar sectors swept by the tracked image-limb polylines.
 
-    The source-limb extrema already partition ``[0, 2 pi]`` at every detected
-    angular support endpoint.  On a complete partition, image occupancy cannot
-    change inside one cell, so one independent radial all-root solve at its
-    midpoint identifies the union member.  The original endpoints are kept:
-    neighbouring occupied intervals are deliberately *not* merged before the
-    quadrature rule is applied.
+    This is the branch-aware version of the original GPU-v1 support builder:
+    image-limb coordinates alone determine which angular sectors can contain
+    an image.  In particular, support construction performs no independent
+    radial all-root solve at cell midpoints.  The extrema partition keeps the
+    square-root onsets at quadrature endpoints, while consecutive tracked limb
+    samples identify the occupied side of that partition.
 
-    A physical limb sample forces its containing cell to remain active.  This
-    preserves a component represented by only one or two samples near a fold,
-    even when the cell midpoint lies just outside that very short component.
-    If the trace or any required tangency is uncertain, no cell is removed;
-    support reduction is an optimisation and is never allowed to become a
-    correctness assumption.
+    A physical sample also retains its containing sector, covering a fold image
+    represented by only one sample.  ``conservative_guard`` retains the full
+    one-dimensional partition for a trace-proven hidden-loop or crossing case.
     """
 
     nonempty = cells[:, 1] > cells[:, 0]
 
-    def reduce_support(_):
+    def trace_support(_):
         midpoint = 0.5 * (cells[:, 0] + cells[:, 1])
-        coefficients = jax.vmap(
-            lambda angle: binary_radial_level_set_coefficients(
-                angle,
-                w_center,
-                rho,
-                s=s,
-                q=q,
-            )
-        )(midpoint)
-        moments, suspicious = _ray_moments(
-            coefficients,
-            root_mode=root_mode,
-            ordinate_bound=ordinate_bound,
-            stable_context=(midpoint, w_center, rho, s, q),
-        )
-        occupied = (moments > 0.0) | (suspicious > 0) | ~jnp.isfinite(moments)
-
         sample_angles = jnp.mod(jnp.angle(physical_limb), 2.0 * jnp.pi).reshape(-1)
         sample_mask = physical_mask.reshape(-1) & jnp.isfinite(sample_angles)
         half_width = 0.5 * (cells[:, 1] - cells[:, 0])
@@ -442,14 +1358,69 @@ def _endpoint_preserving_union_mask(
             & (circular_distance <= half_width[:, None] + endpoint_tolerance),
             axis=1,
         )
-        return nonempty & (occupied | contains_limb_sample)
 
+        start = jnp.mod(jnp.angle(physical_limb), 2.0 * jnp.pi)
+        step = jnp.angle(following_limb * jnp.conjugate(physical_limb))
+        connected = (
+            outgoing_edge_active & jnp.isfinite(start) & jnp.isfinite(step)
+        )
+        relative = jnp.angle(
+            jnp.exp(1.0j * (midpoint[:, None, None] - start[None, :, :]))
+        )
+        tolerance = 64.0 * jnp.finfo(cells.dtype).eps
+        swept_positive = (
+            (step[None, :, :] >= 0.0)
+            & (relative >= -tolerance)
+            & (relative <= step[None, :, :] + tolerance)
+        )
+        swept_negative = (
+            (step[None, :, :] < 0.0)
+            & (relative <= tolerance)
+            & (relative >= step[None, :, :] - tolerance)
+        )
+        swept = jnp.any(
+            connected[None, :, :] & (swept_positive | swept_negative),
+            axis=(1, 2),
+        )
+        return nonempty & (swept | contains_limb_sample)
+
+    # A trace-proven hidden loop or 3-to-5 cut is the one case where a
+    # physical-limb-only sector union is not sufficient: the occupied sector
+    # can be absent from the boundary sample altogether.  Keep the existing
+    # one-dimensional partition as a conservative guard only for that
+    # structural witness.  This does not create a product support or use any
+    # lens/source parameter band.
+    conservative_guard = jnp.asarray(conservative_guard)
     return jax.lax.cond(
-        jnp.asarray(support_uncertain),
+        conservative_guard,
         lambda _: nonempty,
-        reduce_support,
+        lambda _: trace_support(None),
         operand=None,
     )
+
+
+def _angular_trace_edge_consistent(
+    physical_limb: Array,
+    physical_mask: Array,
+    neighbors: tuple[Array, Array, Array, Array],
+    edge_activity: tuple[Array, Array],
+) -> Array:
+    """Reject a sampled angular turn that straddles a canonical edge cut."""
+
+    previous_limb, following_limb, previous_mask, following_mask = neighbors
+    incoming_edge_active, outgoing_edge_active = edge_activity
+    previous_step = jnp.angle(physical_limb * jnp.conjugate(previous_limb))
+    following_step = jnp.angle(following_limb * jnp.conjugate(physical_limb))
+    sampled_turn = (
+        physical_mask
+        & previous_mask
+        & following_mask
+        & (previous_step * following_step <= 0.0)
+    )
+    cut_turn = sampled_turn & ~(
+        incoming_edge_active & outgoing_edge_active
+    )
+    return ~jnp.any(cut_turn)
 
 
 def _split_overlapping_angular_support(
@@ -521,15 +1492,27 @@ def _split_angular_support_at_angle(
 
     cells = support.cells
     active = support.active
-    angle = jnp.mod(jnp.asarray(angle, dtype=cells.dtype), 2.0 * jnp.pi)
+    raw_angle = jnp.asarray(angle, dtype=cells.dtype)
+    angle_valid = jnp.isfinite(raw_angle)
+    angle = jnp.mod(raw_angle, 2.0 * jnp.pi)
     tolerance = 64.0 * jnp.finfo(cells.dtype).eps
+    # A ghost/crossing angle may fall in a sector that the physical limb
+    # never visits.  Such a sector is precisely the conservative guard that
+    # the trace is asking us to retain; requiring ``active`` here silently
+    # discards it before the split can be applied.  Zero-width/padding cells
+    # are still excluded by the strict bounds below.
     contains = (
-        active
+        angle_valid
         & (angle > cells[:, 0] + tolerance)
         & (angle < cells[:, 1] - tolerance)
     )
     selected = jnp.argmax(contains)
-    spare = jnp.nonzero(~active, size=1, fill_value=-1)[0][0]
+    # If the target sector is itself inactive, it cannot also serve as the
+    # destination for the second half of the split.  Exclude it from the
+    # spare search; otherwise the scatter below overwrites the first half and
+    # the supposed guard still contains only one side of the interval.
+    spare_mask = (~active) & (jnp.arange(active.size) != selected)
+    spare = jnp.nonzero(spare_mask, size=1, fill_value=-1)[0][0]
     applied = jnp.asarray(enabled) & jnp.any(contains) & (spare >= 0)
     safe_spare = jnp.maximum(spare, 0)
 
@@ -537,7 +1520,12 @@ def _split_angular_support_at_angle(
         lower, upper = cells[selected]
         split_cells = cells.at[selected].set(jnp.stack((lower, angle)))
         split_cells = split_cells.at[safe_spare].set(jnp.stack((angle, upper)))
-        split_active = active.at[safe_spare].set(True)
+        # A rejected-root or cut-transition angle may lie in a sector that
+        # the physical limb never visits.  In that case the selected cell is
+        # intentionally inactive before this call; the angle is a trace-only
+        # conservative guard and both sides of its original cell must enter
+        # the single partitioned integral.
+        split_active = active.at[selected].set(True).at[safe_spare].set(True)
         return support._replace(cells=split_cells, active=split_active)
 
     return (
@@ -623,7 +1611,9 @@ def _angular_support_cells_from_trace(
     minimum_ghost_residual: Array,
     limb_topology: Array,
     neighbors: tuple[Array, Array, Array, Array] | None = None,
+    edge_activity: tuple[Array, Array] | None = None,
     root_mode: str = "companion",
+    refine_all_candidates: bool = False,
 ) -> AngularSupport:
     """Build polar support from an already traced source boundary.
 
@@ -636,13 +1626,25 @@ def _angular_support_cells_from_trace(
     if neighbors is None:
         neighbors = tracked_limb_neighbors(physical_limb, physical_mask)
     previous_limb, following_limb, previous_mask, following_mask = neighbors
+    if edge_activity is None:
+        edge_activity = limb_edge_activity_from_masks(
+            physical_mask,
+            previous_mask,
+            following_mask,
+        )
+    incoming_edge_active, outgoing_edge_active = edge_activity
     previous_step = jnp.angle(physical_limb * jnp.conjugate(previous_limb))
     following_step = jnp.angle(following_limb * jnp.conjugate(physical_limb))
-    sign_change = previous_step * following_step <= 0.0
+    sampled_sign_change = (
+        previous_mask
+        & following_mask
+        & (previous_step * following_step <= 0.0)
+    )
     previous_endpoint = physical_mask & ~previous_mask
     following_endpoint = physical_mask & ~following_mask
     physical_endpoint = previous_endpoint | following_endpoint
-    candidate_mask = physical_mask & (sign_change | physical_endpoint)
+    candidate_mask = physical_mask & (sampled_sign_change | physical_endpoint)
+    partition_candidate_mask = candidate_mask
 
     center = jnp.angle(physical_limb)
     minus = center - previous_step
@@ -656,7 +1658,11 @@ def _angular_support_cells_from_trace(
     raw_offset = 0.5 * (minus - plus) / safe_curvature
     offset = jnp.clip(raw_offset, -1.0, 1.0)
     fitted = center + 0.5 * (plus - minus) * offset + 0.5 * curvature * offset**2
-    fitted = jnp.where(previous_mask & following_mask, fitted, center)
+    fitted = jnp.where(
+        incoming_edge_active & outgoing_edge_active,
+        fitted,
+        center,
+    )
     fitted = jnp.mod(fitted, 2.0 * jnp.pi)
 
     maximum_extrema = 24
@@ -690,8 +1696,35 @@ def _angular_support_cells_from_trace(
     # extremum. This is a local continuity certificate, independent of trace
     # density.
     flat_requires_tangency = (
-        candidate_mask & (~physical_endpoint | isolated_turn)
+        # Root-slot changes can mimic a physical branch end. The LD event
+        # builder refines every candidate; its critical crossings are added
+        # independently. Keep the historical uniform chart policy by default.
+        candidate_mask & (refine_all_candidates | ~physical_endpoint | isolated_turn)
     ).reshape(-1)
+    # A root slot can remain physical around the complete source limb while
+    # its local angular turn is hidden by a short monodromy jump.  In that
+    # case the sign-change candidate set has no endpoint for that branch and
+    # the conservative full partition can still miss its occupied sector.
+    # Add only the sampled angular minimum/maximum for branches with no
+    # candidate at all.  This is a fixed-shape, trace-only guard: it neither
+    # reconnects cut edges nor creates extra panels for already resolved
+    # branches.
+    branch_physical = jnp.any(physical_mask & jnp.isfinite(center), axis=1)
+    branch_candidate = jnp.any(candidate_mask, axis=1)
+    missing_branch = branch_physical & ~branch_candidate
+    sample_index = jnp.arange(center.shape[1], dtype=jnp.int32)
+    center_mod = jnp.mod(center, 2.0 * jnp.pi)
+    branch_minimum = jnp.argmin(
+        jnp.where(physical_mask, center_mod, jnp.inf), axis=1
+    )
+    branch_maximum = jnp.argmax(
+        jnp.where(physical_mask, center_mod, -jnp.inf), axis=1
+    )
+    branch_fallback = missing_branch[:, None] & (
+        (sample_index[None, :] == branch_minimum[:, None])
+        | (sample_index[None, :] == branch_maximum[:, None])
+    )
+    candidate_mask = candidate_mask | branch_fallback
     # ``trace_binary_source_limb`` carries every quintic root forward as the
     # next solve's initial value. Opposite signed angular increments on one
     # continuously tracked branch therefore bracket a real support extremum,
@@ -703,8 +1736,8 @@ def _angular_support_cells_from_trace(
     branch_bracketed = (
         candidate_mask
         & ~physical_endpoint
-        & previous_mask
-        & following_mask
+        & incoming_edge_active
+        & outgoing_edge_active
         & jnp.isfinite(previous_limb)
         & jnp.isfinite(physical_limb)
         & jnp.isfinite(following_limb)
@@ -734,6 +1767,7 @@ def _angular_support_cells_from_trace(
         active=indices >= 0,
         required=requires_tangency,
         bracketed=bracketed,
+        implicit_derivatives=refine_all_candidates,
     )
     n_extrema = jnp.sum(flat_mask, dtype=jnp.int32)
     topology_uncertain = topology_uncertain | (n_extrema > maximum_extrema)
@@ -759,21 +1793,29 @@ def _angular_support_cells_from_trace(
     )
     cells = jnp.stack((endpoints[:-1], endpoints[1:]), axis=-1)
     support_uncertain = topology_uncertain | ~jnp.all(tangencies_valid)
-    active = _endpoint_preserving_union_mask(
+    physical_counts = jnp.sum(physical_mask, axis=0, dtype=jnp.int32)
+    ghost_ratio = minimum_ghost_residual / jnp.maximum(
+        rho, jnp.finfo(cells.dtype).tiny
+    )
+    ghost_guard_valid = jnp.isfinite(ghost_ratio) & (ghost_ratio < 1.5)
+    spacing_guard_valid = jnp.max(
+        jnp.abs(jnp.angle(following_limb * jnp.conjugate(physical_limb)))
+    ) >= 5.0e-4
+    crossing_guard = (
+        limb_topology
+        & (jnp.min(physical_counts) == 3)
+        & (jnp.max(physical_counts) == 5)
+        & ghost_guard_valid
+        & spacing_guard_valid
+    )
+    active = _trace_sector_union_mask(
         cells,
         physical_limb,
         physical_mask,
-        w_center,
-        rho,
-        s=s,
-        q=q,
+        following_limb,
+        outgoing_edge_active,
         support_uncertain=support_uncertain,
-        root_mode=root_mode,
-        ordinate_bound=(
-            _radial_image_bound(w_center, rho, s=s, q=q)
-            if root_mode.startswith(("ea_fixed", "ea_auto"))
-            else None
-        ),
+        conservative_guard=crossing_guard,
     )
     return AngularSupport(
         cells,
@@ -783,6 +1825,47 @@ def _angular_support_cells_from_trace(
         limb_topology,
         tangencies_valid,
     )
+
+
+@jax.custom_jvp
+def _implicit_angular_tangency_angles(angles, radii, converged, w_center, rho, s, q):
+    """Keep the refined angles and differentiate only converged tangencies."""
+
+    return angles
+
+
+@_implicit_angular_tangency_angles.defjvp
+def _implicit_angular_tangency_angles_jvp(primals, tangents):
+    angles, radii, converged, w_center, rho, s, q = primals
+    _, _, _, dw, drho, ds, dq = tangents
+    # Failed Newton lanes retain their historical zero endpoint derivative.
+    # Benign coordinates prevent undefined auxiliary tangents in those lanes.
+    radius = jnp.where(converged, radii, 0.417)
+    angle = jnp.where(converged, angles, 0.263)
+    image = radius * jnp.exp(1.0j * angle)
+
+    def level(w_center, rho, s, q):
+        lens = binary_geometry(s, q)
+        mapped = lens_eq(image - lens.shifted, nlenses=2, a=lens.a, e1=lens.e1)
+        offset = mapped + lens.shifted - w_center
+        return jnp.real(offset * jnp.conj(offset)) - rho * rho
+
+    lens = binary_geometry(s, q)
+    conjugate = jnp.conj(image) - lens.shifted
+    shear = lens.e1 / (conjugate - lens.a)**2 + (1 - lens.e1) / (conjugate + lens.a)**2
+    mapped = lens_eq(image - lens.shifted, nlenses=2, a=lens.a, e1=lens.e1)
+    offset = mapped + lens.shifted - w_center
+    image_motion = 1.0j * image - 1.0j * shear * jnp.conj(image)
+    angular_derivative = 2 * jnp.real(jnp.conj(offset) * image_motion)
+    _, parameter_derivative = jax.jvp(
+        level, (w_center, rho, s, q), (dw, drho, ds, dq),
+    )
+    # H(r, theta, p)=0 and H_r=0 imply dtheta=-H_p/H_theta. No
+    # differentiation of Newton iterates or 2x2 implicit solve is needed.
+    # A genuinely singular accepted tangency is not regularized by epsilon.
+    denominator = jnp.where(converged, angular_derivative, 1.0)
+    derivative = jnp.where(converged, -parameter_derivative / denominator, 0.0)
+    return angles, derivative
 
 
 def _refine_angular_tangencies(
@@ -797,6 +1880,7 @@ def _refine_angular_tangencies(
     active: Array,
     required: Array,
     bracketed: Array,
+    implicit_derivatives: bool = False,
 ) -> tuple[Array, Array]:
     """Project traced extrema onto exact radial level-set tangencies.
 
@@ -807,9 +1891,12 @@ def _refine_angular_tangencies(
     exact endpoints satisfy ``H(r, theta) = dH/dr = 0``; six damped Newton
     steps remove that trace-spacing error without densifying the support.
 
-    Endpoint motion contributes no boundary term because the radial moment is
-    zero at a tangency, so stopping its derivative keeps forward AD compact
-    while preserving the differentiated integral.
+    The historical default stops endpoint motion. The LD event builder opts
+    into implicit derivatives of converged tangencies, including movement of
+    the finite quadrature nodes. Failed solves instead differentiate the
+    fitted trace endpoint that is actually returned.
+    At singular tangencies or discrete support/allocation changes, forward
+    derivatives are not an accuracy certificate.
     """
 
     lens = binary_geometry(s, q)
@@ -898,7 +1985,8 @@ def _refine_angular_tangencies(
             & (refined[0] > 0.0)
         )
         angle = jnp.where(converged, refined[1], fallback_angle)
-        return jnp.mod(angle, 2.0 * jnp.pi), converged | is_bracketed
+        return (jnp.mod(angle, 2.0 * jnp.pi), converged | is_bracketed,
+                refined[0], converged)
 
     # Compact extrema before Newton. A vectorized 24-slot solve made every
     # polar point pay for padding and branch endpoints; the sequential CPU
@@ -914,23 +2002,38 @@ def _refine_angular_tangencies(
     initial_valid = ~required
 
     def refine_selected(compact_index, state):
-        refined_angles, valid = state
+        refined_angles, valid, radii, convergence = state
         index = indices[compact_index]
-        angle, is_valid = refine_one(
+        angle, is_valid, radius, converged = refine_one(
             initial_images[index],
             initial_angles[index],
             fallback_angles[index],
             bracketed[index],
         )
-        return refined_angles.at[index].set(angle), valid.at[index].set(is_valid)
+        return (
+            refined_angles.at[index].set(angle),
+            valid.at[index].set(is_valid),
+            radii.at[index].set(radius),
+            convergence.at[index].set(converged),
+        )
 
-    refined, valid = jax.lax.fori_loop(
+    refined, valid, radii, converged = jax.lax.fori_loop(
         jnp.int32(0),
         n_required,
         refine_selected,
-        (initial_refined, initial_valid),
+        (initial_refined, initial_valid, jnp.abs(initial_images),
+         jnp.zeros_like(active)),
     )
-    return jax.lax.stop_gradient(refined), valid
+    refined = jax.lax.stop_gradient(refined)
+    if implicit_derivatives:
+        refined = _implicit_angular_tangency_angles(
+            refined, jax.lax.stop_gradient(radii), converged,
+            w_center, rho, s, q,
+        )
+        # A failed solve returns the fitted trace angle. Freezing that angle
+        # drops a real endpoint dependency and disagrees with finite differences.
+        refined = jnp.where(converged, refined, initial_refined)
+    return refined, valid
 
 
 def _uniform_result_from_support(
@@ -947,6 +2050,7 @@ def _uniform_result_from_support(
     limb_topology: Array,
     tangencies_valid: Array | bool = True,
     root_mode: str = "companion",
+    certify_intervals: Array | bool = False,
 ) -> AngularMomentResult:
     """Integrate one angular rule on an already constructed support."""
 
@@ -980,6 +2084,7 @@ def _uniform_result_from_support(
                 root_mode=root_mode,
                 ordinate_bound=ordinate_bound,
                 stable_context=(theta, w_center, rho, s, q),
+                certify_hidden=certify_intervals,
             )
             return jnp.sum(angular_weights * moments), jnp.sum(invalid, dtype=jnp.int32)
 

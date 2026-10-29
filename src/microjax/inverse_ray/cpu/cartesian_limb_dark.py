@@ -21,19 +21,30 @@ from .angular_profile import (
 from .cartesian_moment import (
     CartesianAdaptiveResult,
     CartesianMomentResult,
+    _ENABLE_CARTESIAN_INTERVAL_CERTIFICATE,
     _cartesian_support_cells,
     _cartesian_support_cells_from_trace,
     _cartesian_trace_diagnostics,
     _bernstein_half_subdivide,
+    _certified_companion_intervals,
     _fixed_independent_ea_roots,
+    _mapped_sign_companion_intervals,
     _normalized_axis,
     binary_line_level_set_coefficients,
 )
+from .projection_moments import _sum_status
 from .roots import batched_polished_real_companion_roots
+from .line_roots import physical_binary_line_level_set_roots as binary_line_level_set_roots
 from .quadrature import G7_W_ON_GK15, GK15_W, GK15_X
-from .support import trace_binary_source_limb, tracked_limb_neighbors
+from .support import trace_binary_source_limb, tracked_limb_neighbors, unwrap_support_1d
 
 Array = jnp.ndarray
+
+# Fixed-budget outer-panel layout used by the one-shot orders.  Kept as
+# module constants so diagnostics can compare layouts without changing the
+# numerical route or node count.
+_OUTER_PANEL_PARTS_12 = 3
+_OUTER_PANEL_PARTS_21 = 21
 
 _SEXTIC_DEGREE = 6
 _BERNSTEIN_SAMPLE_FRACTION = np.linspace(0.0, 1.0, _SEXTIC_DEGREE + 1)
@@ -95,8 +106,19 @@ def _root_negative_intervals(
 
     real = roots.real
     scale = jnp.maximum(1.0, jnp.abs(real))
-    residual = jnp.abs(jax.vmap(jnp.polyval)(coefficients, roots))
     nearly_real = jnp.abs(roots.imag) <= 2.0e-7 * scale
+    return _negative_intervals_from_real_mask(coefficients, roots, nearly_real)
+
+
+def _negative_intervals_from_real_mask(
+    coefficients: Array,
+    roots: Array,
+    nearly_real: Array,
+) -> tuple[Array, Array, Array, Array]:
+    """Pair accepted real boundaries while retaining residual diagnostics."""
+
+    real = roots.real
+    residual = jnp.abs(jax.vmap(jnp.polyval)(coefficients, roots))
     valid = nearly_real & (residual <= 2.0e-7)
     ordered = jnp.sort(jnp.where(valid, real, jnp.inf), axis=-1)
     root_count = jnp.sum(valid, axis=-1, dtype=jnp.int32)
@@ -321,8 +343,43 @@ def _strip_profile_moments(
     bernstein_depth: int = 19,
     bernstein_capacity: int = 10,
 ) -> tuple[Array, Array, Array]:
-    if root_mode == "companion":
-        lower, upper, active, invalid = _companion_negative_intervals(coefficients)
+    if root_mode == "companion_mapped_sign":
+        lower, upper, active, invalid = _mapped_sign_companion_intervals(
+            coefficients,
+            abscissa,
+            w_center,
+            rho,
+            s=s,
+            q=q,
+            axis=axis,
+        )
+    elif root_mode == "companion_certified" or (
+        root_mode == "companion" and _ENABLE_CARTESIAN_INTERVAL_CERTIFICATE
+    ):
+        lower, upper, active, invalid = _certified_companion_intervals(
+            coefficients,
+            abscissa,
+            w_center,
+            rho,
+            s=s,
+            q=q,
+            axis=axis,
+            ordinate_bound=ordinate_bound,
+        )
+    elif root_mode == "companion":
+        roots = binary_line_level_set_roots(
+            abscissa * axis,
+            1.0j * axis,
+            w_center,
+            rho,
+            s=s,
+            q=q,
+        )
+        # The real companion solver keeps real roots exactly real.  A small
+        # nonzero imaginary part represents a conjugate pair, not an interval.
+        lower, upper, active, invalid = _negative_intervals_from_real_mask(
+            coefficients, roots, roots.imag == 0
+        )
     elif root_mode.startswith("ea_fixed"):
         if ordinate_bound is None:
             raise ValueError("fixed EA requires ordinate_bound")
@@ -407,6 +464,31 @@ def _strip_profile_moments(
     return uniform, profile, invalid
 
 
+def _cartesian_outer_rule(n_slice, dtype):
+    """Historical rule for the public fixed-order Cartesian kernels."""
+
+    panel_parts = (
+        _OUTER_PANEL_PARTS_12
+        if n_slice == 12
+        else _OUTER_PANEL_PARTS_21
+        if n_slice == 21
+        else 1
+    )
+    nodes_per_panel = n_slice // panel_parts
+    nodes, weights = np.polynomial.legendre.leggauss(nodes_per_panel)
+    nodes = jnp.asarray(nodes, dtype=dtype)
+    weights = jnp.asarray(weights, dtype=dtype)
+    panel_index = jnp.arange(panel_parts, dtype=dtype)[:, None]
+    panel_width = (0.5 * jnp.pi) / panel_parts
+    transform = (panel_index * panel_width
+                 + 0.5 * panel_width * (nodes[None, :] + 1.0)).reshape(-1)
+    weights = jnp.broadcast_to(
+        0.5 * panel_width * weights[None, :],
+        (panel_parts, nodes_per_panel),
+    ).reshape(-1)
+    return jnp.sin(transform) ** 2, weights * jnp.sin(2.0 * transform)
+
+
 def _mag_limb_dark_cartesian_impl(
     w_center: complex | Array,
     rho: float | Array,
@@ -423,6 +505,8 @@ def _mag_limb_dark_cartesian_impl(
     bernstein_depth: int = 19,
     bernstein_capacity: int = 10,
     return_info: bool = False,
+    outer_rule=_cartesian_outer_rule,
+    moment_integrator=None,
 ) -> Array | CartesianMomentResult:
     """Integrate uniform area and the LD radial profile in the same strips."""
 
@@ -451,18 +535,9 @@ def _mag_limb_dark_cartesian_impl(
             n_limb=n_limb,
             axis=axis,
         )
+    support = unwrap_support_1d(support)
     cells, active, topology, ghost, limb_topology = support
-    nodes, weights = np.polynomial.legendre.leggauss(n_slice)
-    nodes = jnp.asarray(nodes, dtype=w_center.real.dtype)
-    weights = jnp.asarray(weights, dtype=w_center.real.dtype)
-    transform = 0.25 * jnp.pi * (nodes + 1.0)
-
-    def integrate_cell(cell_index, state):
-        uniform_total, profile_total, invalid_total = state
-        bounds = cells[cell_index]
-        width = bounds[1] - bounds[0]
-        abscissa = bounds[0] + width * jnp.sin(transform) ** 2
-        strip_weights = weights * 0.25 * jnp.pi * width * jnp.sin(2.0 * transform)
+    def profile_moments(abscissa):
         coefficients = jax.vmap(
             lambda x: binary_line_level_set_coefficients(
                 x * axis,
@@ -487,22 +562,53 @@ def _mag_limb_dark_cartesian_impl(
             bernstein_depth=bernstein_depth,
             bernstein_capacity=bernstein_capacity,
         )
-        return (
-            uniform_total + jnp.sum(strip_weights * uniform),
-            profile_total + jnp.sum(strip_weights * profile),
-            invalid_total + jnp.sum(invalid, dtype=jnp.int32),
-        )
+        return uniform, profile, invalid
 
-    uniform, profile, invalid = jax.lax.fori_loop(
-        jnp.int32(0),
-        jnp.sum(active, dtype=jnp.int32),
-        integrate_cell,
-        (
-            jnp.asarray(0.0, dtype=w_center.real.dtype),
-            jnp.asarray(0.0, dtype=w_center.real.dtype),
+    if moment_integrator is None:
+        unit_nodes, unit_weights = outer_rule(n_slice, w_center.real.dtype)
+        active_indices = jnp.nonzero(
+            active,
+            size=active.size,
+            fill_value=0,
+        )[0]
+
+        def integrate_cell(active_index, state):
+            uniform_total, profile_total, invalid_total = state
+            cell_index = active_indices[active_index]
+            bounds = cells[cell_index]
+            width = bounds[1] - bounds[0]
+            abscissa = bounds[0] + width * unit_nodes
+            strip_weights = unit_weights * width
+            uniform, profile, invalid = profile_moments(abscissa)
+            return (
+                uniform_total + jnp.sum(strip_weights * uniform),
+                profile_total + jnp.sum(strip_weights * profile),
+                invalid_total + jnp.sum(invalid, dtype=jnp.int32),
+            )
+
+        uniform, profile, invalid = jax.lax.fori_loop(
             jnp.int32(0),
-        ),
-    )
+            jnp.sum(active, dtype=jnp.int32),
+            integrate_cell,
+            (
+                jnp.asarray(0.0, dtype=w_center.real.dtype),
+                jnp.asarray(0.0, dtype=w_center.real.dtype),
+                jnp.int32(0),
+            ),
+        )
+        n_nodes = jnp.int32(n_slice) * jnp.sum(active, dtype=jnp.int32)
+    else:
+        def integrand(abscissa):
+            uniform, profile, invalid = profile_moments(abscissa)
+            moments = jnp.stack((uniform, profile), axis=-1)
+            return moments, jnp.zeros_like(moments), invalid
+
+        integral = moment_integrator(
+            integrand, cells, active, status_reducer=_sum_status,
+        )
+        uniform, profile = integral.value
+        invalid = integral.status
+        n_nodes = integral.n_nodes
     normalization = 3.0 / (jnp.pi * rho**2 * (3.0 - u1))
     magnification = normalization * ((1.0 - u1) * uniform + u1 * profile)
     status = jnp.where(
@@ -513,7 +619,7 @@ def _mag_limb_dark_cartesian_impl(
     result = CartesianMomentResult(
         magnification,
         jnp.asarray(jnp.inf, dtype=w_center.real.dtype),
-        jnp.int32(n_slice) * jnp.sum(active, dtype=jnp.int32),
+        n_nodes,
         invalid,
         ghost / jnp.maximum(rho, jnp.finfo(rho.dtype).tiny),
         limb_topology,
@@ -573,6 +679,11 @@ def _mag_limb_dark_cartesian_gk15_from_support(
     fine_weights = jnp.asarray(GK15_W, dtype=w_center.real.dtype)
     coarse_weights = jnp.asarray(G7_W_ON_GK15, dtype=w_center.real.dtype)
     transform = 0.25 * jnp.pi * (nodes + 1.0)
+    active_indices = jnp.nonzero(
+        active,
+        size=active.size,
+        fill_value=0,
+    )[0]
     lens = binary_geometry(s, q)
     lens_radius = jnp.maximum(
         jnp.abs(lens.shifted - lens.a), jnp.abs(lens.shifted + lens.a)
@@ -584,8 +695,9 @@ def _mag_limb_dark_cartesian_gk15_from_support(
     )
     ordinate_bound *= 1.0 + 32.0 * jnp.finfo(w_center.real.dtype).eps
 
-    def integrate_cell(cell_index, state):
+    def integrate_cell(active_index, state):
         fine_uniform, fine_profile, coarse_uniform, coarse_profile, invalid = state
+        cell_index = active_indices[active_index]
         bounds = cells[cell_index]
         width = bounds[1] - bounds[0]
         abscissa = bounds[0] + width * jnp.sin(transform) ** 2

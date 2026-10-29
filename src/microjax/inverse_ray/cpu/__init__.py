@@ -14,6 +14,7 @@ from .one_shot import (
     ONE_SHOT_INVALID_ROOTS,
     ONE_SHOT_NONFINITE,
     ONE_SHOT_UNRESOLVED_GEOMETRY,
+    mag_binary_cpu_one_shot,
     mag_limb_dark_cpu_one_shot,
     mag_uniform_cpu_one_shot,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "mag_limb_dark_cpu_fixed",
     "mag_binary_cpu_lightcurve",
     "mag_binary_cpu_one_shot_lightcurve",
+    "mag_binary_cpu_one_shot",
     "mag_limb_dark_cpu_one_shot",
     "mag_uniform_cpu_one_shot",
 ]
