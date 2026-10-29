@@ -41,7 +41,7 @@ def microjax_ephem_trajectory(t, u0, t0, tE, piEN, piEE, RA, Dec):
         ("17:45:40 -29:00:28", 0.30, 20.0, 7500.0, -0.8, 0.6),
     ],
 )
-def test_pspl_parallax_matches_mulens(coords, u0, tE, t0, piEN, piEE):
+def test_parallax_trajectory_matches_mulens(coords, u0, tE, t0, piEN, piEE):
     import MulensModel as mm
     from astropy.coordinates import SkyCoord
     import astropy.units as u

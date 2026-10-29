@@ -11,7 +11,7 @@
 """Point-source microlensing utilities (JAX).
 
 This module provides JAX-friendly implementations of core operations for
-point-source gravitational microlensing by up to three point-mass lenses.
+point-source gravitational microlensing by binary and triple point-mass lenses.
 
 Functions
 ---------
@@ -68,7 +68,13 @@ from .coeffs import _poly_coeffs_binary, _poly_coeffs_critical_binary
 from .coeffs import _poly_coeffs_critical_triple, _poly_coeffs_triple_CM
 from .lens_geometry import triple_lens_geometry
 
-#@partial(jit, static_argnames=("nlenses"))
+
+def _validate_nlenses(nlenses: int) -> None:
+    """Validate the static lens-count argument before entering either model."""
+    if nlenses not in (2, 3):
+        raise ValueError("`nlenses` must be 2 or 3.")
+
+
 @partial(jit, static_argnames=("nlenses",))
 def lens_eq(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
     """Lens equation mapping image-plane ``z`` to source-plane ``w``.
@@ -78,7 +84,7 @@ def lens_eq(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
     z : jax.Array
         Complex scalar or array of image-plane coordinates.
     nlenses : int, optional
-        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
+        Number of point-mass lenses (2 or 3). Defaults to 2.
     params : dict
         Lens configuration parameters. For ``nlenses = 2`` expect ``a`` (half
         separation) and ``e1`` (mass fraction at ``+a``). For ``nlenses = 3``
@@ -94,10 +100,8 @@ def lens_eq(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
     All arithmetic is performed in complex form; gradients propagate through
     JAX as expected.
     """
+    _validate_nlenses(nlenses)
     zbar = jnp.conjugate(z)
-
-    if nlenses == 1:
-        return z - 1.0 / zbar
 
     if nlenses == 2:
         a, e1 = params["a"], params["e1"]
@@ -119,9 +123,8 @@ def lens_eq(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
             - (1.0 - e1 - e2) / (zbar - jnp.conjugate(r3_complex))
         )
 
-    raise ValueError("`nlenses` has to be set to be <= 3.")
+    raise ValueError("`nlenses` must be 2 or 3.")
     
-#@partial(jit, static_argnames=("nlenses"))
 @partial(jit, static_argnames=("nlenses",))
 def lens_eq_det_jac(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
     """Determinant of the Jacobian of the lens mapping at ``z``.
@@ -131,7 +134,7 @@ def lens_eq_det_jac(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
     z : jax.Array
         Complex scalar or array of image-plane coordinates.
     nlenses : int, optional
-        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
+        Number of point-mass lenses (2 or 3). Defaults to 2.
     params : dict
         Lens configuration parameters matching those accepted by
         :func:`lens_eq`.
@@ -145,10 +148,8 @@ def lens_eq_det_jac(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
     -----
     Point-source magnification is ``|det J|^{-1}`` for each image.
     """
+    _validate_nlenses(nlenses)
     zbar = jnp.conjugate(z)
-
-    if nlenses == 1:
-        return 1.0 - 1.0 / jnp.abs(zbar**2)
 
     if nlenses == 2:
         a, e1 = params["a"], params["e1"]
@@ -175,7 +176,7 @@ def lens_eq_det_jac(z: jax.Array, nlenses: int = 2, **params) -> jax.Array:
             ** 2
         )
 
-    raise ValueError("`nlenses` has to be set to be <= 3.")
+    raise ValueError("`nlenses` must be 2 or 3.")
     
 @partial(jit, static_argnames=("npts", "nlenses"))
 def critical_and_caustic_curves(
@@ -191,11 +192,10 @@ def critical_and_caustic_curves(
         Number of sampling points on the unit circle used to construct the
         critical-curve polynomial. Defaults to 200.
     nlenses : int, optional
-        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
+        Number of point-mass lenses (2 or 3). Defaults to 2.
     params : dict
         Lens configuration parameters:
 
-        - ``nlenses = 1``: no additional parameters.
         - ``nlenses = 2``: ``s`` (separation) and ``q`` (mass ratio ``m2/m1``).
           Internally we set ``a = s / 2`` and ``e1 = q / (1 + q)``.
         - ``nlenses = 3``: ``s``, ``q``, ``q3`` (third mass ratio), ``r3``
@@ -210,20 +210,16 @@ def critical_and_caustic_curves(
 
     Notes
     -----
-    - For ``nlenses = 1`` the critical curve is the unit circle and the caustic
-      collapses to the origin.
     - Output is shifted from the first-two-lens midpoint to their centre of
       mass. For a triple lens this public frame remains independent of the
       third body.
     """
+    _validate_nlenses(nlenses)
     phi = jnp.linspace(-np.pi, np.pi, npts)
 
     def apply_match_points(carry, z):
         idcs = match_points(carry, z)
         return z[idcs], z[idcs]
-
-    if nlenses == 1:
-        return jnp.exp(-1j * phi), jnp.zeros(npts, dtype=jnp.complex128)
 
     if nlenses == 2:
         s, q = params["s"], params["q"]
@@ -261,7 +257,7 @@ def critical_and_caustic_curves(
         )
 
     else:
-        raise ValueError("`nlenses` has to be set to be <= 3.")
+        raise ValueError("`nlenses` must be 2 or 3.")
 
     # Compute roots along the sampling circle
     z_cr = poly_roots(coeffs)
@@ -293,7 +289,7 @@ def _images_point_source(
         Complex scalar or array of source-plane coordinate(s). Broadcasting
         over arrays is supported.
     nlenses : int, optional
-        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
+        Number of point-mass lenses (2 or 3). Defaults to 2.
     custom_init : bool, optional
         When ``True``, reuse ``z_init`` as the initial guess for the root
         solver. Defaults to ``False``.
@@ -303,7 +299,6 @@ def _images_point_source(
     **params
         Lens parameters expressed in the mid-point coordinate frame:
 
-        - ``nlenses = 1``: no additional parameters.
         - ``nlenses = 2``: ``a`` (half-separation) and ``e1`` (mass fraction at
           ``+a``) as in :func:`lens_eq`.
         - ``nlenses = 3``: ``a``, ``r3``, ``psi``, ``e1`` and ``e2`` as in
@@ -313,7 +308,7 @@ def _images_point_source(
     -------
     z : jax.Array
         Image locations with shape ``(N_images, ...)`` where ``...`` matches
-        ``w``. ``N_images`` is 2, 5, or 10 for 1-, 2-, or 3-lens systems.
+        ``w``. ``N_images`` is 5 or 10 for binary or triple lens systems.
     z_mask : jax.Array
         Boolean mask with the same shape as ``z`` indicating which roots
         satisfy the tolerance criteria.
@@ -326,15 +321,8 @@ def _images_point_source(
     - The mask threshold is ``1e-6`` (``1e-3`` for the triple branch); masked
       roots should be treated as non-physical solutions.
     """
-    if nlenses == 1:
-        w_abs_sq = w.real**2 + w.imag**2
-        # Compute the image locations using the quadratic formula
-        z1 = 0.5 * w * (1.0 + jnp.sqrt(1 + 4 / w_abs_sq))
-        z2 = 0.5 * w * (1.0 - jnp.sqrt(1 + 4 / w_abs_sq))
-        z = jnp.stack([z1, z2])
-        return z, jnp.ones(z.shape, dtype=jnp.bool_)
-    
-    elif nlenses == 2:
+    _validate_nlenses(nlenses)
+    if nlenses == 2:
         a, e1 = params["a"], params["e1"]
         coeffs = _poly_coeffs_binary(w, a, e1)
     
@@ -351,7 +339,7 @@ def _images_point_source(
         return z, z_mask 
 
     else:
-        raise ValueError("`nlenses` has to be set to be <= 3.")
+        raise ValueError("`nlenses` must be 2 or 3.")
     
     if custom_init:
         z = poly_roots(coeffs, custom_init=True, roots_init=z_init)
@@ -377,7 +365,7 @@ def _images_point_source_sequential(w, nlenses=2, **params):
         images for ``w[0]`` and reuses each solution as the initial guess for
         the following element, promoting branch continuity.
     nlenses : int, optional
-        Number of lenses (1, 2, or 3). Defaults to 2.
+        Number of lenses (2 or 3). Defaults to 2.
     **params
         Additional keyword arguments forwarded to
         :func:`_images_point_source`.
@@ -395,6 +383,8 @@ def _images_point_source_sequential(w, nlenses=2, **params):
     This helper is primarily intended for visualising image tracks along a
     trajectory rather than as a general batched solver.
     """
+    _validate_nlenses(nlenses)
+
     def fn(w, z_init=None, custom_init=False):
         if custom_init:
             z, z_mask = _images_point_source(w, nlenses=nlenses, custom_init=True, 
@@ -420,18 +410,17 @@ def _images_point_source_sequential(w, nlenses=2, **params):
 
 @partial(jit, static_argnames=("nlenses"))
 def mag_point_source(w, nlenses=2, **params):
-    """Total point-source magnification for 1–3 lens configurations.
+    """Total point-source magnification for binary and triple lens configurations.
 
     Parameters
     ----------
     w : jax.Array
         Complex scalar or array of source-plane coordinates.
     nlenses : int, optional
-        Number of point-mass lenses (1, 2, or 3). Defaults to 2.
+        Number of point-mass lenses (2 or 3). Defaults to 2.
     params : dict
         Lens parameters depend on ``nlenses``:
 
-        - ``nlenses = 1``: no additional parameters required.
         - ``nlenses = 2``: ``s`` (separation) and ``q`` (mass ratio ``m2/m1``).
           Internally ``a = s / 2`` and ``e1 = q / (1 + q)``; the source is
           shifted to the center of mass for the polynomial construction.
@@ -450,9 +439,8 @@ def mag_point_source(w, nlenses=2, **params):
     Magnification is computed as the sum of ``|det J|^{-1}`` over valid image
     branches returned by ``_images_point_source``.
     """
-    if nlenses == 1:
-        _params = {}
-    elif nlenses == 2:
+    _validate_nlenses(nlenses)
+    if nlenses == 2:
         s, q = params["s"], params["q"]
         a = 0.5 * s
         e1 = q / (1.0 + q)
@@ -478,7 +466,7 @@ def mag_point_source(w, nlenses=2, **params):
         }
         w -= geometry.shifted
     else:
-        raise ValueError("`nlenses` has to be set to be <= 3.")
+        raise ValueError("`nlenses` must be 2 or 3.")
 
     z, z_mask = _images_point_source(w, nlenses=nlenses, **_params)
     det = lens_eq_det_jac(z, nlenses=nlenses, **_params)

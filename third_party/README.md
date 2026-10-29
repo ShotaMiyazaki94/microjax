@@ -5,7 +5,7 @@ Each component is subject to its own license, which is preserved and noted below
 
 ---
 
-## 1. `caustics` (by Fran Bartolić)
+## `caustics` (by Fran Bartolić)
 
 - **Repository**: https://github.com/fbartolic/caustics
 - **License**: MIT License
@@ -14,20 +14,11 @@ Each component is subject to its own license, which is preserved and noted below
 The original `LICENSE` file from `caustics` is preserved as:
 - `LICENSES/caustics-MIT.txt`
 
-## 2. `fft-extended-source` (by Sunao Sugiyama)
-
-- **Repository**: https://github.com/git-sunao/fft-extended-source
-- **License**: MIT License
-- **Original Author**: Sunao Sugiyama
-
-The original `LICENSE` file from `fft-extended-source` is preserved as:
-- `src/microjax/fspl/LICENSE`
-
-If you use code derived from these components, please comply with the MIT license terms and acknowledge both microjax and the original authors accordingly.
+If you use code derived from this component, please comply with the MIT license terms and acknowledge microjax and the original author accordingly.
 
 ---
 
 ## Notes
 
-- All included third-party components are compatible with the MIT license of microjax.
+- The included third-party code is compatible with the MIT license of microjax.
 - License files are included in the repository to comply with redistribution terms.

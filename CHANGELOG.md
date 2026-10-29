@@ -117,13 +117,20 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
   configuration defaults. Their source files and generated products use a
   consistent `code/` and `outputs/` layout, with separate `uniform/` and
   `limb_dark/` Jacobian outputs.
-- Active binary-lens and FSPL numerical comparisons now use VBMicrolensing
+- Active binary-lens numerical comparisons now use VBMicrolensing
   consistently, including the explicit limb-darkened APIs. VBBinaryLensing is
   retained only for historical fixture provenance and orbital-motion
   compatibility tests.
-- The finite-source point-lens FFTLog implementation is now imported from
-  `microjax.fspl`; the former `microjax.fastlens` package name has been
-  removed.
+
+### Removed
+
+- Single-lens modeling has moved to [singlens](https://github.com/ShotaMiyazaki94/singlens).
+  Removed `microjax.fspl`, its FFTLog and special-function helpers, legacy
+  implementation, examples, tests, API documentation and distribution metadata.
+- Removed `nlenses=1` from the lens equation, Jacobian, point-source images,
+  critical/caustic curves, magnification and hexadecapole approximation.
+  These APIs now accept only binary (`nlenses=2`) and triple (`nlenses=3`)
+  configurations and reject other lens counts with `ValueError`.
 
 ### Fixed
 

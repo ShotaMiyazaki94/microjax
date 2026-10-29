@@ -2,9 +2,8 @@ microJAX
 ========
 
 `microJAX <https://github.com/ShotaMiyazaki94/microjax>`_ is a differentiable
-microlensing library built with JAX. It provides point-source calculations for
-one to three lenses, finite-source calculations for binary and triple lenses,
-and trajectory utilities.
+microlensing library built with JAX. It provides point-source and finite-source
+calculations for binary and triple lenses, along with trajectory utilities.
 
 The finite-source API includes a GPU-oriented accelerator backend and a
 separate CPU backend for binary lenses. Both support uniform and linear
