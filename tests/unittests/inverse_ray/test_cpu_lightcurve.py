@@ -14,6 +14,43 @@ from microjax.inverse_ray.cpu.one_shot import (
     _CPU_ROUTE_CARTESIAN_Y_FIRST,
     _CPU_ROUTE_COUNT,
 )
+from microjax.inverse_ray.cpu.uniform import CPU_TIER_EXHAUSTED, CpuMagnificationResult
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("backend", ["cpu", "cpu-one-shot", "cpu-adaptive"])
+@pytest.mark.parametrize("u1", [0.0, 0.5])
+def test_all_public_cpu_backends_preserve_values_and_expose_diagnostic_status(monkeypatch, backend, u1):
+    """Warnings must not hide finite estimates or replace genuine NaN values."""
+
+    from microjax.inverse_ray import lightcurve
+
+    sources = jnp.asarray([0.1 + 0.2j, 0.2 + 0.3j, 0.3 + 0.4j, 0.4 + 0.5j])
+    expected = CpuMagnificationResult(
+        magnification=jnp.asarray([4.0, 5.0, jnp.nan, jnp.nan]),
+        estimated_error=jnp.asarray([1e-6, 1e-2, jnp.nan, jnp.nan]),
+        tier=jnp.asarray([5, 8, 8, 5]),
+        n_limb=jnp.full(4, 112),
+        n_radial_nodes=jnp.asarray([20, 84, 84, 20]),
+        status=jnp.asarray([0, CPU_TIER_EXHAUSTED, CPU_TIER_EXHAUSTED, 0]),
+    )
+    adaptive_calls = []
+
+    def controlled_solver(w_points, rho, *, s, q, u1, adaptive):
+        np.testing.assert_array_equal(w_points, sources)
+        assert (rho, s, q, u1) == (0.01, 1.0, 0.3, coefficient)
+        adaptive_calls.append(adaptive)
+        return expected
+
+    coefficient = u1
+    monkeypatch.setattr(lightcurve, "_mag_binary_cpu_impl", controlled_solver)
+    ordinary = mag_binary(sources, 0.01, s=1.0, q=0.3, u1=u1, backend=backend)
+    diagnostic = mag_binary(sources, 0.01, s=1.0, q=0.3, u1=u1, backend=backend, return_info=True)
+
+    np.testing.assert_allclose(ordinary, expected.magnification, rtol=0, atol=0, equal_nan=True)
+    for field in expected._fields:
+        np.testing.assert_allclose(getattr(diagnostic, field), getattr(expected, field), rtol=0, atol=0, equal_nan=True)
+    assert adaptive_calls == [backend == "cpu-adaptive"] * 2
 
 
 def test_cpu_one_shot_cartesian_axes_share_one_route():

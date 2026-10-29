@@ -30,10 +30,11 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
   reducing the measured Cartesian schedule cost by about 1.4--1.5x.
   Small uniform sources receive source-radius-dependent Bernstein depths up to
   20 (22 for the high-accuracy path), and the multipole/primary shortcut uses
-  a `0.25 * rtol` agreement gate. An eight-radius, 8,000-point VBBL sweep fails
-  closed if any certified value exceeds the requested tolerance. Uniform
-  Bernstein crossings use an implicit-root custom JVP. A 52-sample Cartesian
-  scout supports two-view fast acceptance and a topology-only five-view,
+  a `0.25 * rtol` agreement gate. An eight-radius, 8,000-point VBBL validation
+  sweep treats a certified value outside the requested tolerance as a test
+  failure. Uniform Bernstein crossings use an implicit-root custom JVP.
+  A 52-sample Cartesian scout supports two-view fast acceptance and a
+  topology-only five-view,
   three-independent-axis consensus; rejected points rebuild the polar support
   at 64 samples. Periodic root assignment and one-sample branch turns expose
   extrema missed by a plain sampled sign change. Exact radial tangencies then
@@ -94,9 +95,12 @@ The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 - The paper-era two-dimensional image-plane grid has been replaced by an
   integration over the regions enclosed by calculated image boundaries.
 - A returned finite value is a numerical estimate without a guaranteed error
-  bound. CPU binary magnification preserves its best-effort value when a
-  diagnostic status is nonzero. Inspect `return_info=True` for suspicious
-  trace, support, or root state; a zero status is not an accuracy certificate.
+  bound. All CPU binary backends (`cpu`, `cpu-one-shot` and `cpu-adaptive`)
+  preserve the best-effort magnification when `status` is nonzero.
+  `return_info=True` exposes the same values and unmasked diagnostics. The
+  legacy adaptive backend retains its own numerical error diagnostics;
+  neither those diagnostics nor a zero status establish a general accuracy
+  guarantee. Calculated non-finite values remain non-finite.
 - Public binary- and triple-lens configuration contains `n_limb` plus advanced
   static scheduler controls; numerical accuracy settings remain internal.
 - The public binary accelerator default now uses the A100 dense-benchmark fast

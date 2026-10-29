@@ -40,15 +40,20 @@ not tune this path. ``"cpu-one-shot"`` remains an alias of ``"cpu"`` for
 compatibility. The older ``"cpu-adaptive"`` backend is retained for research
 comparisons and should not be used as a silent retry in production models.
 
+All three CPU backends, ``"cpu"``, ``"cpu-one-shot"`` and ``"cpu-adaptive"``,
+preserve the best-effort magnification even when ``status`` is nonzero.
+``return_info=True`` exposes the same magnification together with the unmasked
+diagnostics. A non-finite value produced by the calculation remains non-finite.
+
 Numerical contract
 ------------------
 
-The CPU backend uses bounded work. It applies a multipole approximation where
-its internal gate accepts it and otherwise performs one full finite-source
-solve. Its Cartesian and theta-first integrals use an internal
-relative stopping indicator and a fixed maximum amount of work. It does not
-retry another chart or keep increasing work until a user-requested tolerance
-is met.
+The default ``"cpu"`` path and its ``"cpu-one-shot"`` alias use bounded work.
+They apply a multipole approximation where the internal gate accepts it and
+otherwise perform one full finite-source solve. Their Cartesian and theta-first
+integrals use an internal relative stopping indicator and a fixed maximum
+amount of work. Neither path retries another chart or keeps increasing work
+until a user-requested tolerance is met.
 
 Uniform and linear limb-darkened sources share one full solver with two
 integration routes: Cartesian (with x/y chosen as an internal axis) and polar
@@ -142,10 +147,13 @@ included in ``tests/data/cpu_accuracy/``; the full local research archive is
 not distributed with the repository.
 
 A result is therefore a numerical estimate, not a certified error bound.
-``return_info=True`` exposes a diagnostic ``status`` bit field when traced
-geometry, support, capacity, or roots look suspicious. Status does not itself
-replace the best-effort magnification with ``NaN`` and is not an accuracy
-failure definition. Before an inference run:
+For the one-shot solver, ``status`` is a diagnostic bit field for suspicious
+trace, support, capacity, or root state; it is not an accuracy failure
+definition. The legacy adaptive solver retains its own numerical error
+diagnostics, including ``estimated_error``. These differ from the one-shot
+diagnostics and do not establish a general accuracy guarantee. The common
+best-effort return convention applies to both solver families. Before an
+inference run:
 
 - validate values over the intended ``(q, s, rho, w, u1)`` region against an
   independent implementation;

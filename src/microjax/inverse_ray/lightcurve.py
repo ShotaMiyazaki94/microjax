@@ -584,10 +584,12 @@ def mag_binary(
     Exact radial tangencies stabilize the polar chart without treating
     ``n_limb`` as an accuracy order. The production CPU uses one fixed,
     calibrated multipole shortcut gate; it is not a full-solve error
-    guarantee. For full one-shot solves, ``estimated_error`` is NaN. ``status``
-    is a diagnostic bit field for inspecting suspicious trace, support, or root
-    geometry; it does not replace the final best-effort magnification with
-    ``NaN``. CPU diagnostics are returned when ``return_info=True``.
+    guarantee. All three CPU backends return the solver's best-effort
+    magnification even when ``status`` is nonzero; actual nonfinite solver
+    values remain nonfinite. ``return_info=True`` also exposes the diagnostic
+    status and error fields. Full one-shot solves report ``estimated_error``
+    as NaN, while the legacy adaptive backend retains its numerical error
+    diagnostics. A zero status is not an accuracy certificate.
     """
 
     if backend in ("cpu", "cpu-one-shot", "cpu-adaptive"):
