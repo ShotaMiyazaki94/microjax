@@ -3,10 +3,10 @@ CPU Binary-lens Jacobian Example
 
 This is the CPU-backend counterpart of
 [`example/gpu/jacobian-binary`](../../gpu/jacobian-binary). It differentiates
-every light-curve sample with respect to `t0, tE, u0, q, s, alpha, rho`. Its
-checked-in trajectories and point count differ from the current GPU example,
-so the bundled timings are not a direct backend speed ratio. The finite-source
-call in this version uses
+every light-curve sample with respect to `t0, tE, u0, q, s, alpha, rho`.
+Its trajectory and point count can differ from the GPU example; compare timings
+only after matching the configuration and measurement procedure. The finite-source
+call uses
 `mag_binary(..., backend="cpu", return_info=True)`.
 
 The CPU ICRS scheduler has data-dependent sequential loops, so this example
@@ -18,7 +18,7 @@ not alter the fixed production CPU route.
 Run
 ---
 
-The full uniform-source example uses the 1,000-point comparison trajectory:
+The uniform-source example uses 500 points by default:
 
 ```console
 python example/cpu/jacobian-binary/code/grads_uniform_binary.py
@@ -35,34 +35,21 @@ compilation plus execution; the reported steady-state value is the median of
 three subsequent synchronised calls. Change the sample count and repeats with
 `--n-points` and `--repeats`.
 
-Both scripts require finite magnifications, finite forward derivatives, and a
-zero CPU status for every sample. No numerical differentiation is performed.
-
-Measured result
----------------
-
-The bundled 1,000-point products were generated on the Apple CPU reported as
-`TFRT_CPU_0` by JAX 0.8.0. Timings are medians of three compiled calls:
-
-| source | magnification | forward Jacobian | Jacobian / value |
-| --- | ---: | ---: | ---: |
-| uniform | 0.213 s | 0.433 s | 2.03x |
-| linear LD (`u1=0.5`) | 0.0617 s | 0.126 s | 2.05x |
-
-All 1,000 samples in both runs had status zero. These timings are specific to
-this machine, trajectory, JAX version, and tolerance. Compile-plus-first-call
-times were 6.26 s and 15.00 s for uniform value/Jacobian, versus 2.27 s and
-5.55 s for linear LD.
+Both scripts require finite magnifications and forward derivatives. Nonzero
+CPU statuses are printed as diagnostic warnings. No numerical differentiation
+is performed; finite derivatives alone do not validate their accuracy.
 
 Outputs
 -------
 
-Python sources are kept in `code/`. Generated products are written under
-`outputs/uniform/` and `outputs/limb_dark/` respectively.
+Python sources are kept in `code/`. Running the examples generates local products
+under `outputs/uniform/` and `outputs/limb_dark/` respectively. Regenerate them
+to measure the implementation in your environment; existing generated files
+may belong to an earlier solver version.
 
 - `magnification.csv`: time and magnification.
 - `jacobian_forward.npy`: `n_time x 7` forward-mode Jacobian.
-- `benchmark.json`: device, configuration, CPU tiers/statuses, timings, and
+- `benchmark.json`: device, configuration, CPU routes/statuses, timings, and
   forward/value runtime ratio.
 - `binary_jacobian.png` (or `binary_limb_dark_jacobian.png`): magnification,
   caustic geometry, and all seven sensitivities.
