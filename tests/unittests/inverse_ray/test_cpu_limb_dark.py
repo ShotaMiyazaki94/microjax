@@ -410,7 +410,7 @@ def test_bernstein_cartesian_profile_matches_companion_intervals():
     )
 
 
-def test_limb_dark_strip_uses_shared_factored_companion_intervals():
+def test_limb_dark_certified_strip_matches_physical_boundary_width():
     source = jnp.asarray(
         -0.8333103523401397 + 0.0033066776182536003j,
         dtype=jnp.complex128,
@@ -442,8 +442,15 @@ def test_limb_dark_strip_uses_shared_factored_companion_intervals():
         root_mode="companion_certified",
         ordinate_bound=jnp.asarray(2.0, dtype=jnp.float64),
     )
-    np.testing.assert_allclose(uniform, [0.00014319826423525583], rtol=2e-9)
+    # Independent 90-decimal roots of the unexpanded lens equation are
+    # -0.66674883644788201465798 and -0.66660563818295982752967, treating the
+    # binary64 inputs as exact. The former reference was one platform's
+    # companion result. This ill-conditioned thin strip loses several digits
+    # in binary64; test its physical width to 1e-8, not bitwise solver parity.
+    np.testing.assert_allclose(uniform, [0.00014319826492218712831], rtol=1e-8, atol=0)
     assert np.all(np.isfinite(np.asarray(profile)))
+    assert np.all(np.asarray(profile) >= 0)
+    assert np.all(np.asarray(profile) <= np.asarray(uniform))
     assert int(invalid[0]) == 0
 
 

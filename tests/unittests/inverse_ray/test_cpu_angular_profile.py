@@ -32,6 +32,15 @@ def _semicircle(theta, center, half_width):
     return jnp.sqrt(jnp.maximum(0.0, (1.0 - normalized) * (1.0 + normalized)))
 
 
+def _assert_scalar_and_batched_rule_agree(result, old_value, old_error):
+    # Scalar and batched fusion can round the same quadrature differently.
+    # The embedded error subtracts two integral values, so its roundoff is
+    # measured on the integral scale even when the error itself is near zero.
+    roundoff = 4.0 * np.finfo(np.float64).eps * abs(float(old_value))
+    np.testing.assert_allclose(result.value, old_value, rtol=0.0, atol=roundoff)
+    np.testing.assert_allclose(result.error, old_error, rtol=0.0, atol=roundoff)
+
+
 @pytest.mark.parametrize("center", [-0.13, 0.0, 0.13])
 def test_periodic_arc_matches_rotation_and_analytic_integral(center):
     half_width = 0.4
@@ -71,8 +80,7 @@ def test_full_ring_retains_the_existing_legendre_rule_and_status():
     result = integrate_mu_residual(mu, arcs)
     old_value, old_error, _ = _integrate_interval(mu, arcs.intervals[0, 0], arcs.intervals[0, 1])
     np.testing.assert_allclose(result.value, 1.2 * np.pi, rtol=2e-14, atol=2e-14)
-    np.testing.assert_array_equal(result.value, old_value)
-    np.testing.assert_array_equal(result.error, old_error)
+    _assert_scalar_and_batched_rule_agree(result, old_value, old_error)
     assert int(result.status) == ANGULAR_DEGENERATE
 
 
@@ -92,8 +100,7 @@ def test_single_nonwrapping_arc_keeps_existing_rule(center):
     result = integrate_mu_residual(mu, arcs)
     old_value, old_error, _ = _integrate_interval(mu, arcs.intervals[0, 0], arcs.intervals[0, 1])
     np.testing.assert_allclose(result.value, np.pi * half_width / 2.0, rtol=2e-13, atol=2e-14)
-    np.testing.assert_array_equal(result.value, old_value)
-    np.testing.assert_array_equal(result.error, old_error)
+    _assert_scalar_and_batched_rule_agree(result, old_value, old_error)
     assert int(result.status) == 0
 
 

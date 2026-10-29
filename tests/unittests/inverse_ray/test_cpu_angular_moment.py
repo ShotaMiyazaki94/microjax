@@ -8,6 +8,7 @@ from microjax.inverse_ray.cpu.angular_moment import (
     AngularSupport,
     _angular_support_cells,
     _ray_intervals,
+    _ray_intervals_from_roots,
     _radial_image_bound,
     _stable_radial_level_value,
     _trace_sector_union_mask,
@@ -263,11 +264,39 @@ def test_stable_level_value_rejects_near_cancelled_interval():
     assert int(stable[3][0]) == 0
 
 
-def test_stable_level_does_not_create_area_from_unresolved_complex_pair():
-    # This ray has a conjugate pair just outside the real-root acceptance
-    # band.  Its polynomial midpoint rounds to zero, while the stable level
-    # is only a tiny negative number.  Treating that sign as an occupied
-    # no-root interval would create a spurious [0, outer] image area.
+def test_stable_level_does_not_create_area_from_unresolved_complex_pair(monkeypatch):
+    # Supply the root classification rather than depending on LAPACK to put
+    # a nearly multiple pair on a particular side of the real-root threshold.
+    # The tiny negative mapped level must not manufacture a whole [0, 1] cell
+    # when no positive roots were accepted and the polynomial is cancelling.
+    from microjax.inverse_ray.cpu import angular_moment
+
+    candidates = np.asarray([0.5 + 4e-7j, 0.5 - 4e-7j, -1.0, -2.0, -3.0, -4.0])
+    polynomial = np.poly(candidates).real
+    polynomial /= np.max(np.abs(polynomial))
+    assert abs(np.polyval(polynomial, 0.5)) < 1e-12
+    coefficients = jnp.asarray(polynomial[None, :], dtype=jnp.float64)
+    roots = jnp.asarray(candidates[None, :], dtype=jnp.complex128)
+    monkeypatch.setattr(
+        angular_moment,
+        "_stable_radial_level_value",
+        lambda _angles, points, _source, _rho, **_lens: jnp.full_like(points, -jnp.finfo(points.dtype).eps),
+    )
+    lower, upper, inside, invalid = _ray_intervals_from_roots(
+        coefficients,
+        roots,
+        stable_context=(jnp.asarray([0.0]), jnp.asarray(0.0j), jnp.asarray(1.0), 1.0, 0.1),
+    )
+    assert float(jnp.sum(jnp.where(inside, upper - lower, 0.0))) == 0.0
+    assert float(lower[0, 0]) == 0.0
+    assert float(upper[0, 0]) == 1.0
+    assert int(invalid[0]) == 0
+
+
+def test_marginal_companion_ray_does_not_manufacture_a_broad_interval():
+    # This physical ray has a very narrow occupied interval. Different
+    # eigensolvers may resolve its candidates as real or as a conjugate pair;
+    # neither classification may turn the entire radial domain into image area.
     source = jnp.asarray(
         -1.4999573888723472 + 0.010965537139530405j,
         dtype=jnp.complex128,
@@ -282,8 +311,14 @@ def test_stable_level_does_not_create_area_from_unresolved_complex_pair():
         root_mode="companion",
         stable_context=(jnp.asarray([angle]), source, rho, 0.5, 1.0e-5),
     )
-    assert not bool(jnp.any(inside))
-    assert float(jnp.max(upper - lower)) <= 1.0
+    # Independent 90-decimal solutions of the unexpanded lens equation, with
+    # the binary64 inputs above treated as exact. This checks containment, not
+    # completeness of the companion solver's nearly multiple root candidates.
+    physical_lower = 0.49998892961983111624
+    physical_upper = 0.50000614649415968412
+    active = np.asarray(inside & (upper > lower))
+    assert np.all(np.asarray(lower)[active] >= physical_lower - 1e-12)
+    assert np.all(np.asarray(upper)[active] <= physical_upper + 1e-12)
     assert int(invalid[0]) == 0
 
 
