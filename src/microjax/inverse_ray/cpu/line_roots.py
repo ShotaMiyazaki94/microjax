@@ -100,27 +100,28 @@ def binary_line_level_set_roots(
     ``offset`` and nonzero ``direction`` broadcast over leading dimensions.
     """
 
+    coefficients, center = _local_line_polynomial(offset, direction, w_center, rho, s, q)
+    roots = batched_polished_real_companion_roots(coefficients)
+    return roots.reshape(center.shape + (6,)) + center[..., None]
+
+
+def _local_line_polynomial(offset, direction, w_center, rho, s, q):
+    """Build the centered sextic separately from its companion solve."""
     offset, direction = jnp.broadcast_arrays(offset, direction)
     symmetric_origin = s * (1 - q) / (1 + q)
-    center = jnp.real((symmetric_origin - offset) * jnp.conj(direction)) / jnp.real(
-        direction * jnp.conj(direction)
-    )
+    center = jnp.real((symmetric_origin - offset) * jnp.conj(direction)) / jnp.real(direction * jnp.conj(direction))
     local_offset = offset + center * direction
     coefficients = jax.vmap(
-        lambda origin, vector: binary_line_level_set_coefficients(
-            origin, vector, w_center, rho, s=s, q=q
-        )
+        lambda origin, vector: binary_line_level_set_coefficients(origin, vector, w_center, rho, s=s, q=q)
     )(local_offset.reshape(-1), direction.reshape(-1))
-    roots = batched_polished_real_companion_roots(coefficients)
-    return roots.reshape(offset.shape + (6,)) + center[..., None]
+    return coefficients, center
 
 
 def _safe_physical_line_radii(radius, real, offset, direction, w_center, rho, s):
     """Keep unused complex-root lanes away from real-axis lens poles."""
     offset, direction = jnp.broadcast_arrays(offset, direction)
-    far = (
-        (4 + jnp.abs(offset) + jnp.abs(s) + jnp.abs(w_center) + jnp.abs(rho))
-        / jnp.maximum(jnp.abs(direction), jnp.finfo(radius.dtype).tiny)
+    far = (4 + jnp.abs(offset) + jnp.abs(s) + jnp.abs(w_center) + jnp.abs(rho)) / jnp.maximum(
+        jnp.abs(direction), jnp.finfo(radius.dtype).tiny
     )
     return jnp.where(real, radius, far[..., None])
 
@@ -157,15 +158,14 @@ def _physical_line_roots(offset, direction, w_center, rho, s, q):
         step = level / slope
         proposed = radius - step
         safe_proposed = _safe_physical_line_radii(proposed, real, offset, direction, w_center, rho, s)
-        proposed_level, _ = _physical_line_level_and_slope(
-            safe_proposed, offset, direction, w_center, rho, s, q
-        )
-        separation = jnp.min(
-            jnp.where(pairs, jnp.abs(radius[..., :, None] - radius[..., None, :]), jnp.inf), axis=-1
-        )
+        proposed_level, _ = _physical_line_level_and_slope(safe_proposed, offset, direction, w_center, rho, s, q)
+        separation = jnp.min(jnp.where(pairs, jnp.abs(radius[..., :, None] - radius[..., None, :]), jnp.inf), axis=-1)
         accept = (
-            real & jnp.isfinite(proposed) & jnp.isfinite(proposed_level)
-            & jnp.isfinite(separation) & (jnp.abs(step) <= .25 * separation)
+            real
+            & jnp.isfinite(proposed)
+            & jnp.isfinite(proposed_level)
+            & jnp.isfinite(separation)
+            & (jnp.abs(step) <= 0.25 * separation)
             & (jnp.abs(proposed_level) <= jnp.abs(level))
         )
         return jnp.where(accept, proposed, radius)
@@ -187,7 +187,15 @@ def _physical_line_roots_jvp(primals, tangents):
     )
     _, slope = _physical_line_level_and_slope(radius, *primals)
     physical_tangent = -partial_level / jnp.where(real, slope, 1)
-    _, polynomial_tangent = jax.jvp(_polynomial_line_roots, primals, tangents)
+    # Complex roots are unchanged by the physical correction. Differentiate
+    # their centered polynomial at the roots already solved above, avoiding
+    # a second companion eigensolve and four redundant polishing steps.
+    (coefficients, center), (dcoefficients, dcenter) = jax.jvp(_local_line_polynomial, primals, tangents)
+    local_roots = (roots - center[..., None]).reshape((-1, 6))
+    derivative = coefficients[:, :-1] * jnp.arange(6, 0, -1, dtype=coefficients.dtype)
+    numerator = jax.vmap(jnp.polyval)(dcoefficients.astype(roots.dtype), local_roots)
+    denominator = jax.vmap(jnp.polyval)(derivative.astype(roots.dtype), local_roots)
+    polynomial_tangent = (-numerator / denominator).reshape(roots.shape) + dcenter[..., None]
     return roots, jnp.where(real, physical_tangent.astype(roots.dtype), polynomial_tangent)
 
 
