@@ -59,9 +59,8 @@ def test_triple_values_and_shared_brightness_geometry():
 
 def test_triple_forward_jacobian_matches_independent_reference():
     reference = REFERENCES["forward_jacobian"]
-    time = reference["observation_time"]
 
-    def model(p):
+    def model(p, time):
         t0, t_e, u0, q, s, alpha, rho, q3, r3, psi = p
         tau = (time - t0) / t_e
         source = (-u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)) + 1j * (u0 * jnp.cos(alpha) + tau * jnp.sin(alpha))
@@ -70,5 +69,14 @@ def test_triple_forward_jacobian_matches_independent_reference():
     # VBM Tol=RelTol=1e-9, centered finite differences, independent of the
     # JAX graph. Halving the stored steps changed all ten columns by <8e-8
     # relative. This position requires the full finite-source calculation.
-    actual = jax.jit(jax.jacfwd(model))(jnp.asarray(reference["parameters"]))
+    evaluate = jax.jit(jax.jacfwd(model))
+    parameters = jnp.asarray(reference["parameters"])
+    actual = evaluate(parameters, reference["observation_time"])
     np.testing.assert_allclose(actual, reference["derivatives"], rtol=1e-3, atol=1e-6)
+
+    # Reuse the compiled Jacobian at central and third-body caustic points.
+    # Their selected columns have independent references; fixture notes retain
+    # the radial-integration oracle's incomplete half-step check for r3.
+    for case in REFERENCES["critical_forward_jacobians"]:
+        actual = np.asarray(evaluate(parameters, case["observation_time"]))
+        np.testing.assert_allclose(actual[case["parameter_indices"]], case["derivatives"], rtol=1e-3, atol=1e-6)

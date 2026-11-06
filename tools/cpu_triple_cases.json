@@ -147,5 +147,37 @@
       1e-05,
       1e-05
     ]
-  }
+  },
+  "critical_forward_jacobians": [
+    {
+      "observation_time": 0.195195195195195,
+      "parameter_indices": [
+        6,
+        3
+      ],
+      "derivatives": [
+        1707.2620227214231,
+        616.974162518602
+      ],
+      "reference_notes": [
+        "rho: VBM 5.3.5 MultiMagDark, Tol=RelTol=1e-7; centered step 5e-7; step-halving change 3.7e-5 relative.",
+        "q: VBM 5.3.5 MultiMagDark, Tol=RelTol=1e-7; centered step 5e-7; step-halving change 2.0e-6 relative."
+      ]
+    },
+    {
+      "observation_time": 8.243243243243244,
+      "parameter_indices": [
+        7,
+        8
+      ],
+      "derivatives": [
+        593.9501322227869,
+        89.01561087165888
+      ],
+      "reference_notes": [
+        "q3: VBM 5.3.5 MultiMagDark, Tol=RelTol=1e-8; centered step 5e-6; step-halving change 3.3e-5 relative.",
+        "r3: SciPy adaptive mu integration of VBM 5.3.5 uniform disks, Tol=RelTol=1e-10; centered step 1e-4. Individual integral error estimates below 9e-9; half-step FD validation was not completed within the bounded check."
+      ]
+    }
+  ]
 }
