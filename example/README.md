@@ -3,7 +3,8 @@
 Examples are grouped by the backend they are intended to exercise:
 
 - [`cpu/`](cpu/) contains a minimal limb-darkened binary-lens light curve and
-  forward-derivative example. Its figures and data are generated in `results/`.
+  forward-derivative example with a figure preview. Running it writes figures
+  and data to `results/`.
 - [`gpu/`](gpu/) contains the accelerator-oriented binary and triple lens
   workflows.
 - CPU checks and benchmarks live in [`tools/`](../tools/) and

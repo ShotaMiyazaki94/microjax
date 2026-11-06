@@ -65,8 +65,9 @@ figures with configuration-bootstrap uncertainty use
 `results/cpu/figures-benchmark/`. The regional benchmark requires a separately
 provided reference CSV; see the tool's `--help`. A runnable CPU light-curve and
 forward-derivative example lives under [`example/cpu/`](example/cpu/). GPU
-workflows live under [`example/gpu/`](example/gpu/). Results, generated figures and local archives are
-excluded from version control. Historical CPU code remains in Git history.
+workflows live under [`example/gpu/`](example/gpu/). Benchmark outputs and local
+archives are excluded from version control; the CPU example includes one
+reproducible figure preview. Historical CPU code remains in Git history.
 
 ## Scientific use
 

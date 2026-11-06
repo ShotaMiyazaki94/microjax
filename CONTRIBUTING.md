@@ -32,6 +32,7 @@ than a universal accuracy claim. Extend it only for a concrete uncovered risk.
 
 Keep measurements and generated figures under `results/`, and any retired local
 experiments under `archive/`. Both directories are excluded from version control.
+The CPU example also keeps one reproducible PNG preview beside its script.
 Commit source, focused tests and their small required fixtures; do not commit
 measurement outputs, generated HTML, caches or machine-specific files. Historical
 CPU implementations are available in Git history.

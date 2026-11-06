@@ -18,7 +18,7 @@ from microjax.inverse_ray import mag_binary
 
 def main():
     with jax.default_device(jax.devices("cpu")[0]):
-        tau = jnp.linspace(-0.7, 0.7, 121)  # (t - t0) / tE
+        tau = jnp.linspace(-0.7, 0.7, 501)  # (t - t0) / tE
         sources = tau + 0.1j
         rho, s, q, u1 = 0.02, 1.0, 0.3, 0.5
 
