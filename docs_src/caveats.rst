@@ -8,11 +8,17 @@ in the `JAX documentation <https://docs.jax.dev/>`_.
 Backend scope is explicit
 -------------------------
 
-``mag_binary`` uses the accelerator-oriented backend unless ``backend="cpu"``
-is requested. The CPU backend is a separate binary-lens implementation, not an
-automatic fallback selected from the available device. ``BinaryMagConfig``
-configures the accelerator path and does not tune the CPU path. Finite-source
-triple-lens calculations use the accelerator-oriented implementation.
+``mag_binary`` and ``mag_triple`` use the accelerator-oriented backend unless
+``backend="cpu"`` is requested. The dedicated CPU integrator supports both
+lens models and is selected explicitly, independently of the JAX device.
+``BinaryMagConfig`` and ``TripleMagConfig`` configure the accelerator path and
+do not tune the CPU path. Running the default implementation on a CPU device
+does not select the dedicated CPU algorithm.
+
+The CPU finite-source contract requires positive mass ratios and source radius,
+with distinct lens positions. An exact zero third mass or coincident lenses
+changes the lens model's degree and is outside the triple contract; use the
+binary API for a two-lens model.
 
 Finite values are not accuracy certificates
 --------------------------------------------

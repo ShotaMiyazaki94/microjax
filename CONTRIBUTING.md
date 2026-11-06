@@ -10,10 +10,11 @@ or reproduces a concrete failure.
 
 ## CPU development
 
-The CPU backend has one implementation and one focused test file:
+The binary and triple CPU backends share their integration implementation.
+Run their focused tests:
 
 ```bash
-pytest -q tests/unittests/inverse_ray/test_cpu.py
+pytest -q tests/unittests/inverse_ray/test_cpu.py tests/unittests/inverse_ray/test_cpu_triple.py
 ```
 
 Use the critical benchmark when changing CPU numerical behavior or performance:
@@ -32,12 +33,13 @@ than a universal accuracy claim. Extend it only for a concrete uncovered risk.
 
 Keep measurements and generated figures under `results/`, and any retired local
 experiments under `archive/`. Both directories are excluded from version control.
-The CPU example also keeps one reproducible PNG preview beside its script.
+The CPU examples also keep one reproducible PNG preview per lens model beside
+their shared script.
 Commit source, focused tests and their small required fixtures; do not commit
 measurement outputs, generated HTML, caches or machine-specific files. Historical
 CPU implementations are available in Git history.
 
-The optional regional benchmark requires a separately supplied dense LD reference
+The optional regional binary benchmark requires a separately supplied dense LD reference
 CSV and its same-stem JSON metadata; these inputs are not distributed. It also
 requires VBMicrolensing, and plotting requires Matplotlib:
 

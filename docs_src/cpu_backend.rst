@@ -1,9 +1,10 @@
-CPU Binary-Lens Backend
-=======================
+CPU Binary/Triple Backend
+=========================
 
-``mag_binary(..., backend="cpu")`` selects the CPU finite-source binary-lens
-solver. Uniform and linear limb-darkened circular sources share the same
-implementation. Finite-source triple lenses use the accelerator backend.
+``mag_binary(..., backend="cpu")`` and ``mag_triple(..., backend="cpu")``
+select the dedicated CPU finite-source integrator. Binary and triple lenses
+share support construction and quadrature. Uniform and linear limb-darkened
+circular sources use the same implementation.
 
 Basic use
 ---------
@@ -17,16 +18,34 @@ Enable double precision before constructing arrays or compiling functions:
 
    jax.config.update("jax_enable_x64", True)
 
-   from microjax.inverse_ray import mag_binary
+   from microjax.inverse_ray import mag_binary, mag_triple
 
    w = jnp.asarray([0.10 + 0.20j, 0.60 - 0.20j])
    magnification = mag_binary(
        w, 1.0e-2, s=1.0, q=0.3, u1=0.5, backend="cpu",
    )
+   triple_magnification = mag_triple(
+       w, 1.0e-2, s=1.1, q=0.1, q3=0.01,
+       r3=jnp.abs(0.3 + 1.2j), psi=jnp.angle(0.3 + 1.2j),
+       u1=0.5, backend="cpu",
+   )
 
-``BinaryMagConfig`` and ``n_limb`` configure the accelerator backend and do
-not tune the CPU path. ``"cpu"`` is the sole CPU backend name. The old
+Use positive mass ratios (``q`` and, for triples, ``q3``), a positive source
+radius, and distinct lens positions. Triple source coordinates retain the
+centre of mass of the first two lenses. ``r3`` and ``psi`` place the third lens
+relative to the midpoint of those two lenses; changing its mass does not
+translate the public source frame.
+
+Both APIs default to the accelerator implementation. ``BinaryMagConfig`` and
+``TripleMagConfig``, including ``n_limb``, configure only that implementation;
+they do not tune the CPU path. ``"cpu"`` is the sole CPU backend name. The old
 ``"cpu-one-shot"`` alias and ``"cpu-adaptive"`` implementation are retired.
+
+The backend selects the algorithm. On a machine with multiple JAX platforms,
+run with ``JAX_PLATFORMS=cpu`` or use
+``jax.default_device(jax.devices("cpu")[0])`` to select the CPU device.
+Running the default accelerator implementation on a CPU does not select this
+CPU integrator.
 
 Numerical contract
 ------------------
@@ -53,7 +72,8 @@ Finite traces and polynomial root searches can miss support or roots, and
 bounded integration can exhaust its allocation. Validate both values and
 derivatives over the parameter region used in an analysis.
 
-``return_info=True`` returns only ``magnification`` and ``status``:
+For either CPU lens model, ``return_info=True`` returns only ``magnification``
+and ``status``:
 
 .. code-block:: python
 
@@ -88,6 +108,19 @@ route changes and discrete panel choices can make this numerical graph
 piecewise. Agreement with finite differences of that graph does not itself
 certify physical derivative accuracy.
 
+The same forward transformations apply to ``mag_triple`` and its additional
+``q3``, ``r3``, and ``psi`` parameters. The runnable CPU examples reproduce the
+corresponding binary and triple GPU trajectories and plot all seven or ten
+physical/trajectory derivatives:
+
+.. code-block:: sh
+
+   python example/cpu/lightcurve.py
+   python example/cpu/lightcurve.py --lens triple
+
+The examples hold ``u1=0.5`` fixed. The underlying CPU API also supports
+differentiation with respect to ``u1``, including at zero.
+
 Development checks and timing
 -----------------------------
 
@@ -95,7 +128,7 @@ Run the focused CPU contract checks from the repository root:
 
 .. code-block:: sh
 
-   pytest -q tests/unittests/inverse_ray/test_cpu.py
+   pytest -q tests/unittests/inverse_ray/test_cpu.py tests/unittests/inverse_ray/test_cpu_triple.py
    python tools/cpu_benchmark.py --output results/cpu-benchmark.json
 
 The benchmark compares linear limb-darkened values (``u1=0.5``) with a small
