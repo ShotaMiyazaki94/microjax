@@ -17,11 +17,11 @@ Light-curve functions
    :members:
    :show-inheritance:
 
-Advanced CPU diagnostics
-------------------------
+CPU result
+----------
 
 .. autoclass:: microjax.inverse_ray.cpu.CpuMagnificationResult
    :members:
 
-Routine modeling does not require this result type. See
+Returned with ``return_info=True``; contains only magnification and status. See
 :doc:`../cpu_backend` for the CPU backend contract and debugging guidance.

@@ -28,12 +28,11 @@ Failure diagnostics depend on the backend
 
 The accelerator finite-source API returns ``NaN`` when it detects invalid
 image geometry, exhausted fixed capacity, or a non-finite calculation.
-All CPU binary backends (``cpu``, ``cpu-one-shot`` and ``cpu-adaptive``)
-preserve the best-effort magnification even when ``status`` is nonzero.
-``return_info=True`` exposes the same values and unmasked diagnostic fields.
-The legacy adaptive backend retains its own numerical error diagnostics;
-they do not establish a general accuracy guarantee. A CPU calculation can
-still produce a non-finite value.
+The CPU backend preserves the best-effort magnification even when ``status``
+is nonzero. ``return_info=True`` returns only ``magnification`` and ``status``.
+Status flags structural concerns and does not establish an accuracy or
+quadrature-convergence guarantee. A CPU calculation can still produce a
+non-finite value.
 
 Record the complete lens and source configuration for problematic samples.
 For CPU-specific interpretation of values and diagnostics, see

@@ -57,8 +57,15 @@ and is currently available for finite-source binary lenses.
 - [CPU binary-lens backend](https://shotamiyazaki94.github.io/microjax/cpu_backend.html)
 - [Solver caveats](https://shotamiyazaki94.github.io/microjax/caveats.html)
 
-Runnable workflows are grouped under [`example/cpu/`](example/cpu/) and
-[`example/gpu/`](example/gpu/).
+Critical limb-darkened CPU benchmarks run through
+[`tools/cpu_benchmark.py`](tools/cpu_benchmark.py). Regional LD measurements and
+figures with configuration-bootstrap uncertainty use
+[`tools/cpu_benchmark_grid.py`](tools/cpu_benchmark_grid.py) and
+[`tools/plot_cpu_benchmark.py`](tools/plot_cpu_benchmark.py), writing to
+`results/cpu/figures-benchmark/`. The regional benchmark requires a separately
+provided reference CSV; see the tool's `--help`. GPU workflows live under
+[`example/gpu/`](example/gpu/). Results, generated figures and local archives are
+excluded from version control. Historical CPU code remains in Git history.
 
 ## Scientific use
 

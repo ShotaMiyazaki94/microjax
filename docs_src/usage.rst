@@ -150,9 +150,9 @@ Failure behavior
 ----------------
 
 The accelerator finite-source functions return ``NaN`` for detected structural
-or non-finite failures. All CPU binary backends (``cpu``, ``cpu-one-shot`` and
-``cpu-adaptive``) preserve the best-effort magnification even when ``status``
-is nonzero; ``return_info=True`` exposes the same values and unmasked diagnostics.
+or non-finite failures. The CPU backend preserves the best-effort magnification
+even when ``status`` is nonzero; ``return_info=True`` returns only
+``magnification`` and ``status``.
 A CPU calculation can still produce a non-finite value. Check values and
 diagnostics before downstream inference, and retain the complete configuration
 for problematic samples. A finite result has no guaranteed error bound;
