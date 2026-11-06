@@ -3,7 +3,8 @@
 import jax.numpy as jnp
 from jax import jit, lax, tree_util
 
-from .one_shot import mag_binary_cpu_one_shot
+from .one_shot import mag_cpu_one_shot
+from .lens import binary_lens
 from .result import CpuMagnificationResult
 
 # A calibrated shortcut policy, not a full-solve error bound.
@@ -14,13 +15,13 @@ _CPU_MULTIPOLE_GATE = 1.0e-3
 def mag_binary_cpu_lightcurve(w_points, rho, *, s, q, u1=0.0):
     """Full finite-source calculation, useful for isolating solver regressions."""
     return lax.map(
-        lambda source: mag_binary_cpu_one_shot(source, rho, s=s, q=q, u1=u1),
+        lambda source: mag_cpu_one_shot(source, rho, lens=binary_lens(s, q), u1=u1),
         jnp.asarray(w_points),
     )
 
 
 @jit
-def mag_binary_cpu_hybrid_lightcurve(
+def mag_cpu_hybrid_lightcurve(
     w_points,
     multipole,
     accepted,
@@ -28,8 +29,7 @@ def mag_binary_cpu_hybrid_lightcurve(
     trigger_scale,
     rho,
     *,
-    s,
-    q,
+    lens,
     u1=0.0,
 ):
     """Solve only sources rejected by the shared geometric multipole gate."""
@@ -52,7 +52,7 @@ def mag_binary_cpu_hybrid_lightcurve(
 
     def evaluate(i, values):
         index = indices[i]
-        solved = mag_binary_cpu_one_shot(w_points[index], rho, s=s, q=q, u1=u1)
+        solved = mag_cpu_one_shot(w_points[index], rho, lens=lens, u1=u1)
         return tree_util.tree_map(
             lambda array, value: array.at[index].set(value),
             values,

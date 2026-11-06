@@ -68,7 +68,7 @@ def _angular_support_cells_from_events(
     neighbors,
     edge_activity,
 ):
-    """Build 49 fixed cells from the existing trace and physical events.
+    """Build fixed-capacity cells from the existing trace and physical events.
 
     Finite Newton seeds cannot certify event completeness. A physical trace
     point inside an occupied trace envelope therefore proves cell occupancy
@@ -94,7 +94,7 @@ def _angular_support_cells_from_events(
     probe_positions = _critical_event_positions(probe.critical_images, probe.critical_valid, w_center, rho, lens)
     roots = jnp.concatenate([roots, probe_positions])
     valid = jnp.concatenate([valid, probe.critical_valid])
-    critical, critical_valid, _ = _observed_critical_events(
+    critical, critical_valid, _, event_overflow = _observed_critical_events(
         physical_limb,
         physical_mask,
         w_center,
@@ -166,11 +166,14 @@ def _angular_support_cells_from_events(
     midpoint_inside, invalid = jax.lax.map(classify, (midpoint, needed))
     active = nonempty & (midpoint_inside | inherited)
     # This records known capacity/interval failures, not a completeness proof.
-    tangencies_valid = jnp.full((maximum_extrema,), ~overflow & jnp.all(invalid == 0))
+    tangencies_valid = jnp.full(
+        (maximum_extrema,),
+        ~overflow & ~event_overflow & jnp.all(invalid == 0) & jnp.all(primary.tangencies_valid),
+    )
     return AngularSupport(
         cells,
         active,
-        topology_uncertain,
+        primary.topology_uncertain | overflow | event_overflow,
         minimum_ghost_residual,
         limb_topology,
         tangencies_valid,

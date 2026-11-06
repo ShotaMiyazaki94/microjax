@@ -8,7 +8,7 @@ import jax.numpy as jnp
 import numpy as np
 from microjax.point_source import lens_eq
 from microjax.poly_solver import poly_roots
-from .lens import binary_lens, lens_map, lens_shear, source_polynomial
+from .lens import lens_map, lens_shear, source_polynomial
 from ..geometry.lens import binary_geometry
 
 Array = jnp.ndarray
@@ -133,29 +133,89 @@ def physical_image_mask(images, source, lens):
     """Keep residual-resolved triple images; retain the validated binary rule."""
     if lens.positions.shape[0] == 2:
         return _physical_image_mask(images, source, lens.s, lens.q)
-    residual = jnp.abs(lens_map(images, lens) - source)
-    return jnp.isfinite(residual) & (residual <= 1.0e-7 * jnp.maximum(1.0, jnp.abs(source)))
+    residual, uncertainty = _physical_image_error(images, source, lens)
+    resolved = jnp.isfinite(residual) & (residual <= 1.0e-7 * jnp.maximum(1.0, jnp.abs(source)))
+    tolerance = 4 * (uncertainty[:, None] + uncertainty[None, :]) + 64 * jnp.finfo(images.real.dtype).eps * (
+        1 + jnp.abs(images[:, None]) + jnp.abs(images[None, :])
+    )
+    coincident = jnp.abs(images[:, None] - images[None, :]) <= tolerance
+    index = jnp.arange(images.size)
+    preferred = (residual[None, :] < residual[:, None]) | (
+        (residual[None, :] == residual[:, None]) & (index[None, :] < index[:, None])
+    )
+    return resolved & ~jnp.any(coincident & preferred & resolved[None, :], axis=1)
+
+
+def _physical_image_error(images, source, lens):
+    residual = lens_map(images, lens) - source
+    shear = lens_shear(images, lens)
+    determinant = (1 - jnp.abs(shear)) * (1 + jnp.abs(shear))
+    correction = (-residual + shear * jnp.conj(residual)) / jnp.where(determinant != 0, determinant, 1.0)
+    return jnp.abs(residual), jnp.abs(correction)
+
+
+def _polish_triple_candidates(images, source, lens, eligible):
+    """Take six residual-decreasing Newton steps inside nearest-pole trust radii."""
+    determinant_floor = jnp.sqrt(jnp.finfo(images.real.dtype).eps)
+
+    def step(_, images):
+        residual = lens_map(images, lens) - source
+        shear = lens_shear(images, lens)
+        determinant = (1 - jnp.abs(shear)) * (1 + jnp.abs(shear))
+        safe = eligible & (jnp.abs(determinant) > determinant_floor)
+        update = (-residual + shear * jnp.conj(residual)) / jnp.where(safe, determinant, 1.0)
+        radius = 0.25 * jnp.min(jnp.abs(images[:, None] - lens.positions), axis=-1)
+        update *= jnp.minimum(1.0, radius / jnp.maximum(jnp.abs(update), jnp.finfo(images.real.dtype).tiny))
+        candidate = images + jnp.where(safe, update, 0.0j)
+        improves = safe & jnp.isfinite(candidate) & (jnp.abs(lens_map(candidate, lens) - source) < jnp.abs(residual))
+        return jnp.where(improves, candidate, images)
+
+    return jax.lax.fori_loop(0, 6, step, images)
 
 
 def polish_images(images, source, lens):
-    """Polish near-physical roots without admitting distant algebraic ghosts."""
+    """Polish algebraic roots and resolve small images near each triple lens.
+
+    The degree-ten polynomial may lose an image near a low-mass lens even in
+    translated coordinates. Three fixed local seeds complement its roots;
+    they replace only rejected slots and must independently pass the physical
+    residual and distinctness tests. No minimum image count is forced.
+    """
     if lens.positions.shape[0] == 2:
         return _polish_binary_images(images, source, lens.s, lens.q)
     residual_scale = jnp.maximum(1.0, jnp.abs(source))
-    residual = lens_map(images, lens) - source
-    eligible = jnp.isfinite(residual) & (jnp.abs(residual) <= 1.0e-6 * residual_scale)
-    determinant_floor = jnp.sqrt(jnp.finfo(images.real.dtype).eps)
-    for _ in range(2):
-        residual = lens_map(images, lens) - source
-        shear = lens_shear(images, lens)
-        shear_abs = jnp.abs(shear)
-        determinant = (1.0 - shear_abs) * (1.0 + shear_abs)
-        safe = eligible & (jnp.abs(determinant) > determinant_floor)
-        step = (-residual + shear * jnp.conj(residual)) / jnp.where(safe, determinant, 1.0)
-        candidate = images + jnp.where(safe, step, 0.0j)
-        improves = safe & jnp.isfinite(candidate) & (jnp.abs(lens_map(candidate, lens) - source) < jnp.abs(residual))
-        images = jnp.where(improves, candidate, images)
-    return images
+    residual = jnp.abs(lens_map(images, lens) - source)
+    order = jnp.argsort(residual)
+    rank = jnp.zeros_like(order).at[order].set(jnp.arange(images.size))
+    eligible = jnp.isfinite(residual) & ((rank < 4) | (residual <= 1.0e-6 * residual_scale))
+    # Locally w = z_j - m_j/conj(delta) - deflection_by_other_lenses.
+    diagonal = jnp.eye(lens.positions.size, dtype=bool)
+    separation = jnp.conj(lens.positions[:, None] - lens.positions[None, :])
+    deflection = jnp.sum(jnp.where(diagonal, 0.0j, lens.masses[None, :] / jnp.where(diagonal, 1.0, separation)), axis=1)
+    seeds = lens.positions - lens.masses / jnp.conj(source - lens.positions + deflection)
+    finite = jnp.isfinite(seeds)
+    seeds = jnp.where(finite, seeds, lens.positions + (2 + 1j))
+    # All candidate updates are independent: share one fixed Newton schedule.
+    count = images.size
+    polished = _polish_triple_candidates(
+        jnp.concatenate((images, seeds)), source, lens, jnp.concatenate((eligible, finite))
+    )
+    images, seeds = polished[:count], polished[count:]
+
+    def insert(index, images):
+        mask = physical_image_mask(images, source, lens)
+        _, uncertainty = _physical_image_error(images, source, lens)
+        residual, seed_uncertainty = _physical_image_error(seeds[index], source, lens)
+        tolerance = 4 * (uncertainty + seed_uncertainty) + 64 * jnp.finfo(images.real.dtype).eps * (
+            1 + jnp.abs(images) + jnp.abs(seeds[index])
+        )
+        distinct = ~jnp.any(mask & (jnp.abs(images - seeds[index]) <= tolerance))
+        available = ~mask
+        target = jnp.argmin(jnp.where(available, jnp.abs(images - seeds[index]), jnp.inf))
+        replace = finite[index] & (residual <= 1.0e-7 * residual_scale) & distinct & jnp.any(available)
+        return images.at[target].set(jnp.where(replace, seeds[index], images[target]))
+
+    return jax.lax.fori_loop(0, lens.positions.size, insert, images)
 
 
 def trace_source_limb(
@@ -337,11 +397,3 @@ def tracked_limb_neighbors(
     previous_mask = jnp.roll(image_mask, 1, axis=1).at[:, 0].set(image_mask[:, -1][closing_permutation])
     following_mask = jnp.roll(image_mask, -1, axis=1).at[:, -1].set(image_mask[:, 0][inverse_permutation])
     return previous, following, previous_mask, following_mask
-
-
-def trace_binary_source_limb(w_center, rho, *, s, q, n_limb):
-    return trace_source_limb(w_center, rho, lens=binary_lens(s, q), n_limb=n_limb)
-
-
-def trace_binary_source_limb_record(w_center, rho, *, s, q, n_limb):
-    return trace_source_limb_record(w_center, rho, lens=binary_lens(s, q), n_limb=n_limb)

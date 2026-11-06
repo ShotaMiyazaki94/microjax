@@ -61,14 +61,21 @@ def source_polynomial(w, lens):
     """Return descending source-image coefficients and the public image shift.
 
     Binary coefficients retain their mass-ratio-aware factorization. Triple
-    elimination is assembled from lens factors about the lightest mass, so
-    its small image does not arise by subtracting large global monomials.
+    elimination is assembled about the lens nearest the source in its local
+    Einstein-radius scale. This resolves the relevant small image cluster
+    without subtracting large global monomials. A limb batch shares one origin.
     The returned shift always restores the established public binary-COM frame.
     """
     if lens.positions.shape[0] == 2:
         return binary_quintic_coefficients(w, s=lens.s, q=lens.q)
     w = jnp.asarray(w)
-    shifted = lens.positions[jnp.argmin(lens.masses)]
+    diagonal = jnp.eye(lens.positions.size, dtype=bool)
+    separation = jnp.conj(lens.positions[:, None] - lens.positions[None, :])
+    background = lens.positions - jnp.sum(
+        jnp.where(diagonal, 0.0j, lens.masses[None, :] / jnp.where(diagonal, 1.0, separation)), axis=-1
+    )
+    score = jnp.abs(jnp.mean(w) - background) ** 2 / lens.masses
+    shifted = lens.positions[jnp.argmin(score)]
     multiply = _polynomial_product_ascending
     factors = [jnp.stack((shifted - position, jnp.ones_like(shifted))) for position in lens.positions]
     denominator = multiply(multiply(factors[0], factors[1]), factors[2])

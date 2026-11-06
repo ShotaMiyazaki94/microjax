@@ -52,7 +52,14 @@ def _trace_state(
     residual = trace.residual
     ghost_residuals = jnp.where(~physical_mask, residual, jnp.inf)
     ghost = jnp.min(ghost_residuals)
-    topology = limb_topology | (ghost <= 4.0 * rho) | ~jnp.all(jnp.isfinite(jnp.where(physical_mask, image_limb, 0.0j)))
+    minimum_images = lens.positions.shape[0] + 1
+    invalid_count = jnp.any((image_counts < minimum_images) | ((image_counts - minimum_images) % 2 != 0))
+    topology = (
+        limb_topology
+        | invalid_count
+        | (ghost <= 4.0 * rho)
+        | ~jnp.all(jnp.isfinite(jnp.where(physical_mask, image_limb, 0.0j)))
+    )
 
     following_limb = trace.following_limb
     outgoing_edge_active = trace.outgoing_edge_active
@@ -272,12 +279,13 @@ def mag_cpu_one_shot(w_center, rho, *, lens, u1=0.0):
         )
 
     result = jax.lax.cond(theta_first, angular, cartesian, operand=None)
+    minimum_images = lens.positions.shape[0] + 1
     trace_valid = (
-        (~state.topology_uncertain | jnp.isfinite(state.ghost_residual_ratio))
+        jnp.all((trace.image_counts >= minimum_images) & ((trace.image_counts - minimum_images) % 2 == 0))
+        & (~state.topology_uncertain | jnp.isfinite(state.ghost_residual_ratio))
         & jnp.isfinite(state.polar_conditioning)
         & jnp.isfinite(state.maximum_angular_step)
     )
-    minimum_images = lens.positions.shape[0] + 1
     buried_unresolved = (
         (state.active_images_min == minimum_images)
         & (state.active_images_max == minimum_images)

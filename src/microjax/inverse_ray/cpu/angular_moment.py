@@ -166,7 +166,7 @@ def _angular_support_cells_from_trace(
     flat_mask = candidate_mask.reshape(-1)
     # Every sampled turn and physical branch endpoint is refined. Selected
     # indices come from this mask; there is no separate brightness policy.
-    # ``trace_binary_source_limb`` carries every quintic root forward as the
+    # ``trace_source_limb`` carries every polynomial root forward as the
     # next solve's initial value. Opposite signed angular increments on one
     # continuously tracked branch therefore bracket a real support extremum,
     # even when the 2-D tangency Newton system is singular. Keep this as an
@@ -215,7 +215,7 @@ def _angular_support_cells_from_trace(
     # otherwise the fallback full-circle cell could agree at two quadrature
     # orders and be certified as a zero/incorrect support.  Reuse the existing
     # support-validity channel so every angular caller fails closed.
-    trace_support_valid = trace_finite & (n_extrema > 0)
+    trace_support_valid = trace_finite & (n_extrema > 0) & (n_extrema <= maximum_extrema)
     tangencies_valid = jnp.where(
         trace_support_valid,
         tangencies_valid,

@@ -94,14 +94,18 @@ def line_level_set_coefficients(offset, direction, w_center, rho, *, lens):
 def _local_line_polynomial(offset, direction, w_center, rho, lens):
     """Form coefficients locally instead of translating rounded monomials."""
     offset, direction = jnp.broadcast_arrays(offset, direction)
+    direction_norm = jnp.real(direction * jnp.conj(direction))
     if lens.positions.shape[0] == 2:
         # Retain the validated binary origin and its operation ordering.
         origin = lens.s * (1 - lens.q) / (1 + lens.q)
     else:
-        # The complementary-mass centre favors the small images near lighter
-        # lenses. For two lenses it is exactly the binary symmetric origin.
-        origin = jnp.sum((1 - lens.masses) * lens.positions) / (lens.positions.size - 1)
-    center = jnp.real((origin - offset) * jnp.conj(direction)) / jnp.real(direction * jnp.conj(direction))
+        # Include each lens's Einstein-radius scale: a near-origin primary
+        # otherwise wins every polar ray even when a tiny distant image
+        # determines the polynomial's conditioning.
+        relative = (lens.positions - offset[..., None]) * jnp.conj(direction[..., None])
+        scale = relative.imag**2 / direction_norm[..., None] + lens.masses
+        origin = lens.positions[jnp.argmin(scale, axis=-1)]
+    center = jnp.real((origin - offset) * jnp.conj(direction)) / direction_norm
     local_offset = offset + center * direction
     coefficients = jax.vmap(
         lambda location, vector: line_level_set_coefficients(location, vector, w_center, rho, lens=lens)

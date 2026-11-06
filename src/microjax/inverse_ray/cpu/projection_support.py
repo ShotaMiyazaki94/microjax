@@ -28,7 +28,8 @@ def _observed_critical_events(image_limb, physical_mask, w_center, rho, lens, *,
     index = jnp.nonzero(endpoint.reshape(-1), size=4 * (image_limb.shape[0] - 2), fill_value=-1)[0]
     seeds = image_limb.reshape(-1)[jnp.maximum(index, 0)]
     roots, valid, residual = _refine_support_events(seeds, w_center, rho, lens, critical=True)
-    return roots, valid & (index >= 0), residual
+    overflow = jnp.sum(endpoint, dtype=jnp.int32) > index.size
+    return roots, valid & (index >= 0), residual, overflow
 
 
 def _cartesian_projection_events(image_limb, physical_mask, w_center, rho, lens, axis, *, neighbors):
@@ -48,12 +49,13 @@ def _cartesian_projection_events(image_limb, physical_mask, w_center, rho, lens,
     seeds = jnp.concatenate([scouts, branch, probe.images])
     enabled = jnp.concatenate([scout_valid, branch_valid, probe.physical_mask])
     roots, valid, _ = _refine_support_events(seeds, w_center, rho, lens, critical=False, axis=axis)
-    observed, observed_valid, _ = _observed_critical_events(
+    observed, observed_valid, _, overflow = _observed_critical_events(
         image_limb, physical_mask, w_center, rho, lens, neighbors=neighbors
     )
     return (
         jnp.concatenate([roots, probe.critical_images, observed]),
         jnp.concatenate([valid & enabled, probe.critical_valid, observed_valid]),
+        overflow,
     )
 
 
@@ -79,7 +81,7 @@ def _cartesian_support_cells_from_events(
     """
 
     maximum_extrema = 4 * image_limb.shape[0]
-    roots, valid = _cartesian_projection_events(
+    roots, valid, event_overflow = _cartesian_projection_events(
         image_limb,
         physical_mask,
         w_center,
@@ -125,7 +127,7 @@ def _cartesian_support_cells_from_events(
     return (
         cells,
         active & occupied,
-        jnp.asarray(topology_uncertain) | truncated,
+        jnp.asarray(topology_uncertain) | truncated | event_overflow,
         minimum_ghost_residual,
         limb_topology,
     )

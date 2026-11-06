@@ -48,8 +48,13 @@ from .geometry.topology import RADIAL_CAPACITY, RADIAL_TOPOLOGY
 from microjax.multipole import mag_hexadecapole
 from microjax.point_source import _images_point_source
 from .cpu.lightcurve import (
-    mag_binary_cpu_hybrid_lightcurve,
+    mag_cpu_hybrid_lightcurve,
 )
+
+from .cpu.lens import binary_lens, triple_lens, source_polynomial
+from .cpu.support import polish_images, physical_image_mask
+from .cpu.result import CpuMagnificationResult, INVALID_ROOTS, NONFINITE
+from microjax.poly_solver import poly_roots
 
 # Consistent array alias used across modules
 Array = jnp.ndarray
@@ -155,12 +160,7 @@ def _binary_prefilter(
     )
     accepted = lax.cond(
         q < 0.01,
-        lambda _: (
-            test1
-            & _planetary_caustic_test(
-                w_points_shifted, rho, s=s, q=q, a=lens.a, e1=lens.e1
-            )
-        ),
+        lambda _: (test1 & _planetary_caustic_test(w_points_shifted, rho, s=s, q=q, a=lens.a, e1=lens.e1)),
         lambda _: test1,
         operand=None,
     )
@@ -191,15 +191,14 @@ def _mag_binary_cpu_impl(
         s,
         q,
     )
-    return mag_binary_cpu_hybrid_lightcurve(
+    return mag_cpu_hybrid_lightcurve(
         w_points,
         multipole,
         accepted,
         multipole_error,
         multipole_trigger_scale,
         rho,
-        s=s,
-        q=q,
+        lens=binary_lens(s, q),
         u1=u1,
     )
 
@@ -247,6 +246,71 @@ def _triple_prefilter(
     return mu_multi, accepted
 
 
+@jit
+def _mag_triple_cpu_impl(w_points, rho, *, s, q, q3, r3, psi, u1):
+    """Use CPU image roots, a profile-independent gate, and the shared integrator."""
+    w_points = jnp.asarray(w_points)
+    if w_points.shape[0] == 0:
+        return CpuMagnificationResult(jnp.zeros_like(w_points.real), jnp.zeros(w_points.shape, dtype=jnp.int32))
+    lens = triple_lens(s, q, q3, r3, psi)
+    geometry = triple_lens_geometry(s, q, q3, r3, psi)
+    distances = jnp.abs(lens.positions[:, None] - lens.positions[None, :])
+    valid_lens = (
+        jnp.all(jnp.isfinite(lens.positions))
+        & jnp.all(jnp.isfinite(lens.masses) & (lens.masses > 0))
+        & jnp.all((distances > 0) | jnp.eye(3, dtype=bool))
+        & (s > 0)
+        & (rho > 0)
+    )
+
+    def evaluate(_):
+        coefficients, image_shift = vmap(lambda w: source_polynomial(w, lens))(w_points)
+        images = poly_roots(coefficients) + image_shift[:, None]
+        images = vmap(lambda z, w: polish_images(z, w, lens))(images, w_points)
+        mask = vmap(lambda z, w: physical_image_mask(z, w, lens))(images, w_points)
+        # Multipole utilities use the internal midpoint frame and image-first axes.
+        z = (images - geometry.shifted).T
+        z_mask = mask.T
+        parameters = dict(a=geometry.a, e1=geometry.e1, e2=geometry.e2, r3=r3, psi=psi, r3_complex=geometry.r3_complex)
+        values, corrections = mag_hexadecapole(
+            z[..., None],
+            z_mask[..., None],
+            rho,
+            nlenses=3,
+            u1=jnp.stack((u1, jnp.zeros_like(u1))),
+            **parameters,
+        )
+        accepted = _caustics_proximity_test(
+            w_points - geometry.shifted,
+            z,
+            z_mask,
+            rho,
+            corrections[..., 1],
+            nlenses=3,
+            **parameters,
+        )
+        count = jnp.sum(mask, axis=-1)
+        accepted = accepted & (count >= 4) & (count % 2 == 0)
+        return mag_cpu_hybrid_lightcurve(
+            w_points,
+            values[..., 0],
+            accepted,
+            corrections[..., 1],
+            jnp.maximum(jnp.abs(values[..., 1]), 1.0),
+            rho,
+            lens=lens,
+            u1=u1,
+        )
+
+    def invalid(_):
+        return CpuMagnificationResult(
+            jnp.full(w_points.shape, jnp.nan, dtype=w_points.real.dtype),
+            jnp.full(w_points.shape, INVALID_ROOTS | NONFINITE, dtype=jnp.int32),
+        )
+
+    return lax.cond(valid_lens, evaluate, invalid, operand=None)
+
+
 def _select_full_points(w_points: Array, accepted: Array) -> tuple[Array, Array, Array]:
     """Compact rejected trajectory samples into a static selection buffer."""
 
@@ -282,13 +346,7 @@ def _validated_magnification(result):
 
     structural_failure = (
         result.status
-        & (
-            ANGULAR_CAPACITY
-            | ANGULAR_DEGENERATE
-            | ANGULAR_ROOT_FAILURE
-            | RADIAL_CAPACITY
-            | RADIAL_TOPOLOGY
-        )
+        & (ANGULAR_CAPACITY | ANGULAR_DEGENERATE | ANGULAR_ROOT_FAILURE | RADIAL_CAPACITY | RADIAL_TOPOLOGY)
     ) != 0
     valid = jnp.isfinite(result.magnification) & ~structural_failure
     return jnp.where(valid, result.magnification, jnp.nan)
@@ -405,9 +463,7 @@ def _mag_binary_single_pass_impl(
     tile_size = min(config.source_tile_size, w_points.shape[0])
 
     def solve(boundary):
-        full_values = _tiled_vmap_active_scalar(
-            boundary, full_points, n_active, tile_size
-        )
+        full_values = _tiled_vmap_active_scalar(boundary, full_points, n_active, tile_size)
         return _scatter_full_values(multipole, indices, full_values)
 
     return solve(make_boundary())
@@ -589,8 +645,22 @@ def mag_triple(
     psi: float,
     u1: float = 0.0,
     config: TripleMagConfig = DEFAULT_TRIPLE_CONFIG,
+    backend: str = "accelerator",
+    return_info: bool = False,
 ) -> Array:
-    """Validate the public API before entering the JIT-compiled implementation."""
+    """Finite-source triple magnification with an explicit CPU backend.
+
+    The CPU path shares bounded image-plane integration with binary lenses.
+    It requires positive masses and distinct lens positions. Uniform and
+    limb-darkened sources use the same compiled model and forward derivatives.
+    """
+    if backend == "cpu":
+        result = _mag_triple_cpu_impl(w_points, rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=u1)
+        return result if return_info else result.magnification
+    if backend not in ("accelerator", "gpu"):
+        raise ValueError("backend must be 'accelerator', 'gpu', or 'cpu'")
+    if return_info:
+        raise ValueError("return_info is available only for backend='cpu'")
 
     return _mag_triple_single_pass_impl(
         w_points,
@@ -603,6 +673,3 @@ def mag_triple(
         u1=u1,
         config=config,
     )
-
-
-mag_triple.__doc__ = _mag_triple_single_pass_impl.__doc__
