@@ -31,7 +31,7 @@ jobs:
       - name: Run Pytest and generate JUnit report
         run: |
           mkdir -p results
-          pytest -m "not gpu and not slow" -q --durations=20 --junit-xml=results/pytest.xml
+          pytest -m "not gpu and not slow" -q --junit-xml=results/pytest.xml
 
       - name: Upload Pytest Results
         if: always()

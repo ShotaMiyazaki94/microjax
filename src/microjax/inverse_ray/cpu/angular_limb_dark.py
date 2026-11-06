@@ -1,54 +1,16 @@
-"""Angle-first radial-profile moments for linear limb darkening."""
+"""Polar inverse-ray moments with twelve inner Jacobi nodes."""
 
 from __future__ import annotations
-
 import jax
 import jax.numpy as jnp
-import numpy as np
-
 from microjax.point_source import lens_eq
-
 from ..geometry.lens import binary_geometry
-from .angular_moment import (
-    ANGULAR_MOMENT_EXHAUSTED,
-    ANGULAR_MOMENT_SUPPORT,
-    ANGULAR_MOMENT_TOPOLOGY,
-    AngularSupport,
-    AngularMomentResult,
-    _angular_support_cells,
-    _stable_radial_level_value,
-    binary_radial_level_set_coefficients,
-)
-from .projection_moments import _sum_status
+from .angular_moment import _stable_radial_level_value, ANGULAR_MOMENT_SUPPORT, ANGULAR_MOMENT_EXHAUSTED
 from .line_roots import binary_line_level_set_roots, physical_binary_line_level_set_roots
-from .quadrature import G7_W_ON_GK15, GK15_W, GK15_X
-from .support import unwrap_support_1d
+from .projection_moments import PROFILE_NODES, PROFILE_WEIGHTS, integrate_adaptive_moments
+from .result import CpuMagnificationResult, INVALID_ROOTS, NONFINITE
 
 Array = jnp.ndarray
-
-_OUTER_PANEL_PARTS_10 = 2
-_OUTER_PANEL_PARTS_12 = 3
-_OUTER_PANEL_PARTS_16 = 1
-
-
-def _composite_sin2_rule(order: int, parts: int, dtype):
-    """Return a fixed-budget Gauss rule in the endpoint-regularized variable."""
-
-    nodes_per_panel = order // parts
-    base_nodes, base_weights = np.polynomial.legendre.leggauss(nodes_per_panel)
-    base_nodes = jnp.asarray(base_nodes, dtype=dtype)
-    base_weights = jnp.asarray(base_weights, dtype=dtype)
-    panel_index = jnp.arange(parts, dtype=dtype)[:, None]
-    panel_width = (0.5 * jnp.pi) / parts
-    transform = (
-        panel_index * panel_width
-        + 0.5 * panel_width * (base_nodes[None, :] + 1.0)
-    ).reshape(-1)
-    weights = jnp.broadcast_to(
-        0.5 * panel_width * base_weights[None, :],
-        (parts, nodes_per_panel),
-    ).reshape(-1)
-    return transform, weights
 
 
 def _physical_ray_intervals(
@@ -67,649 +29,59 @@ def _physical_ray_intervals(
     """
 
     solve = physical_binary_line_level_set_roots if refine_roots else binary_line_level_set_roots
-    roots = solve(
-        0.0j, jnp.exp(1.0j * theta), w_center, rho, s=s, q=q
-    )
+    roots = solve(0.0j, jnp.exp(1.0j * theta), w_center, rho, s=s, q=q)
     valid = (roots.imag == 0) & jnp.isfinite(roots.real) & (roots.real >= 0)
     radii = jnp.sort(jnp.where(valid, roots.real, jnp.inf), axis=-1)
     outer = jnp.maximum(jnp.max(jnp.where(valid, roots.real, 0), axis=-1) + 1, 1)
     radii = jnp.where(jnp.isfinite(radii), radii, outer[:, None])
-    boundaries = jnp.concatenate(
-        [jnp.zeros_like(outer[:, None]), radii, outer[:, None]], axis=-1
-    )
+    boundaries = jnp.concatenate([jnp.zeros_like(outer[:, None]), radii, outer[:, None]], axis=-1)
     lower, upper = boundaries[:, :-1], boundaries[:, 1:]
-    values = _stable_radial_level_value(
-        theta, 0.5 * (lower + upper), w_center, rho, s=s, q=q
-    )
-    inside = (
-        (values <= 0)
-        & (upper > lower)
-        & jnp.any(valid, axis=-1)[:, None]
-    )
+    values = _stable_radial_level_value(theta, 0.5 * (lower + upper), w_center, rho, s=s, q=q)
+    inside = (values <= 0) & (upper > lower) & jnp.any(valid, axis=-1)[:, None]
     invalid = jnp.sum(~jnp.isfinite(roots), axis=-1, dtype=jnp.int32)
     return lower, upper, inside, invalid
 
 
-def _profile_ray_moments(
-    theta: Array,
-    coefficients: Array,
-    w_center: Array,
-    rho: Array,
-    *,
-    s: Array,
-    q: Array,
-    n_radial: int,
-    estimate_error: bool = True,
-    certify_intervals: Array | bool = False,
-) -> tuple[Array, Array, Array, Array]:
-    lower, upper, inside, invalid = _physical_ray_intervals(
-        theta, w_center, rho, s=s, q=q, refine_roots=True
-    )
+def _profile_ray_moments(theta, w_center, rho, *, s, q):
+    lower, upper, active, invalid = _physical_ray_intervals(theta, w_center, rho, s=s, q=q, refine_roots=True)
     lens = binary_geometry(s, q)
+    nodes = jnp.asarray(PROFILE_NODES, dtype=w_center.real.dtype)
+    weights = jnp.asarray(PROFILE_WEIGHTS, dtype=w_center.real.dtype)
+    jacobi_weight = jnp.sqrt((1.0 - nodes) * (1.0 + nodes))
 
-    def integrate_weighted(nodes, weights):
-        """Integrate the limb square root with its natural Jacobi weight."""
-
-        nodes = jnp.asarray(nodes, dtype=w_center.real.dtype)
-        weights = jnp.asarray(weights, dtype=w_center.real.dtype)
-        jacobi_weight = jnp.sqrt((1.0 - nodes) * (1.0 + nodes))
-
-        def one_angle(angle, lo, hi, active):
-            midpoint = 0.5 * (lo + hi)
-            half_width = 0.5 * (hi - lo)
-            radius = midpoint[:, None] + half_width[:, None] * nodes[None, :]
-            images = radius * jnp.exp(1.0j * angle)
-            mapped = (
-                lens_eq(
-                    images - lens.shifted,
-                    nlenses=2,
-                    a=lens.a,
-                    e1=lens.e1,
-                )
-                + lens.shifted
-            )
-            normalized = jnp.abs(mapped - w_center) / rho
-            strictly_inside = active[:, None] & (normalized < 1.0)
-            safe_radicand = jnp.where(
-                strictly_inside,
-                (1.0 - normalized) * (1.0 + normalized),
-                1.0,
-            )
-            mu = jnp.where(strictly_inside, jnp.sqrt(safe_radicand), 0.0)
-            smooth = radius * mu / jacobi_weight[None, :]
-            values = half_width * jnp.sum(weights[None, :] * smooth, axis=-1)
-            return jnp.sum(jnp.where(active, values, 0.0))
-
-        return jax.vmap(one_angle)(theta, lower, upper, inside)
-
-    def integrate(nodes, weights):
-        nodes = jnp.asarray(nodes, dtype=w_center.real.dtype)
-        weights = jnp.asarray(weights, dtype=w_center.real.dtype)
-        transform = 0.25 * jnp.pi * (nodes + 1.0)
-
-        def one_angle(angle, lo, hi, active):
-            width = hi - lo
-            radius = lo[:, None] + width[:, None] * jnp.sin(transform) ** 2
-            jacobian = (
-                0.25 * jnp.pi * width[:, None] * jnp.sin(2.0 * transform)[None, :]
-            )
-            images = radius * jnp.exp(1.0j * angle)
-            mapped = (
-                lens_eq(
-                    images - lens.shifted,
-                    nlenses=2,
-                    a=lens.a,
-                    e1=lens.e1,
-                )
-                + lens.shifted
-            )
-            normalized = jnp.abs(mapped - w_center) / rho
-            # The fixed interval capacity evaluates inactive lanes too.
-            # Clipping their negative radicand to zero is value-safe but its
-            # square-root JVP is ``0 * inf``.  Evaluate a benign radicand on
-            # inactive/outside lanes and mask the resulting profile instead.
-            strictly_inside = active[:, None] & (normalized < 1.0)
-            safe_radicand = jnp.where(
-                strictly_inside,
-                (1.0 - normalized) * (1.0 + normalized),
-                1.0,
-            )
-            mu = jnp.where(strictly_inside, jnp.sqrt(safe_radicand), 0.0)
-            values = jnp.sum(
-                weights[None, :] * radius * mu * jacobian,
-                axis=-1,
-            )
-            return jnp.sum(jnp.where(active, values, 0.0))
-
-        return jax.vmap(one_angle)(theta, lower, upper, inside)
-
-    if n_radial >= 4:
-        fine_angle = np.pi * np.arange(n_radial, 0, -1) / (n_radial + 1)
-        fine_nodes = np.cos(fine_angle)
-        fine_weights = np.pi * np.sin(fine_angle) ** 2 / (n_radial + 1)
-        residual_fine = integrate_weighted(fine_nodes, fine_weights)
-        coarse_order = max(4, n_radial // 2)
-        coarse_angle = (
-            np.pi * np.arange(coarse_order, 0, -1) / (coarse_order + 1)
-        )
-        coarse_nodes = np.cos(coarse_angle)
-        coarse_weights = (
-            np.pi * np.sin(coarse_angle) ** 2 / (coarse_order + 1)
-        )
-        residual_coarse = (
-            integrate_weighted(coarse_nodes, coarse_weights)
-            if estimate_error
-            else residual_fine
-        )
-    else:
-        fine_nodes, fine_weights = np.polynomial.legendre.leggauss(n_radial)
-        residual_fine = integrate(fine_nodes, fine_weights)
-        if estimate_error:
-            coarse_nodes, coarse_weights = np.polynomial.legendre.leggauss(
-                max(4, n_radial // 2)
-            )
-            residual_coarse = integrate(coarse_nodes, coarse_weights)
-        else:
-            residual_coarse = residual_fine
-    uniform = 0.5 * jnp.sum(
-        jnp.where(inside, (upper - lower) * (upper + lower), 0.0), axis=-1
-    )
-    return (
-        uniform,
-        residual_fine,
-        jnp.abs(residual_fine - residual_coarse),
-        invalid,
-    )
-
-
-def _profile_ray_moments_gk15(
-    theta: Array,
-    coefficients: Array,
-    w_center: Array,
-    rho: Array,
-    *,
-    s: Array,
-    q: Array,
-    certify_intervals: Array | bool = False,
-) -> tuple[Array, Array, Array, Array]:
-    """Evaluate uniform and nested GK15/G7 LD ray moments once."""
-
-    lower, upper, inside, invalid = _physical_ray_intervals(
-        theta, w_center, rho, s=s, q=q
-    )
-    lens = binary_geometry(s, q)
-    nodes = jnp.asarray(GK15_X, dtype=w_center.real.dtype)
-    fine_weights = jnp.asarray(GK15_W, dtype=w_center.real.dtype)
-    coarse_weights = jnp.asarray(G7_W_ON_GK15, dtype=w_center.real.dtype)
-    transform = 0.25 * jnp.pi * (nodes + 1.0)
-
-    def one_angle(angle, lo, hi, active):
-        width = hi - lo
-        radius = lo[:, None] + width[:, None] * jnp.sin(transform) ** 2
-        jacobian = (
-            0.25 * jnp.pi * width[:, None] * jnp.sin(2.0 * transform)[None, :]
-        )
-        images = radius * jnp.exp(1.0j * angle)
-        mapped = (
-            lens_eq(
-                images - lens.shifted,
-                nlenses=2,
-                a=lens.a,
-                e1=lens.e1,
-            )
-            + lens.shifted
-        )
+    def one_angle(angle, lo, hi, inside):
+        midpoint = 0.5 * (lo + hi)
+        half_width = 0.5 * (hi - lo)
+        radius = midpoint[:, None] + half_width[:, None] * nodes[None, :]
+        images = radius * jnp.exp(1j * angle)
+        mapped = lens_eq(images - lens.shifted, nlenses=2, a=lens.a, e1=lens.e1) + lens.shifted
         normalized = jnp.abs(mapped - w_center) / rho
-        strictly_inside = active[:, None] & (normalized < 1.0)
-        safe_radicand = jnp.where(
-            strictly_inside,
-            (1.0 - normalized) * (1.0 + normalized),
-            1.0,
-        )
-        mu = jnp.where(strictly_inside, jnp.sqrt(safe_radicand), 0.0)
-        integrand = radius * mu * jacobian
-        fine = jnp.sum(fine_weights[None, :] * integrand, axis=-1)
-        coarse = jnp.sum(coarse_weights[None, :] * integrand, axis=-1)
-        return (
-            jnp.sum(jnp.where(active, fine, 0.0)),
-            jnp.sum(jnp.where(active, coarse, 0.0)),
-        )
+        strictly_inside = inside[:, None] & (normalized < 1.0)
+        radicand = jnp.where(strictly_inside, (1.0 - normalized) * (1.0 + normalized), 1.0)
+        mu = jnp.where(strictly_inside, jnp.sqrt(radicand), 0.0)
+        smooth = radius * mu / jacobi_weight[None, :]
+        values = half_width * jnp.sum(weights[None, :] * smooth, axis=-1)
+        return jnp.sum(jnp.where(inside, values, 0.0))
 
-    residual_fine, residual_coarse = jax.vmap(one_angle)(
-        theta, lower, upper, inside
+    profile = jax.vmap(one_angle)(theta, lower, upper, active)
+    uniform = 0.5 * jnp.sum(jnp.where(active, (upper - lower) * (upper + lower), 0.0), axis=-1)
+    return jnp.stack((uniform, profile), axis=-1), invalid
+
+
+def _mag_limb_dark_angular_moment_from_support(w_center, rho, *, s, q, u1, support):
+    """Integrate one traced polar support with the shared bounded allocator."""
+    integral = integrate_adaptive_moments(
+        lambda theta: _profile_ray_moments(theta, w_center, rho, s=s, q=q),
+        support.cells,
+        support.active,
     )
-    uniform = 0.5 * jnp.sum(
-        jnp.where(inside, (upper - lower) * (upper + lower), 0.0), axis=-1
+    flux = (1.0 - u1) * integral.value[0] + u1 * integral.value[1]
+    magnification = 3.0 / (jnp.pi * rho**2 * (3.0 - u1)) * flux
+    # Trace topology is a routing warning here; physical event support is the
+    # structural acceptance signal, matching the shared scheduler's contract.
+    status = (
+        jnp.where(jnp.all(support.tangencies_valid), jnp.int32(0), jnp.int32(ANGULAR_MOMENT_SUPPORT))
+        | jnp.where(integral.status == 0, jnp.int32(0), jnp.int32(INVALID_ROOTS | ANGULAR_MOMENT_EXHAUSTED))
+        | jnp.where(jnp.isfinite(magnification), jnp.int32(0), jnp.int32(NONFINITE))
     )
-    return uniform, residual_fine, residual_coarse, invalid
-
-
-def _mag_limb_dark_angular_moment_gk15_pair_from_support(
-    w_center: Array,
-    rho: Array,
-    *,
-    s: Array,
-    q: Array,
-    u1: Array,
-    support: AngularSupport,
-) -> tuple[AngularMomentResult, AngularMomentResult]:
-    """Evaluate an embedded GK15/G7 angular and radial LD pair once."""
-
-    cells, active, topology, ghost, limb_topology, tangencies_valid = support
-    nodes = jnp.asarray(GK15_X, dtype=w_center.real.dtype)
-    fine_weights = jnp.asarray(GK15_W, dtype=w_center.real.dtype)
-    coarse_weights = jnp.asarray(G7_W_ON_GK15, dtype=w_center.real.dtype)
-    transform = 0.25 * jnp.pi * (nodes + 1.0)
-
-    def integrate_cell(inputs):
-        lower, width, is_active = inputs
-
-        def evaluate(_):
-            theta = lower + width * jnp.sin(transform) ** 2
-            jacobian = 0.25 * jnp.pi * width * jnp.sin(2.0 * transform)
-            coefficients = jax.vmap(
-                lambda angle: binary_radial_level_set_coefficients(
-                    angle, w_center, rho, s=s, q=q
-                )
-            )(theta)
-            uniform, residual_fine, residual_coarse, invalid = (
-                _profile_ray_moments_gk15(
-                    theta,
-                    coefficients,
-                    w_center,
-                    rho,
-                    s=s,
-                    q=q,
-                )
-            )
-            fine_profile = (1.0 - u1) * uniform + u1 * residual_fine
-            coarse_profile = (1.0 - u1) * uniform + u1 * residual_coarse
-            fine = jnp.sum(fine_weights * jacobian * fine_profile)
-            coarse = jnp.sum(coarse_weights * jacobian * coarse_profile)
-            radial_error = jnp.sum(
-                jnp.abs(fine_weights * jacobian * u1)
-                * jnp.abs(residual_fine - residual_coarse)
-            )
-            return fine, coarse, radial_error, jnp.sum(invalid, dtype=jnp.int32)
-
-        return jax.lax.cond(
-            is_active,
-            evaluate,
-            lambda _: (
-                jnp.asarray(0.0, dtype=w_center.real.dtype),
-                jnp.asarray(0.0, dtype=w_center.real.dtype),
-                jnp.asarray(0.0, dtype=w_center.real.dtype),
-                jnp.int32(0),
-            ),
-            operand=None,
-        )
-
-    widths = cells[:, 1] - cells[:, 0]
-    fine_values, coarse_values, radial_errors, invalid_counts = jax.lax.map(
-        integrate_cell, (cells[:, 0], widths, active)
-    )
-    normalization = 3.0 / (jnp.pi * rho**2 * (3.0 - u1))
-    finite = (
-        jnp.all(jnp.isfinite(fine_values))
-        & jnp.all(jnp.isfinite(coarse_values))
-        & jnp.all(jnp.isfinite(radial_errors))
-    )
-    invalid_root_count = jnp.sum(invalid_counts, dtype=jnp.int32)
-    status = jnp.bitwise_or(
-        jnp.bitwise_or(
-            jnp.where(finite, jnp.int32(0), jnp.int32(1)),
-            jnp.where(topology, jnp.int32(ANGULAR_MOMENT_TOPOLOGY), jnp.int32(0)),
-        ),
-        jnp.where(
-            jnp.all(tangencies_valid),
-            jnp.int32(0),
-            jnp.int32(ANGULAR_MOMENT_SUPPORT),
-        ),
-    )
-    status = jnp.bitwise_or(
-        status,
-        jnp.where(
-            invalid_root_count == 0,
-            jnp.int32(0),
-            jnp.int32(ANGULAR_MOMENT_EXHAUSTED),
-        ),
-    )
-    common = dict(
-        invalid_root_count=invalid_root_count,
-        ghost_residual_ratio=ghost / jnp.maximum(
-            rho, jnp.finfo(rho.dtype).tiny
-        ),
-        limb_topology=limb_topology,
-        status=status,
-    )
-    fine = AngularMomentResult(
-        normalization * jnp.sum(fine_values),
-        normalization * jnp.sum(radial_errors),
-        jnp.int32(GK15_X.size) * jnp.sum(active, dtype=jnp.int32),
-        **common,
-    )
-    coarse = AngularMomentResult(
-        normalization * jnp.sum(coarse_values),
-        jnp.asarray(0.0, dtype=w_center.real.dtype),
-        jnp.int32(np.count_nonzero(G7_W_ON_GK15))
-        * jnp.sum(active, dtype=jnp.int32),
-        **common,
-    )
-    return coarse, fine
-
-
-def _angular_outer_rule(n_theta, dtype):
-    """Historical node layouts for explicitly requested angular tiers."""
-
-    panel_parts = (
-        _OUTER_PANEL_PARTS_10
-        if n_theta == 10
-        else _OUTER_PANEL_PARTS_12
-        if n_theta == 12
-        else _OUTER_PANEL_PARTS_16
-        if n_theta == 16
-        else 1
-    )
-    transform, weights = _composite_sin2_rule(n_theta, panel_parts, dtype)
-    return jnp.sin(transform) ** 2, weights * jnp.sin(2.0 * transform)
-
-
-def _mag_limb_dark_angular_moment_from_support(
-    w_center: Array,
-    rho: Array,
-    *,
-    s: Array,
-    q: Array,
-    u1: Array,
-    n_theta: int,
-    n_radial: int,
-    support: AngularSupport,
-    estimate_radial_error: bool = True,
-    certify_intervals: Array | bool = False,
-    outer_rule=_angular_outer_rule,
-    moment_integrator=None,
-) -> AngularMomentResult:
-    """Evaluate one LD polar tier on precomputed angular support."""
-
-    support = unwrap_support_1d(support)
-    cells, active, topology, ghost, limb_topology, tangencies_valid = support
-    def profile_moments(theta):
-        coefficients = jax.vmap(
-            lambda angle: binary_radial_level_set_coefficients(
-                angle, w_center, rho, s=s, q=q
-            )
-        )(theta)
-        uniform, residual, radial_error, invalid = _profile_ray_moments(
-            theta,
-            coefficients,
-            w_center,
-            rho,
-            s=s,
-            q=q,
-            n_radial=n_radial,
-            estimate_error=estimate_radial_error,
-            certify_intervals=certify_intervals,
-        )
-        return uniform, residual, radial_error, invalid
-
-    if moment_integrator is None:
-        unit_nodes, unit_weights = outer_rule(n_theta, w_center.real.dtype)
-
-        def integrate_cell(inputs):
-            lower, width, is_active = inputs
-
-            def evaluate(_):
-                theta = lower + width * unit_nodes
-                angular_weights = unit_weights * width
-                uniform, residual, radial_error, invalid = profile_moments(theta)
-                profile = (1.0 - u1) * uniform + u1 * residual
-                return (
-                    jnp.sum(angular_weights * profile),
-                    jnp.sum(jnp.abs(angular_weights * u1) * radial_error),
-                    jnp.sum(invalid, dtype=jnp.int32),
-                )
-
-            return jax.lax.cond(
-                is_active,
-                evaluate,
-                lambda _: (
-                    jnp.asarray(0.0, dtype=w_center.real.dtype),
-                    jnp.asarray(0.0, dtype=w_center.real.dtype),
-                    jnp.int32(0),
-                ),
-                operand=None,
-            )
-
-        widths = cells[:, 1] - cells[:, 0]
-        values, radial_errors, invalid_counts = jax.lax.map(
-            integrate_cell, (cells[:, 0], widths, active)
-        )
-        n_nodes = jnp.int32(n_theta) * jnp.sum(active, dtype=jnp.int32)
-    else:
-        def integrand(theta):
-            uniform, residual, radial_error, invalid = profile_moments(theta)
-            moments = jnp.stack((uniform, residual), axis=-1)
-            errors = jnp.stack((jnp.zeros_like(radial_error), radial_error), axis=-1)
-            return moments, errors, invalid
-
-        integral = moment_integrator(
-            integrand, cells, active, status_reducer=_sum_status,
-        )
-        values = jnp.atleast_1d((1.0 - u1) * integral.value[0] + u1 * integral.value[1])
-        radial_errors = jnp.atleast_1d(
-            jnp.abs(1.0 - u1) * integral.error[0] + jnp.abs(u1) * integral.error[1]
-        )
-        invalid_counts = jnp.atleast_1d(integral.status)
-        n_nodes = integral.n_nodes
-    normalization = 3.0 / (jnp.pi * rho**2 * (3.0 - u1))
-    invalid_root_count = jnp.sum(invalid_counts, dtype=jnp.int32)
-    finite = jnp.all(jnp.isfinite(values)) & jnp.all(jnp.isfinite(radial_errors))
-    status = jnp.bitwise_or(
-        jnp.bitwise_or(
-            jnp.where(finite, jnp.int32(0), jnp.int32(1)),
-            jnp.where(
-                topology,
-                jnp.int32(ANGULAR_MOMENT_TOPOLOGY),
-                jnp.int32(0),
-            ),
-        ),
-        jnp.where(
-            jnp.all(tangencies_valid),
-            jnp.int32(0),
-            jnp.int32(ANGULAR_MOMENT_SUPPORT),
-        ),
-    )
-    status = jnp.bitwise_or(
-        status,
-        jnp.where(
-            invalid_root_count == 0,
-            jnp.int32(0),
-            jnp.int32(ANGULAR_MOMENT_EXHAUSTED),
-        ),
-    )
-    return AngularMomentResult(
-        normalization * jnp.sum(values),
-        normalization * jnp.sum(radial_errors),
-        n_nodes,
-        invalid_root_count,
-        ghost / jnp.maximum(rho, jnp.finfo(rho.dtype).tiny),
-        limb_topology,
-        status,
-    )
-
-
-def mag_limb_dark_angular_moment_fixed(
-    w_center: complex | Array,
-    rho: float | Array,
-    *,
-    s: float | Array,
-    q: float | Array,
-    u1: float | Array,
-    n_theta: int = 16,
-    n_radial: int = 12,
-    n_limb: int = 128,
-    return_info: bool = False,
-) -> Array | AngularMomentResult:
-    """Evaluate one angle-first linear-LD profile-moment tier."""
-
-    if n_theta <= 0 or n_radial <= 0 or n_limb <= 0:
-        raise ValueError("quadrature and support sizes must be positive")
-    w_center = jnp.asarray(w_center)
-    rho = jnp.asarray(rho, dtype=w_center.real.dtype)
-    u1 = jnp.asarray(u1, dtype=w_center.real.dtype)
-    support = _angular_support_cells(
-        w_center, rho, s=s, q=q, n_limb=n_limb
-    )
-    result = _mag_limb_dark_angular_moment_from_support(
-        w_center,
-        rho,
-        s=s,
-        q=q,
-        u1=u1,
-        n_theta=n_theta,
-        n_radial=n_radial,
-        support=support,
-    )
-    return result if return_info else result.magnification
-
-
-def mag_limb_dark_angular_moment_compact(
-    w_center: complex | Array,
-    rho: float | Array,
-    *,
-    s: float | Array,
-    q: float | Array,
-    u1: float | Array,
-    rtol: float | Array = 1.0e-3,
-    _support: AngularSupport | None = None,
-    return_info: bool = False,
-) -> Array | AngularMomentResult:
-    """Cross-certify compact 8x6 and 12x8 LD polar moments."""
-
-    w_center = jnp.asarray(w_center)
-    rho = jnp.asarray(rho, dtype=w_center.real.dtype)
-    u1 = jnp.asarray(u1, dtype=w_center.real.dtype)
-    rtol = jnp.asarray(rtol, dtype=w_center.real.dtype)
-    support = (
-        _angular_support_cells(
-            w_center,
-            rho,
-            s=s,
-            q=q,
-            n_limb=128,
-        )
-        if _support is None
-        else _support
-    )
-    coarse = _mag_limb_dark_angular_moment_from_support(
-        w_center,
-        rho,
-        s=s,
-        q=q,
-        u1=u1,
-        n_theta=8,
-        n_radial=6,
-        support=support,
-    )
-    fine = _mag_limb_dark_angular_moment_from_support(
-        w_center,
-        rho,
-        s=s,
-        q=q,
-        u1=u1,
-        n_theta=12,
-        n_radial=8,
-        support=support,
-    )
-    scale = jnp.maximum(jnp.abs(fine.magnification), 1.0)
-    difference = jnp.abs(fine.magnification - coarse.magnification)
-    structural_status = jnp.bitwise_and(
-        fine.status,
-        jnp.bitwise_not(jnp.int32(ANGULAR_MOMENT_TOPOLOGY)),
-    )
-    estimated_error = jnp.maximum(
-        2.0 * difference + fine.estimated_error,
-        0.75 * rtol * scale,
-    )
-    certified = (
-        (structural_status == 0)
-        & jnp.isfinite(fine.magnification)
-        & jnp.isfinite(estimated_error)
-        & (estimated_error <= rtol * scale)
-    )
-    result = fine._replace(
-        estimated_error=estimated_error,
-        status=jnp.where(
-            certified,
-            jnp.int32(0),
-            jnp.bitwise_or(fine.status, jnp.int32(ANGULAR_MOMENT_EXHAUSTED)),
-        ),
-    )
-    return result if return_info else result.magnification
-
-
-def mag_limb_dark_angular_moment_refined(
-    w_center: complex | Array,
-    rho: float | Array,
-    *,
-    s: float | Array,
-    q: float | Array,
-    u1: float | Array,
-    rtol: float | Array = 1.0e-3,
-    return_info: bool = False,
-) -> Array | AngularMomentResult:
-    """Refine the linear-LD profile in the polar coordinate chart."""
-
-    w_center = jnp.asarray(w_center)
-    rtol = jnp.asarray(rtol, dtype=w_center.real.dtype)
-    medium = mag_limb_dark_angular_moment_fixed(
-        w_center,
-        rho,
-        s=s,
-        q=q,
-        u1=u1,
-        n_theta=16,
-        n_radial=8,
-        return_info=True,
-    )
-    high = mag_limb_dark_angular_moment_fixed(
-        w_center,
-        rho,
-        s=s,
-        q=q,
-        u1=u1,
-        n_theta=24,
-        n_radial=12,
-        return_info=True,
-    )
-    scale = jnp.maximum(jnp.abs(high.magnification), 1.0)
-    difference = jnp.abs(high.magnification - medium.magnification)
-    structural_status = jnp.bitwise_and(
-        high.status, jnp.bitwise_not(jnp.int32(ANGULAR_MOMENT_TOPOLOGY))
-    )
-    estimated_error = jnp.maximum(
-        2.0 * difference + high.estimated_error,
-        0.75 * rtol * scale,
-    )
-    certified = (
-        (structural_status == 0)
-        & jnp.isfinite(high.magnification)
-        & jnp.isfinite(estimated_error)
-        & (estimated_error <= rtol * scale)
-    )
-    result = high._replace(
-        estimated_error=estimated_error,
-        status=jnp.where(
-            certified,
-            jnp.int32(0),
-            jnp.bitwise_or(high.status, jnp.int32(ANGULAR_MOMENT_EXHAUSTED)),
-        ),
-    )
-    return result if return_info else result.magnification
-
-
-__all__ = [
-    "mag_limb_dark_angular_moment_compact",
-    "mag_limb_dark_angular_moment_fixed",
-    "mag_limb_dark_angular_moment_refined",
-]
+    return CpuMagnificationResult(magnification, status)
