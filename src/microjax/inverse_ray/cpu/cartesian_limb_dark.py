@@ -3,24 +3,24 @@
 from __future__ import annotations
 import jax
 import jax.numpy as jnp
-from ..geometry.lens import binary_geometry
-from .line_roots import binary_line_level_set_coefficients, physical_binary_line_level_set_roots
+from .lens import lens_map
+from .line_roots import line_level_set_coefficients, physical_line_level_set_roots
 from .projection_moments import PROFILE_NODES, PROFILE_WEIGHTS, integrate_adaptive_moments
 from .result import CpuMagnificationResult, INVALID_ROOTS, NONFINITE
 from .angular_moment import ANGULAR_MOMENT_TOPOLOGY
 
 
-def _strip_profile_moments(abscissa, w_center, rho, *, s, q, axis):
-    coefficients = jax.vmap(lambda x: binary_line_level_set_coefficients(x * axis, 1j * axis, w_center, rho, s=s, q=q))(
+def _strip_profile_moments(abscissa, w_center, rho, *, lens, axis):
+    coefficients = jax.vmap(lambda x: line_level_set_coefficients(x * axis, 1j * axis, w_center, rho, lens=lens))(
         abscissa
     )
-    roots = physical_binary_line_level_set_roots(abscissa * axis, 1j * axis, w_center, rho, s=s, q=q)
+    roots = physical_line_level_set_roots(abscissa * axis, 1j * axis, w_center, rho, lens=lens)
     real = roots.imag == 0
     residual = jnp.abs(jax.vmap(jnp.polyval)(coefficients, roots))
     valid = real & (residual <= 2.0e-7)
     ordered = jnp.sort(jnp.where(valid, roots.real, jnp.inf), axis=-1)
     root_count = jnp.sum(valid, axis=-1, dtype=jnp.int32)
-    pair = jnp.arange(0, 6, 2)
+    pair = jnp.arange(0, roots.shape[-1], 2)
     active = pair[None, :] + 1 < root_count[:, None]
     lower = jnp.where(active, ordered[:, pair], 0.0)
     upper = jnp.where(active, ordered[:, pair + 1], 0.0)
@@ -28,16 +28,13 @@ def _strip_profile_moments(abscissa, w_center, rho, *, s, q, axis):
     nodes = jnp.asarray(PROFILE_NODES, dtype=w_center.real.dtype)
     weights = jnp.asarray(PROFILE_WEIGHTS, dtype=w_center.real.dtype)
     jacobi_weight = jnp.sqrt((1.0 - nodes) * (1.0 + nodes))
-    lens = binary_geometry(s, q)
 
     def one_strip(x, lo, hi, interval_active):
         midpoint = 0.5 * (lo + hi)
         half_width = 0.5 * (hi - lo)
         ordinate = midpoint[:, None] + half_width[:, None] * nodes[None, :]
         images = x * axis + ordinate * (1j * axis)
-        centered = images - lens.shifted
-        conjugate = jnp.conjugate(centered)
-        mapped = centered - lens.e1 / (conjugate - lens.a) - (1.0 - lens.e1) / (conjugate + lens.a) + lens.shifted
+        mapped = lens_map(images, lens)
         normalized = jnp.abs(mapped - w_center) / rho
         # Benign inactive lanes prevent sqrt's derivative from forming 0*inf.
         inside = interval_active[:, None] & (normalized < 1.0)
@@ -50,11 +47,11 @@ def _strip_profile_moments(abscissa, w_center, rho, *, s, q, axis):
     return jnp.stack((uniform, profile), axis=-1), invalid
 
 
-def _mag_limb_dark_cartesian_impl(w_center, rho, *, s, q, u1, axis, support):
+def _mag_limb_dark_cartesian_impl(w_center, rho, *, lens, u1, axis, support):
     """Integrate one traced Cartesian support with the shared bounded allocator."""
     cells, active, topology, _, _ = support
     integral = integrate_adaptive_moments(
-        lambda x: _strip_profile_moments(x, w_center, rho, s=s, q=q, axis=axis), cells, active
+        lambda x: _strip_profile_moments(x, w_center, rho, lens=lens, axis=axis), cells, active
     )
     uniform, profile = integral.value
     normalization = 3.0 / (jnp.pi * rho**2 * (3.0 - u1))

@@ -11,11 +11,11 @@ from __future__ import annotations
 import jax
 import jax.numpy as jnp
 
-from .line_roots import binary_line_level_set_roots
+from .line_roots import line_level_set_roots
 from .support_events import _critical_event_image_seeds, _refine_support_events
 
 
-def _observed_critical_events(image_limb, physical_mask, w_center, rho, s, q, *, neighbors):
+def _observed_critical_events(image_limb, physical_mask, w_center, rho, lens, *, neighbors):
     """Refine twelve physical branch ends into critical/source-limb crossings."""
 
     _, _, previous_mask, following_mask = neighbors
@@ -25,13 +25,13 @@ def _observed_critical_events(image_limb, physical_mask, w_center, rho, s, q, *,
     endpoint = physical_mask & (
         (~previous_mask & previous_change[None, :]) | (~following_mask & following_change[None, :])
     )
-    index = jnp.nonzero(endpoint.reshape(-1), size=12, fill_value=-1)[0]
+    index = jnp.nonzero(endpoint.reshape(-1), size=4 * (image_limb.shape[0] - 2), fill_value=-1)[0]
     seeds = image_limb.reshape(-1)[jnp.maximum(index, 0)]
-    roots, valid, residual = _refine_support_events(seeds, w_center, rho, s, q, critical=True)
+    roots, valid, residual = _refine_support_events(seeds, w_center, rho, lens, critical=True)
     return roots, valid & (index >= 0), residual
 
 
-def _cartesian_projection_events(image_limb, physical_mask, w_center, rho, s, q, axis, *, neighbors):
+def _cartesian_projection_events(image_limb, physical_mask, w_center, rho, lens, axis, *, neighbors):
     """Resolve projection and critical events with one common seed schedule."""
 
     coordinate = jnp.real(image_limb * jnp.conj(axis))
@@ -44,12 +44,12 @@ def _cartesian_projection_events(image_limb, physical_mask, w_center, rho, s, q,
     scouts = image_limb[:, phases].reshape(-1)
     # Rejected algebraic roots can still seed a physical projection event.
     scout_valid = jnp.ones(scouts.shape, dtype=bool)
-    probe = _critical_event_image_seeds(image_limb, physical_mask, w_center, rho, s, q)
+    probe = _critical_event_image_seeds(image_limb, physical_mask, w_center, rho, lens)
     seeds = jnp.concatenate([scouts, branch, probe.images])
     enabled = jnp.concatenate([scout_valid, branch_valid, probe.physical_mask])
-    roots, valid, _ = _refine_support_events(seeds, w_center, rho, s, q, critical=False, axis=axis)
+    roots, valid, _ = _refine_support_events(seeds, w_center, rho, lens, critical=False, axis=axis)
     observed, observed_valid, _ = _observed_critical_events(
-        image_limb, physical_mask, w_center, rho, s, q, neighbors=neighbors
+        image_limb, physical_mask, w_center, rho, lens, neighbors=neighbors
     )
     return (
         jnp.concatenate([roots, probe.critical_images, observed]),
@@ -63,8 +63,7 @@ def _cartesian_support_cells_from_events(
     *,
     w_center,
     rho,
-    s,
-    q,
+    lens,
     axis=1 + 0j,
     topology_uncertain,
     minimum_ghost_residual,
@@ -79,21 +78,20 @@ def _cartesian_support_cells_from_events(
     be discarded when an unobserved projection turn lies inside a cell.
     """
 
-    maximum_extrema = 20
+    maximum_extrema = 4 * image_limb.shape[0]
     roots, valid = _cartesian_projection_events(
         image_limb,
         physical_mask,
         w_center,
         rho,
-        s,
-        q,
+        lens,
         axis,
         neighbors=neighbors,
     )
     coordinate = jnp.real(roots * jnp.conj(axis))
     order = jnp.argsort(jnp.where(valid, coordinate, jnp.inf))
     values = jnp.where(valid[order], coordinate[order], jnp.inf)
-    scale = jnp.abs(roots[order]) + jnp.abs(s) + rho
+    scale = jnp.abs(roots[order]) + jnp.max(jnp.abs(lens.positions)) + rho
     tolerance = 8 * jnp.finfo(values.dtype).eps * (scale[1:] + scale[:-1])
     duplicate = jnp.concatenate([jnp.asarray([False]), jnp.diff(values) <= tolerance])
     unique = jnp.isfinite(values) & ~duplicate
@@ -115,7 +113,7 @@ def _cartesian_support_cells_from_events(
     def classify(i, mask):
         cell = indices[i]
         midpoint = cells[cell, 0] + 0.5 * (cells[cell, 1] - cells[cell, 0])
-        roots = binary_line_level_set_roots(midpoint * axis, 1j * axis, w_center, rho, s=s, q=q)
+        roots = line_level_set_roots(midpoint * axis, 1j * axis, w_center, rho, lens=lens)
         real = (roots.imag == 0) & jnp.isfinite(roots.real)
         return mask.at[cell].set(jnp.sum(real) >= 2)
 

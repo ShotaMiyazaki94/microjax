@@ -1,4 +1,4 @@
-"""Tracked binary-lens image limbs shared by the two CPU charts."""
+"""Tracked binary/triple image limbs shared by the two CPU charts."""
 
 from __future__ import annotations
 from itertools import permutations
@@ -8,7 +8,7 @@ import jax.numpy as jnp
 import numpy as np
 from microjax.point_source import lens_eq
 from microjax.poly_solver import poly_roots
-from .coefficients import binary_quintic_coefficients
+from .lens import binary_lens, lens_map, lens_shear, source_polynomial
 from ..geometry.lens import binary_geometry
 
 Array = jnp.ndarray
@@ -18,12 +18,12 @@ _BINARY_ROOT_PERMUTATIONS = np.asarray(tuple(permutations(range(5))), dtype=np.i
 class LimbTrace(NamedTuple):
     """Canonical source-limb trace shared by CPU geometry consumers.
 
-    The quintic roots and their physical mask must be treated as one object:
+    The polynomial roots and their physical mask must be treated as one object:
     rebuilding either one downstream can make support endpoints refer to a
     different set of images than the root certificate.  The incoming and
     outgoing edge masks are deliberately stricter than ``connected`` and only
     permit edges whose two phases have the same number of physical images.  A
-    3-to-5 image transition is therefore represented by two disconnected trace
+    change in image multiplicity is represented by two disconnected trace
     pieces.  Both directions are stored explicitly because the periodic closing
     edge can permute algebraic root slots.
 
@@ -129,15 +129,43 @@ def _polish_binary_images(
     return polished + midpoint_to_com
 
 
-def trace_binary_source_limb(
+def physical_image_mask(images, source, lens):
+    """Keep residual-resolved triple images; retain the validated binary rule."""
+    if lens.positions.shape[0] == 2:
+        return _physical_image_mask(images, source, lens.s, lens.q)
+    residual = jnp.abs(lens_map(images, lens) - source)
+    return jnp.isfinite(residual) & (residual <= 1.0e-7 * jnp.maximum(1.0, jnp.abs(source)))
+
+
+def polish_images(images, source, lens):
+    """Polish near-physical roots without admitting distant algebraic ghosts."""
+    if lens.positions.shape[0] == 2:
+        return _polish_binary_images(images, source, lens.s, lens.q)
+    residual_scale = jnp.maximum(1.0, jnp.abs(source))
+    residual = lens_map(images, lens) - source
+    eligible = jnp.isfinite(residual) & (jnp.abs(residual) <= 1.0e-6 * residual_scale)
+    determinant_floor = jnp.sqrt(jnp.finfo(images.real.dtype).eps)
+    for _ in range(2):
+        residual = lens_map(images, lens) - source
+        shear = lens_shear(images, lens)
+        shear_abs = jnp.abs(shear)
+        determinant = (1.0 - shear_abs) * (1.0 + shear_abs)
+        safe = eligible & (jnp.abs(determinant) > determinant_floor)
+        step = (-residual + shear * jnp.conj(residual)) / jnp.where(safe, determinant, 1.0)
+        candidate = images + jnp.where(safe, step, 0.0j)
+        improves = safe & jnp.isfinite(candidate) & (jnp.abs(lens_map(candidate, lens) - source) < jnp.abs(residual))
+        images = jnp.where(improves, candidate, images)
+    return images
+
+
+def trace_source_limb(
     w_center: complex | Array,
     rho: float | Array,
     *,
-    s: float | Array,
-    q: float | Array,
+    lens,
     n_limb: int,
 ) -> tuple[Array, Array]:
-    """Solve and polish a source limb from q-aware quintic coefficients.
+    """Continue and polish the five or ten roots around one source limb.
 
     The returned image coordinates are the guarded Newton-polished roots used
     to construct the returned physical mask.  Keeping one coordinate set for
@@ -152,9 +180,9 @@ def trace_binary_source_limb(
     real_dtype = w_center.real.dtype
     phases = 2.0 * jnp.pi * jnp.arange(n_limb, dtype=real_dtype) / n_limb
     source_limb = w_center + jnp.asarray(rho, dtype=real_dtype) * jnp.exp(1.0j * phases)
-    quintics = binary_quintic_coefficients(source_limb, s=s, q=q)
+    coefficients, image_shift = source_polynomial(source_limb, lens)
 
-    first_roots = poly_roots(quintics.coefficients[:1])[0]
+    first_roots = poly_roots(coefficients[:1])[0]
 
     def continue_roots(previous, coefficients):
         roots = poly_roots(
@@ -167,14 +195,12 @@ def trace_binary_source_limb(
     _, remaining_roots = jax.lax.scan(
         continue_roots,
         first_roots,
-        quintics.coefficients[1:],
+        coefficients[1:],
     )
-    roots_planet = jnp.concatenate((first_roots[None, :], remaining_roots), axis=0)
-    images_com = roots_planet + quintics.image_shift
-    polished_images = jax.vmap(lambda images, source: _polish_binary_images(images, source, s, q))(
-        images_com, source_limb
-    )
-    image_mask = jax.vmap(lambda images, source: _physical_image_mask(images, source, s, q))(
+    roots = jnp.concatenate((first_roots[None, :], remaining_roots), axis=0)
+    images_com = roots + image_shift
+    polished_images = jax.vmap(lambda images, source: polish_images(images, source, lens))(images_com, source_limb)
+    image_mask = jax.vmap(lambda images, source: physical_image_mask(images, source, lens))(
         polished_images, source_limb
     )
     # The mask is evaluated on the polished roots.  Return those same roots
@@ -184,50 +210,35 @@ def trace_binary_source_limb(
     return jnp.moveaxis(polished_images, 0, 1), jnp.moveaxis(image_mask, 0, 1)
 
 
-def trace_binary_source_limb_record(
+def trace_source_limb_record(
     w_center: complex | Array,
     rho: float | Array,
     *,
-    s: float | Array,
-    q: float | Array,
+    lens,
     n_limb: int,
 ) -> LimbTrace:
-    """Return one canonical trace and its connectivity certificate.
-
-    This helper intentionally wraps the established root trace instead of
-    changing its solver or physical-mask policy.  It only derives data that
-    used to be recomputed by individual route selectors: residuals, image
-    multiplicities, periodic neighbours, and same-multiplicity active edges.
-    Consequently adopting the record is behavior-preserving while making it
-    impossible for a later support builder to silently use a different trace.
-    """
+    """Attach residuals and same-multiplicity edges to one polished trace."""
 
     w_center = jnp.asarray(w_center)
     real_dtype = w_center.real.dtype
     phases = 2.0 * jnp.pi * jnp.arange(n_limb, dtype=real_dtype) / n_limb
-    image_limb, physical_mask = trace_binary_source_limb(
+    image_limb, physical_mask = trace_source_limb(
         w_center,
         rho,
-        s=s,
-        q=q,
+        lens=lens,
         n_limb=n_limb,
     )
     previous_limb, following_limb, previous_mask, following_mask = tracked_limb_neighbors(image_limb, physical_mask)
 
-    lens = binary_geometry(s, q)
     source_limb = w_center + jnp.asarray(rho, dtype=real_dtype) * jnp.exp(1.0j * phases)
-    residual = jax.vmap(
-        lambda images, source: jnp.abs(
-            lens_eq(
-                images - lens.shifted,
-                nlenses=2,
-                a=lens.a,
-                e1=lens.e1,
-            )
-            - (source - lens.shifted)
-        ),
-        in_axes=(1, 0),
-    )(image_limb, source_limb).T
+    if lens.positions.shape[0] == 2:
+        binary = binary_geometry(lens.s, lens.q)
+        residual = jnp.abs(
+            lens_eq(image_limb - binary.shifted, nlenses=2, a=binary.a, e1=binary.e1)
+            - (source_limb[None, :] - binary.shifted)
+        )
+    else:
+        residual = jnp.abs(lens_map(image_limb, lens) - source_limb[None, :])
     image_counts = jnp.sum(physical_mask, axis=0, dtype=jnp.int32)
     connected = physical_mask & following_mask
     incoming_connected = physical_mask & previous_mask
@@ -255,34 +266,70 @@ def trace_binary_source_limb_record(
     )
 
 
+def _minimum_cost_assignment(cost):
+    """Exactly assign ten roots using 2**10 subsets, not 10! permutations.
+
+    Each row extends the optimum for subsets one element smaller. Only ten
+    vectorized updates and one ten-step backtrack are needed for a triple
+    trace. Assignment is discrete and does not contribute an AD tangent.
+    """
+    cost = jax.lax.stop_gradient(cost)
+    n = cost.shape[0]
+    cost = jnp.where(jnp.isfinite(cost), cost, jnp.finfo(cost.dtype).max / (4 * n))
+    subsets = jnp.arange(1 << n, dtype=jnp.int32)
+    bits = jnp.left_shift(jnp.int32(1), jnp.arange(n, dtype=jnp.int32))
+    occupied = (subsets[:, None] & bits[None, :]) != 0
+    parents = subsets[:, None] ^ bits[None, :]
+    size = jax.lax.population_count(subsets)
+    initial = jnp.full(subsets.shape, jnp.inf, dtype=cost.dtype).at[0].set(0.0)
+
+    def extend(row, state):
+        optimum, choices = state
+        candidates = jnp.where(occupied, optimum[parents] + cost[row, :], jnp.inf)
+        selected = jnp.argmin(candidates, axis=1).astype(jnp.int32)
+        values = jnp.take_along_axis(candidates, selected[:, None], axis=1)[:, 0]
+        active = size == row + 1
+        return jnp.where(active, values, optimum), jnp.where(active, selected, choices)
+
+    _, choices = jax.lax.fori_loop(0, n, extend, (initial, jnp.zeros_like(subsets)))
+
+    def backtrack(index, state):
+        subset, permutation = state
+        selected = choices[subset]
+        return subset ^ bits[selected], permutation.at[n - index - 1].set(selected)
+
+    _, permutation = jax.lax.fori_loop(0, n, backtrack, (jnp.int32((1 << n) - 1), jnp.zeros((n,), dtype=jnp.int32)))
+    return permutation
+
+
 def tracked_limb_neighbors(
     image_limb: Array,
     image_mask: Array,
 ) -> tuple[Array, Array, Array, Array]:
     """Return periodic neighbors while preserving tracked root branches.
 
-    Sequential quintic solves keep each root in its previous slot locally,
+    Sequential polynomial solves keep each root in its previous slot locally,
     but analytic continuation around a source loop can permute those slots.
-    The last-to-first edge therefore needs an explicit five-root assignment;
+    The last-to-first edge therefore needs an explicit root assignment;
     a plain ``roll`` can connect unrelated images exactly where a caustic is
     enclosed. The 120 possible binary-root permutations are small enough to
-    score exhaustively once per trace.
+    score exhaustively once per trace. Ten-root traces use an exact subset
+    assignment with the same squared-distance objective.
     """
 
-    if image_limb.shape[0] != 5:
-        raise ValueError("binary limb tracking requires five algebraic roots")
-    root_permutations = jnp.asarray(_BINARY_ROOT_PERMUTATIONS)
     first = image_limb[:, 0]
     last = image_limb[:, -1]
-    reordered_last = last[root_permutations]
-    assignment_cost = jnp.sum(
-        jnp.abs(reordered_last - first[None, :]) ** 2,
-        axis=1,
-    )
-    selected = jnp.argmin(jax.lax.stop_gradient(assignment_cost))
-    closing_permutation = root_permutations[selected]
+    if image_limb.shape[0] == 5:
+        root_permutations = jnp.asarray(_BINARY_ROOT_PERMUTATIONS)
+        assignment_cost = jnp.sum(jnp.abs(last[root_permutations] - first[None, :]) ** 2, axis=1)
+        selected = jnp.argmin(jax.lax.stop_gradient(assignment_cost))
+        closing_permutation = root_permutations[selected]
+    else:
+        closing_permutation = _minimum_cost_assignment(jnp.abs(first[:, None] - last[None, :]) ** 2)
     inverse_permutation = (
-        jnp.zeros_like(closing_permutation).at[closing_permutation].set(jnp.arange(5, dtype=jnp.int32))
+        jnp.zeros_like(closing_permutation)
+        .at[closing_permutation]
+        .set(jnp.arange(image_limb.shape[0], dtype=jnp.int32))
     )
 
     previous = jnp.roll(image_limb, 1, axis=1).at[:, 0].set(last[closing_permutation])
@@ -290,3 +337,11 @@ def tracked_limb_neighbors(
     previous_mask = jnp.roll(image_mask, 1, axis=1).at[:, 0].set(image_mask[:, -1][closing_permutation])
     following_mask = jnp.roll(image_mask, -1, axis=1).at[:, -1].set(image_mask[:, 0][inverse_permutation])
     return previous, following, previous_mask, following_mask
+
+
+def trace_binary_source_limb(w_center, rho, *, s, q, n_limb):
+    return trace_source_limb(w_center, rho, lens=binary_lens(s, q), n_limb=n_limb)
+
+
+def trace_binary_source_limb_record(w_center, rho, *, s, q, n_limb):
+    return trace_source_limb_record(w_center, rho, lens=binary_lens(s, q), n_limb=n_limb)

@@ -3,10 +3,9 @@
 from __future__ import annotations
 import jax
 import jax.numpy as jnp
-from microjax.point_source import lens_eq
-from ..geometry.lens import binary_geometry
+from .lens import lens_map
 from .angular_moment import _stable_radial_level_value, ANGULAR_MOMENT_SUPPORT, ANGULAR_MOMENT_EXHAUSTED
-from .line_roots import binary_line_level_set_roots, physical_binary_line_level_set_roots
+from .line_roots import line_level_set_roots, physical_line_level_set_roots
 from .projection_moments import PROFILE_NODES, PROFILE_WEIGHTS, integrate_adaptive_moments
 from .result import CpuMagnificationResult, INVALID_ROOTS, NONFINITE
 
@@ -18,8 +17,7 @@ def _physical_ray_intervals(
     w_center: Array,
     rho: Array,
     *,
-    s: Array,
-    q: Array,
+    lens,
     refine_roots: bool = False,
 ) -> tuple[Array, Array, Array, Array]:
     """Classify radial intervals; refine endpoints only for LD integration.
@@ -28,23 +26,22 @@ def _physical_ray_intervals(
     ``refine_roots`` is a static choice at each caller, not a geometry route.
     """
 
-    solve = physical_binary_line_level_set_roots if refine_roots else binary_line_level_set_roots
-    roots = solve(0.0j, jnp.exp(1.0j * theta), w_center, rho, s=s, q=q)
+    solve = physical_line_level_set_roots if refine_roots else line_level_set_roots
+    roots = solve(0.0j, jnp.exp(1.0j * theta), w_center, rho, lens=lens)
     valid = (roots.imag == 0) & jnp.isfinite(roots.real) & (roots.real >= 0)
     radii = jnp.sort(jnp.where(valid, roots.real, jnp.inf), axis=-1)
     outer = jnp.maximum(jnp.max(jnp.where(valid, roots.real, 0), axis=-1) + 1, 1)
     radii = jnp.where(jnp.isfinite(radii), radii, outer[:, None])
     boundaries = jnp.concatenate([jnp.zeros_like(outer[:, None]), radii, outer[:, None]], axis=-1)
     lower, upper = boundaries[:, :-1], boundaries[:, 1:]
-    values = _stable_radial_level_value(theta, 0.5 * (lower + upper), w_center, rho, s=s, q=q)
+    values = _stable_radial_level_value(theta, 0.5 * (lower + upper), w_center, rho, lens=lens)
     inside = (values <= 0) & (upper > lower) & jnp.any(valid, axis=-1)[:, None]
     invalid = jnp.sum(~jnp.isfinite(roots), axis=-1, dtype=jnp.int32)
     return lower, upper, inside, invalid
 
 
-def _profile_ray_moments(theta, w_center, rho, *, s, q):
-    lower, upper, active, invalid = _physical_ray_intervals(theta, w_center, rho, s=s, q=q, refine_roots=True)
-    lens = binary_geometry(s, q)
+def _profile_ray_moments(theta, w_center, rho, *, lens):
+    lower, upper, active, invalid = _physical_ray_intervals(theta, w_center, rho, lens=lens, refine_roots=True)
     nodes = jnp.asarray(PROFILE_NODES, dtype=w_center.real.dtype)
     weights = jnp.asarray(PROFILE_WEIGHTS, dtype=w_center.real.dtype)
     jacobi_weight = jnp.sqrt((1.0 - nodes) * (1.0 + nodes))
@@ -54,7 +51,7 @@ def _profile_ray_moments(theta, w_center, rho, *, s, q):
         half_width = 0.5 * (hi - lo)
         radius = midpoint[:, None] + half_width[:, None] * nodes[None, :]
         images = radius * jnp.exp(1j * angle)
-        mapped = lens_eq(images - lens.shifted, nlenses=2, a=lens.a, e1=lens.e1) + lens.shifted
+        mapped = lens_map(images, lens)
         normalized = jnp.abs(mapped - w_center) / rho
         strictly_inside = inside[:, None] & (normalized < 1.0)
         radicand = jnp.where(strictly_inside, (1.0 - normalized) * (1.0 + normalized), 1.0)
@@ -68,10 +65,10 @@ def _profile_ray_moments(theta, w_center, rho, *, s, q):
     return jnp.stack((uniform, profile), axis=-1), invalid
 
 
-def _mag_limb_dark_angular_moment_from_support(w_center, rho, *, s, q, u1, support):
+def _mag_limb_dark_angular_moment_from_support(w_center, rho, *, lens, u1, support):
     """Integrate one traced polar support with the shared bounded allocator."""
     integral = integrate_adaptive_moments(
-        lambda theta: _profile_ray_moments(theta, w_center, rho, s=s, q=q),
+        lambda theta: _profile_ray_moments(theta, w_center, rho, lens=lens),
         support.cells,
         support.active,
     )

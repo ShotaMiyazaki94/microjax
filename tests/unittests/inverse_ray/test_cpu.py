@@ -144,6 +144,7 @@ def test_root_correction_and_moving_support_keep_their_derivatives():
         physical_binary_line_level_set_roots,
     )
     from microjax.inverse_ray.cpu.angular_moment import _refine_angular_tangencies
+    from microjax.inverse_ray.cpu.lens import binary_lens
 
     source = jnp.asarray(-1.4998598061310287 + 0.003443021045947857j)
     arguments = (-0.0004415497608313467j, -1.0 + 0j, source, 0.00021142727844446993)
@@ -162,8 +163,7 @@ def test_root_correction_and_moving_support_keep_their_derivatives():
         value, _ = _refine_angular_tangencies(
             jnp.asarray(0.1 + 0.2j),
             jnp.asarray(0.01),
-            s=jnp.asarray(1.0),
-            q=jnp.asarray(0.3),
+            lens=binary_lens(jnp.asarray(1.0), jnp.asarray(0.3)),
             initial_images=jnp.asarray([jnp.nan + 0j]),
             initial_angles=jnp.asarray([0.4]),
             fallback_angles=jnp.asarray([p[0] + 2 * p[1]]),

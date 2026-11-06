@@ -11,7 +11,8 @@ from .angular_limb_dark import _mag_limb_dark_angular_moment_from_support
 from .angular_projection_support import _angular_support_cells_from_events
 from .cartesian_limb_dark import _mag_limb_dark_cartesian_impl
 from .projection_support import _cartesian_support_cells_from_events
-from .support import trace_binary_source_limb_record
+from .support import trace_source_limb_record
+from .lens import binary_lens
 
 Array = jnp.ndarray
 ONE_SHOT_UNRESOLVED_GEOMETRY = 1 << 22
@@ -33,17 +34,15 @@ def _trace_state(
     w_center: Array,
     rho: Array,
     *,
-    s: Array,
-    q: Array,
+    lens,
     n_limb: int,
 ):
     """Trace once and extract the state used by both brightness profiles."""
 
-    trace = trace_binary_source_limb_record(
+    trace = trace_source_limb_record(
         w_center,
         rho,
-        s=s,
-        q=q,
+        lens=lens,
         n_limb=n_limb,
     )
     image_limb = trace.image_limb
@@ -83,6 +82,7 @@ def _trace_state(
 def _select_chart(limb_trace, state, w_center, *, n_limb):
     """Compare x/y projections and polar motion from the same image trace."""
     image_limb = limb_trace.image_limb
+    minimum_images = 3 if image_limb.shape[0] == 5 else 4
     physical_mask = limb_trace.physical_mask
     neighbors = (
         limb_trace.previous_limb,
@@ -146,7 +146,9 @@ def _select_chart(limb_trace, state, w_center, *, n_limb):
     y_extrema, y_step = projection_diagnostics(y_axis)
     # Closed image loops have paired extrema. Prefer the projection with
     # valid parity, then the count nearest two extrema per image.
-    closed_trace = ~state.limb_topology & (state.active_images_min == 3) & (state.active_images_max == 3)
+    closed_trace = (
+        ~state.limb_topology & (state.active_images_min == minimum_images) & (state.active_images_max == minimum_images)
+    )
     expected_extrema = jnp.int32(2) * state.active_images_min
     x_parity_bad = (x_extrema & jnp.int32(1)) == 1
     y_parity_bad = (y_extrema & jnp.int32(1)) == 1
@@ -181,8 +183,8 @@ def _select_chart(limb_trace, state, w_center, *, n_limb):
     cartesian_selected_score = jnp.where(use_y_first, y_step, x_step)
     transition_chart_better = (
         state.limb_topology
-        & (state.active_images_min == 3)
-        & (state.active_images_max == 5)
+        & (state.active_images_min == minimum_images)
+        & (state.active_images_max == minimum_images + 2)
         & (state.maximum_angular_step > 0.004 * source_phase_step)
         & (state.polar_conditioning > 1.0)
         & (polar_motion_score > cartesian_selected_score)
@@ -199,15 +201,15 @@ def _select_chart(limb_trace, state, w_center, *, n_limb):
     resolved_closed_three_cartesian = (
         ~state.topology_uncertain
         & ~state.limb_topology
-        & (state.active_images_min == 3)
-        & (state.active_images_max == 3)
+        & (state.active_images_min == minimum_images)
+        & (state.active_images_max == minimum_images)
         & (cartesian_motion_score <= 4.0e-4)
     )
     theta_first = (transition_chart_better | conditioned_trace) & ~resolved_closed_three_cartesian
     return primary_axis, jax.lax.stop_gradient(theta_first)
 
 
-def mag_binary_cpu_one_shot(w_center, rho, *, s, q, u1=0.0):
+def mag_cpu_one_shot(w_center, rho, *, lens, u1=0.0):
     """Integrate uniform and linear-LD moments on a shared geometry.
 
     The 112-point limb trace and bounded quadrature are fixed. Both moments
@@ -216,9 +218,8 @@ def mag_binary_cpu_one_shot(w_center, rho, *, s, q, u1=0.0):
     """
     w_center = jnp.asarray(w_center)
     rho = jnp.asarray(rho, dtype=w_center.real.dtype)
-    q = jnp.asarray(q, dtype=w_center.real.dtype)
     u1 = jnp.asarray(u1, dtype=w_center.real.dtype)
-    trace, state = _trace_state(w_center, rho, s=s, q=q, n_limb=112)
+    trace, state = _trace_state(w_center, rho, lens=lens, n_limb=112)
     axis, theta_first = _select_chart(trace, state, w_center, n_limb=112)
     neighbors = (
         trace.previous_limb,
@@ -239,16 +240,14 @@ def mag_binary_cpu_one_shot(w_center, rho, *, s, q, u1=0.0):
             trace.physical_mask,
             w_center=w_center,
             rho=rho,
-            s=s,
-            q=q,
+            lens=lens,
             axis=axis,
             **common,
         )
         return _mag_limb_dark_cartesian_impl(
             w_center,
             rho,
-            s=s,
-            q=q,
+            lens=lens,
             u1=u1,
             axis=axis,
             support=support,
@@ -258,8 +257,7 @@ def mag_binary_cpu_one_shot(w_center, rho, *, s, q, u1=0.0):
         support = _angular_support_cells_from_events(
             w_center,
             rho,
-            s=s,
-            q=q,
+            lens=lens,
             physical_limb=trace.image_limb,
             physical_mask=trace.physical_mask,
             edge_activity=(trace.incoming_edge_active, trace.outgoing_edge_active),
@@ -268,8 +266,7 @@ def mag_binary_cpu_one_shot(w_center, rho, *, s, q, u1=0.0):
         return _mag_limb_dark_angular_moment_from_support(
             w_center,
             rho,
-            s=s,
-            q=q,
+            lens=lens,
             u1=u1,
             support=support,
         )
@@ -280,9 +277,10 @@ def mag_binary_cpu_one_shot(w_center, rho, *, s, q, u1=0.0):
         & jnp.isfinite(state.polar_conditioning)
         & jnp.isfinite(state.maximum_angular_step)
     )
+    minimum_images = lens.positions.shape[0] + 1
     buried_unresolved = (
-        (state.active_images_min == 3)
-        & (state.active_images_max == 3)
+        (state.active_images_min == minimum_images)
+        & (state.active_images_max == minimum_images)
         & (state.ghost_residual_ratio >= 100.0)
         & (state.ghost_residual_ratio < 1000.0)
         & (state.polar_conditioning >= 1000.0)
@@ -295,3 +293,7 @@ def mag_binary_cpu_one_shot(w_center, rho, *, s, q, u1=0.0):
             jnp.int32(ONE_SHOT_UNRESOLVED_GEOMETRY),
         )
     )
+
+
+def mag_binary_cpu_one_shot(w_center, rho, *, s, q, u1=0.0):
+    return mag_cpu_one_shot(w_center, rho, lens=binary_lens(s, q), u1=u1)

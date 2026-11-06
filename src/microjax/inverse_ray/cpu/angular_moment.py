@@ -4,8 +4,7 @@ from __future__ import annotations
 from typing import NamedTuple
 import jax
 import jax.numpy as jnp
-from microjax.point_source import lens_eq
-from ..geometry.lens import binary_geometry
+from .lens import lens_map, lens_shear
 
 Array = jnp.ndarray
 ANGULAR_MOMENT_TOPOLOGY = 1 << 17
@@ -30,28 +29,20 @@ def _stable_radial_level_value(
     w_center: Array,
     rho: Array,
     *,
-    s: Array,
-    q: Array,
+    lens,
 ) -> Array:
     """Evaluate ``|N| - rho |D|`` without squared-level-set cancellation."""
 
-    lens = binary_geometry(s, q)
-    # Preserve the leading ray axis while accepting additional fixed repair
-    # axes (the rare repair evaluates dyadic brackets as ``(batch, 6, 10)``).
-    # The old ``[..., None]`` form only supported one trailing coordinate axis.
     trailing = max(0, radii.ndim - angles.ndim)
-    angle_shape = angles.shape + (1,) * trailing
-    unit = jnp.exp(1.0j * jnp.reshape(angles, angle_shape))
-    z = radii * unit - lens.shifted
-    zbar = jnp.conjugate(z)
-    d_plus = zbar - lens.a
-    d_minus = zbar + lens.a
-    denominator = d_plus * d_minus
-    source_shifted = w_center - lens.shifted
-    numerator = (z - source_shifted) * denominator - lens.e1 * d_minus - (1.0 - lens.e1) * d_plus
-    numerator_abs = jnp.abs(numerator)
-    denominator_abs = rho * jnp.abs(denominator)
-    return numerator_abs - denominator_abs
+    unit = jnp.exp(1j * jnp.reshape(angles, angles.shape + (1,) * trailing))
+    image = radii * unit
+    factors = jnp.conj(image[..., None] - lens.positions)
+    denominator = jnp.prod(factors, axis=-1)
+    numerator = (image - w_center) * denominator
+    for index in range(lens.positions.shape[0]):
+        other = jnp.concatenate((factors[..., :index], factors[..., index + 1 :]), axis=-1)
+        numerator = numerator - lens.masses[index] * jnp.prod(other, axis=-1)
+    return jnp.abs(numerator) - rho * jnp.abs(denominator)
 
 
 def _trace_sector_union_mask(
@@ -125,8 +116,7 @@ def _angular_support_cells_from_trace(
     w_center: Array,
     rho: Array,
     *,
-    s: Array,
-    q: Array,
+    lens,
     physical_limb: Array,
     physical_mask: Array,
     topology_uncertain: Array,
@@ -172,7 +162,7 @@ def _angular_support_cells_from_trace(
     )
     fitted = jnp.mod(fitted, 2.0 * jnp.pi)
 
-    maximum_extrema = 24
+    maximum_extrema = 4 * physical_limb.shape[0] + 4
     flat_mask = candidate_mask.reshape(-1)
     # Every sampled turn and physical branch endpoint is refined. Selected
     # indices come from this mask; there is no separate brightness policy.
@@ -209,8 +199,7 @@ def _angular_support_cells_from_trace(
     selected, tangencies_valid = _refine_angular_tangencies(
         w_center,
         rho,
-        s=s,
-        q=q,
+        lens=lens,
         initial_images=selected_images,
         initial_angles=sampled_angles,
         fallback_angles=selected,
@@ -246,11 +235,7 @@ def _angular_support_cells_from_trace(
     ghost_guard_valid = jnp.isfinite(ghost_ratio) & (ghost_ratio < 1.5)
     spacing_guard_valid = jnp.max(jnp.abs(jnp.angle(following_limb * jnp.conjugate(physical_limb)))) >= 5.0e-4
     crossing_guard = (
-        limb_topology
-        & (jnp.min(physical_counts) == 3)
-        & (jnp.max(physical_counts) == 5)
-        & ghost_guard_valid
-        & spacing_guard_valid
+        limb_topology & (jnp.max(physical_counts) > jnp.min(physical_counts)) & ghost_guard_valid & spacing_guard_valid
     )
     active = _trace_sector_union_mask(
         cells,
@@ -271,7 +256,7 @@ def _angular_support_cells_from_trace(
 
 
 @jax.custom_jvp
-def _implicit_angular_tangency_angles(angles, radii, converged, w_center, rho, s, q):
+def _implicit_angular_tangency_angles(angles, radii, converged, w_center, rho, lens):
     """Keep the refined angles and differentiate only converged tangencies."""
 
     return angles
@@ -279,31 +264,26 @@ def _implicit_angular_tangency_angles(angles, radii, converged, w_center, rho, s
 
 @_implicit_angular_tangency_angles.defjvp
 def _implicit_angular_tangency_angles_jvp(primals, tangents):
-    angles, radii, converged, w_center, rho, s, q = primals
-    _, _, _, dw, drho, ds, dq = tangents
+    angles, radii, converged, w_center, rho, lens = primals
+    _, _, _, dw, drho, dlens = tangents
     # Failed Newton lanes retain their historical zero endpoint derivative.
     # Benign coordinates prevent undefined auxiliary tangents in those lanes.
     radius = jnp.where(converged, radii, 0.417)
     angle = jnp.where(converged, angles, 0.263)
     image = radius * jnp.exp(1.0j * angle)
 
-    def level(w_center, rho, s, q):
-        lens = binary_geometry(s, q)
-        mapped = lens_eq(image - lens.shifted, nlenses=2, a=lens.a, e1=lens.e1)
-        offset = mapped + lens.shifted - w_center
+    def level(w_center, rho, lens):
+        offset = lens_map(image, lens) - w_center
         return jnp.real(offset * jnp.conj(offset)) - rho * rho
 
-    lens = binary_geometry(s, q)
-    conjugate = jnp.conj(image) - lens.shifted
-    shear = lens.e1 / (conjugate - lens.a) ** 2 + (1 - lens.e1) / (conjugate + lens.a) ** 2
-    mapped = lens_eq(image - lens.shifted, nlenses=2, a=lens.a, e1=lens.e1)
-    offset = mapped + lens.shifted - w_center
+    shear = lens_shear(image, lens)
+    offset = lens_map(image, lens) - w_center
     image_motion = 1.0j * image - 1.0j * shear * jnp.conj(image)
     angular_derivative = 2 * jnp.real(jnp.conj(offset) * image_motion)
     _, parameter_derivative = jax.jvp(
         level,
-        (w_center, rho, s, q),
-        (dw, drho, ds, dq),
+        (w_center, rho, lens),
+        (dw, drho, dlens),
     )
     # H(r, theta, p)=0 and H_r=0 imply dtheta=-H_p/H_theta. No
     # differentiation of Newton iterates or 2x2 implicit solve is needed.
@@ -317,8 +297,7 @@ def _refine_angular_tangencies(
     w_center: Array,
     rho: Array,
     *,
-    s: Array,
-    q: Array,
+    lens,
     initial_images: Array,
     initial_angles: Array,
     fallback_angles: Array,
@@ -342,7 +321,6 @@ def _refine_angular_tangencies(
     derivatives are not an accuracy certificate.
     """
 
-    lens = binary_geometry(s, q)
     real_dtype = w_center.real.dtype
     rho_scale = jnp.maximum(rho**2, jnp.finfo(real_dtype).tiny)
 
@@ -356,15 +334,7 @@ def _refine_angular_tangencies(
 
         def level_set(radius, angle):
             image_point = radius * jnp.exp(1.0j * angle)
-            mapped = (
-                lens_eq(
-                    image_point - lens.shifted,
-                    nlenses=2,
-                    a=lens.a,
-                    e1=lens.e1,
-                )
-                + lens.shifted
-            )
+            mapped = lens_map(image_point, lens)
             return (jnp.abs(mapped - w_center) ** 2 - rho**2) / rho_scale
 
         radial_derivative = jax.grad(level_set, argnums=0)
@@ -461,8 +431,7 @@ def _refine_angular_tangencies(
         converged,
         w_center,
         rho,
-        s,
-        q,
+        lens,
     )
     # A failed solve returns the fitted trace angle. Freezing that angle
     # drops a real endpoint dependency and disagrees with finite differences.

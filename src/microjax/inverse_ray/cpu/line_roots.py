@@ -1,4 +1,4 @@
-"""Physical binary-lens line roots in a locally centered coordinate."""
+"""Physical lens-boundary line roots in a locally centered coordinate."""
 
 from __future__ import annotations
 
@@ -7,25 +7,10 @@ import jax.numpy as jnp
 
 from ..geometry.lens import binary_geometry
 from .roots import batched_polished_real_companion_roots
+from .lens import binary_lens, lens_map, lens_shear
+from .lens import _polynomial_product_ascending as _fixed_polynomial_product_ascending
 
 Array = jnp.ndarray
-
-
-def _fixed_polynomial_product_ascending(left: Array, right: Array) -> Array:
-    """Multiply two tiny ascending polynomials with statically unrolled sums."""
-
-    terms = []
-    for output_index in range(left.shape[0] + right.shape[0] - 1):
-        products = [
-            left[left_index] * right[output_index - left_index]
-            for left_index in range(left.shape[0])
-            if 0 <= output_index - left_index < right.shape[0]
-        ]
-        value = products[0]
-        for product in products[1:]:
-            value = value + product
-        terms.append(value)
-    return jnp.stack(terms)
 
 
 def binary_line_level_set_coefficients(
@@ -77,88 +62,97 @@ def binary_line_level_set_coefficients(
     return descending / jnp.maximum(scale, jnp.finfo(real_dtype).tiny)
 
 
-def binary_line_level_set_roots(
-    offset: complex | Array,
-    direction: complex | Array,
-    w_center: complex | Array,
-    rho: float | Array,
-    *,
-    s: float | Array,
-    q: float | Array,
-) -> Array:
-    """Solve image-boundary intersections, returning original line coordinates.
+def line_level_set_coefficients(offset, direction, w_center, rho, *, lens):
+    """Return the real degree ``2*N+2`` source-disc polynomial on one line."""
+    if lens.positions.shape[0] == 2:
+        return binary_line_level_set_coefficients(offset, direction, w_center, rho, s=lens.s, q=lens.q)
 
-    Rebuild the sextic about the line projection of ``s * (1-q) / (1+q)``.
-    This origin changes sign under lens exchange and approaches the lower-mass
-    lens at extreme mass ratios on either side of unity.  It separates close
-    root clusters from large global-coordinate monomials that can change their
-    real/complex classification in a companion solve.  Coefficients are formed
-    directly from the lens geometry in that coordinate, rather than translating
-    already rounded global coefficients.  The same single real companion solve
-    and four polynomial Newton steps are used throughout.
+    w_center = jnp.asarray(w_center)
+    offset = jnp.asarray(offset, dtype=w_center.dtype)
+    direction = jnp.asarray(direction, dtype=w_center.dtype)
+    count = lens.positions.shape[0]
+    factors = [jnp.asarray([jnp.conj(offset - position), jnp.conj(direction)]) for position in lens.positions]
+    denominator = jnp.ones((1,), dtype=w_center.dtype)
+    for factor in factors:
+        denominator = _fixed_polynomial_product_ascending(denominator, factor)
+    deflection = jnp.zeros((count,), dtype=w_center.dtype)
+    for index in range(count):
+        term = jnp.ones((1,), dtype=w_center.dtype)
+        for other in range(count):
+            if other != index:
+                term = _fixed_polynomial_product_ascending(term, factors[other])
+        deflection = deflection + lens.masses[index] * term
+    numerator = _fixed_polynomial_product_ascending(jnp.asarray([offset - w_center, direction]), denominator) - jnp.pad(
+        deflection, (0, 2)
+    )
+    square = _fixed_polynomial_product_ascending(numerator, jnp.conj(numerator))
+    denominator_square = _fixed_polynomial_product_ascending(denominator, jnp.conj(denominator))
+    coefficients = jnp.real(square - rho**2 * jnp.pad(denominator_square, (0, 2)))[::-1]
+    return coefficients / jnp.maximum(jnp.max(jnp.abs(coefficients)), jnp.finfo(w_center.real.dtype).tiny)
 
-    ``offset`` and nonzero ``direction`` broadcast over leading dimensions.
-    """
 
-    coefficients, center = _local_line_polynomial(offset, direction, w_center, rho, s, q)
-    roots = batched_polished_real_companion_roots(coefficients)
-    return roots.reshape(center.shape + (6,)) + center[..., None]
-
-
-def _local_line_polynomial(offset, direction, w_center, rho, s, q):
-    """Build the centered sextic separately from its companion solve."""
+def _local_line_polynomial(offset, direction, w_center, rho, lens):
+    """Form coefficients locally instead of translating rounded monomials."""
     offset, direction = jnp.broadcast_arrays(offset, direction)
-    symmetric_origin = s * (1 - q) / (1 + q)
-    center = jnp.real((symmetric_origin - offset) * jnp.conj(direction)) / jnp.real(direction * jnp.conj(direction))
+    if lens.positions.shape[0] == 2:
+        # Retain the validated binary origin and its operation ordering.
+        origin = lens.s * (1 - lens.q) / (1 + lens.q)
+    else:
+        # The complementary-mass centre favors the small images near lighter
+        # lenses. For two lenses it is exactly the binary symmetric origin.
+        origin = jnp.sum((1 - lens.masses) * lens.positions) / (lens.positions.size - 1)
+    center = jnp.real((origin - offset) * jnp.conj(direction)) / jnp.real(direction * jnp.conj(direction))
     local_offset = offset + center * direction
     coefficients = jax.vmap(
-        lambda origin, vector: binary_line_level_set_coefficients(origin, vector, w_center, rho, s=s, q=q)
+        lambda location, vector: line_level_set_coefficients(location, vector, w_center, rho, lens=lens)
     )(local_offset.reshape(-1), direction.reshape(-1))
     return coefficients, center
 
 
-def _safe_physical_line_radii(radius, real, offset, direction, w_center, rho, s):
+def line_level_set_roots(offset, direction, w_center, rho, *, lens):
+    """Return all real/complex intersections in the original line coordinate."""
+    coefficients, center = _local_line_polynomial(offset, direction, w_center, rho, lens)
+    roots = batched_polished_real_companion_roots(coefficients)
+    return roots.reshape(center.shape + (coefficients.shape[-1] - 1,)) + center[..., None]
+
+
+def binary_line_level_set_roots(offset, direction, w_center, rho, *, s, q):
+    return line_level_set_roots(offset, direction, w_center, rho, lens=binary_lens(s, q))
+
+
+def _safe_physical_line_radii(radius, real, offset, direction, w_center, rho, lens):
     """Keep unused complex-root lanes away from real-axis lens poles."""
     offset, direction = jnp.broadcast_arrays(offset, direction)
-    far = (4 + jnp.abs(offset) + jnp.abs(s) + jnp.abs(w_center) + jnp.abs(rho)) / jnp.maximum(
-        jnp.abs(direction), jnp.finfo(radius.dtype).tiny
-    )
+    far = (
+        4 + jnp.abs(offset) + jnp.abs(lens.s) + jnp.max(jnp.abs(lens.positions)) + jnp.abs(w_center) + jnp.abs(rho)
+    ) / jnp.maximum(jnp.abs(direction), jnp.finfo(radius.dtype).tiny)
     return jnp.where(real, radius, far[..., None])
 
 
-def _physical_line_level_and_slope(radius, offset, direction, w_center, rho, s, q):
+def _physical_line_level_and_slope(radius, offset, direction, w_center, rho, lens):
     """Evaluate the unexpanded lens constraint and its line derivative."""
     offset, direction = jnp.broadcast_arrays(offset, direction)
     image = offset[..., None] + radius * direction[..., None]
-    lens = binary_geometry(s, q)
-    conjugate = jnp.conj(image) - lens.shifted
-    plus, minus = conjugate - lens.a, conjugate + lens.a
-    mapped = image - lens.e1 / plus - (1 - lens.e1) / minus
-    shear = lens.e1 / plus**2 + (1 - lens.e1) / minus**2
-    delta = mapped - w_center
+    delta = lens_map(image, lens) - w_center
     level = jnp.real(delta * jnp.conj(delta)) - rho**2
-    motion = direction[..., None] + shear * jnp.conj(direction[..., None])
+    motion = direction[..., None] + lens_shear(image, lens) * jnp.conj(direction[..., None])
     slope = 2 * jnp.real(jnp.conj(delta) * motion)
     return level, slope
 
 
-def _polynomial_line_roots(offset, direction, w_center, rho, s, q):
-    return binary_line_level_set_roots(offset, direction, w_center, rho, s=s, q=q)
-
-
 @jax.custom_jvp
-def _physical_line_roots(offset, direction, w_center, rho, s, q):
-    roots = _polynomial_line_roots(offset, direction, w_center, rho, s, q)
+def _physical_line_roots(offset, direction, w_center, rho, lens):
+    roots = line_level_set_roots(offset, direction, w_center, rho, lens=lens)
     real = roots.imag == 0
     pairs = real[..., :, None] & real[..., None, :] & ~jnp.eye(roots.shape[-1], dtype=bool)
 
     def correct(_, radius):
-        safe = _safe_physical_line_radii(radius, real, offset, direction, w_center, rho, s)
-        level, slope = _physical_line_level_and_slope(safe, offset, direction, w_center, rho, s, q)
+        safe = _safe_physical_line_radii(radius, real, offset, direction, w_center, rho, lens)
+        level, slope = _physical_line_level_and_slope(safe, offset, direction, w_center, rho, lens)
         step = level / slope
         proposed = radius - step
-        safe_proposed = _safe_physical_line_radii(proposed, real, offset, direction, w_center, rho, s)
-        proposed_level, _ = _physical_line_level_and_slope(safe_proposed, offset, direction, w_center, rho, s, q)
+        safe_proposed = _safe_physical_line_radii(proposed, real, offset, direction, w_center, rho, lens)
+        proposed_level, _ = _physical_line_level_and_slope(safe_proposed, offset, direction, w_center, rho, lens)
         separation = jnp.min(jnp.where(pairs, jnp.abs(radius[..., :, None] - radius[..., None, :]), jnp.inf), axis=-1)
         accept = (
             real
@@ -179,33 +173,29 @@ def _physical_line_roots_jvp(primals, tangents):
     # Re-enter the complete solve so higher forward derivatives include root
     # motion. Complex roots retain their polynomial derivative and identity.
     roots = _physical_line_roots(*primals)
-    offset, direction, w_center, rho, s, q = primals
+    offset, direction, w_center, rho, lens = primals
     real = roots.imag == 0
-    radius = _safe_physical_line_radii(roots.real, real, offset, direction, w_center, rho, s)
+    radius = _safe_physical_line_radii(roots.real, real, offset, direction, w_center, rho, lens)
     _, partial_level = jax.jvp(
         lambda *parameters: _physical_line_level_and_slope(radius, *parameters)[0], primals, tangents
     )
     _, slope = _physical_line_level_and_slope(radius, *primals)
     physical_tangent = -partial_level / jnp.where(real, slope, 1)
-    # Complex roots are unchanged by the physical correction. Differentiate
-    # their centered polynomial at the roots already solved above, avoiding
-    # a second companion eigensolve and four redundant polishing steps.
+    # Reuse the solved complex lanes for their polynomial implicit derivative.
     (coefficients, center), (dcoefficients, dcenter) = jax.jvp(_local_line_polynomial, primals, tangents)
-    local_roots = (roots - center[..., None]).reshape((-1, 6))
-    derivative = coefficients[:, :-1] * jnp.arange(6, 0, -1, dtype=coefficients.dtype)
+    degree = roots.shape[-1]
+    local_roots = (roots - center[..., None]).reshape((-1, degree))
+    derivative = coefficients[:, :-1] * jnp.arange(degree, 0, -1, dtype=coefficients.dtype)
     numerator = jax.vmap(jnp.polyval)(dcoefficients.astype(roots.dtype), local_roots)
     denominator = jax.vmap(jnp.polyval)(derivative.astype(roots.dtype), local_roots)
     polynomial_tangent = (-numerator / denominator).reshape(roots.shape) + dcenter[..., None]
     return roots, jnp.where(real, physical_tangent.astype(roots.dtype), polynomial_tangent)
 
 
-def physical_binary_line_level_set_roots(offset, direction, w_center, rho, *, s, q):
-    """Refine accepted real line roots once in the physical lens equation.
+def physical_line_level_set_roots(offset, direction, w_center, rho, *, lens):
+    """Refine real roots physically, preserving complex lanes and implicit AD."""
+    return _physical_line_roots(offset, direction, w_center, rho, lens)
 
-    The correction must reduce the physical residual and stay within a
-    quarter of the nearest real-root separation. Complex pairs are preserved;
-    this does not recover missing roots or certify root completeness. Real
-    roots carry the implicit derivative of the physical equation. The cheaper
-    polynomial-only solve remains available for support occupancy checks.
-    """
-    return _physical_line_roots(offset, direction, w_center, rho, s, q)
+
+def physical_binary_line_level_set_roots(offset, direction, w_center, rho, *, s, q):
+    return physical_line_level_set_roots(offset, direction, w_center, rho, lens=binary_lens(s, q))
