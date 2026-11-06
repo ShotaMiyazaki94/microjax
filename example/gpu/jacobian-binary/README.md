@@ -81,8 +81,10 @@ finite-source function also does not provide a guaranteed numerical error
 bound, so accuracy should be checked independently for the intended parameter
 range.
 
-The CPU Jacobian example currently uses different trajectories and 1000
-points, so its checked-in timings are not a direct backend speed ratio.
+The [CPU example](../../cpu/) uses the same 500-point trajectory, parameters and
+figure layout as this limb-darkened example, computing its seven-parameter
+Jacobian with the CPU backend. It is a usage example and does not report a
+backend timing ratio.
 
 | Uniform source | Limb-darkened source |
 | --- | --- |
