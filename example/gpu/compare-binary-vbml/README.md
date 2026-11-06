@@ -1,8 +1,8 @@
 # GPU Binary-Lens Benchmarks
 
-GPU counterpart of `example/cpu/compare-binary-vbml`. One script compares
-microJAX with VBMicrolensing (VBML) for uniform and linearly limb-darkened
-sources on the same 1,000-point binary-lens trajectory.
+One script compares the microJAX accelerator backend with VBMicrolensing (VBML)
+for uniform and linearly limb-darkened sources on the same 1,000-point binary-lens
+trajectory.
 
 The Python sources live in `code/`; generated files are written to `outputs/`.
 
@@ -19,7 +19,7 @@ python example/gpu/compare-binary-vbml/code/compare_binary_profiles.py
 ```
 
 The script warms each JAX solver before recording repeated steady-state GPU
-execution. Its CLI and combined figure follow the CPU comparison.
+execution.
 
 Generated files are:
 

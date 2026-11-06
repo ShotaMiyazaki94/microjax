@@ -2,9 +2,11 @@
 
 Examples are grouped by the backend they are intended to exercise:
 
+- [`cpu/`](cpu/) contains a minimal limb-darkened binary-lens light curve and
+  forward-derivative example. Its figures and data are generated in `results/`.
 - [`gpu/`](gpu/) contains the accelerator-oriented binary and triple lens
   workflows.
-- Current CPU checks and benchmarks live in [`tools/`](../tools/) and
+- CPU checks and benchmarks live in [`tools/`](../tools/) and
   [`tests/unittests/inverse_ray/test_cpu.py`](../tests/unittests/inverse_ray/test_cpu.py).
   Previous CPU examples remain available in Git history.
 

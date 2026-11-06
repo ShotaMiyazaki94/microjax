@@ -63,8 +63,9 @@ figures with configuration-bootstrap uncertainty use
 [`tools/cpu_benchmark_grid.py`](tools/cpu_benchmark_grid.py) and
 [`tools/plot_cpu_benchmark.py`](tools/plot_cpu_benchmark.py), writing to
 `results/cpu/figures-benchmark/`. The regional benchmark requires a separately
-provided reference CSV; see the tool's `--help`. GPU workflows live under
-[`example/gpu/`](example/gpu/). Results, generated figures and local archives are
+provided reference CSV; see the tool's `--help`. A runnable CPU light-curve and
+forward-derivative example lives under [`example/cpu/`](example/cpu/). GPU
+workflows live under [`example/gpu/`](example/gpu/). Results, generated figures and local archives are
 excluded from version control. Historical CPU code remains in Git history.
 
 ## Scientific use
