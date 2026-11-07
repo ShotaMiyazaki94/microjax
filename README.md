@@ -57,11 +57,18 @@ the same events with the accelerator backend.
 - [Examples](docs_src/examples/index.rst)
 - [CPU backend](docs_src/cpu_backend.rst)
 - [Numerical accuracy](docs_src/caveats.rst) and [benchmarks](docs_src/benchmarks.rst)
-- [API reference](https://shotamiyazaki94.github.io/microjax/modules.html)
+- [API reference](docs_src/modules.rst)
 
-Browse the [documentation website](https://shotamiyazaki94.github.io/microjax/)
-or the source guides above for the current branch. For source installation,
-tests, and documentation builds, see [CONTRIBUTING](CONTRIBUTING.md).
+The links above describe this branch. Build its local website with:
+
+```bash
+python -m pip install -e '.[dev]'
+python -m sphinx -b html -W docs_src docs
+```
+
+Open `docs/index.html`. The [published website](https://shotamiyazaki94.github.io/microjax/)
+is built from `develop`. For development and publishing instructions, see
+[CONTRIBUTING](CONTRIBUTING.md).
 
 ## Citation and license
 

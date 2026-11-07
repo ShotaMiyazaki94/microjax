@@ -24,21 +24,15 @@ Use `--quick` for a smaller run, `--u1` to change limb darkening,
 the destination. `--no-plot` writes only data and timings. The source-boundary
 sampling defaults to `n_limb=64` and can be changed with `--n-limb`.
 
-`outputs/limb_dark/` contains `magnification.csv`, a `(500, 7)`
+Each run writes to `outputs/limb_dark/`: `magnification.csv`, a `(500, 7)`
 `jacobian_forward.npy`, `benchmark.json`, the light-curve figure, and
 `ad_benchmark.png`. The report separates compilation plus the first call
 from the median of three synchronized warm calls; change this count with
 `--repeats`.
 
-## Recorded timing
-
-The saved [report](outputs/limb_dark/benchmark.json) uses JAX 0.10.2,
-an NVIDIA A100-PCIE-40GB, 500 observations, and `n_limb=64`:
-
-| Calculation | Compile + first call | Warm median |
-| --- | ---: | ---: |
-| Magnification | 8.617 s | 0.082 s |
-| Forward Jacobian | 18.970 s | 0.308 s |
+The numerical outputs, timing reports, and diagnostic plots stay local and
+are excluded from Git. Only the representative Jacobian figure above is
+versioned.
 
 For magnification accuracy, see the separate
 [VBMicrolensing comparison](../compare-binary-vbml/README.md).

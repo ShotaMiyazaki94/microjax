@@ -53,16 +53,20 @@ behavior; routine changes do not need another broad parameter sweep.
 Edit the guides in `docs_src/` and build the documentation locally:
 
 ```bash
-python -m sphinx -b html -W docs_src results/docs-preview
+python -m sphinx -b html -W docs_src docs
 ```
 
-Open `results/docs-preview/index.html` to review it. Keep examples short,
+Open `docs/index.html` to review it. `docs_src/` is the source; `docs/` is
+the generated site and is excluded from Git. Keep examples short,
 show the resulting figure, and give a command that runs from the repository
 root. Documentation builds should read existing figures rather than run
 long calculations.
 
-`docs/` contains an older generated website snapshot. Building this preview
-does not publish the site; keep generated HTML out of documentation commits.
+The Documentation workflow builds pull requests and publishes `develop` through
+GitHub Pages. For the initial migration, install the workflow on `develop` and
+confirm its build succeeds, then set **Settings → Pages → Source → GitHub Actions**.
+Deployment stays disabled while Pages still uses the old branch source.
+Generated HTML is uploaded as a Pages artifact instead of committed to Git.
 
 For a longer experiment, use a standalone script or a manually launched
 batch. Save its configuration, numerical outputs, and log under `results/`;
@@ -72,8 +76,8 @@ a notebook session open while the calculation runs.
 ## Commits and pull requests
 
 Commit source, documentation, focused tests, and small required fixtures.
-Keep runtime measurements and generated HTML in `results/`, and retired
-local experiments in `archive/`; both directories are ignored. Selected
+Keep runtime measurements in `results/`, generated HTML in `docs/`, and retired
+local experiments in `archive/`; these directories are ignored. Selected
 example PNGs are versioned beside their scripts so the README figures can
 be viewed without running a calculation.
 

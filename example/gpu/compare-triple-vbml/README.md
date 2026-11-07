@@ -19,16 +19,15 @@ linear limb-darkened sources (`u1=0.5`). Use `--quick` for a 24-point run,
 
 ## Measurements
 
-The saved [report](outputs/benchmark_triple_profiles.json) uses JAX 0.10.2,
-VBMicrolensing 5.5, an NVIDIA A100, and `Tol=RelTol=1e-4` for the reference.
-For the limb-darkened trajectory, the largest sampled relative magnification
-difference is `5.92e-4`. The synchronized warm medians are 0.979 s for microJAX
-and 10.892 s for VBMicrolensing, over three repetitions with compilation excluded.
-Use `--repeats` and `--accuracy` to change the measurement settings.
+The generated JSON report records the event parameters, software versions,
+reference settings, relative magnification errors, and synchronized warm
+timings. Compilation is excluded from the timed repetitions. Use `--repeats`
+and `--accuracy` to change the measurement settings.
 
 ## Outputs
 
-Files are written to `outputs/`:
+Files are written to `outputs/` and stay local; generated outputs are excluded
+from Git:
 
 - `benchmark_triple_profiles.json`: versions, event parameters, timings, and errors;
 - `compare_triple_uniform_limb_dark.png`: light curves, residuals, and caustics;

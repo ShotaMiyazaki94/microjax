@@ -15,7 +15,7 @@ Use `--s`, `--q`, `--rho`, `--u1`, and `--points` to change the event.
 
 ## Measurements
 
-The [saved report](outputs/benchmark_binary_profiles.json) records the
+The generated JSON report records the
 parameters, reference tolerances, warm timings, and relative magnification
 errors for each profile. JAX compilation is excluded from the median of three
 synchronized calls; change the count with `--repeats`.
@@ -27,7 +27,8 @@ magnification.
 
 ## Outputs
 
-Files are written to `outputs/`:
+Files are written to `outputs/` and stay local; generated outputs are excluded
+from Git:
 
 - `benchmark_binary_profiles.json`: settings, timings, and error statistics;
 - `compare_binary_uniform_limb_dark.png`: light curves, residuals, and caustics;
