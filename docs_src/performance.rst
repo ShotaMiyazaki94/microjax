@@ -2,7 +2,7 @@ Accelerator Performance Tuning
 ==============================
 
 This page covers the accelerator backend configured by
-``BinaryMagConfig`` and ``TripleMagConfig``. The binary-lens CPU backend uses
+``BinaryMagConfig`` and ``TripleMagConfig``. The binary/triple CPU backend uses
 fixed internal scheduling; see :doc:`cpu_backend` for CPU guidance.
 
 The accelerator solver first applies a fast approximation over the complete

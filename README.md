@@ -14,7 +14,7 @@
 
 microJAX models point and finite sources in binary- and triple-lens
 microlensing systems. It provides an accelerator-oriented boundary integrator,
-a separate binary-lens CPU backend, forward-mode automatic differentiation,
+a shared binary/triple CPU backend, forward-mode automatic differentiation,
 caustic calculations, and trajectory utilities.
 
 Single-lens models are maintained separately in
@@ -49,16 +49,27 @@ mu = mag_binary(w, rho, s=s, q=q, backend="cpu")
 ```
 
 The first call includes JAX compilation. The CPU backend is selected explicitly
-and is currently available for finite-source binary lenses.
+and is available for finite-source binary and triple lenses. For a triple lens,
+use `mag_triple(..., backend="cpu")` with `q3`, `r3`, and `psi` in addition to
+the binary parameters.
 
 ## Documentation
 
 - [User guides and API reference](https://shotamiyazaki94.github.io/microjax/)
-- [CPU binary-lens backend](https://shotamiyazaki94.github.io/microjax/cpu_backend.html)
+- [CPU binary/triple backend](https://shotamiyazaki94.github.io/microjax/cpu_backend.html)
 - [Solver caveats](https://shotamiyazaki94.github.io/microjax/caveats.html)
 
-Runnable workflows are grouped under [`example/cpu/`](example/cpu/) and
-[`example/gpu/`](example/gpu/).
+Critical limb-darkened CPU benchmarks run through
+[`tools/cpu_benchmark.py`](tools/cpu_benchmark.py). Regional binary LD measurements and
+figures with configuration-bootstrap uncertainty use
+[`tools/cpu_benchmark_grid.py`](tools/cpu_benchmark_grid.py) and
+[`tools/plot_cpu_benchmark.py`](tools/plot_cpu_benchmark.py), writing to
+`results/cpu/figures-benchmark/`. The regional benchmark requires a separately
+provided reference CSV; see the tool's `--help`. Runnable binary and triple CPU
+light-curve and forward-Jacobian examples live under [`example/cpu/`](example/cpu/). GPU
+workflows live under [`example/gpu/`](example/gpu/). Benchmark outputs and local
+archives are excluded from version control; the CPU examples include two
+reproducible figure previews. Historical CPU code remains in Git history.
 
 ## Scientific use
 

@@ -18,6 +18,12 @@ synchronised compiled executions. The examples contain only forward-mode AD.
 The calculation automatically changes its coordinate origin for small isolated
 images when that improves their angular resolution; no user setting is required.
 
+The [CPU example](../../cpu/) reproduces the limb-darkened trajectory and all
+ten derivatives using the dedicated `mag_triple(..., backend="cpu")`
+integrator. Run `python example/cpu/lightcurve.py --lens triple` from the
+repository root. Running the scripts in this directory with `JAX_PLATFORMS=cpu`
+instead executes the accelerator algorithm on a CPU device.
+
 Run
 ---
 

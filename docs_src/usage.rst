@@ -64,7 +64,7 @@ Set ``u1`` to a non-zero value for the normalized linear limb-darkening law::
 
    mu_ld = mag_binary(w, rho, s=0.95, q=5e-4, u1=0.5)
 
-For the binary-lens CPU one-shot backend, select ``backend="cpu"``:
+For the dedicated CPU integrator, select ``backend="cpu"``:
 
 .. code-block:: python
 
@@ -84,7 +84,8 @@ selection, forward-mode differentiation, and validation.
 Triple lenses
 -------------
 
-The triple-lens API uses the same trajectory and source profile.
+The triple-lens API uses the same trajectory and source profile. It defaults
+to the accelerator implementation:
 
 .. code-block:: python
 
@@ -100,6 +101,20 @@ The triple-lens API uses the same trajectory and source profile.
        u1=0.5,
        config=triple_config,
    )
+
+Select the shared CPU integrator explicitly for a triple lens:
+
+.. code-block:: python
+
+   mu_triple_cpu = mag_triple(
+       w, rho, s=1.10, q=0.1, q3=0.01,
+       r3=0.60, psi=jnp.deg2rad(210.0), u1=0.5, backend="cpu",
+   )
+
+The CPU path requires positive mass ratios and source radius, with distinct
+lens positions. ``TripleMagConfig`` does not tune it. Both CPU lens models
+share the same uniform/limb-darkened calculation and accept a dynamic ``u1``.
+See :doc:`cpu_backend` for device selection and the numerical contract.
 
 Configuration
 -------------
@@ -150,9 +165,9 @@ Failure behavior
 ----------------
 
 The accelerator finite-source functions return ``NaN`` for detected structural
-or non-finite failures. All CPU binary backends (``cpu``, ``cpu-one-shot`` and
-``cpu-adaptive``) preserve the best-effort magnification even when ``status``
-is nonzero; ``return_info=True`` exposes the same values and unmasked diagnostics.
+or non-finite failures. The CPU backend preserves the best-effort magnification
+even when ``status`` is nonzero; ``return_info=True`` returns only
+``magnification`` and ``status``.
 A CPU calculation can still produce a non-finite value. Check values and
 diagnostics before downstream inference, and retain the complete configuration
 for problematic samples. A finite result has no guaranteed error bound;

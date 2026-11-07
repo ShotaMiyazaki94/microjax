@@ -48,10 +48,13 @@ from .geometry.topology import RADIAL_CAPACITY, RADIAL_TOPOLOGY
 from microjax.multipole import mag_hexadecapole
 from microjax.point_source import _images_point_source
 from .cpu.lightcurve import (
-    _CPU_MULTIPOLE_GATE,
-    mag_binary_cpu_hybrid_lightcurve,
-    mag_binary_cpu_one_shot_hybrid_lightcurve,
+    mag_cpu_hybrid_lightcurve,
 )
+
+from .cpu.lens import binary_lens, triple_lens, source_polynomial
+from .cpu.support import polish_images, physical_image_mask
+from .cpu.result import CpuMagnificationResult, INVALID_ROOTS, NONFINITE
+from microjax.poly_solver import poly_roots
 
 # Consistent array alias used across modules
 Array = jnp.ndarray
@@ -123,38 +126,23 @@ def _binary_prefilter(
     w_points_shifted = w_points - lens.shifted
 
     z, z_mask = _images_point_source(w_points_shifted, nlenses=2, a=lens.a, e1=lens.e1)
-    mu_multi, profile_delta_mu_multi = mag_hexadecapole(
-        z,
-        z_mask,
+    # One geometric expansion supplies both the requested coefficient and
+    # the coefficient-independent (u1=0) shortcut gate. The singleton image
+    # axis broadcasts only the final profile weights, including when u1=0.
+    magnification, correction = mag_hexadecapole(
+        z[..., None],
+        z_mask[..., None],
         rho,
         nlenses=2,
-        u1=u1,
+        u1=jnp.stack((u1, jnp.zeros_like(u1))),
         s=s,
         q=q,
         a=lens.a,
         e1=lens.e1,
     )
-    # The fast/full decision must describe lens/source geometry, not the
-    # requested brightness profile.  Linear limb darkening rescales the
-    # quadrupole and hexadecapole terms and can otherwise move an identical
-    # source disc across the selector threshold.  Always use the uniform
-    # value and correction as the shared trigger diagnostics, while retaining
-    # the requested-profile multipole value above for accepted points.
-    if u1 == 0.0:
-        trigger_mu_multi = mu_multi
-        trigger_delta_mu_multi = profile_delta_mu_multi
-    else:
-        trigger_mu_multi, trigger_delta_mu_multi = mag_hexadecapole(
-            z,
-            z_mask,
-            rho,
-            nlenses=2,
-            u1=0.0,
-            s=s,
-            q=q,
-            a=lens.a,
-            e1=lens.e1,
-        )
+    mu_multi = magnification[..., 0]
+    trigger_mu_multi = magnification[..., 1]
+    trigger_delta_mu_multi = correction[..., 1]
     test1 = _caustics_proximity_test(
         w_points_shifted,
         z,
@@ -172,12 +160,7 @@ def _binary_prefilter(
     )
     accepted = lax.cond(
         q < 0.01,
-        lambda _: (
-            test1
-            & _planetary_caustic_test(
-                w_points_shifted, rho, s=s, q=q, a=lens.a, e1=lens.e1
-            )
-        ),
+        lambda _: (test1 & _planetary_caustic_test(w_points_shifted, rho, s=s, q=q, a=lens.a, e1=lens.e1)),
         lambda _: test1,
         operand=None,
     )
@@ -185,10 +168,7 @@ def _binary_prefilter(
     return mu_multi, accepted, trigger_delta_mu_multi, trigger_scale
 
 
-@partial(
-    jit,
-    static_argnames=("u1", "adaptive"),
-)
+@jit
 def _mag_binary_cpu_impl(
     w_points: Array,
     rho: float,
@@ -196,7 +176,6 @@ def _mag_binary_cpu_impl(
     s: float,
     q: float,
     u1: float,
-    adaptive: bool,
 ):
     """Fuse the CPU multipole prefilter and selected one-shot scheduler."""
 
@@ -212,28 +191,14 @@ def _mag_binary_cpu_impl(
         s,
         q,
     )
-    if adaptive:
-        return mag_binary_cpu_hybrid_lightcurve(
-            w_points,
-            multipole,
-            accepted,
-            multipole_error,
-            multipole_trigger_scale,
-            rho,
-            s=s,
-            q=q,
-            u1=u1,
-            rtol=_CPU_MULTIPOLE_GATE,
-        )
-    return mag_binary_cpu_one_shot_hybrid_lightcurve(
+    return mag_cpu_hybrid_lightcurve(
         w_points,
         multipole,
         accepted,
         multipole_error,
         multipole_trigger_scale,
         rho,
-        s=s,
-        q=q,
+        lens=binary_lens(s, q),
         u1=u1,
     )
 
@@ -281,6 +246,71 @@ def _triple_prefilter(
     return mu_multi, accepted
 
 
+@jit
+def _mag_triple_cpu_impl(w_points, rho, *, s, q, q3, r3, psi, u1):
+    """Use CPU image roots, a profile-independent gate, and the shared integrator."""
+    w_points = jnp.asarray(w_points)
+    if w_points.shape[0] == 0:
+        return CpuMagnificationResult(jnp.zeros_like(w_points.real), jnp.zeros(w_points.shape, dtype=jnp.int32))
+    lens = triple_lens(s, q, q3, r3, psi)
+    geometry = triple_lens_geometry(s, q, q3, r3, psi)
+    distances = jnp.abs(lens.positions[:, None] - lens.positions[None, :])
+    valid_lens = (
+        jnp.all(jnp.isfinite(lens.positions))
+        & jnp.all(jnp.isfinite(lens.masses) & (lens.masses > 0))
+        & jnp.all((distances > 0) | jnp.eye(3, dtype=bool))
+        & (s > 0)
+        & (rho > 0)
+    )
+
+    def evaluate(_):
+        coefficients, image_shift = vmap(lambda w: source_polynomial(w, lens))(w_points)
+        images = poly_roots(coefficients) + image_shift[:, None]
+        images = vmap(lambda z, w: polish_images(z, w, lens))(images, w_points)
+        mask = vmap(lambda z, w: physical_image_mask(z, w, lens))(images, w_points)
+        # Multipole utilities use the internal midpoint frame and image-first axes.
+        z = (images - geometry.shifted).T
+        z_mask = mask.T
+        parameters = dict(a=geometry.a, e1=geometry.e1, e2=geometry.e2, r3=r3, psi=psi, r3_complex=geometry.r3_complex)
+        values, corrections = mag_hexadecapole(
+            z[..., None],
+            z_mask[..., None],
+            rho,
+            nlenses=3,
+            u1=jnp.stack((u1, jnp.zeros_like(u1))),
+            **parameters,
+        )
+        accepted = _caustics_proximity_test(
+            w_points - geometry.shifted,
+            z,
+            z_mask,
+            rho,
+            corrections[..., 1],
+            nlenses=3,
+            **parameters,
+        )
+        count = jnp.sum(mask, axis=-1)
+        accepted = accepted & (count >= 4) & (count % 2 == 0)
+        return mag_cpu_hybrid_lightcurve(
+            w_points,
+            values[..., 0],
+            accepted,
+            corrections[..., 1],
+            jnp.maximum(jnp.abs(values[..., 1]), 1.0),
+            rho,
+            lens=lens,
+            u1=u1,
+        )
+
+    def invalid(_):
+        return CpuMagnificationResult(
+            jnp.full(w_points.shape, jnp.nan, dtype=w_points.real.dtype),
+            jnp.full(w_points.shape, INVALID_ROOTS | NONFINITE, dtype=jnp.int32),
+        )
+
+    return lax.cond(valid_lens, evaluate, invalid, operand=None)
+
+
 def _select_full_points(w_points: Array, accepted: Array) -> tuple[Array, Array, Array]:
     """Compact rejected trajectory samples into a static selection buffer."""
 
@@ -316,13 +346,7 @@ def _validated_magnification(result):
 
     structural_failure = (
         result.status
-        & (
-            ANGULAR_CAPACITY
-            | ANGULAR_DEGENERATE
-            | ANGULAR_ROOT_FAILURE
-            | RADIAL_CAPACITY
-            | RADIAL_TOPOLOGY
-        )
+        & (ANGULAR_CAPACITY | ANGULAR_DEGENERATE | ANGULAR_ROOT_FAILURE | RADIAL_CAPACITY | RADIAL_TOPOLOGY)
     ) != 0
     valid = jnp.isfinite(result.magnification) & ~structural_failure
     return jnp.where(valid, result.magnification, jnp.nan)
@@ -439,9 +463,7 @@ def _mag_binary_single_pass_impl(
     tile_size = min(config.source_tile_size, w_points.shape[0])
 
     def solve(boundary):
-        full_values = _tiled_vmap_active_scalar(
-            boundary, full_points, n_active, tile_size
-        )
+        full_values = _tiled_vmap_active_scalar(boundary, full_points, n_active, tile_size)
         return _scatter_full_values(multipole, indices, full_values)
 
     return solve(make_boundary())
@@ -574,47 +596,33 @@ def mag_binary(
 ) -> Array:
     """Calculate a binary-lens finite-source light curve.
 
-    ``backend="accelerator"`` preserves the established one-pass GPU-oriented
-    scheduler. ``backend="cpu"`` selects the differentiable one-shot CPU
-    scheduler: after the multipole prefilter, it traces the source limb once,
-    selects one fixed high-order Cartesian or polar rule from the traced image
-    state, and never retries. ``cpu-one-shot`` is a
-    compatibility alias for the same default CPU path. The former adaptive
-    CPU scheduler remains available explicitly as ``backend="cpu-adaptive"``.
-    Exact radial tangencies stabilize the polar chart without treating
-    ``n_limb`` as an accuracy order. The production CPU uses one fixed,
-    calibrated multipole shortcut gate; it is not a full-solve error
-    guarantee. All three CPU backends return the solver's best-effort
-    magnification even when ``status`` is nonzero; actual nonfinite solver
-    values remain nonfinite. ``return_info=True`` also exposes the diagnostic
-    status and error fields. Full one-shot solves report ``estimated_error``
-    as NaN, while the legacy adaptive backend retains its numerical error
-    diagnostics. A zero status is not an accuracy certificate.
+    ``backend="cpu"`` uses a shared multipole gate followed by one Cartesian
+    or angular finite-source integral selected from a single image-limb trace.
+    Uniform and linear limb darkening share geometry and bounded quadrature.
+    ``return_info=True`` returns ``(magnification, status)``. Structural status
+    never masks the best-effort value or triggers a retry; zero is not an
+    accuracy guarantee. CPU supports forward-mode automatic differentiation.
+
+    ``backend="accelerator"`` (or ``"gpu"``) uses the accelerator scheduler
+    and its ``config``. CPU quadrature is fixed and does not use ``config``.
     """
 
-    if backend in ("cpu", "cpu-one-shot", "cpu-adaptive"):
+    if backend == "cpu":
         result = _mag_binary_cpu_impl(
             w_points,
             rho,
             s=s,
             q=q,
             u1=u1,
-            adaptive=backend == "cpu-adaptive",
         )
         if return_info:
             return result
         return result.magnification
 
     if backend not in ("accelerator", "gpu"):
-        raise ValueError(
-            "backend must be 'accelerator', 'gpu', 'cpu', "
-            "'cpu-one-shot', or 'cpu-adaptive'"
-        )
+        raise ValueError("backend must be 'accelerator', 'gpu', or 'cpu'")
     if return_info:
-        raise ValueError(
-            "return_info is available only for backend='cpu', "
-            "backend='cpu-one-shot', or backend='cpu-adaptive'"
-        )
+        raise ValueError("return_info is available only for backend='cpu'")
 
     return _mag_binary_single_pass_impl(
         w_points,
@@ -637,8 +645,22 @@ def mag_triple(
     psi: float,
     u1: float = 0.0,
     config: TripleMagConfig = DEFAULT_TRIPLE_CONFIG,
+    backend: str = "accelerator",
+    return_info: bool = False,
 ) -> Array:
-    """Validate the public API before entering the JIT-compiled implementation."""
+    """Finite-source triple magnification with an explicit CPU backend.
+
+    The CPU path shares bounded image-plane integration with binary lenses.
+    It requires positive masses and distinct lens positions. Uniform and
+    limb-darkened sources use the same compiled model and forward derivatives.
+    """
+    if backend == "cpu":
+        result = _mag_triple_cpu_impl(w_points, rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=u1)
+        return result if return_info else result.magnification
+    if backend not in ("accelerator", "gpu"):
+        raise ValueError("backend must be 'accelerator', 'gpu', or 'cpu'")
+    if return_info:
+        raise ValueError("return_info is available only for backend='cpu'")
 
     return _mag_triple_single_pass_impl(
         w_points,
@@ -651,6 +673,3 @@ def mag_triple(
         u1=u1,
         config=config,
     )
-
-
-mag_triple.__doc__ = _mag_triple_single_pass_impl.__doc__

@@ -31,7 +31,7 @@ public API examples.
 Choosing a guide
 ----------------
 
-- :doc:`cpu_backend` defines the binary-lens CPU interface, supported
+- :doc:`cpu_backend` defines the binary/triple CPU interface, supported
   differentiation, and numerical contract.
 - :doc:`performance` explains accelerator scheduler settings and sound timing
   practice.

@@ -1,0 +1,183 @@
+{
+  "reference": {
+    "provider": "VBMicrolensing 5.3.5 MultiMagDark",
+    "u1": 0.5,
+    "tolerance": 1e-08,
+    "relative_tolerance": 1e-08,
+    "coordinate_frame": "first_two_lens_center_of_mass"
+  },
+  "cases": [
+    {
+      "name": "central_fold",
+      "source": [
+        -0.06502268557880701,
+        0.07808136354737426
+      ],
+      "rho": 0.01,
+      "s": 1.1,
+      "q": 0.1,
+      "q3": 0.01,
+      "r3": 1.2369316876852983,
+      "psi": 1.3258176636680326,
+      "magnification": 5.387161927858877
+    },
+    {
+      "name": "central_peak",
+      "source": [
+        -0.05344092684571619,
+        0.09188396612609462
+      ],
+      "rho": 0.01,
+      "s": 1.1,
+      "q": 0.1,
+      "q3": 0.01,
+      "r3": 1.2369316876852983,
+      "psi": 1.3258176636680326,
+      "magnification": 27.44297610981538
+    },
+    {
+      "name": "third_fold",
+      "source": [
+        0.4291323536997338,
+        0.6669924069061082
+      ],
+      "rho": 0.01,
+      "s": 1.1,
+      "q": 0.1,
+      "q3": 0.01,
+      "r3": 1.2369316876852983,
+      "psi": 1.3258176636680326,
+      "magnification": 5.030958037997055
+    },
+    {
+      "name": "nonplanetary_third_caustic",
+      "source": [
+        -0.1434959275026121,
+        0.5613808211269775
+      ],
+      "rho": 0.02,
+      "s": 0.8,
+      "q": 0.7,
+      "q3": 0.4,
+      "r3": 1.1,
+      "psi": 1.3,
+      "magnification": 5.680293416433591
+    },
+    {
+      "name": "small_wide_third_caustic",
+      "source": [
+        2.0572278487867095,
+        1.7454984700007337
+      ],
+      "rho": 0.003,
+      "s": 1.6,
+      "q": 0.03,
+      "q3": 0.0003,
+      "r3": 2.5,
+      "psi": 0.9,
+      "magnification": 6.221047842310977
+    },
+    {
+      "name": "tiny_third_caustic",
+      "source": [
+        1.1544730641980716,
+        0.93619733146746
+      ],
+      "rho": 1e-05,
+      "s": 1.1,
+      "q": 1e-06,
+      "q3": 1e-06,
+      "r3": 1.6,
+      "psi": 0.9,
+      "magnification": 18.139394034253137,
+      "reference_tolerance": 1e-07,
+      "reference_relative_tolerance": 1e-07,
+      "reference_validation": "Tol=RelTol=1e-6 and 1e-7 agree within 2.1e-8 relative."
+    }
+  ],
+  "forward_jacobian": {
+    "observation_time": 0.4954954954954953,
+    "parameter_names": [
+      "t0",
+      "tE",
+      "u0",
+      "q",
+      "s",
+      "alpha",
+      "rho",
+      "q3",
+      "r3",
+      "psi"
+    ],
+    "parameters": [
+      0.0,
+      10.0,
+      0.1,
+      0.1,
+      1.1,
+      0.8726646259971648,
+      0.01,
+      0.01,
+      1.2369316876852983,
+      1.3258176636680326
+    ],
+    "derivatives": [
+      43.34188849206555,
+      2.147571045831853,
+      161.1361859126248,
+      -103.96622052333271,
+      -39.401887522494405,
+      51.32611403375619,
+      94.17765641828169,
+      81.41291274910145,
+      0.08773991719834838,
+      -0.9702804289801746
+    ],
+    "reference_method": "centered finite difference; step halving checked",
+    "reference_tolerance": 1e-09,
+    "steps": [
+      1e-05,
+      0.0001,
+      1e-06,
+      1e-06,
+      1e-05,
+      1e-05,
+      1e-06,
+      1e-07,
+      1e-05,
+      1e-05
+    ]
+  },
+  "critical_forward_jacobians": [
+    {
+      "observation_time": 0.195195195195195,
+      "parameter_indices": [
+        6,
+        3
+      ],
+      "derivatives": [
+        1707.2620227214231,
+        616.974162518602
+      ],
+      "reference_notes": [
+        "rho: VBM 5.3.5 MultiMagDark, Tol=RelTol=1e-7; centered step 5e-7; step-halving change 3.7e-5 relative.",
+        "q: VBM 5.3.5 MultiMagDark, Tol=RelTol=1e-7; centered step 5e-7; step-halving change 2.0e-6 relative."
+      ]
+    },
+    {
+      "observation_time": 8.243243243243244,
+      "parameter_indices": [
+        7,
+        8
+      ],
+      "derivatives": [
+        593.9501322227869,
+        89.01561087165888
+      ],
+      "reference_notes": [
+        "q3: VBM 5.3.5 MultiMagDark, Tol=RelTol=1e-8; centered step 5e-6; step-halving change 3.3e-5 relative.",
+        "r3: SciPy adaptive mu integration of VBM 5.3.5 uniform disks, Tol=RelTol=1e-10; centered step 1e-4. Individual integral error estimates below 9e-9; half-step FD validation was not completed within the bounded check."
+      ]
+    }
+  ]
+}

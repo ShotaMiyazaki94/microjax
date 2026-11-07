@@ -60,7 +60,7 @@ Up next
 -------
 
 - :doc:`usage` walks through binary and triple lens examples.
-- :doc:`cpu_backend` documents the binary-lens CPU solver and forward-mode
+- :doc:`cpu_backend` documents the binary/triple CPU solver and forward-mode
   differentiation.
 - :doc:`performance` gives measured accelerator scheduler recommendations.
 - :doc:`caveats` summarizes microJAX-specific numerical and API caveats.
