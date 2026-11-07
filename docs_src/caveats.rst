@@ -1,80 +1,69 @@
-Solver Caveats
-==============
+Numerical accuracy
+==================
 
-This page collects microJAX-specific constraints that can materially affect a
-scientific result. General JAX installation and device troubleshooting belong
-in the `JAX documentation <https://docs.jax.dev/>`_.
+Finite-source calculations use float64. Both backends combine a multipole
+approximation away from caustics with image-plane integration nearby. The
+measurements below compare magnification and derivatives against independent
+reference calculations.
 
-Backend scope is explicit
--------------------------
+CPU magnification
+-----------------
 
-``mag_binary`` and ``mag_triple`` use the accelerator-oriented backend unless
-``backend="cpu"`` is requested. The dedicated CPU integrator supports both
-lens models and is selected explicitly, independently of the JAX device.
-``BinaryMagConfig`` and ``TripleMagConfig`` configure the accelerator path and
-do not tune the CPU path. Running the default implementation on a CPU device
-does not select the dedicated CPU algorithm.
+The critical limb-darkened benchmark uses ``u1=0.5`` and fixed reference values
+from VBMicrolensing. Its binary cases exercise Cartesian,
+polar, and mixed image geometries. Triple cases cover central and third-body
+caustics, comparable masses, wide separations, and mass ratios down to
+``q=q3=1e-6``.
 
-The CPU finite-source contract requires positive mass ratios and source radius,
-with distinct lens positions. An exact zero third mass or coincident lenses
-changes the lens model's degree and is outside the triple contract; use the
-binary API for a two-lens model.
+.. list-table:: Maximum relative reference difference
+   :header-rows: 1
+   :widths: 45 20 35
 
-Finite values are not accuracy certificates
---------------------------------------------
+   * - Lens model
+     - Positions
+     - Maximum difference
+   * - Binary
+     - 48
+     - :math:`7.15\times10^{-5}`
+   * - Triple
+     - 6
+     - :math:`7.22\times10^{-6}`
 
-The accelerator solver and production CPU solver use bounded work. They do not
-increase the integration order or retry indefinitely until a requested error
-tolerance is met. A finite magnification therefore has no guaranteed relative
-error bound. Validate values and derivatives over the parameter region used in
-an analysis against an independent implementation.
+These are measured maxima over the listed cases. The frozen inputs and
+references are in ``tools/cpu_benchmark_cases.json`` and
+``tools/cpu_triple_cases.json``; :doc:`benchmarks` gives the reproduction
+commands and broader binary coverage.
 
-Failure diagnostics depend on the backend
------------------------------------------
+Derivative checks
+-----------------
 
-The accelerator finite-source API returns ``NaN`` when it detects invalid
-image geometry, exhausted fixed capacity, or a non-finite calculation.
-The CPU backend preserves the best-effort magnification even when ``status``
-is nonzero. ``return_info=True`` returns only ``magnification`` and ``status``.
-Status flags structural concerns and does not establish an accuracy or
-quadrature-convergence guarantee. A CPU calculation can still produce a
-non-finite value.
+Independent finite differences check the binary position, source-radius,
+separation, and mass-ratio derivatives. Triple checks cover all ten event
+parameters and additional radius, mass-ratio, and third-lens-position
+derivatives near central and third-body caustics. The regression tolerances
+are ``5e-4`` relative for the binary reference Jacobian and ``1e-3`` for the
+triple checks, with absolute tolerances for small entries.
 
-Record the complete lens and source configuration for problematic samples.
-For CPU-specific interpretation of values and diagnostics, see
-:doc:`cpu_backend`.
+The fixtures record each reference method, its finite-difference step sizes,
+and convergence information. Near caustics, image topology and integration
+subdivisions change. A derivative can therefore be more sensitive than the
+magnification to numerical resolution. For a fit concentrated in such a
+region, compare selected values and derivatives with an independent calculation
+at the relevant parameters.
 
-The numerical graph is piecewise
---------------------------------
+Resolution and diagnostics
+--------------------------
 
-Caustic crossings change image topology, and the solver switches between a
-multipole approximation and a full finite-source calculation. CPU full solves
-also select among fixed integration charts. Values and forward derivatives can
-therefore be non-smooth near route and topology boundaries even when they are
-finite. Automatic differentiation does not certify numerical accuracy.
+The CPU integrator uses a 112-point source-limb trace and bounded quadrature.
+For the accelerator integrator, ``n_limb`` controls source-boundary sampling;
+``source_tile_size`` and ``radial_chunk_size`` control batching. Increasing
+batch sizes changes throughput, not accuracy. See :doc:`performance`.
 
-Use x64 mode and forward differentiation
-----------------------------------------
+The solvers use fixed work limits rather than a requested relative-error
+tolerance. CPU ``return_info=True`` exposes the structural status described
+in :doc:`cpu_backend`; accelerator functions return ``NaN`` for detected
+geometry, capacity, or non-finite failures.
 
-Enable ``jax_enable_x64`` before constructing arrays or compiling functions.
-The polynomial roots and image-boundary calculations are numerically sensitive
-in single precision. Forward mode (``jax.jvp`` or ``jax.jacfwd``) is the
-supported light-curve differentiation route; reverse mode through the CPU
-scheduler's data-dependent loops is not part of its API.
-
-Configuration changes compile separately
-----------------------------------------
-
-Accelerator scheduler settings and array shapes participate in JAX's static
-compilation. Changing them creates a separate executable, and the first call
-includes compilation. Warm up the exact backend, source profile, configuration,
-and array shape before measuring runtime. See :doc:`performance` for the
-measured accelerator scope.
-
-The paper version is a different solver line
---------------------------------------------
-
-The methods paper corresponds to ``v0.1.1``. The ``0.2`` series is a substantial
-redesign rather than a patch-level continuation. Record the exact release or
-Git commit and do not combine results from the two lines without explicit
-cross-validation. See :doc:`citing` for the complete reproducibility checklist.
+For reproducing a calculation, record the microJAX version or commit and the
+backend configuration. The :doc:`citing` page identifies the implementation
+associated with the methods paper.

@@ -46,7 +46,7 @@ dev = [
   "build",
   "twine",
   "Sphinx>=7,<9",
-  "sphinx-rtd-theme>=3,<4",
+  "sphinx-book-theme>=1.1,<2",
 ]
 
 [project.urls]

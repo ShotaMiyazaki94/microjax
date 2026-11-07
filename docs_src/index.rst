@@ -1,51 +1,56 @@
 microJAX
 ========
 
-`microJAX <https://github.com/ShotaMiyazaki94/microjax>`_ is a differentiable
-microlensing library built with JAX. It provides point-source and finite-source
-calculations for binary and triple lenses, along with trajectory utilities.
+Differentiable binary- and triple-lens microlensing in JAX, with finite
+sources, limb darkening, and light-curve Jacobians on CPUs and GPUs.
 
-The finite-source API includes a GPU-oriented accelerator backend and a
-separate CPU backend for binary lenses. Both support uniform and linear
-limb-darkened circular sources. Use :doc:`getting_started` to install the
-package and verify the JAX environment, then continue with :doc:`usage` for
-public API examples.
+.. code-block:: python
+
+   import jax
+   jax.config.update("jax_enable_x64", True)
+   import jax.numpy as jnp
+   from microjax.inverse_ray import mag_binary
+
+   times = jnp.linspace(-5., 10., 101)
+   t0, t_e, u0 = 0., 10., 0.1
+   alpha = jnp.deg2rad(50.)
+   w = ((times - t0) / t_e + 1j * u0) * jnp.exp(1j * alpha)
+
+   lightcurve = jax.jit(lambda rho: mag_binary(
+       w, rho, s=1., q=0.001, u1=0.5, backend="cpu",
+   ))
+   A = lightcurve(0.005)
+
+Supply source positions as a complex array in Einstein-radius units.
+``mag_binary`` and ``mag_triple`` evaluate circular finite sources;
+``u1`` sets the linear limb darkening. Use ``backend="cpu"`` for the
+dedicated CPU integrator or ``backend="accelerator"`` for GPU batches.
+
+Continue with :doc:`usage` and :doc:`autodiff`, or run the illustrated
+:doc:`examples/index`. Single-lens models are available in
+`singlens <https://github.com/ShotaMiyazaki94/singlens>`_.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Guides
+   :caption: Getting started
+   :maxdepth: 1
 
    getting_started
    usage
-   cpu_backend
-   performance
-   caveats
-   citing
+   autodiff
 
 .. toctree::
+   :caption: Modeling
    :maxdepth: 1
-   :caption: API Reference
+
+   cpu_backend
+   examples/index
+
+.. toctree::
+   :caption: Reference
+   :maxdepth: 1
 
    modules
-
-Choosing a guide
-----------------
-
-- :doc:`cpu_backend` defines the binary/triple CPU interface, supported
-  differentiation, and numerical contract.
-- :doc:`performance` explains accelerator scheduler settings and sound timing
-  practice.
-- :doc:`caveats` collects microJAX-specific limitations that can affect a
-  scientific result.
-- :doc:`citing` gives citations and the reproducibility information to report.
-
-The methods-paper implementation is archived as ``v0.1.1``. The ``0.2``
-series is a substantial solver redesign, so reproducible work should record
-the exact microJAX release or Git commit.
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   caveats
+   benchmarks
+   performance
+   citing

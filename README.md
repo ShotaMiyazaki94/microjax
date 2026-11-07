@@ -1,101 +1,76 @@
-<p align="center">
-  <img src="logo/microjax.png" width="50%" alt="microJAX logo">
-</p>
-
 # microJAX
 
-**Differentiable microlensing models for CPUs and GPUs in JAX.**
+<img src="logo/microjax.png" alt="microJAX logo" width="280">
 
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
-[![JAX](https://img.shields.io/badge/built%20with-JAX-blue)](https://github.com/jax-ml/jax)
-[![PyPI](https://img.shields.io/pypi/v/microjaxx.svg)](https://pypi.org/project/microjaxx/)
-[![DOI](https://zenodo.org/badge/774485090.svg)](https://doi.org/10.5281/zenodo.17247892)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-
-microJAX models point and finite sources in binary- and triple-lens
-microlensing systems. It provides an accelerator-oriented boundary integrator,
-a shared binary/triple CPU backend, forward-mode automatic differentiation,
-caustic calculations, and trajectory utilities.
-
-Single-lens models are maintained separately in
-[singlens](https://github.com/ShotaMiyazaki94/singlens).
-
-## Installation
+Differentiable binary- and triple-lens microlensing in JAX: finite sources,
+limb darkening, light-curve Jacobians, and caustics on CPUs and GPUs.
 
 ```bash
 python -m pip install microjaxx
 ```
 
-The distribution is named `microjaxx`; import it as `microjax`. Install the JAX
-build appropriate for your platform using the
-[official JAX installation guide](https://docs.jax.dev/en/latest/installation.html).
+The package is installed as `microjaxx` and imported as `microjax`.
+Enable float64 before creating JAX arrays. For GPU installation, follow the
+[JAX installation guide](https://docs.jax.dev/en/latest/installation.html).
+Single-lens modeling is available in [singlens](https://github.com/ShotaMiyazaki94/singlens).
 
-## Quick start
+## Quickstart
 
-Enable double precision before creating arrays or compiling functions:
+Calculate a limb-darkened binary light curve:
 
 ```python
 import jax
-import jax.numpy as jnp
-
 jax.config.update("jax_enable_x64", True)
-
+import jax.numpy as jnp
 from microjax.inverse_ray import mag_binary
 
-w = jnp.asarray([0.10 + 0.20j, 0.60 - 0.20j])
-rho, s, q = 0.01, 1.0, 0.3
+times = jnp.linspace(-5., 10., 101)
+t0, t_e, u0 = 0., 10., 0.1
+alpha = jnp.deg2rad(50.)
+w = ((times - t0) / t_e + 1j * u0) * jnp.exp(1j * alpha)
 
-mu = mag_binary(w, rho, s=s, q=q, backend="cpu")
+lightcurve = jax.jit(lambda rho: mag_binary(
+    w, rho, s=1., q=0.001, u1=0.5, backend="cpu",
+))
+A = lightcurve(0.005)
 ```
 
-The first call includes JAX compilation. The CPU backend is selected explicitly
-and is available for finite-source binary and triple lenses. For a triple lens,
-use `mag_triple(..., backend="cpu")` with `q3`, `r3`, and `psi` in addition to
-the binary parameters.
+`w` contains complex source positions in Einstein-radius units; `rho` is
+the source radius. The output has one magnification per position.
+Use `mag_triple` with `q3`, `r3`, and `psi` for a triple lens.
+Both functions accept `backend="cpu"` or `backend="accelerator"` (the default).
+
+Differentiate the source radius with JAX:
+
+```python
+dA_drho = jax.jacfwd(lightcurve)(0.005)
+```
+
+The [CPU examples](example/cpu/) plot complete light curves and their seven-
+or ten-parameter Jacobians. [GPU examples](example/gpu/jacobian-binary/) use
+the same events with the accelerator backend.
 
 ## Documentation
 
-- [User guides and API reference](https://shotamiyazaki94.github.io/microjax/)
-- [CPU binary/triple backend](https://shotamiyazaki94.github.io/microjax/cpu_backend.html)
-- [Solver caveats](https://shotamiyazaki94.github.io/microjax/caveats.html)
+- [Installation](docs_src/getting_started.rst) and [light curves](docs_src/usage.rst)
+- [Automatic differentiation](docs_src/autodiff.rst)
+- [Examples](docs_src/examples/index.rst)
+- [CPU backend](docs_src/cpu_backend.rst)
+- [Numerical accuracy](docs_src/caveats.rst) and [benchmarks](docs_src/benchmarks.rst)
+- [API reference](https://shotamiyazaki94.github.io/microjax/modules.html)
 
-Critical limb-darkened CPU benchmarks run through
-[`tools/cpu_benchmark.py`](tools/cpu_benchmark.py). Regional binary LD measurements and
-figures with configuration-bootstrap uncertainty use
-[`tools/cpu_benchmark_grid.py`](tools/cpu_benchmark_grid.py) and
-[`tools/plot_cpu_benchmark.py`](tools/plot_cpu_benchmark.py), writing to
-`results/cpu/figures-benchmark/`. The regional benchmark requires a separately
-provided reference CSV; see the tool's `--help`. Runnable binary and triple CPU
-light-curve and forward-Jacobian examples live under [`example/cpu/`](example/cpu/). GPU
-workflows live under [`example/gpu/`](example/gpu/). Benchmark outputs and local
-archives are excluded from version control; the CPU examples include two
-reproducible figure previews. Historical CPU code remains in Git history.
+Browse the [documentation website](https://shotamiyazaki94.github.io/microjax/)
+or the source guides above for the current branch. For source installation,
+tests, and documentation builds, see [CONTRIBUTING](CONTRIBUTING.md).
 
-## Scientific use
-
-Finite-source results are numerical estimates without guaranteed error bounds,
-and rejected configurations may return `NaN`. Validate values and derivatives
-over the parameter region used in an analysis. See the
-[solver caveats](https://shotamiyazaki94.github.io/microjax/caveats.html) for
-the microJAX-specific numerical contract.
-
-## Citation
+## Citation and license
 
 If you use microJAX, cite Miyazaki & Kawahara (2025), ApJ, 994, 144
-([doi:10.3847/1538-4357/ae1005](https://doi.org/10.3847/1538-4357/ae1005))
-and the archived software
-([doi:10.5281/zenodo.17247892](https://doi.org/10.5281/zenodo.17247892)).
-The methods paper describes the archived `v0.1.1` solver; report the exact
-microJAX version used. See the
-[citation guide](https://shotamiyazaki94.github.io/microjax/citing.html) for
-BibTeX and reproducibility metadata.
+([paper](https://doi.org/10.3847/1538-4357/ae1005)) and the
+[software archive](https://doi.org/10.5281/zenodo.17247892).
+The paper describes `v0.1.1`; the current solver is the `0.2` series.
+See the [citation guide](docs_src/citing.rst) for BibTeX.
 
-## Development
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for source installation, test profiles,
-and contribution guidelines.
-
-## License
-
-microJAX is distributed under the [MIT License](LICENSE). Third-party code and
-attribution are listed in [third_party/README.md](third_party/README.md).
+microJAX is released under the [MIT License](LICENSE).
+[Third-party attribution](third_party/README.md) covers code adapted from
+`caustics`.

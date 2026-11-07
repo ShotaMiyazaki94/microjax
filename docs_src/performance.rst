@@ -1,74 +1,87 @@
-Accelerator Performance Tuning
-==============================
+Performance
+===========
 
-This page covers the accelerator backend configured by
-``BinaryMagConfig`` and ``TripleMagConfig``. The binary/triple CPU backend uses
-fixed internal scheduling; see :doc:`cpu_backend` for CPU guidance.
+Compile the complete light-curve model once, then reuse it during a fit.
+JAX dispatch is asynchronous, so synchronize each result when timing a call.
+The :doc:`benchmarks` page gives the reference workloads and reproduction
+commands.
 
-The accelerator solver first applies a fast approximation over the complete
-trajectory. Only rejected source positions enter the full finite-source
-calculation. Their number, rather than the total trajectory length, largely
-determines the best scheduler configuration.
+Time a light curve
+------------------
 
-Static scheduler settings
--------------------------
-
-``source_tile_size``
-   Maximum number of full-solve positions evaluated in one outer batch. A
-   partially occupied final tile is evaluated in full.
-
-``radial_chunk_size``
-   Number of radial image regions evaluated in one inner batch.
-
-These settings change static JAX shapes and produce separately compiled
-executables. Choose them before a fit rather than changing them between
-likelihood evaluations. They control batching, not numerical accuracy.
-
-The defaults were selected from synchronized, compilation-excluded
-measurements on an NVIDIA A100 using the repository's binary and triple-lens
-trajectories. They are useful starting points, not hardware-independent
-optima. In particular, the best source tile depends on the number of full
-solves and padding in its final tile.
-
-Benchmark the analysis workload
--------------------------------
-
-Benchmark the complete forward model with the same trajectory length, lens
-type, source profile, array shapes, and JAX transformation used by the
-analysis. Warm up the exact configuration and synchronize before stopping the
-timer:
+This example measures a 128-position binary light curve on the CPU. The first
+call compiles the model; the reported median covers five subsequent calls.
 
 .. code-block:: python
 
    import time
+   from statistics import median
+
    import jax
+   jax.config.update("jax_enable_x64", True)
+   import jax.numpy as jnp
+   from microjax.inverse_ray import mag_binary
 
-   model = jax.jit(lambda: mag_binary(w, rho, s=s, q=q, config=config))
-   model().block_until_ready()  # trace and compile
+   with jax.default_device(jax.devices("cpu")[0]):
+       times = jnp.linspace(-5., 10., 128)
+       alpha = jnp.deg2rad(50.)
+       w = (times / 10. + 0.1j) * jnp.exp(1j * alpha)
 
-   start = time.perf_counter()
-   result = model()
-   result.block_until_ready()
-   elapsed = time.perf_counter() - start
+       model = jax.jit(lambda q: mag_binary(
+           w, 0.005, s=1., q=q, u1=0.5, backend="cpu",
+       ))
+       jax.block_until_ready(model(0.001))
 
-When tuning ``source_tile_size``, compare values near the expected number of
-full solves and account for the padding in the final tile. For larger
-trajectories, compare more than one tile size: lens type and the number of
-executed tiles can change the winner. Report the selected configuration and
-user-level batch size with benchmark results.
+       seconds = []
+       for _ in range(5):
+           start = time.perf_counter()
+           values = jax.block_until_ready(model(0.001))
+           seconds.append(time.perf_counter() - start)
+       print(f"Median warm time: {1e3 * median(seconds):.2f} ms")
 
-Memory and accuracy
--------------------
+For a Jacobian, time ``jax.jit(jax.jacfwd(model))`` with its own warmup.
+Keep the trajectory length, lens model, source profile, and differentiation
+mode the same when comparing implementations. A new array shape or static
+configuration triggers a separate compilation.
 
-Larger tiles and chunks can increase peak device memory. If a complete light
-curve and its derivatives do not fit, split the trajectory into stable
-user-level batches and benchmark that same batching scheme.
+GPU batching
+------------
 
-``n_limb`` is different from the scheduler settings: it controls how finely
-the accelerator backend follows the source circumference. Reducing it may
-lower cost but can miss rapidly changing image geometry, so changes require
-independent accuracy validation. It does not configure the CPU backend.
+``BinaryMagConfig`` and ``TripleMagConfig`` control accelerator batching.
+Start with their defaults. The solver applies a multipole approximation to
+the trajectory and batches the positions that need full finite-source
+integration.
 
-The complete A100 sweep, including exact timings, memory measurements, and
-workload definitions, is retained as a development record rather than a
-portable performance promise.
+.. list-table::
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Setting
+     - Effect
+   * - ``source_tile_size``
+     - Full-solve positions in each outer batch; the final tile is padded.
+   * - ``radial_chunk_size``
+     - Radial image regions evaluated together inside each position.
+   * - ``n_limb``
+     - Sampling of the source circumference, affecting geometric resolution.
+
+For example, change the outer batch size while keeping the other defaults:
+
+.. code-block:: python
+
+   from microjax.inverse_ray import BinaryMagConfig
+
+   config = BinaryMagConfig(source_tile_size=256)
+   model_gpu = jax.jit(lambda q: mag_binary(
+       w, 0.005, s=1., q=q, u1=0.5, config=config,
+   ))
+
+Run this model on the selected JAX accelerator. Compare a few tile sizes on
+the event being fitted; the number of full solves and final-tile padding
+determine their cost. Larger tiles and chunks use more device memory. If a
+light curve and its Jacobian exceed available memory, split the time grid
+into fixed-size batches.
+
+Batch sizes control throughput. ``n_limb`` controls resolution; see
+:doc:`caveats` for accuracy checks. The CPU backend chooses its internal
+schedule automatically and does not use these configuration objects.

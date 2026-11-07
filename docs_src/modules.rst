@@ -10,3 +10,4 @@ API Reference
    api/poly_solver
    api/likelihood
    api/trajectory
+   api/utils

@@ -1,177 +1,147 @@
-Usage Guide
-===========
+Light curves
+============
 
-This guide introduces the public ``0.2`` API through common calculations. See
-:doc:`getting_started` first for installation and environment checks.
+Calculate binary and triple light curves from a trajectory of complex source
+positions. The finite-source functions integrate a circular source with linear
+limb darkening; ``mag_point_source`` evaluates the point-source model.
 
-Common setup
-------------
+Binary lens
+-----------
 
-Enable 64-bit mode before creating arrays and use the public package imports::
+Enable float64, construct a trajectory, and evaluate its magnification:
+
+.. code-block:: python
 
    import jax
-   import jax.numpy as jnp
-
    jax.config.update("jax_enable_x64", True)
+   import jax.numpy as jnp
+   from microjax.inverse_ray import mag_binary, mag_triple
 
-   from microjax.inverse_ray import (
-       BinaryMagConfig,
-       TripleMagConfig,
-       mag_binary,
-       mag_triple,
-   )
+   def trajectory(times, t0, t_e, u0, alpha):
+       tau = (times - t0) / t_e
+       return (tau + 1j * u0) * jnp.exp(1j * alpha)
+
+   times = jnp.linspace(-5., 10., 500)
+   w = trajectory(times, t0=0., t_e=10., u0=.1,
+                  alpha=jnp.deg2rad(50.))
+
+   binary = jax.jit(lambda w: mag_binary(
+       w, rho=.005, s=1., q=.001, u1=.5, backend="cpu",
+   ))
+   A = binary(w)
+   print(A.shape)  # (500,)
+
+``w`` is a one-dimensional array of source positions; the result contains one
+magnification per position. ``t0`` is the closest-approach time, ``t_e`` is the
+Einstein crossing time, ``u0`` is the signed impact parameter, and ``alpha``
+rotates the trajectory from the binary axis. Use the same time unit for
+``times``, ``t0``, and ``t_e``; these examples use days.
+
+To plot the result:
+
+.. code-block:: python
+
+   import matplotlib.pyplot as plt
+
+   plt.plot(times, A)
+   plt.xlabel("Time (day)")
+   plt.ylabel("Magnification")
+   plt.show()
+
+The :doc:`examples/index` includes this light curve, its lens geometry, and
+derivatives with respect to all seven event parameters.
+
+Triple lens
+-----------
+
+Add a third lens with mass ratio ``q3`` and position ``r3 * exp(1j * psi)``.
+Using the trajectory above:
+
+.. code-block:: python
+
+   triple = jax.jit(lambda w: mag_triple(
+       w, rho=.01, s=1.1, q=.1, q3=.01,
+       r3=jnp.abs(.3 + 1.2j), psi=jnp.angle(.3 + 1.2j),
+       u1=.5, backend="cpu",
+   ))
+   A_triple = triple(w)
+
+Here the third lens lies at ``0.3 + 1.2j`` relative to the first two lenses'
+midpoint. See :doc:`examples/index` for the ten-parameter triple Jacobian.
+
+Coordinates and masses
+----------------------
+
+Lengths are in Einstein-radius units for the total lens mass. The source
+coordinate is ``w = x + 1j*y``. Both lens models place the origin at the
+centre of mass of lenses 1 and 2, with their axis along the real direction:
+
+.. math::
+
+   z_1 = -\frac{q}{1+q}s, \qquad
+   z_2 = \frac{1}{1+q}s.
+
+.. list-table:: Lens and source parameters
+   :header-rows: 1
+   :widths: 18 82
+
+   * - Parameter
+     - Meaning
+   * - ``s``
+     - Separation of lenses 1 and 2.
+   * - ``q``
+     - Mass ratio :math:`m_2/m_1`.
+   * - ``rho``
+     - Angular source radius :math:`\theta_*/\theta_E`.
+   * - ``u1``
+     - Linear limb-darkening coefficient.
+   * - ``q3``
+     - Third-lens mass ratio :math:`m_3/m_1`.
+   * - ``r3``, ``psi``
+     - Third-lens distance and angle from the binary midpoint; ``psi`` is in radians.
+
+In source coordinates, the third lens is at
+
+.. math::
+
+   z_3 = r_3 e^{i\psi} + \frac{s(1-q)}{2(1+q)}.
+
+The source origin remains fixed when changing ``q3``, ``r3``, or ``psi``.
+
+Source brightness
+-----------------
+
+The linear brightness law is
+
+.. math::
+
+   I(r) \propto 1-u_1+u_1\sqrt{1-(r/\rho)^2},
+   \qquad 0 \le r \le \rho.
+
+The disk-average brightness is proportional to :math:`1-u_1/3`.
+``u1=0`` gives a uniform disk; ``0 < u1 <= 1`` darkens the limb. On CPU,
+these profiles share the same compiled model, including differentiation with
+respect to ``u1`` at zero.
+
+Point sources
+-------------
+
+Use the point-source API when the source radius is negligible:
+
+.. code-block:: python
+
    from microjax.point_source import mag_point_source
 
-Point-source magnification
---------------------------
-
-``mag_point_source`` evaluates magnification for binary and triple lenses.
-Source coordinates are complex numbers in Einstein-radius units: the real part
-is x and the imaginary part is y.
-
-.. code-block:: python
-
-   w = jnp.array([0.00 + 0.10j, 0.05 + 0.05j, -0.10 + 0.02j])
-   mu = mag_point_source(w, nlenses=2, s=1.0, q=0.01)
-
-For a triple lens, add ``q3``, ``r3``, and ``psi``. Here ``q3`` is the third
-mass relative to lens 1, ``r3`` is its separation parameter, and ``psi`` is its
-position angle in radians.
-
-Finite-source binary lenses
----------------------------
-
-Construct a source trajectory and pass the circular-source radius ``rho`` to
-``mag_binary``.
-
-.. code-block:: python
-
-   t0, tE, u0 = 0.0, 40.0, 0.05
-   alpha = jnp.deg2rad(60.0)
-   rho = 0.01
-
-   t = t0 + jnp.linspace(-2 * tE, 2 * tE, 1024)
-   tau = (t - t0) / tE
-   w = (
-       -u0 * jnp.sin(alpha)
-       + tau * jnp.cos(alpha)
-       + 1j * (u0 * jnp.cos(alpha) + tau * jnp.sin(alpha))
+   A_point = mag_point_source(w, nlenses=2, s=1., q=.001)
+   A_point_triple = mag_point_source(
+       w, nlenses=3, s=1.1, q=.1, q3=.01,
+       r3=jnp.abs(.3 + 1.2j), psi=jnp.angle(.3 + 1.2j),
    )
 
-   mu = mag_binary(w, rho, s=0.95, q=5e-4)
+CPU and GPU
+-----------
 
-Set ``u1`` to a non-zero value for the normalized linear limb-darkening law::
-
-   mu_ld = mag_binary(w, rho, s=0.95, q=5e-4, u1=0.5)
-
-For the dedicated CPU integrator, select ``backend="cpu"``:
-
-.. code-block:: python
-
-   mu_cpu = mag_binary(
-       w,
-       rho,
-       s=0.95,
-       q=5e-4,
-       u1=0.5,
-       backend="cpu",
-   )
-
-The CPU path has fixed internal support and quadrature settings;
-``BinaryMagConfig`` does not tune it. See :doc:`cpu_backend` for backend
-selection, forward-mode differentiation, and validation.
-
-Triple lenses
--------------
-
-The triple-lens API uses the same trajectory and source profile. It defaults
-to the accelerator implementation:
-
-.. code-block:: python
-
-   triple_config = TripleMagConfig(n_limb=500)
-   mu_triple = mag_triple(
-       w,
-       rho,
-       s=1.10,
-       q=0.02,
-       q3=0.50,
-       r3=0.60,
-       psi=jnp.deg2rad(210.0),
-       u1=0.5,
-       config=triple_config,
-   )
-
-Select the shared CPU integrator explicitly for a triple lens:
-
-.. code-block:: python
-
-   mu_triple_cpu = mag_triple(
-       w, rho, s=1.10, q=0.1, q3=0.01,
-       r3=0.60, psi=jnp.deg2rad(210.0), u1=0.5, backend="cpu",
-   )
-
-The CPU path requires positive mass ratios and source radius, with distinct
-lens positions. ``TripleMagConfig`` does not tune it. Both CPU lens models
-share the same uniform/limb-darkened calculation and accept a dynamic ``u1``.
-See :doc:`cpu_backend` for device selection and the numerical contract.
-
-Configuration
--------------
-
-For the accelerator backend, ``BinaryMagConfig`` and ``TripleMagConfig`` expose
-source-boundary sampling and static scheduling:
-
-``n_limb``
-   Number of points placed on the circular source boundary before those points
-   are mapped into the image plane. Larger values follow rapid changes of the
-   image boundary more finely, at additional computational cost. The default
-   is recommended for normal use.
-
-``source_tile_size``
-   Number of full-solve source positions in an outer vectorized tile. The
-   binary default is 512 so ordinary GPU calls expose at least 500 positions
-   concurrently when available.
-
-``radial_chunk_size``
-   Number of local-chart radial image regions in an inner vectorized chunk.
-   The binary fast path uses this local chart across the full mass-ratio range
-   with one fixed 19-point radial rule and no comparison retries.
-
-Both scheduler sizes must be positive integers.
-
-The scheduler settings produce separately compiled JAX executables. Keep them
-fixed within a fit and benchmark changes on the actual analysis workload. See
-:doc:`performance`.
-
-Differentiation
----------------
-
-Forward-mode differentiation is the recommended route for full light-curve
-Jacobians. This example uses the accelerator backend; CPU-specific guidance is
-given in :doc:`cpu_backend`.
-
-.. code-block:: python
-
-   def forward_model(q):
-       return mag_binary(w, rho, s=0.95, q=q, config=config)
-
-   dmu_dq = jax.jacfwd(forward_model)(5e-4)
-
-Automatic differentiation does not certify numerical accuracy. Validate
-values and derivatives over the intended parameter range; see :doc:`caveats`.
-
-Failure behavior
-----------------
-
-The accelerator finite-source functions return ``NaN`` for detected structural
-or non-finite failures. The CPU backend preserves the best-effort magnification
-even when ``status`` is nonzero; ``return_info=True`` returns only
-``magnification`` and ``status``.
-A CPU calculation can still produce a non-finite value. Check values and
-diagnostics before downstream inference, and retain the complete configuration
-for problematic samples. A finite result has no guaranteed error bound;
-:doc:`caveats` defines the numerical contract.
-
-For timing methodology and reproducibility metadata, see :doc:`performance`
-and :doc:`citing`.
+The examples above select the dedicated :doc:`cpu_backend`. For GPU execution,
+use ``backend="accelerator"`` (the default) with a GPU-enabled JAX installation.
+``backend="gpu"`` is an alias. See :doc:`performance` for accelerator batching
+and :doc:`autodiff` for derivatives of either backend.

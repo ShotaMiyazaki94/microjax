@@ -1,5 +1,17 @@
-Inverse-Ray Lightcurve
-======================
+Finite-source magnification
+===========================
+
+Evaluate binary and triple circular sources with linear limb darkening.
+Source positions are a one-dimensional complex array in Einstein-radius
+units; each function returns one magnification per position. See
+:doc:`../usage` for lens coordinates and :doc:`../autodiff` for Jacobians.
+
+Light-curve functions
+---------------------
+
+.. autofunction:: microjax.inverse_ray.mag_binary
+
+.. autofunction:: microjax.inverse_ray.mag_triple
 
 Configuration
 -------------
@@ -14,13 +26,6 @@ These configuration objects tune the default accelerator implementation.
 .. autoclass:: microjax.inverse_ray.TripleMagConfig
    :members:
 
-Light-curve functions
----------------------
-
-.. automodule:: microjax.inverse_ray.lightcurve
-   :members:
-   :show-inheritance:
-
 CPU result
 ----------
 
@@ -29,4 +34,4 @@ CPU result
 
 Returned by either lens model with ``backend="cpu", return_info=True``;
 contains only magnification and status. See
-:doc:`../cpu_backend` for the CPU backend contract and debugging guidance.
+:doc:`../cpu_backend` for status interpretation.

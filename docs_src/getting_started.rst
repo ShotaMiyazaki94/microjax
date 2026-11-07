@@ -1,68 +1,59 @@
-Getting Started
-===============
-
-Use this guide to prepare an environment, confirm that JAX detects the intended
-CPU or accelerator device, and run a quick smoke test.
-
-Prerequisites
--------------
-
-- Python 3.9 or newer with matching ``jax``/``jaxlib`` wheels for your platform
-  (CPU, CUDA, ROCm).  Follow the `official JAX installation matrix
-  <https://jax.readthedocs.io/en/latest/installation.html>`_.
-- Optional plotting stack: ``matplotlib`` or ``seaborn`` if you plan to run the
-  visualization examples.
-
 Installation
-------------
+============
 
-Install the latest published release from PyPI::
+Install microJAX in your Python environment:
+
+.. code-block:: sh
 
    python -m pip install microjaxx
 
-Or work from source::
+The distribution is named ``microjaxx``; import it as ``microjax``.
+Package requirements are Python 3.9+, JAX 0.4+, and NumPy 1.26+.
+For GPU support, follow the
+`JAX installation guide <https://docs.jax.dev/en/latest/installation.html>`_.
 
-   git clone https://github.com/ShotaMiyazaki94/microjax.git
-   cd microjax
-   python -m pip install -e ".[dev]"
+To use the latest development version:
 
-The import name remains ``microjax`` even though the published wheel is
-``microjaxx``.
+.. code-block:: sh
 
-The methods-paper implementation is preserved as version ``0.1.1``::
+   python -m pip install "microjaxx @ git+https://github.com/ShotaMiyazaki94/microjax.git@develop"
 
-   python -m pip install "microjaxx==0.1.1"
+The examples use Matplotlib:
 
-The ``0.2`` source line is a substantial solver redesign. For reproducible
-work, record ``microjax.__version__`` or the exact Git commit rather than
-describing either line only as "microJAX".
+.. code-block:: sh
 
-Verify the environment
-----------------------
+   python -m pip install matplotlib
 
-Run the snippet below to confirm that microJAX imports cleanly, JAX can see your
-devices, and 64-bit mode is enabled for better numerical stability::
+First calculation
+-----------------
+
+Enable float64 before creating arrays, then calculate a binary light curve:
+
+.. code-block:: python
 
    import jax
+   jax.config.update("jax_enable_x64", True)
    import jax.numpy as jnp
-   import microjax
-   from microjax.point_source import mag_point_source
-
-   jax.config.update("jax_enable_x64", True)  # recommended for microlensing
-
-   print("microJAX", microjax.__version__)
-   print("Devices", jax.devices())
+   from microjax.inverse_ray import mag_binary
 
    w = jnp.linspace(-0.3, 0.3, 5) + 0.1j
-   print("Sample magnification", mag_point_source(w, nlenses=2, s=1.0, q=1e-3))
+   A = mag_binary(w, 0.01, s=1., q=0.01, u1=0.5, backend="cpu")
+   print(A.shape)  # (5,)
 
-Up next
--------
+Continue with :doc:`usage`, :doc:`autodiff`, or the
+:doc:`examples/index`.
 
-- :doc:`usage` walks through binary and triple lens examples.
-- :doc:`cpu_backend` documents the binary/triple CPU solver and forward-mode
-  differentiation.
-- :doc:`performance` gives measured accelerator scheduler recommendations.
-- :doc:`caveats` summarizes microJAX-specific numerical and API caveats.
-- :doc:`citing` gives BibTeX and reproducibility-reporting requirements.
-- :doc:`modules` provides API-level details for every public entry point.
+Source checkout
+---------------
+
+Clone the development branch to run or edit the examples:
+
+.. code-block:: sh
+
+   git clone --branch develop https://github.com/ShotaMiyazaki94/microjax.git
+   cd microjax
+   python -m pip install -e ".[dev]" matplotlib
+   python example/cpu/lightcurve.py
+
+The `contribution guide <https://github.com/ShotaMiyazaki94/microjax/blob/develop/CONTRIBUTING.md>`_
+has the test and documentation-build commands.

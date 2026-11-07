@@ -1,54 +1,41 @@
 # Contributing to microJAX
 
-Include a minimal reproducing example, the microJAX and JAX/JAXLIB versions,
-the execution platform, and whether 64-bit mode is enabled when reporting a bug.
+## Source installation
 
-For code changes, branch from `develop`, keep the implementation focused, run
-checks relevant to the change, and describe the behavior and validation in the
-pull request. Add a regression test only when it protects a meaningful contract
-or reproduces a concrete failure.
+```bash
+git clone --branch develop https://github.com/ShotaMiyazaki94/microjax.git
+cd microjax
+python -m pip install -e '.[dev]'
+```
 
-## CPU development
+Create a branch from `develop` for each change. Install Matplotlib to run the
+figure examples:
 
-The binary and triple CPU backends share their integration implementation.
-Run their focused tests:
+```bash
+python -m pip install matplotlib
+python example/cpu/lightcurve.py
+```
+
+## Tests and benchmarks
+
+Run the tests relevant to the change. The shared binary/triple CPU integrator
+has seven focused checks:
 
 ```bash
 pytest -q tests/unittests/inverse_ray/test_cpu.py tests/unittests/inverse_ray/test_cpu_triple.py
 ```
 
-Use the critical benchmark when changing CPU numerical behavior or performance:
+For changes to CPU numerical behavior or performance, run the small
+limb-darkened benchmark on the same machine before and after the change:
 
 ```bash
 python tools/cpu_benchmark.py --output results/cpu-benchmark.json
 ```
 
-It compares linear limb-darkened values (``u1=0.5``) with fixed references and
-times a forward Jacobian, checking only its finiteness. It reports synchronized
-warm runtime with compilation excluded. Independent numerical AD checks and
-the uniform coefficient limit remain in the focused CPU tests.
-Compare before and after on the same machine and inputs. Frozen references
-have numerical limitations; their small set is a regression screen rather
-than a universal accuracy claim. Extend it only for a concrete uncovered risk.
-
-Keep measurements and generated figures under `results/`, and any retired local
-experiments under `archive/`. Both directories are excluded from version control.
-The CPU examples also keep one reproducible PNG preview per lens model beside
-their shared script.
-Commit source, focused tests and their small required fixtures; do not commit
-measurement outputs, generated HTML, caches or machine-specific files. Historical
-CPU implementations are available in Git history.
-
-The optional regional binary benchmark requires a separately supplied dense LD reference
-CSV and its same-stem JSON metadata; these inputs are not distributed. It also
-requires VBMicrolensing, and plotting requires Matplotlib:
-
-```bash
-python tools/cpu_benchmark_grid.py --reference-data /path/to/xdense_cpu.csv --output-dir results/cpu/new-run/data --time-budget 300
-python tools/plot_cpu_benchmark.py --data-dir results/cpu/new-run/data --output-dir results/cpu/new-run/figures
-```
-
-## Other checks
+It compares magnifications with bundled references and times forward
+Jacobians. Independent derivative comparisons live in the focused tests.
+The optional regional maps are described in
+[Benchmarks](docs_src/benchmarks.rst).
 
 Run the regular package suite when changing shared components:
 
@@ -56,12 +43,40 @@ Run the regular package suite when changing shared components:
 pytest -q
 ```
 
-GPU-specific tests require a CUDA-capable JAX installation:
+The regular suite excludes `gpu` and `slow` tests. On a CUDA machine, run
+`pytest -c pytest-gpu.ini -q`. Run an individual slow test when its numerical
+case is relevant. Add a regression test for a concrete failure or public
+behavior; routine changes do not need another broad parameter sweep.
+
+## Documentation and examples
+
+Edit the guides in `docs_src/` and build the documentation locally:
 
 ```bash
-pytest -c pytest-gpu.ini -q
+python -m sphinx -b html -W docs_src results/docs-preview
 ```
 
-The regular suite excludes tests marked `slow`. Run an individual slow test
-only when its numerical case is relevant to the change. Broad grids and
-repeated full-suite runs are not part of the routine CPU development loop.
+Open `results/docs-preview/index.html` to review it. Keep examples short,
+show the resulting figure, and give a command that runs from the repository
+root. Documentation builds should read existing figures rather than run
+long calculations.
+
+`docs/` contains an older generated website snapshot. Building this preview
+does not publish the site; keep generated HTML out of documentation commits.
+
+For a longer experiment, use a standalone script or a manually launched
+batch. Save its configuration, numerical outputs, and log under `results/`;
+use a notebook to load those outputs and make plots. There is no need to keep
+a notebook session open while the calculation runs.
+
+## Commits and pull requests
+
+Commit source, documentation, focused tests, and small required fixtures.
+Keep runtime measurements and generated HTML in `results/`, and retired
+local experiments in `archive/`; both directories are ignored. Selected
+example PNGs are versioned beside their scripts so the README figures can
+be viewed without running a calculation.
+
+Describe the resulting behavior and the checks performed in the pull
+request. For bug reports, include a small reproducer, the microJAX and JAX
+versions, device, and precision setting.
