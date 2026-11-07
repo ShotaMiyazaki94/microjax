@@ -1,75 +1,43 @@
-# Triple-Lens Benchmark Against VBMicrolensing
+# Triple magnification benchmark
 
-This example compares the finite-source triple-lens magnification from
-`microjax.inverse_ray.mag_triple` with `VBMicrolensing.MultiMag2` (uniform
-source) and `VBMicrolensing.MultiMagDark` (linear limb darkening). Both source
-profiles are evaluated by one script and shown in one comparison figure.
-
-As in the CPU comparison examples, Python sources live in `code/` and
-generated files are written to `outputs/`.
-
-The lens has mass ratios `1:q:q3 = 1:0.1:0.01`. The first two lenses have
-separation `s = 1.1`; the third is at `0.3 + 1.2i` in their midpoint frame.
-Both solvers receive source coordinates relative to the centre of mass of the
-first two lenses. The comparison explicitly translates the lens positions
-passed to VBMicrolensing so that its coordinate system matches microJAX.
-
-## Install
-
-From the repository environment:
+Compare microJAX on GPU with VBMicrolensing on a 1000-point triple-lens
+trajectory. Run from the repository root:
 
 ```bash
 python -m pip install VBMicrolensing==5.5 matplotlib
-```
-
-VBMicrolensing is an optional benchmark dependency and is not imported by the
-microJAX package itself.
-
-## Run
-
-```bash
 python example/gpu/compare-triple-vbml/code/compare_triple_profiles.py
 ```
 
-For a short CPU smoke run:
+The event has `q=0.1`, `s=1.1`, `q3=0.01`, `rho=0.01`, `u0=0.1`,
+`tE=10` days, and `alpha=50°`. The third lens is at `0.3+1.2j` relative
+to the midpoint of the first two. The script translates the positions sent
+to VBMicrolensing to match microJAX's binary-centre-of-mass source frame.
 
-```bash
-python example/gpu/compare-triple-vbml/code/compare_triple_profiles.py --quick
-```
+The calculation covers −5 to 10 days, with `n_limb=128`, for uniform and
+linear limb-darkened sources (`u1=0.5`). Use `--quick` for a 24-point run,
+`--u1` to change limb darkening, or `--no-plot` to save only the numerical report.
 
-The script separates JAX compilation from repeated execution and reports the
-median execution time of each solver. It writes:
+## Measurements
 
-- `outputs/compare_triple_uniform_limb_dark.png`: both light curves, separate
-  residual panels, caustics, lens positions, and the source trajectory;
-- `outputs/benchmark_triple_profiles.json`: versions, parameters, timings, and
-  per-profile error statistics;
-- `outputs/compare_triple_profiles_<profile>_max_residual_icrs.{png,json}`: image-plane
-  boundary roots, radial integration cells, and metadata at the largest
-  pointwise discrepancy. The diagnostic defaults to 80 source-limb samples
-  independently of the 128-sample comparison solver, avoiding excessive
-  triple-root tracking memory while retaining an interpretable geometry plot.
+The saved [report](outputs/benchmark_triple_profiles.json) uses JAX 0.10.2,
+VBMicrolensing 5.5, an NVIDIA A100, and `Tol=RelTol=1e-4` for the reference.
+For the limb-darkened trajectory, the largest sampled relative magnification
+difference is `5.92e-4`. The synchronized warm medians are 0.979 s for microJAX
+and 10.892 s for VBMicrolensing, over three repetitions with compilation excluded.
+Use `--repeats` and `--accuracy` to change the measurement settings.
 
-A representative 1000-point CUDA run prints:
+## Outputs
 
-```text
-Uniform
-VBMicrolensing: 1.207 s (1.207 ms/point); microJAX GPU: 0.941 s (0.941 ms/point); GPU/VBML: 0.78x
-relative error: median=1.132e-06, p95=5.939e-06, p99=2.657e-05, max=9.903e-04; nonfinite=0; above rtol=0
+Files are written to `outputs/`:
 
-Limb darkening
-VBMicrolensing: 10.892 s (10.892 ms/point); microJAX GPU: 0.979 s (0.979 ms/point); GPU/VBML: 0.09x
-relative error: median=2.533e-05, p95=4.899e-05, p99=5.788e-05, max=5.919e-04; nonfinite=0; above rtol=0
-```
+- `benchmark_triple_profiles.json`: versions, event parameters, timings, and errors;
+- `compare_triple_uniform_limb_dark.png`: light curves, residuals, and caustics;
+- `compare_triple_profiles_<profile>_max_residual_icrs.{png,json}`:
+  image boundaries and integration geometry at the largest residual.
 
-These values were measured on the available A100 with 1000 points and the
-public triple-GPU default `n_limb=128`. Timings are hardware-dependent. The
-error statistics describe the checked-in trajectory and numerical settings,
-not a general accuracy bound.
+The boundary illustration uses 80 limb samples by default; change it with
+`--diagnostic-n-limb`. For parameter derivatives, see the
+[triple Jacobian example](../jacobian-triple/README.md).
 
-![Uniform and limb-darkened comparison](outputs/compare_triple_uniform_limb_dark.png)
-
-`VBMicrolensing` is LGPL-3.0 licensed and is only an external runtime
-dependency of this example. Scientific use of its multiple-lens solver should
-cite Bozza et al., *A&A* **694**, A219 (2025), in addition to the references
-requested by the upstream project.
+VBMicrolensing is an optional LGPL-3.0 dependency. Cite Bozza et al.,
+*A&A* **694**, A219 (2025), when using its multiple-lens solver.

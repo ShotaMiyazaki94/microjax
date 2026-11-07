@@ -1,106 +1,44 @@
-Binary-lens Jacobian Example
-============================
+# Binary-lens Jacobian on GPU
 
-This directory is the binary-lens counterpart of
-[`example/gpu/jacobian-triple`](../jacobian-triple). It uses the new
-[`microjax.inverse_ray.mag_binary`](../../../src/microjax/inverse_ray/lightcurve.py)
-function to compute uniform-source magnification and its derivatives with
-respect to `t0, tE, u0, q, s, alpha, rho`. In this document, “Jacobian” means
-the array containing the derivative of every light-curve point with respect to
-each of those seven parameters.
-
-Python sources live in `code/`. Generated products are separated into
-`outputs/uniform/` and `outputs/limb_dark/`.
-
-The scripts measure the function value and forward Jacobian after JIT
-compilation. The example intentionally contains only the production
-forward-mode calculation.
-
-The companion `grads_limb_dark_binary.py` runs the same seven-parameter
-Jacobian for a linearly limb-darkened source. Its coefficient is fixed with
-`--u1` (default `0.5`) and is not treated as a differentiated parameter in
-this example. The reported Jacobian therefore uses the same seven physical and
-trajectory parameters as the uniform-source example.
-
-Run
----
-
-The default uses 500 trajectory points and the audited public binary-GPU
-default `n_limb=64`. A CUDA-enabled JAX installation is strongly recommended:
-
-```console
-XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
-  python example/gpu/jacobian-binary/code/grads_uniform_binary.py --no-plot
+```bash
+python example/gpu/jacobian-binary/code/grads_limb_dark_binary.py
 ```
 
-For the limb-darkened version:
+Run from the repository root with microJAX, Matplotlib, and CUDA-enabled JAX
+installed. The script evaluates a limb-darkened light curve and its forward
+Jacobian with `jax.jacfwd`; `u1=0.5` is held fixed.
 
-```console
-XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
-  python example/gpu/jacobian-binary/code/grads_limb_dark_binary.py \
-  --u1 0.5 --no-plot
-```
+The event has `t0=0`, `tE=10` days, `u0=0.1`, `q=0.001`, `s=1`,
+`alpha=50°`, and `rho=0.005`. There are 500 observations from −5 to 10 days.
+Jacobian columns follow `t0, tE, u0, q, s, alpha, rho`.
 
-The two profiles write to separate output subdirectories and do not overwrite
-one another.
+![Binary-lens light curve, image geometry, and seven forward derivatives](outputs/limb_dark/binary_limb_dark_jacobian.png)
 
-To run a small CPU-friendly benchmark and generate both plots:
+The [CPU example](../../cpu/README.md#binary-lens) evaluates the same event
+with `backend="cpu"` and produces the same panel layout.
 
-```console
-python example/gpu/jacobian-binary/code/grads_uniform_binary.py --quick
-```
+## Options and outputs
 
-The corresponding limb-darkened CPU smoke run is:
+Use `--quick` for a smaller run, `--u1` to change limb darkening,
+`--n-points` to change the time sampling, and `--output-dir PATH` to change
+the destination. `--no-plot` writes only data and timings. The source-boundary
+sampling defaults to `n_limb=64` and can be changed with `--n-limb`.
 
-```console
-python example/gpu/jacobian-binary/code/grads_limb_dark_binary.py --quick
-```
+`outputs/limb_dark/` contains `magnification.csv`, a `(500, 7)`
+`jacobian_forward.npy`, `benchmark.json`, the light-curve figure, and
+`ad_benchmark.png`. The report separates compilation plus the first call
+from the median of three synchronized warm calls; change this count with
+`--repeats`.
 
-The first call of each AD mode includes tracing and JIT compilation. The
-reported comparison uses the median of three later, synchronised executions;
-change this with `--repeats`.
+## Recorded timing
 
-A100 GPU result
----------------
+The saved [report](outputs/limb_dark/benchmark.json) uses JAX 0.10.2,
+an NVIDIA A100-PCIE-40GB, 500 observations, and `n_limb=64`:
 
-The bundled products were generated with JAX 0.10.2 on an NVIDIA
-A100-PCIE-40GB, with 500 time points and `n_limb=64`:
-
-| computation | compile + first execution | compiled median (3 runs) |
+| Calculation | Compile + first call | Warm median |
 | --- | ---: | ---: |
-| uniform magnification | 7.661 s | 0.073 s |
-| uniform forward Jacobian | 17.673 s | 0.102 s |
+| Magnification | 8.617 s | 0.082 s |
+| Forward Jacobian | 18.970 s | 0.308 s |
 
-| limb-darkened magnification (`u1=0.5`) | 8.617 s | 0.082 s |
-| limb-darkened forward Jacobian | 18.970 s | 0.308 s |
-
-All magnifications and forward derivatives were finite. These timing numbers
-apply only to the stated hardware, software versions, trajectory, and source
-settings. They are not general performance guarantees. The public
-finite-source function also does not provide a guaranteed numerical error
-bound, so accuracy should be checked independently for the intended parameter
-range.
-
-The [CPU example](../../cpu/) uses the same 500-point trajectory, parameters and
-figure layout as this limb-darkened example, computing its seven-parameter
-Jacobian with the CPU backend. It is a usage example and does not report a
-backend timing ratio.
-
-| Uniform source | Limb-darkened source |
-| --- | --- |
-| ![Binary-lens Jacobian](outputs/uniform/binary_jacobian.png) | ![Limb-darkened binary-lens Jacobian](outputs/limb_dark/binary_limb_dark_jacobian.png) |
-
-Outputs
--------
-
-Each of `outputs/uniform/` and `outputs/limb_dark/` contains:
-
-- `magnification.csv`: time and magnification columns;
-- `jacobian_forward.npy`: forward-mode Jacobian (`n_time x 7`);
-- `benchmark.json`: configuration, device, warm-up, and compiled timings;
-- a magnification and sensitivity figure;
-- `ad_benchmark.png`: compile-plus-first and steady-state GPU timings for
-  magnification and the forward Jacobian.
-
-All output paths can be redirected with `--output-dir`; use `--no-plot` when
-only numerical products and timings are needed.
+For magnification accuracy, see the separate
+[VBMicrolensing comparison](../compare-binary-vbml/README.md).

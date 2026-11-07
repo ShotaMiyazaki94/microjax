@@ -1,45 +1,37 @@
-# GPU Binary-Lens Benchmarks
+# Binary magnification benchmark
 
-One script compares the microJAX accelerator backend with VBMicrolensing (VBML)
-for uniform and linearly limb-darkened sources on the same 1,000-point binary-lens
-trajectory.
-
-The Python sources live in `code/`; generated files are written to `outputs/`.
-
-## Install
+Compare microJAX on GPU with VBMicrolensing on a 1000-point binary-lens
+trajectory. Run from the repository root:
 
 ```bash
-python -m pip install VBMicrolensing matplotlib
-```
-
-## Run
-
-```bash
+python -m pip install VBMicrolensing==5.5 matplotlib
 python example/gpu/compare-binary-vbml/code/compare_binary_profiles.py
 ```
 
-The script warms each JAX solver before recording repeated steady-state GPU
-execution.
+The event has `s=0.9`, `q=0.01`, `rho=0.005`, `u0=0`, `tE=30` days,
+and `alpha=40°`. Observation times span −15 to 15 days. The script evaluates
+uniform and linear limb-darkened sources (`u1=0.5`) with `n_limb=64`.
+Use `--s`, `--q`, `--rho`, `--u1`, and `--points` to change the event.
 
-Generated files are:
+## Measurements
 
-- `outputs/compare_binary_uniform_limb_dark.png`
-- `outputs/compare_binary_profiles_<profile>_max_residual_icrs.png`
-- `outputs/compare_binary_profiles_<profile>_max_residual_icrs.json`
-- `outputs/benchmark_binary_profiles.json`
+The [saved report](outputs/benchmark_binary_profiles.json) records the
+parameters, reference tolerances, warm timings, and relative magnification
+errors for each profile. JAX compilation is excluded from the median of three
+synchronized calls; change the count with `--repeats`.
 
-The combined figure contains both microJAX and VBML light curves, separate
-profile residual panels, and the source trajectory around the caustic.
-The maximum-residual products show the accelerator boundary-root construction
-for the automatically selected sample.
+VBMicrolensing uses `Tol=RelTol=1e-4` for timing and `1e-6` for residuals.
+The report also compares those two reference resolutions. For its version 5.5
+API, the script sets `solver.a1` and calls `BinaryMag2` for finite-source
+magnification.
 
-For VBMicrolensing 5.5, the linear coefficient is assigned to `solver.a1` and
-`BinaryMag2` performs the finite-source dispatch. The sixth argument of the
-bound `BinaryMagDark` function is a tolerance in the bundled C++ source,
-despite being documented as `a1` in its Python docstring.
+## Outputs
 
-Timings exclude initial JIT compilation and are hardware dependent. Accuracy
-statistics describe only the checked-in trajectories and numerical settings;
-they are not general error guarantees.
+Files are written to `outputs/`:
 
-![Uniform and limb-darkened comparison](outputs/compare_binary_uniform_limb_dark.png)
+- `benchmark_binary_profiles.json`: settings, timings, and error statistics;
+- `compare_binary_uniform_limb_dark.png`: light curves, residuals, and caustics;
+- `compare_binary_profiles_<profile>_max_residual_icrs.{png,json}`:
+  image boundaries and integration geometry at the largest residual.
+
+For parameter derivatives, see the [binary Jacobian example](../jacobian-binary/README.md).
