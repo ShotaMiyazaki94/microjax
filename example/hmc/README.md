@@ -28,10 +28,13 @@ flux marginalization.
 Results go to `results/hmc/binary/`; each run replaces that directory.
 The script saves data, samples, diagnostics, model curves, and two figures:
 
-- `lightcurve.png`: data, posterior model interval, injection, and residuals.
-- `corner.png`: the seven event parameters and their correlations.
+- `lightcurve.png`: data and densely evaluated model curves, with both data
+  and posterior residuals measured relative to the injection.
+- `corner.png`: the seven event parameters and their correlations, with
+  logarithmic source radius and marked divergent transitions.
 
 The model interval includes conditional source/blend flux uncertainty.
+The tutorial records the completed run, including its 48 divergent transitions.
 To redraw the figures from saved arrays without sampling again:
 
 ```bash

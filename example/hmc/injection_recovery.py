@@ -162,6 +162,40 @@ def finite_float(value):
     return value if np.isfinite(value) else None
 
 
+def save_model_curves(output, forward_model):
+    """Evaluate saved posterior draws on a dense plotting grid and at the data."""
+    config = json.loads((output / "run.json").read_text())
+    with np.load(output / "data.npz") as saved:
+        times, flux, error = (saved[key] for key in ("times", "flux", "error"))
+    with np.load(output / "samples.npz") as saved:
+        parameters = np.column_stack([saved[name].ravel() for name in config["parameter_names"]])
+    # Fine spacing around the peak; keep the observation times to condition fluxes.
+    grid = np.unique(np.r_[times, np.linspace(times[0], times[-1], 1201), np.linspace(-5.0, 5.0, 4001)])
+    observed = np.searchsorted(grid, times)
+    grid = jnp.asarray(grid)
+    rng = np.random.default_rng(config["sampler_seed"] + 1)
+    indices = rng.choice(len(parameters), size=min(POSTERIOR_CURVES, len(parameters)), replace=False)
+    curves, flux_draws = [], []
+    injected = config["flux_truth"][0] * forward_model(jnp.asarray(config["truth"]), grid) + config["flux_truth"][1]
+    print(f"Evaluating {len(indices)} posterior curves at {grid.size} plotting times.", flush=True)
+    for i in indices:
+        magnification = forward_model(jnp.asarray(parameters[i]), grid)
+        # Condition the fluxes on the observations, not the extra plotting times.
+        _, _, mean, covariance = flux_terms(magnification[observed], jnp.asarray(flux), jnp.asarray(error))
+        draw = rng.multivariate_normal(np.asarray(mean), np.asarray(covariance))
+        curves.append(np.asarray(magnification) * draw[0] + draw[1])
+        flux_draws.append(draw)
+    curves = np.stack(curves)
+    np.savez_compressed(
+        output / "curves.npz",
+        times=np.asarray(grid),
+        model_flux=curves,
+        injected_flux=np.asarray(injected),
+        flux_draws=np.stack(flux_draws),
+        sample_indices=indices,
+    )
+
+
 def main():
     # Configure CPU devices before importing microJAX, which creates JAX arrays.
     numpyro.set_platform("cpu")
@@ -315,20 +349,7 @@ def main():
         (output / "summary.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
         print(f"Posterior samples and summary saved to {output}", flush=True)
 
-        # Draw a small, reproducible subset for the uncertainty in the model curve.
-        flattened = physical.reshape(-1, len(NAMES))
-        rng = np.random.default_rng(SAMPLER_SEED + 1)
-        indices = rng.choice(len(flattened), size=min(POSTERIOR_CURVES, len(flattened)), replace=False)
-        curves, flux_draws = [], []
-        for i in indices:
-            magnification = forward_model(jnp.asarray(flattened[i]), times)
-            _, _, mean, covariance = flux_terms(magnification, jnp.asarray(flux), jnp.asarray(error))
-            mean, covariance = np.asarray(mean), np.asarray(covariance)
-            # Conditional flux uncertainty belongs in the model-curve interval.
-            draw = rng.multivariate_normal(mean, covariance)
-            curves.append(np.asarray(magnification) * draw[0] + draw[1])
-            flux_draws.append(draw)
-        np.savez_compressed(output / "curves.npz", model_flux=np.stack(curves), flux_draws=np.stack(flux_draws))
+        save_model_curves(output, forward_model)
 
     plot_results()
     print(f"Done. Share {output / 'summary.json'} and the PNG figures together with run.json.")

@@ -6,6 +6,74 @@ seven event parameters with NumPyro NUTS on CPU. Source and blend fluxes
 are integrated out of the likelihood. A light-curve comparison shows the
 fit to the data; a corner plot shows parameter uncertainties and correlations.
 
+Recorded run
+------------
+
+The figures below use the run from 9 November 2026 at
+`4e9ffaa <https://github.com/ShotaMiyazaki94/microjax/commit/4e9ffaa>`_:
+500 warm-up steps and 1,000 retained draws, with the settings described below.
+NUTS took **179 seconds**, including compilation and warm-up; the local fit
+took another 9.45 seconds. This used six CPU workers, float64, JAX 0.8.0,
+and NumPyro 0.19.0. Curve evaluation and plotting are outside those timings.
+
+The photometry is fitted closely, but **48 of the 1,000 retained transitions
+are divergent**. The posterior summaries here are provisional:
+`divergences can bias HMC estimates <https://mc-stan.org/learn-stan/diagnostics-warnings.html#divergent-transitions-after-warmup>`_.
+No draw reached the tree-depth limit. Effective sample sizes are 81–614;
+the smallest are for :math:`s`, :math:`\rho`, and :math:`q`.
+
+.. figure:: _static/hmc_lightcurve.png
+   :alt: Dense injected and posterior light curves with data, and residuals relative to the injection
+   :width: 100%
+   :target: _static/hmc_lightcurve.png
+
+   Full event and a closer view of the peak. Grey points are the 180
+   observations; orange is the injected curve. Blue shows the median and
+   central 68% model interval from 64 posterior draws, including conditional
+   source/blend flux uncertainty. Models are evaluated at 5,339 times, with
+   spacing at most 0.0025 days around the peak.
+
+The lower panels use the **injected curve as the common reference**. Grey
+points show :math:`(F_{\rm data}-F_{\rm inj})/\sigma`; the blue line and band
+show the corresponding posterior-model differences. At every plotting time,
+:math:`\sigma(t)=0.01F_{\rm inj}(t)`, the same noise prescription used for
+the observations. Zero therefore represents the injection.
+
+.. figure:: _static/hmc_corner.png
+   :alt: Seven-parameter corner plot with logarithmic source radius and marked divergent transitions
+   :width: 100%
+   :target: _static/hmc_corner.png
+
+   Diagonal panels show marginal distributions; lower panels show pairwise
+   correlations. Blue contours enclose approximately 68% and 95% of the
+   smoothed distributions in the displayed coordinates. Orange marks the
+   injection. Magenta crosses mark retained states associated with divergent
+   transitions; all draws remain in the plotted distributions.
+
+The :math:`q`–:math:`s` correlation is visible, and the source radius spans
+several orders of magnitude, so :math:`\rho` is shown logarithmically.
+With a 0.335-day cadence, the short caustic feature has only a few observations;
+the radius is weakly constrained. Of the 48 divergent transitions, 35 are
+associated with :math:`10^{-3}\leq\rho<10^{-2}`. Their cause has not been
+isolated from this run alone.
+
+.. csv-table:: Posterior summaries from this run
+   :header: "Parameter", "Injected", "Median", "Central 95% interval", "ESS"
+   :widths: 18 14 18 36 14
+
+   ":math:`t_0` [day]", "0", "−0.0113", "[−0.0233, 0.0013]", "577"
+   ":math:`t_E` [day]", "10", "9.814", "[9.536, 10.069]", "614"
+   ":math:`u_0`", "0.1", "0.10191", "[0.09816, 0.10662]", "567"
+   ":math:`q`", "0.001", "9.57×10⁻⁴", "[6.23×10⁻⁴, 1.17×10⁻³]", "94"
+   ":math:`s`", "1", "0.99675", "[0.97914, 1.00657]", "81"
+   ":math:`\alpha` [deg]", "50", "51.04", "[49.59, 52.67]", "263"
+   ":math:`\rho`", "0.005", "3.46×10⁻⁴", "[1.27×10⁻⁵, 8.14×10⁻³]", "87"
+
+All seven injected values lie in the reported 95% intervals. This agreement
+for one noisy realization does not resolve the divergent transitions. ESS
+accounts for correlation between draws; with one chain there is no
+between-chain convergence comparison.
+
 Running the example
 -------------------
 
@@ -151,49 +219,24 @@ the CPU integrator's adaptive loops, ``target_accept_prob=0.9``, and
 ``max_tree_depth=8``. This example explores the mode near the initial
 solution; it does not search for every binary-lens degeneracy.
 
-Reading the results
--------------------
+Saved output
+------------
 
-The run saves two figures:
+``run.json`` records settings, priors, fit status, seeds, and software versions.
+``summary.json`` contains the parameter intervals and sampler diagnostics.
+``samples.npz`` stores the seven physical parameters with shape ``(1, 1000)``;
+angles remain in radians. These files are saved before the model curves
+are evaluated.
 
-* ``lightcurve.png`` shows the full event and a closer view of the peak,
-  with residuals below. Blue is the median model flux and its central 68%
-  interval from 64 posterior draws. For each event draw, source and blend
-  fluxes are drawn from their conditional Gaussian posterior, so the band
-  includes their uncertainty. Orange is the injected
-  curve; data error bars show measurement noise.
-* ``corner.png`` shows the seven event parameters. The diagonal gives each
-  marginal distribution; the lower triangle shows pairwise correlations.
-  Blue contours enclose approximately 68% and 95% of the smoothed pairwise
-  distributions. Orange lines mark the injection. Angles are shown in
-  degrees, and :math:`q` and :math:`\rho` are multiplied by 1,000 for
-  readable axes. The plot uses `corner.py <https://corner.readthedocs.io/>`_.
+``curves.npz`` stores a separate dense time grid, the injected curve, 64
+posterior flux curves, and the selected sample indices. The fluxes are
+conditioned on the 180 observations. Extra plotting times add resolution
+to the figure and do not enter the likelihood.
 
-Read the figures together: a close fit to the photometry can coexist with
-correlated or weakly constrained parameters. At this uniform cadence, the
-short caustic feature has only a few measurements. Compare the injection
-with the posterior intervals, rather than expecting every posterior median
-to equal the injected value.
-
-``summary.json`` contains medians, central 68% and 95% intervals, and effective
-sample sizes, which account for correlation between draws. It also records
-divergences, the mean acceptance probability, and how often a draw used the
-full 255-step NUTS budget. With one chain, no between-chain convergence
-statistic is reported.
-
-``run.json`` records the settings, priors, fit status, seeds, and software
-versions. ``initialization.npz`` retains the fitted point and coordinate
-transform. ``samples.npz`` contains the seven physical parameters, each
-with shape ``(1, 1000)`` and angles in radians. The sampler state and
-per-draw diagnostics are in ``sampler.npz``. These files are saved before
-the model curves are computed.
-
-To redraw the two figures from saved arrays:
+To redraw the two figures from these saved arrays:
 
 .. code-block:: sh
 
    python example/hmc/plot.py
 
-This does not evaluate microJAX or run NUTS. The result figures for the updated
-uniform-cadence, flux-marginalized example will be added after the local
-calculation completes.
+This does not evaluate microJAX or run NUTS.

@@ -20,10 +20,11 @@ LABELS = (
     r"$10^3 q$",
     r"$s$",
     r"$\alpha$ [deg]",
-    r"$10^3\rho$",
+    r"$\log_{10}\rho$",
 )
-DISPLAY_SCALE = np.array([1, 1, 1, 1e3, 1, 180 / np.pi, 1e3])
+DISPLAY_SCALE = np.array([1, 1, 1, 1e3, 1, 180 / np.pi, 1])
 BLUE, ORANGE = "#31688e", "#b45f2a"
+DIVERGENCE = "#9b3d61"
 OUTPUT = Path(__file__).resolve().parents[2] / "results" / "hmc" / "binary"
 
 
@@ -32,11 +33,19 @@ def plot_results():
     config = json.loads((output / "run.json").read_text())
     names = config["parameter_names"][:7]
     with np.load(output / "data.npz") as saved:
-        times, flux, error, injected = (saved[key] for key in ("times", "flux", "error", "injected_flux"))
+        times, flux, error, injected_data = (saved[key] for key in ("times", "flux", "error", "injected_flux"))
     with np.load(output / "samples.npz") as saved:
         samples = {name: saved[name] for name in names}
     with np.load(output / "curves.npz") as saved:
+        model_times, injected = saved["times"], saved["injected_flux"]
         lower, median, upper = np.quantile(saved["model_flux"], [0.16, 0.5, 0.84], axis=0)
+    residual = (flux - injected_data) / error
+    model_error = config["relative_noise"] * injected
+    residual_lower, residual_median, residual_upper = (
+        (values - injected) / model_error for values in (lower, median, upper)
+    )
+    with np.load(output / "sampler.npz") as saved:
+        divergent = saved["diverging"].ravel()
 
     plt.rcParams.update(
         {
@@ -57,25 +66,33 @@ def plot_results():
     )
     for column, (left, right) in enumerate(((times[0], times[-1]), (-5.0, 5.0))):
         visible = (times >= left) & (times <= right)
+        model_visible = (model_times >= left) & (model_times <= right)
         x = times[visible]
+        model_x = model_times[model_visible]
         ax = axes[0, column]
         ax.errorbar(x, flux[visible], yerr=error[visible], fmt=".", ms=3, color="0.5", elinewidth=0.6, label="Data")
-        ax.fill_between(x, lower[visible], upper[visible], color=BLUE, alpha=0.25)
-        ax.plot(x, median[visible], color=BLUE, lw=1.3, label="Posterior")
-        ax.plot(x, injected[visible], color=ORANGE, lw=1, ls="--", label="Injected")
+        ax.fill_between(model_x, lower[model_visible], upper[model_visible], color=BLUE, alpha=0.25)
+        ax.plot(model_x, median[model_visible], color=BLUE, lw=1.3, label="Posterior")
+        ax.plot(model_x, injected[model_visible], color=ORANGE, lw=1, ls="--", label="Injected")
         ax.set_xlim(left, right)
-        axes[1, column].axhline(0, color="0.5", lw=0.8)
-        axes[1, column].plot(x, ((flux - median) / error)[visible], ".", ms=3, color=BLUE)
+        axes[1, column].axhline(0, color=ORANGE, lw=0.8, ls="--")
+        axes[1, column].fill_between(
+            model_x, residual_lower[model_visible], residual_upper[model_visible], color=BLUE, alpha=0.25
+        )
+        axes[1, column].plot(model_x, residual_median[model_visible], color=BLUE, lw=1.3)
+        axes[1, column].plot(x, residual[visible], ".", ms=3, color="0.5")
         axes[1, column].set(xlabel="Time [day]")
     axes[0, 0].set_ylabel("Flux")
     axes[0, 0].legend(fontsize=9)
     axes[0, 1].set_title("Peak", fontsize=10)
-    axes[1, 0].set_ylabel(r"Residual / $\sigma$")
+    axes[1, 0].set_ylabel(r"$(F-F_{\rm inj})/\sigma$")
     fig.savefig(output / "lightcurve.png", dpi=190)
     plt.close(fig)
 
     draws = np.column_stack([samples[name].ravel() for name in names]) * DISPLAY_SCALE
     truth = np.asarray(config["truth"][:7]) * DISPLAY_SCALE
+    draws[:, -1] = np.log10(draws[:, -1])
+    truth[-1] = np.log10(truth[-1])
     low = np.minimum(draws.min(axis=0), truth)
     high = np.maximum(draws.max(axis=0), truth)
     padding = 0.05 * (high - low)
@@ -101,8 +118,12 @@ def plot_results():
     )
     for ax in fig.axes:
         ax.tick_params(labelsize=8)
+    handles = [Line2D([], [], color=BLUE, label="Posterior"), Line2D([], [], color=ORANGE, label="Injected")]
+    if divergent.any():
+        corner.overplot_points(fig, draws[divergent], color=DIVERGENCE, marker="x", ms=3, alpha=0.7)
+        handles.append(Line2D([], [], color=DIVERGENCE, marker="x", ls="none", label="Divergent transition"))
     fig.legend(
-        handles=[Line2D([], [], color=BLUE, label="Posterior"), Line2D([], [], color=ORANGE, label="Injected")],
+        handles=handles,
         loc="upper right",
         bbox_to_anchor=(0.89, 0.91),
         fontsize=12,
