@@ -22,13 +22,13 @@ precision than JAX's default 32-bit arithmetic.
    import matplotlib.pyplot as plt
    import microjax as mj
 
-Choose the observation times and the CPU integrator once. This gives us a
-function that takes the event parameters and returns the magnification:
+Choose the CPU integrator once. The resulting function takes event
+parameters and observation times, and returns the magnification:
 
 .. code-block:: python
 
    times = jnp.linspace(-5.0, 10.0, 500)
-   lightcurve = mj.make_binary_lightcurve(times, backend="cpu")
+   lightcurve = mj.make_binary_lightcurve(backend="cpu")
 
 The source follows a straight line. Its time of closest approach is ``t0``,
 its Einstein crossing time is ``tE``, and its impact parameter is ``u0``.
@@ -37,10 +37,10 @@ Here, all times are in days:
 
 .. code-block:: python
 
-   parameters = dict(
-       t0=0.0, tE=10.0, u0=0.1, alpha=jnp.deg2rad(50.0),
-       q=0.001, s=1.0, rho=0.005, u1=0.5,
-   )
+   # t0, tE, u0, q, s, alpha, rho
+   parameters = jnp.array([
+       0.0, 10.0, 0.1, 0.001, 1.0, jnp.deg2rad(50.0), 0.005,
+   ])
 
 The companion has mass ratio ``q=0.001`` relative to the primary and
 separation ``s=1`` Einstein radius. The source has radius ``rho=0.005`` and
@@ -56,10 +56,10 @@ Calculating the magnification
 
 .. code-block:: python
 
-   A = lightcurve(parameters)
+   A = lightcurve(parameters, times, u1=0.5)
 
 ``A`` contains one magnification for each of the 500 observation times.
-You can call ``lightcurve`` again with different parameter values;
+You can call ``lightcurve`` again with different parameters or times;
 :doc:`working_with_jax` explains how to compile it for repeated use or
 select the GPU implementation.
 
@@ -79,12 +79,12 @@ select the GPU implementation.
 The broad brightening is interrupted by a short feature before the peak.
 This is where the source passes near the binary's caustic, a curve along
 which the magnification of a point source diverges. Giving the source a
-finite radius smooths the feature. Try increasing ``rho`` to see how it
-changes, or changing ``q`` to explore a more massive companion:
+finite radius smooths the feature. Try increasing ``rho``, the last entry
+of the parameter array, to see how it changes:
 
 .. code-block:: python
 
-   A_larger_source = lightcurve({**parameters, "rho": 0.01})
+   A_larger_source = lightcurve(parameters.at[6].set(0.01), times, u1=0.5)
 
 Magnification to observed flux
 ------------------------------

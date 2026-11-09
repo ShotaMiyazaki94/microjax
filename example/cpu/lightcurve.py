@@ -19,7 +19,6 @@ import numpy as np
 from microjax import make_binary_lightcurve, make_triple_lightcurve
 from microjax.point_source import critical_and_caustic_curves
 
-PARAMETER_NAMES = ("t0", "tE", "u0", "q", "s", "alpha", "rho", "q3", "r3", "psi")
 PARAMETER_LABELS = (r"t_0", r"t_E", r"u_0", "q", "s", r"\alpha", r"\rho", r"q_3", r"r_3", r"\psi")
 
 
@@ -98,15 +97,14 @@ def main():
         u1 = 0.5  # Fixed; the example differentiates physical and trajectory parameters.
 
         make_lightcurve = make_triple_lightcurve if triple else make_binary_lightcurve
-        magnification = make_lightcurve(times, backend="cpu")
-        names = PARAMETER_NAMES[:params.size]
+        magnification = make_lightcurve(backend="cpu")
 
-        def light_curve(p):
-            values = magnification({**dict(zip(names, p)), "u1": u1})
+        def light_curve(p, times):
+            values = magnification(p, times, u1=u1)
             # Keep the value as auxiliary data to obtain A and its Jacobian together.
             return values, values
 
-        jacobian, values = jax.jit(jax.jacfwd(light_curve, has_aux=True))(params)
+        jacobian, values = jax.jit(jax.jacfwd(light_curve, argnums=0, has_aux=True))(params, times)
         times, values, jacobian, params = map(np.asarray, (times, values, jacobian, params))
 
     if not (np.isfinite(values).all() and np.isfinite(jacobian).all()):

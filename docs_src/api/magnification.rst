@@ -1,8 +1,8 @@
 Finite-source magnification
 ===========================
 
-Create a light-curve function with observation times and a choice of
-integrator, then pass the event parameters to it. See :doc:`../usage` for
+Choose an integrator when creating a light-curve function, then call
+``lightcurve(parameters, times, u1=...)``. See :doc:`../usage` for
 a worked binary event and :doc:`../autodiff` for parameter derivatives.
 The position-based functions below support custom source trajectories.
 
@@ -28,11 +28,14 @@ Event light curves
    * - ``alpha``
      - Trajectory angle from the binary axis, in radians.
 
-The remaining dictionary entries describe the lenses and source: ``s``,
-``q``, ``rho``, and optionally ``u1``; triples also need ``q3``, ``r3``,
-``psi``. Their conventions are given below. A dictionary of floating-point
-values can be passed directly to ``jax.jacfwd``; the result is a dictionary
-of derivative arrays with the same keys.
+The static binary model uses seven parameters in the order
+``[t0, tE, u0, q, s, alpha, rho]``. The static triple model appends
+``[q3, r3, psi]``, giving ten parameters. Values are in physical units, with
+angles in radians. Pass ``u1`` separately; it is not part of the array.
+The lens and source conventions are given below.
+
+With a one-dimensional parameter array, ``jax.jacfwd`` returns a Jacobian
+whose columns follow that order and whose rows correspond to the times.
 
 .. _source-position-api:
 
@@ -122,7 +125,7 @@ Accelerator configuration
 -------------------------
 
 Pass a configuration object when creating a function, for example
-``make_binary_lightcurve(times, config=BinaryMagConfig(source_tile_size=256))``.
+``make_binary_lightcurve(config=BinaryMagConfig(source_tile_size=256))``.
 The CPU integrator uses internal settings and does not accept ``config``.
 
 .. list-table::

@@ -70,17 +70,13 @@ def main():
     r3, psi = np.abs(r3_complex), np.angle(r3_complex)
     params = jnp.asarray([t0, t_e, u0, q, s, alpha, rho, q3, r3, psi])
     times = t0 + jnp.linspace(-0.5 * t_e, t_e, config["n_points"])
-    model = make_model(
-        times,
-        u1=args.u1,
-        n_limb=config["n_limb"],
-    )
+    model = make_model(u1=args.u1, n_limb=config["n_limb"])
 
-    functions = {"value": jax.jit(model), "forward": jax.jit(jax.jacfwd(model))}
+    functions = {"value": jax.jit(model), "forward": jax.jit(jax.jacfwd(model, argnums=0))}
     results = {}
     for name, function in functions.items():
         print(f"benchmarking {name}...", flush=True)
-        result, warmup, runs = benchmark(function, params, args.repeats)
+        result, warmup, runs = benchmark(function, params, times, args.repeats)
         results[name] = (result, warmup, runs)
         print(f"  warm-up={warmup:.3f} s, median={np.median(runs):.3f} s", flush=True)
 

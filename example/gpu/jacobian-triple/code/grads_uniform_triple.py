@@ -39,40 +39,32 @@ PARAMETER_LABELS = (
 )
 
 
-def make_model(
-    times: jax.Array,
-    *,
-    u1: float = 0.0,
-    n_limb: int,
-):
-    """Build the triple boundary light-curve function used by forward AD."""
+def make_model(*, u1: float = 0.0, n_limb: int):
+    """Build the triple-lens light-curve function used by forward AD."""
+    lightcurve = make_triple_lightcurve(config=TripleMagConfig(n_limb=n_limb))
 
-    lightcurve = make_triple_lightcurve(
-        times, config=TripleMagConfig(n_limb=n_limb),
-    )
-
-    def get_magnification(params: jax.Array) -> jax.Array:
-        return lightcurve({**dict(zip(PARAMETER_NAMES, params)), "u1": u1})
+    def get_magnification(params: jax.Array, times: jax.Array) -> jax.Array:
+        return lightcurve(params, times, u1=u1)
 
     return get_magnification
 
 
-def timed_call(function, params: jax.Array):
+def timed_call(function, params: jax.Array, times: jax.Array):
     """Time one asynchronous JAX call, synchronising before returning."""
 
     start = time.perf_counter()
-    result = function(params)
+    result = function(params, times)
     result.block_until_ready()
     return result, time.perf_counter() - start
 
 
-def benchmark(function, params: jax.Array, repeats: int):
+def benchmark(function, params: jax.Array, times: jax.Array, repeats: int):
     """Return one warm-up time and repeated post-compilation run times."""
 
-    result, warmup_seconds = timed_call(function, params)
+    result, warmup_seconds = timed_call(function, params, times)
     run_seconds = []
     for _ in range(repeats):
-        result, elapsed = timed_call(function, params)
+        result, elapsed = timed_call(function, params, times)
         run_seconds.append(elapsed)
     return result, warmup_seconds, run_seconds
 
@@ -245,19 +237,16 @@ def main():
     r3, psi = np.abs(r3_complex), np.angle(r3_complex)
     params = jnp.asarray([t0, t_e, u0, q, s, alpha, rho, q3, r3, psi])
     times = t0 + jnp.linspace(-0.5 * t_e, t_e, config["n_points"])
-    model = make_model(
-        times,
-        n_limb=config["n_limb"],
-    )
+    model = make_model(n_limb=config["n_limb"])
 
     functions = {
         "value": jax.jit(model),
-        "forward": jax.jit(jax.jacfwd(model)),
+        "forward": jax.jit(jax.jacfwd(model, argnums=0)),
     }
     results = {}
     for name, function in functions.items():
         print(f"benchmarking {name}...", flush=True)
-        result, warmup, runs = benchmark(function, params, args.repeats)
+        result, warmup, runs = benchmark(function, params, times, args.repeats)
         results[name] = (result, warmup, runs)
         print(f"  warm-up={warmup:.3f} s, median={np.median(runs):.3f} s", flush=True)
 

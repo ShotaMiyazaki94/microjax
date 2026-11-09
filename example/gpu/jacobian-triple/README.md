@@ -19,7 +19,7 @@ from −5 to 10 days. Jacobian columns follow
 ![Triple-lens light curve, image geometry, and ten forward derivatives](outputs/limb_dark/triple_limb_dark_jacobian.png)
 
 The [CPU example](../../cpu/README.md#triple-lens) evaluates the same event
-with `make_triple_lightcurve(times, backend="cpu")` and produces the same
+with `make_triple_lightcurve(backend="cpu")` and produces the same
 panel layout.
 
 ## Changing the example

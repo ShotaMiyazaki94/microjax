@@ -99,64 +99,59 @@ def make_mag_triple(*, backend="accelerator", config=None, return_info=False):
     return mag_triple
 
 
-def _trajectory(times, parameters):
-    tau = (times - parameters["t0"]) / parameters["tE"]
-    return (tau + 1j * parameters["u0"]) * jnp.exp(1j * parameters["alpha"])
+def _trajectory(times, t0, tE, u0, alpha):
+    tau = (jnp.asarray(times) - t0) / tE
+    return (tau + 1j * u0) * jnp.exp(1j * alpha)
 
 
-def make_binary_lightcurve(times, *, backend="accelerator", config=None, return_info=False):
-    """Create ``lightcurve(parameters)`` for a rectilinear binary event.
+def make_binary_lightcurve(*, backend="accelerator", config=None, return_info=False):
+    """Create ``lightcurve(parameters, times, *, u1=0.0)`` for a static binary.
 
-    ``times`` is a one-dimensional array of observation times. The returned
-    function takes a dictionary with ``t0, tE, u0, alpha, rho, s, q`` and an
-    optional ``u1`` (default zero), and returns one magnification per time.
+    ``parameters`` is a seven-element array in the order
+    ``[t0, tE, u0, q, s, alpha, rho]``. ``times`` is a one-dimensional array
+    of observation times. The result has one magnification per time.
     ``t0`` and ``tE`` use the same unit as ``times``; ``alpha`` is in radians.
+    ``u1`` is the linear limb-darkening coefficient; zero gives a uniform source.
     The trajectory is ``((times-t0)/tE + 1j*u0) * exp(1j*alpha)`` in the
     binary centre-of-mass frame.
 
-    Backend settings follow :func:`make_mag_binary`. The parameter dictionary
-    works directly with ``jax.jit`` and ``jax.jacfwd``. For example::
+    Backend settings follow :func:`make_mag_binary`. For example::
 
-        lightcurve = microjax.make_binary_lightcurve(times, backend="cpu")
-        A = lightcurve(parameters)
-        derivatives = jax.jacfwd(lightcurve)(parameters)
+        lightcurve = microjax.make_binary_lightcurve(backend="cpu")
+        A = lightcurve(parameters, times, u1=0.5)
+        derivatives = jax.jacfwd(lightcurve, argnums=0)(parameters, times, u1=0.5)
     """
     mag = make_mag_binary(backend=backend, config=config, return_info=return_info)
-    times = jnp.asarray(times)
 
-    def lightcurve(parameters):
-        return mag(
-            _trajectory(times, parameters),
-            parameters["rho"],
-            s=parameters["s"],
-            q=parameters["q"],
-            u1=parameters.get("u1", 0.0),
-        )
+    def lightcurve(parameters, times, *, u1=0.0):
+        t0, tE, u0, q, s, alpha, rho = parameters
+        return mag(_trajectory(times, t0, tE, u0, alpha), rho, s=s, q=q, u1=u1)
 
     return lightcurve
 
 
-def make_triple_lightcurve(times, *, backend="accelerator", config=None, return_info=False):
-    """Create ``lightcurve(parameters)`` for a rectilinear triple event.
+def make_triple_lightcurve(*, backend="accelerator", config=None, return_info=False):
+    """Create ``lightcurve(parameters, times, *, u1=0.0)`` for a static triple.
 
-    The dictionary follows :func:`make_binary_lightcurve`, adding ``q3``,
-    ``r3`` and ``psi`` as defined in :func:`mag_triple`. The source trajectory
+    ``parameters`` is a ten-element array in the order
+    ``[t0, tE, u0, q, s, alpha, rho, q3, r3, psi]``, with the last three
+    entries defined in :func:`mag_triple`. The source trajectory
     remains relative to the centre of mass of lenses 1 and 2. Backend settings
     follow :func:`make_mag_triple`.
     """
     mag = make_mag_triple(backend=backend, config=config, return_info=return_info)
-    times = jnp.asarray(times)
 
-    def lightcurve(parameters):
+    def lightcurve(parameters, times, *, u1=0.0):
+        t0, tE, u0, q, s, alpha, rho, q3, r3, psi = parameters
         return mag(
-            _trajectory(times, parameters),
-            parameters["rho"],
-            s=parameters["s"],
-            q=parameters["q"],
-            q3=parameters["q3"],
-            r3=parameters["r3"],
-            psi=parameters["psi"],
-            u1=parameters.get("u1", 0.0),
+            _trajectory(times, t0, tE, u0, alpha),
+            rho,
+            s=s,
+            q=q,
+            q3=q3,
+            r3=r3,
+            psi=psi,
+            u1=u1,
         )
 
     return lightcurve

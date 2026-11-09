@@ -12,8 +12,8 @@ python example/cpu/lightcurve.py --lens triple
 Install with `python -m pip install -e . matplotlib`.
 [`lightcurve.py`](lightcurve.py) creates a `make_binary_lightcurve` or
 `make_triple_lightcurve` function with `backend="cpu"`, then passes an event
-parameter dictionary. It uses the CPU device and float64, and computes
-magnification and all parameter derivatives in one `jax.jacfwd` call.
+parameter array and observation times. It uses the CPU device and float64,
+and computes magnification and all parameter derivatives in one `jax.jacfwd` call.
 Linear limb darkening is fixed at `u1=0.5`.
 
 ## Binary lens

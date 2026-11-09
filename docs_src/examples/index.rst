@@ -48,18 +48,19 @@ Triple lens
 
 Here the first two lenses have ``q=0.1`` and ``s=1.1``. A third lens has
 mass ratio ``q3=0.01`` relative to the primary and lies at ``0.3+1.2j``
-relative to the binary midpoint. Starting from the first tutorial, add its
-distance and angle to the event parameters:
+relative to the binary midpoint. The parameter array contains the seven
+binary event parameters followed by ``q3, r3, psi``:
 
 .. code-block:: python
 
-   triple_parameters = dict(
-       parameters, rho=0.01, s=1.1, q=0.1, q3=0.01,
-       r3=abs(0.3 + 1.2j), psi=jnp.angle(0.3 + 1.2j),
-   )
+   # t0, tE, u0, q, s, alpha, rho, q3, r3, psi
+   triple_parameters = jnp.array([
+       0.0, 10.0, 0.1, 0.1, 1.1, jnp.deg2rad(50.0), 0.01,
+       0.01, abs(0.3 + 1.2j), jnp.angle(0.3 + 1.2j),
+   ])
    triple_times = jnp.linspace(-5.0, 10.0, 1000)
-   triple_lightcurve = mj.make_triple_lightcurve(triple_times, backend="cpu")
-   A_triple = triple_lightcurve(triple_parameters)
+   triple_lightcurve = mj.make_triple_lightcurve(backend="cpu")
+   A_triple = triple_lightcurve(triple_parameters, triple_times, u1=0.5)
 
 The script samples 1000 times and differentiates all ten event parameters,
 adding ``q3, r3, psi`` to the binary parameters. The source coordinate

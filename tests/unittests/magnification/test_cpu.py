@@ -110,19 +110,27 @@ def test_public_forward_jacobian_matches_independent_reference():
     from microjax._magnification.cpu.one_shot import mag_binary_cpu_one_shot
 
     x, y = -0.3421551581838465, 0.19397867617641237
-    parameters = dict(
-        t0=-x, tE=1.0, u0=y, alpha=0.0, rho=0.0048408299514288945, s=0.8917065758514715, q=0.028320791269324543
-    )
-    lightcurve = make_binary_lightcurve([0.0], backend="cpu")
+    parameters = jnp.asarray([-x, 1.0, y, 0.028320791269324543, 0.8917065758514715, 0.0, 0.0048408299514288945])
+    lightcurve = make_binary_lightcurve(backend="cpu")
     # VBBinaryLensing Tol=RelTol=1e-10, centered steps
     # (2e-7, 2e-7, 1e-7, 3e-7, 5e-8), independent of the JAX graph.
     dx, dy, drho, ds, dq = [-6.64195328, 112.58030501, 30.67879960, 87.58013554, -446.69389094]
     # At time zero and alpha=0, w=x+iy. Convert the independent position
     # derivatives analytically to the seven event-parameter derivatives.
-    expected = dict(t0=-dx, tE=-x * dx, u0=dy, alpha=-y * dx + x * dy, rho=drho, s=ds, q=dq)
-    actual = jax.jit(jax.jacfwd(lightcurve))(parameters)
-    for name in parameters:
-        np.testing.assert_allclose(actual[name], [expected[name]], rtol=5e-4, atol=1e-5)
+    expected = [-dx, -x * dx, dy, dq, ds, -y * dx + x * dy, drho]
+    traces = []
+
+    def model(p, times):
+        traces.append(None)
+        return lightcurve(p, times)
+
+    derivative = jax.jit(jax.jacfwd(model, argnums=0))
+    actual = derivative(parameters, jnp.asarray([0.0]))
+    # Shift the time origin: the same compiled function must use the new times.
+    shifted = derivative(parameters.at[0].add(0.25), jnp.asarray([0.25]))
+    assert len(traces) == 1
+    np.testing.assert_allclose(actual, [expected], rtol=5e-4, atol=1e-5)
+    np.testing.assert_allclose(shifted, actual, rtol=1e-9, atol=1e-9)
 
     # Force a full theta solve instead of taking the public multipole shortcut.
     # Its moving-endpoint rho derivative exposed a former outer-rule failure;

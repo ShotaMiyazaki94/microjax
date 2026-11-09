@@ -31,12 +31,12 @@ import matplotlib.pyplot as plt
 import microjax as mj
 
 times = jnp.linspace(-5.0, 10.0, 500)
-lightcurve = mj.make_binary_lightcurve(times, backend="cpu")
-parameters = dict(
-    t0=0.0, tE=10.0, u0=0.1, alpha=jnp.deg2rad(50.0),
-    q=0.001, s=1.0, rho=0.005, u1=0.5,
-)
-A = lightcurve(parameters)
+lightcurve = mj.make_binary_lightcurve(backend="cpu")
+# t0, tE, u0, q, s, alpha, rho
+parameters = jnp.array([
+    0.0, 10.0, 0.1, 0.001, 1.0, jnp.deg2rad(50.0), 0.005,
+])
+A = lightcurve(parameters, times, u1=0.5)
 
 plt.plot(times, A)
 plt.xlabel("Time (days)")

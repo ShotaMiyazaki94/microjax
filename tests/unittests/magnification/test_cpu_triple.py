@@ -64,18 +64,14 @@ def test_triple_forward_jacobian_matches_independent_reference():
     times = [reference["observation_time"]] + [
         case["observation_time"] for case in REFERENCES["critical_forward_jacobians"]
     ]
-    lightcurve = make_triple_lightcurve(times, backend="cpu")
-    names = ("t0", "tE", "u0", "q", "s", "alpha", "rho", "q3", "r3", "psi")
-    parameters = dict(zip(names, reference["parameters"]))
-
-    def model(p):
-        return lightcurve({**p, "u1": 0.5})
+    lightcurve = make_triple_lightcurve(backend="cpu")
+    parameters = jnp.asarray(reference["parameters"])
 
     # VBM Tol=RelTol=1e-9, centered finite differences, independent of the
     # JAX graph. Halving the stored steps changed all ten columns by <8e-8
     # relative. This position requires the full finite-source calculation.
-    derivatives = jax.jit(jax.jacfwd(model))(parameters)
-    actual = np.column_stack([derivatives[name] for name in names])
+    derivative = jax.jit(jax.jacfwd(lightcurve, argnums=0))
+    actual = np.asarray(derivative(parameters, jnp.asarray(times), u1=0.5))
     np.testing.assert_allclose(actual[0], reference["derivatives"], rtol=1e-3, atol=1e-6)
 
     # Central and third-body caustics have independent selected-column references.

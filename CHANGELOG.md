@@ -20,10 +20,11 @@ CPU factories reject accelerator-only `config` objects.
 - Root-level `microjax.mag_binary` and `mag_triple` for source positions,
   with `make_mag_binary` and `make_mag_triple` to select the backend and
   accelerator configuration once.
-- `make_binary_lightcurve(times, ...)` and `make_triple_lightcurve(times, ...)`
-  return functions that accept event-parameter dictionaries, including
-  `t0`, `tE`, `u0`, and `alpha`. They construct the rectilinear source trajectory
-  and support JAX forward derivatives directly from the dictionary.
+- `make_binary_lightcurve(...)` and `make_triple_lightcurve(...)` bind solver
+  settings and return `lightcurve(parameters, times, u1=...)`. Static binary
+  events use `[t0, tE, u0, q, s, alpha, rho]`; triples append `[q3, r3, psi]`.
+  The functions construct the rectilinear source trajectory and support JAX
+  forward derivatives of these fixed-length arrays.
 - Full finite-source calculations for uniform and linearly limb-darkened
   binary and triple lenses.
 - Direct calculation of the angles where image-plane circles cross a lensed

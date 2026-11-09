@@ -69,19 +69,15 @@ def main():
     q, s, alpha, rho = 0.001, 1.0, np.deg2rad(50.0), 0.005
     params = jnp.asarray([t0, t_e, u0, q, s, alpha, rho])
     times = t0 + jnp.linspace(-0.5 * t_e, t_e, config["n_points"])
-    model = make_model(
-        times,
-        u1=args.u1,
-        n_limb=config["n_limb"],
-    )
+    model = make_model(u1=args.u1, n_limb=config["n_limb"])
 
     value_function = jax.jit(model)
-    forward_function = jax.jit(jax.jacfwd(model))
+    forward_function = jax.jit(jax.jacfwd(model, argnums=0))
     results = {}
     functions = [("value", value_function), ("forward", forward_function)]
     for name, function in functions:
         print(f"benchmarking {name}...", flush=True)
-        result, warmup, runs = benchmark(function, params, args.repeats)
+        result, warmup, runs = benchmark(function, params, times, args.repeats)
         results[name] = (result, warmup, runs)
         print(
             f"  warm-up={warmup:.3f} s, median={np.median(runs):.3f} s",

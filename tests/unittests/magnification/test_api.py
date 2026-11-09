@@ -44,7 +44,7 @@ def test_factory_binds_solver_and_settings(monkeypatch, lens):
 
 def test_configuration_errors_are_reported_at_creation():
     with pytest.raises(ValueError, match="backend must be"):
-        mj.make_binary_lightcurve([0.0], backend="unknown")
+        mj.make_binary_lightcurve(backend="unknown")
     with pytest.raises(ValueError, match="return_info"):
         mj.make_mag_binary(return_info=True)
     with pytest.raises(ValueError, match="config applies only"):

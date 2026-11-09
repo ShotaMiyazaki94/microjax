@@ -28,11 +28,11 @@ Create a compiled function once and reuse it. For example, using
 .. code-block:: python
 
    model = jax.jit(lightcurve)
-   A = model(parameters)
+   A = model(parameters, times, u1=0.5)
 
-The first call compiles the function. Changing parameter values reuses the
-compiled model; changing array shapes, such as the number of observation
-times, normally triggers a new compilation.
+The first call compiles the function. Changing parameter or time values
+reuses the compiled model when the array shapes and dtypes stay the same.
+Changing the number of observation times triggers a new compilation.
 
 JAX may return before the calculation has finished. When measuring runtime,
 wait for each result and keep compilation outside the timed section:
@@ -43,7 +43,7 @@ wait for each result and keep compilation outside the timed section:
 
    A.block_until_ready()
    start = time.perf_counter()
-   A = model(parameters).block_until_ready()
+   A = model(parameters, times, u1=0.5).block_until_ready()
    print(f"{1e3 * (time.perf_counter() - start):.2f} ms")
 
 Repeat the timed call to compare typical runtimes on your machine.
@@ -58,16 +58,16 @@ Select the implementation when creating the light-curve function:
 
    import microjax as mj
 
-   lightcurve = mj.make_binary_lightcurve(times, backend="cpu")
+   lightcurve = mj.make_binary_lightcurve(backend="cpu")
 
 Use ``backend="accelerator"`` for the GPU implementation; this is the
-default. The returned function takes only event parameters. To tune GPU
-batching, pass a configuration when you create it:
+default. The returned function takes event parameters and times. To tune
+GPU batching, pass a configuration when you create it:
 
 .. code-block:: python
 
    lightcurve = mj.make_binary_lightcurve(
-       times, backend="accelerator",
+       backend="accelerator",
        config=mj.BinaryMagConfig(source_tile_size=256),
    )
 
