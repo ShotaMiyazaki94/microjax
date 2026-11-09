@@ -20,9 +20,6 @@ from numpyro.infer import MCMC, NUTS, init_to_value
 from scipy.optimize import minimize
 from scipy.special import expit, logit
 
-from microjax import make_binary_lightcurve
-
-
 NAMES = ("t0", "tE", "u0", "q", "s", "alpha", "rho", "fs", "fb")
 LOG_INDICES = np.array([1, 3, 4, 6])
 
@@ -138,13 +135,23 @@ def main():
     if args.warmup < 1 or args.samples < 4 or args.chains < 1 or args.map_maxiter < 1:
         parser.error("Use positive warm-up, chain and optimization counts, and at least four retained draws.")
 
-    device = jax.devices(args.backend)[0]
+    # Configure CPU devices before importing microJAX, which creates JAX arrays.
+    numpyro.set_platform(args.backend)
+    if args.backend == "cpu":
+        numpyro.set_host_device_count(args.chains)
+    chain_method = "parallel" if args.backend == "cpu" else "vectorized"
+
+    from microjax import make_binary_lightcurve
+
+    devices = jax.local_devices(backend=args.backend)
+    device = devices[0]
     output = args.output_dir
     # Keep separate runs separate, including an interrupted run's saved data.
     output.mkdir(parents=True, exist_ok=False)
     config = {
         "backend": args.backend,
-        "device": str(device),
+        "devices": [str(d) for d in (devices if chain_method == "parallel" else devices[:1])],
+        "chain_method": chain_method,
         "float64": True,
         "warmup": args.warmup,
         "samples_per_chain": args.samples,
@@ -223,10 +230,13 @@ def main():
             num_warmup=args.warmup,
             num_samples=args.samples,
             num_chains=args.chains,
-            chain_method="sequential",
+            chain_method=chain_method,
             progress_bar=True,
         )
-        print("Starting NUTS; chains run sequentially and compilation precedes the first progress update.", flush=True)
+        print(
+            f"Starting NUTS: {args.chains} chains, {chain_method}; compilation precedes the progress updates.",
+            flush=True,
+        )
         start = time.perf_counter()
         mcmc.run(
             jax.random.PRNGKey(args.seed),

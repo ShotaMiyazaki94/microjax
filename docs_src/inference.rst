@@ -23,7 +23,7 @@ From a :doc:`source checkout <getting_started>`:
    python example/hmc/injection_recovery.py
 
 The script first fits the data from a rough event solution and estimates a
-local covariance. It then runs two sequential CPU chains, with 300 warm-up
+local covariance. It then runs two parallel CPU chains, with 300 warm-up
 steps and 500 retained draws per chain. Model compilation and the fit happen
 before the NUTS progress bar starts.
 
@@ -31,6 +31,12 @@ before the NUTS progress bar starts.
 ``--warmup``, ``--samples``, and ``--chains`` control sampling.
 ``--seed`` changes the sampler's random seed; the mock photometry keeps its
 fixed noise seed. With a GPU-enabled JAX installation, use ``--backend gpu``.
+
+On CPU, the script creates one logical JAX device per chain and uses
+NumPyro's ``chain_method="parallel"`` (``jax.pmap``). On GPU, it uses
+``chain_method="vectorized"`` to run the chains together on one device.
+``run.json`` records the method and devices. The device setup happens before
+importing microJAX, so launch the script in a fresh Python process.
 
 Results go to ``results/hmc/binary/``. Choose a different ``--output-dir``
 for each run so that earlier results are preserved. The two scripts are

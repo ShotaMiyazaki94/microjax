@@ -11,10 +11,14 @@ python example/hmc/injection_recovery.py
 ```
 
 The script first fits the data from a rough initial solution and estimates a
-local covariance for NUTS. It then runs two sequential chains, each with 300
+local covariance for NUTS. It then runs two parallel CPU chains, each with 300
 warm-up steps and 500 retained draws. Change `--map-maxiter`, `--warmup`,
 `--samples`, `--chains`, or `--seed` as needed. With GPU-enabled JAX, select
 `--backend gpu`.
+
+CPU chains use JAX `pmap`, with one logical CPU device per chain configured
+before microJAX is imported. On GPU, the chains run together on one device
+using NumPyro's `vectorized` method. `run.json` records the method and devices.
 
 Results go to `results/hmc/binary/`. Use a new `--output-dir` for another run;
 existing directories are preserved. Compilation and the local fit happen
