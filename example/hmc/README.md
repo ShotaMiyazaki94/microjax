@@ -37,12 +37,12 @@ The script saves data, samples, diagnostics, model curves, and two figures:
 - `lightcurve.png`: data and densely evaluated model curves, with both data
   and posterior residuals measured relative to the injection.
 - `corner.png`: the seven event parameters and their correlations, with
-  logarithmic source radius and marked divergent transitions.
+  logarithmic source radius.
 
 The model interval includes conditional source/blend flux uncertainty.
-The tutorial records the completed 180-point, 1%-noise run, including its 35
-divergent transitions and poor mixing in `q`, `s`, and `alpha`.
-The next run uses 360 observations and 3% noise.
+The tutorial shows this 360-point, 3%-noise run: NUTS took 190 seconds
+including compilation and warm-up, with no divergences and effective sample
+sizes of 308–687.
 To redraw the figures from saved arrays without sampling again:
 
 ```bash

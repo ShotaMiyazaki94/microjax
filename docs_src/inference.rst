@@ -10,78 +10,63 @@ Recorded run
 ------------
 
 The figures below use the run from 9 November 2026 at
-`8877b31 <https://github.com/ShotaMiyazaki94/microjax/commit/8877b31>`_:
-500 warm-up steps, 1,000 retained draws, and ``max_tree_depth=10``, with
-the prior bounds below and 1% flux errors.
-The script now uses 360 observations and 3% errors; these figures retain
-the completed 180-point, 1% run.
-NUTS took **205 seconds**, including compilation and warm-up; the local fit
-took another 9.51 seconds. This used six CPU workers, float64, JAX 0.8.0,
+`0529a12 <https://github.com/ShotaMiyazaki94/microjax/commit/0529a12>`_:
+360 observations with 3% flux errors, 500 warm-up steps, and 1,000 retained
+draws. The priors and sampler settings are described below.
+NUTS took **190 seconds**, including compilation and warm-up; the local fit
+took another 9.72 seconds. This used six CPU workers, float64, JAX 0.8.0,
 and NumPyro 0.19.0. Curve evaluation and plotting are outside those timings.
 
-The photometry is fitted closely, but **the chain is not yet well mixed**:
-35 of the 1,000 retained transitions are divergent, and effective sample
-sizes are only 3.9 for :math:`q`, 5.7 for :math:`s`, and 4.6 for
-:math:`\alpha`. The posterior summaries here are provisional:
-`divergences can bias HMC estimates <https://mc-stan.org/learn-stan/diagnostics-warnings.html#divergent-transitions-after-warmup>`_.
-No draw reached the tree-depth limit. Mean acceptance was 0.734, below
-the warm-up target of 0.9.
+There were **no divergent transitions** and no tree-depth limit hits.
+Effective sample sizes range from 308 to 687 across the seven parameters.
 
 .. figure:: _static/hmc_lightcurve.png
    :alt: Dense injected and posterior light curves with data, and residuals relative to the injection
    :width: 100%
    :target: _static/hmc_lightcurve.png
 
-   Full event and a closer view of the peak. Grey points are the 180
+   Full event and a closer view of the peak. Grey points are the 360
    observations; orange is the injected curve. Blue shows the median and
    central 68% model interval from 64 posterior draws, including conditional
-   source/blend flux uncertainty. Models are evaluated at 5,339 times, with
+   source/blend flux uncertainty. Models are evaluated at 5,519 times, with
    spacing at most 0.0025 days around the peak.
 
 The lower panels use the **injected curve as the common reference**. Grey
 points show :math:`(F_{\rm data}-F_{\rm inj})/\sigma`; the blue line and band
 show the corresponding posterior-model differences. At every plotting time,
-:math:`\sigma(t)=0.01F_{\rm inj}(t)`, the noise prescription used for this
+:math:`\sigma(t)=0.03F_{\rm inj}(t)`, the noise prescription used for this
 run's observations. Zero therefore represents the injection.
 
 .. figure:: _static/hmc_corner.png
-   :alt: Seven-parameter corner plot with logarithmic source radius and marked divergent transitions
+   :alt: Seven-parameter corner plot with logarithmic source radius and injected values
    :width: 100%
    :target: _static/hmc_corner.png
 
    Diagonal panels show marginal distributions; lower panels show pairwise
    correlations. Blue contours enclose approximately 68% and 95% of the
    smoothed distributions in the displayed coordinates. Orange marks the
-   injection. Magenta crosses mark retained states associated with divergent
-   transitions; all draws remain in the plotted distributions.
+   injection. All 1,000 draws are included.
 
-The corner plot shows two clusters in :math:`q`, :math:`s`, and
-:math:`\alpha`. The first 500 draws have median :math:`q=9.67\times10^{-4}`;
-the last 500 have median :math:`q=1.40\times10^{-3}`. Mean acceptance falls
-from 0.928 to 0.540, and 31 of the 35 divergent transitions occur in the
-second half. This chain does not establish the relative weights of the
-two clusters reliably; the cause of the divergences remains unresolved.
-
-The source radius spans roughly two orders of magnitude, so :math:`\rho`
-is shown logarithmically. With a 0.335-day cadence, the short caustic feature
-has only a few observations and the radius remains weakly constrained.
+The :math:`t_E`–:math:`u_0` and :math:`q`–:math:`s` correlations are visible
+in the corner plot. The source radius remains weakly constrained: its
+distribution spans roughly two orders of magnitude, so :math:`\rho` is
+shown logarithmically. A close light-curve fit does not require every
+parameter to be measured precisely.
 
 .. csv-table:: Posterior summaries from this run
    :header: "Parameter", "Injected", "Median", "Central 95% interval", "ESS"
    :widths: 18 14 18 36 14
 
-   ":math:`t_0` [day]", "0", "−0.00763", "[−0.02044, 0.00644]", "10"
-   ":math:`t_E` [day]", "10", "9.810", "[9.551, 10.102]", "424"
-   ":math:`u_0`", "0.1", "0.10267", "[0.09825, 0.10709]", "165"
-   ":math:`q`", "0.001", "1.10×10⁻³", "[7.61×10⁻⁴, 1.66×10⁻³]", "3.9"
-   ":math:`s`", "1", "1.00186", "[0.98575, 1.01792]", "5.7"
-   ":math:`\alpha` [deg]", "50", "51.78", "[49.73, 54.02]", "4.6"
-   ":math:`\rho`", "0.005", "1.15×10⁻³", "[1.16×10⁻⁴, 7.82×10⁻³]", "229"
+   ":math:`t_0` [day]", "0", "−0.01090", "[−0.03467, 0.01311]", "617"
+   ":math:`t_E` [day]", "10", "9.884", "[9.336, 10.508]", "687"
+   ":math:`u_0`", "0.1", "0.10135", "[0.09212, 0.11121]", "671"
+   ":math:`q`", "0.001", "1.16×10⁻³", "[8.04×10⁻⁴, 1.47×10⁻³]", "308"
+   ":math:`s`", "1", "1.00399", "[0.98171, 1.01737]", "323"
+   ":math:`\alpha` [deg]", "50", "49.51", "[47.72, 51.19]", "561"
+   ":math:`\rho`", "0.005", "8.47×10⁻⁴", "[1.09×10⁻⁴, 7.05×10⁻³]", "386"
 
-All seven injected values lie in the reported 95% intervals. This agreement
-for one noisy realization does not resolve the poor mixing or divergences. ESS
-accounts for correlation between draws; with one chain there is no
-between-chain convergence comparison.
+All seven injected values lie in the reported 95% intervals. ESS accounts
+for correlation between draws.
 
 Running the example
 -------------------
