@@ -15,10 +15,14 @@ The data contain 180 uniformly spaced times from day −30 to day 30.
 The script fits from a rough initial solution, whitens the sampling coordinates
 using its covariance, then runs **one chain with 500 warm-up steps and
 1,000 retained draws in total**. Warm-up adjusts the mass matrix and step size.
+NUTS uses `max_tree_depth=10`.
 Six CPU devices share the observation times in each model evaluation.
 
 `TRUTH` and `FLUX_TRUTH` define the injection; `INITIAL` starts the local fit.
-The event priors are specified separately in `PRIOR_BOUNDS`. Source and blend
+The event priors in `PRIOR_BOUNDS` use coarse ranges for this weeks-long event:
+`t0` from −10 to 10 days, `tE` from 1 to 100 days, `q` from 10⁻⁴ to 1,
+`s` from 0.5 to 2, and `rho` from 10⁻⁴ to 0.05. Both signs of `u0` and all
+trajectory angles are included. Source and blend
 fluxes each have a zero-mean Gaussian prior with standard deviation 10
 (`FLUX_PRIOR_SCALE`), without truncation. These priors are independent of the
 injection; their ranges, widths, and shapes still encode assumptions.
@@ -34,7 +38,8 @@ The script saves data, samples, diagnostics, model curves, and two figures:
   logarithmic source radius and marked divergent transitions.
 
 The model interval includes conditional source/blend flux uncertainty.
-The tutorial records the completed run, including its 48 divergent transitions.
+The tutorial records the previous run, including its 48 divergent transitions;
+those figures use the earlier prior bounds and tree depth.
 To redraw the figures from saved arrays without sampling again:
 
 ```bash

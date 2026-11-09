@@ -11,7 +11,9 @@ Recorded run
 
 The figures below use the run from 9 November 2026 at
 `4e9ffaa <https://github.com/ShotaMiyazaki94/microjax/commit/4e9ffaa>`_:
-500 warm-up steps and 1,000 retained draws, with the settings described below.
+500 warm-up steps and 1,000 retained draws. This run predates the revised
+prior bounds below and used ``max_tree_depth=8``; the linked commit preserves
+its settings. The new configuration has not yet been run.
 NUTS took **179 seconds**, including compilation and warm-up; the local fit
 took another 9.45 seconds. This used six CPU workers, float64, JAX 0.8.0,
 and NumPyro 0.19.0. Curve evaluation and plotting are outside those timings.
@@ -127,25 +129,25 @@ model.
      - Prior
    * - :math:`t_0`
      - 0 days
-     - Uniform(−30, 30) days
+     - Uniform(−10, 10) days
    * - :math:`t_E`
      - 10 days
-     - LogUniform(0.1, 300) days
+     - LogUniform(1, 100) days
    * - :math:`u_0`
      - 0.1
      - Uniform(−1, 1)
    * - :math:`q`
      - 0.001
-     - LogUniform(10⁻⁶, 1)
+     - LogUniform(10⁻⁴, 1)
    * - :math:`s`
      - 1.0
-     - LogUniform(0.2, 5)
+     - LogUniform(0.5, 2)
    * - :math:`\alpha`
      - 50°
      - Uniform(−π, π) radians
    * - :math:`\rho`
      - 0.005
-     - LogUniform(10⁻⁵, 0.1)
+     - LogUniform(10⁻⁴, 0.05)
    * - :math:`F_s`
      - 1.0
      - :math:`\mathcal{N}(0,10^2)`
@@ -154,10 +156,19 @@ model.
      - :math:`\mathcal{N}(0,10^2)`
 
 Uniform and LogUniform list bounds in physical units; LogUniform is uniform
-in the logarithm between those bounds. The two flux priors are independent,
+in the logarithm between those bounds. The time bounds reflect a peak within
+the central part of the observations and an event lasting weeks. The lens
+bounds leave a wide range of mass ratios and source sizes around separations
+of order one Einstein radius. They are rounded choices for this example,
+not intervals fitted around the injected values or the local solution.
+Both signs of :math:`u_0` and the full range of :math:`\alpha` are included.
+Raising the lower bound on :math:`\rho` excludes small-source solutions
+allowed in the recorded run, so its posterior interval will depend on this
+choice when the data do not resolve the source size.
+
+The two flux priors are independent,
 untruncated Gaussians with mean zero and standard deviation 10 in the chosen
 flux units. Their width is fixed independently of the injection and fit.
-These are broad priors; their ranges, widths, and shapes still encode assumptions.
 
 ``PRIOR_BOUNDS`` and ``LOG_INDICES`` define the seven event priors;
 ``FLUX_PRIOR_SCALE`` sets the flux-prior standard deviation. ``TRUTH`` and
@@ -216,7 +227,7 @@ likelihood.
 
 The sampler uses ``forward_mode_differentiation=True``, which works through
 the CPU integrator's adaptive loops, ``target_accept_prob=0.9``, and
-``max_tree_depth=8``. This example explores the mode near the initial
+``max_tree_depth=10``. This example explores the mode near the initial
 solution; it does not search for every binary-lens degeneracy.
 
 Saved output

@@ -36,15 +36,16 @@ FLUX_TRUTH = np.array([1.0, 0.2])
 # A rough event solution starts the local fit; it does not define the prior.
 INITIAL = np.array([0.5, 12.0, 0.12, 0.002, 1.05, np.deg2rad(45.0), 0.01])
 # Uniform in physical coordinates, or log-uniform at LOG_INDICES.
+# Coarse bounds for this weeks-long event, independent of TRUTH and INITIAL.
 PRIOR_BOUNDS = np.array(
     [
-        [-30.0, 30.0],  # t0 [day]
-        [0.1, 300.0],  # tE [day]
+        [-10.0, 10.0],  # t0 [day]
+        [1.0, 100.0],  # tE [day]
         [-1.0, 1.0],  # u0
-        [1e-6, 1.0],  # q
-        [0.2, 5.0],  # s
+        [1e-4, 1.0],  # q
+        [0.5, 2.0],  # s
         [-np.pi, np.pi],  # alpha [radian]
-        [1e-5, 0.1],  # rho
+        [1e-4, 0.05],  # rho
     ]
 )
 # Independent zero-mean Gaussian flux priors, in the chosen flux units.
@@ -54,7 +55,7 @@ COORDINATE_BOUNDS[LOG_INDICES] = np.log(COORDINATE_BOUNDS[LOG_INDICES])
 U1 = 0.5
 DATA_SEED = 20261109
 RELATIVE_NOISE = 0.01
-MAX_TREE_DEPTH = 8
+MAX_TREE_DEPTH = 10
 POSTERIOR_CURVES = 64
 
 
