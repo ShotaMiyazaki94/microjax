@@ -4,7 +4,8 @@ HMC injection–recovery
 This example adds noise to the :doc:`binary event <usage>` and fits its
 seven event parameters with NumPyro NUTS on CPU. Source and blend fluxes
 are integrated out of the likelihood. A light-curve comparison shows the
-fit to the data; a corner plot shows parameter uncertainties and correlations.
+fit to the data; a corner plot shows uncertainties and correlations for
+the seven event parameters together with the source and blend fluxes.
 
 Recorded run
 ------------
@@ -38,14 +39,16 @@ show the corresponding posterior-model differences. At every plotting time,
 run's observations. Zero therefore represents the injection.
 
 .. figure:: _static/hmc_corner.png
-   :alt: Seven-parameter corner plot with logarithmic source radius and injected values
+   :alt: Nine-parameter corner plot including source and blend fluxes, with injected values
    :width: 100%
    :target: _static/hmc_corner.png
 
-   Diagonal panels show marginal distributions; lower panels show pairwise
+   The seven event parameters and :math:`F_s`, :math:`F_b`. Diagonal panels
+   show marginal distributions; lower panels show pairwise
    correlations. Blue contours enclose approximately 68% and 95% of the
    smoothed distributions in the displayed coordinates. Orange marks the
-   injection. All 1,000 draws are included.
+   injection. Each of the 1,000 event draws is paired with a joint draw of
+   :math:`F_s` and :math:`F_b` from their conditional Gaussian posterior.
 
 The :math:`t_E`–:math:`u_0` and :math:`q`–:math:`s` correlations are visible
 in the corner plot. The source radius remains weakly constrained: its
@@ -53,7 +56,7 @@ distribution spans roughly two orders of magnitude, so :math:`\rho` is
 shown logarithmically. A close light-curve fit does not require every
 parameter to be measured precisely.
 
-.. csv-table:: Posterior summaries from this run
+.. csv-table:: Event-parameter summaries from this run
    :header: "Parameter", "Injected", "Median", "Central 95% interval", "ESS"
    :widths: 18 14 18 36 14
 
@@ -184,8 +187,10 @@ including its determinant term. No numerical integration is needed.
 
 For plotting, the conditional flux posterior is also Gaussian, with
 precision :math:`B=\Lambda^{-1}+M^\mathsf{T}V^{-1}M` and mean
-:math:`B^{-1}M^\mathsf{T}V^{-1}f`. Drawing from it includes source and blend
-flux uncertainty in the model-curve interval.
+:math:`B^{-1}M^\mathsf{T}V^{-1}f`. After NUTS, we draw the two fluxes jointly
+for each saved event sample. These nine-variable samples retain both the
+flux uncertainties and their correlations with the event parameters in
+the corner plot. The 64 model curves use a subset of the same samples.
 
 The NumPyro model therefore samples only the seven event parameters:
 
@@ -230,10 +235,12 @@ Saved output
 angles remain in radians. These files are saved before the model curves
 are evaluated.
 
-``curves.npz`` stores a separate dense time grid, the injected curve, 64
-posterior flux curves, and the selected sample indices. The fluxes are
-conditioned on the observations. Extra plotting times add resolution
-to the figure and do not enter the likelihood.
+``curves.npz`` stores a separate dense time grid, the injected curve, and 64
+posterior flux curves. Its ``flux_draws`` array has shape ``(1000, 2)``:
+each row contains :math:`F_s` and :math:`F_b` for the corresponding saved
+event sample. ``sample_indices`` selects the 64 pairs used for the curves.
+The fluxes are conditioned on the observations. Extra plotting times add
+resolution to the figure and do not enter the likelihood.
 
 To redraw the two figures from these saved arrays:
 

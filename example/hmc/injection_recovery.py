@@ -165,35 +165,41 @@ def finite_float(value):
 
 
 def save_model_curves(output, forward_model):
-    """Evaluate saved posterior draws on a dense plotting grid and at the data."""
+    """Draw conditional fluxes for every event sample and save dense model curves."""
     config = json.loads((output / "run.json").read_text())
     with np.load(output / "data.npz") as saved:
         times, flux, error = (saved[key] for key in ("times", "flux", "error"))
     with np.load(output / "samples.npz") as saved:
         parameters = np.column_stack([saved[name].ravel() for name in config["parameter_names"]])
-    # Fine spacing around the peak; keep the observation times to condition fluxes.
+    # Fine spacing around the peak, including the observation times for comparison.
     grid = np.unique(np.r_[times, np.linspace(times[0], times[-1], 1201), np.linspace(-5.0, 5.0, 4001)])
-    observed = np.searchsorted(grid, times)
     grid = jnp.asarray(grid)
+    times, flux, error = map(jnp.asarray, (times, flux, error))
+    conditional_flux = jax.jit(lambda magnification: flux_terms(magnification, flux, error)[2:])
     rng = np.random.default_rng(config["sampler_seed"] + 1)
     indices = rng.choice(len(parameters), size=min(POSTERIOR_CURVES, len(parameters)), replace=False)
-    curves, flux_draws = [], []
+    print(f"Drawing conditional source/blend fluxes for {len(parameters)} posterior samples.", flush=True)
+    flux_draws = []
+    for parameters_i in parameters:
+        magnification = forward_model(jnp.asarray(parameters_i), times)
+        mean, covariance = conditional_flux(magnification)
+        flux_draws.append(rng.multivariate_normal(np.asarray(mean), np.asarray(covariance)))
+    flux_draws = np.stack(flux_draws)
+
     injected = config["flux_truth"][0] * forward_model(jnp.asarray(config["truth"]), grid) + config["flux_truth"][1]
     print(f"Evaluating {len(indices)} posterior curves at {grid.size} plotting times.", flush=True)
+    curves = []
     for i in indices:
         magnification = forward_model(jnp.asarray(parameters[i]), grid)
-        # Condition the fluxes on the observations, not the extra plotting times.
-        _, _, mean, covariance = flux_terms(magnification[observed], jnp.asarray(flux), jnp.asarray(error))
-        draw = rng.multivariate_normal(np.asarray(mean), np.asarray(covariance))
+        draw = flux_draws[i]
         curves.append(np.asarray(magnification) * draw[0] + draw[1])
-        flux_draws.append(draw)
     curves = np.stack(curves)
     np.savez_compressed(
         output / "curves.npz",
         times=np.asarray(grid),
         model_flux=curves,
         injected_flux=np.asarray(injected),
-        flux_draws=np.stack(flux_draws),
+        flux_draws=flux_draws,
         sample_indices=indices,
     )
 

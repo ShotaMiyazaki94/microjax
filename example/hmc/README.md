@@ -36,10 +36,12 @@ The script saves data, samples, diagnostics, model curves, and two figures:
 
 - `lightcurve.png`: data and densely evaluated model curves, with both data
   and posterior residuals measured relative to the injection.
-- `corner.png`: the seven event parameters and their correlations, with
-  logarithmic source radius.
+- `corner.png`: the seven event parameters plus source and blend fluxes,
+  with logarithmic source radius.
 
-The model interval includes conditional source/blend flux uncertainty.
+For each of the 1,000 event samples, source and blend fluxes are drawn jointly
+from their conditional Gaussian posterior. The corner plot includes all nine
+variables; the model interval uses 64 of the same joint samples.
 The tutorial shows this 360-point, 3%-noise run: NUTS took 190 seconds
 including compilation and warm-up, with no divergences and effective sample
 sizes of 308–687.

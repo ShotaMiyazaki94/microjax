@@ -21,8 +21,10 @@ LABELS = (
     r"$s$",
     r"$\alpha$ [deg]",
     r"$\log_{10}\rho$",
+    r"$F_s$",
+    r"$F_b$",
 )
-DISPLAY_SCALE = np.array([1, 1, 1, 1e3, 1, 180 / np.pi, 1])
+DISPLAY_SCALE = np.array([1, 1, 1, 1e3, 1, 180 / np.pi, 1, 1, 1])
 BLUE, ORANGE = "#31688e", "#b45f2a"
 DIVERGENCE = "#9b3d61"
 OUTPUT = Path(__file__).resolve().parents[2] / "results" / "hmc" / "binary"
@@ -31,7 +33,7 @@ OUTPUT = Path(__file__).resolve().parents[2] / "results" / "hmc" / "binary"
 def plot_results():
     output = OUTPUT
     config = json.loads((output / "run.json").read_text())
-    names = config["parameter_names"][:7]
+    names = config["parameter_names"]
     with np.load(output / "data.npz") as saved:
         times, flux, error, injected_data = (saved[key] for key in ("times", "flux", "error", "injected_flux"))
     with np.load(output / "samples.npz") as saved:
@@ -39,6 +41,7 @@ def plot_results():
     with np.load(output / "curves.npz") as saved:
         model_times, injected = saved["times"], saved["injected_flux"]
         lower, median, upper = np.quantile(saved["model_flux"], [0.16, 0.5, 0.84], axis=0)
+        flux_draws = saved["flux_draws"]
     residual = (flux - injected_data) / error
     model_error = config["relative_noise"] * injected
     residual_lower, residual_median, residual_upper = (
@@ -89,10 +92,11 @@ def plot_results():
     fig.savefig(output / "lightcurve.png", dpi=190)
     plt.close(fig)
 
-    draws = np.column_stack([samples[name].ravel() for name in names]) * DISPLAY_SCALE
-    truth = np.asarray(config["truth"][:7]) * DISPLAY_SCALE
-    draws[:, -1] = np.log10(draws[:, -1])
-    truth[-1] = np.log10(truth[-1])
+    event_draws = np.column_stack([samples[name].ravel() for name in names])
+    draws = np.column_stack((event_draws, flux_draws)) * DISPLAY_SCALE
+    truth = np.concatenate((config["truth"], config["flux_truth"])) * DISPLAY_SCALE
+    draws[:, 6] = np.log10(draws[:, 6])
+    truth[6] = np.log10(truth[6])
     low = np.minimum(draws.min(axis=0), truth)
     high = np.maximum(draws.max(axis=0), truth)
     padding = 0.05 * (high - low)
@@ -114,7 +118,7 @@ def plot_results():
         label_kwargs={"fontsize": 11},
         data_kwargs={"ms": 1, "alpha": 0.15},
         contour_kwargs={"linewidths": 0.9},
-        fig=plt.figure(figsize=(10, 10)),
+        fig=plt.figure(figsize=(12.5, 12.5)),
     )
     for ax in fig.axes:
         ax.tick_params(labelsize=8)
