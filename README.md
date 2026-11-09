@@ -16,8 +16,8 @@ python -m pip install "microjaxx @ git+https://github.com/ShotaMiyazaki94/microj
 ```
 
 The pip package is named `microjaxx`; the Python module is `microjax`.
-The [installation guide](docs_src/getting_started.rst) also covers source
-checkouts and GPU setup.
+The [installation guide](docs_src/getting_started.rst) also covers installing
+from source and setting up a GPU.
 
 This example describes a source passing a binary lens with mass ratio
 `q=0.001` and separation `s=1` Einstein radius:
@@ -64,7 +64,7 @@ The guides in [docs_src/](docs_src/index.rst) describe this branch, including
 [API reference](docs_src/modules.rst).
 The [published website](https://shotamiyazaki94.github.io/microjax/) follows `develop`.
 
-To preview the documentation from a source checkout:
+To preview the documentation from a local copy of the repository:
 
 ```bash
 python -m pip install -e '.[dev]'

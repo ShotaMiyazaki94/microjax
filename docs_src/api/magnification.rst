@@ -1,7 +1,7 @@
 Finite-source magnification
 ===========================
 
-Choose an integrator when creating a light-curve function, then call
+Choose CPU or GPU when creating a light-curve function, then call
 ``lightcurve(parameters, times, u1=...)``. See :doc:`../usage` for
 a worked binary event and :doc:`../autodiff` for parameter derivatives.
 The position-based functions below support custom source trajectories.
@@ -23,13 +23,14 @@ Event light curves
    * - ``t0``
      - Time of closest approach to the centre of mass of lenses 1 and 2.
    * - ``tE``
-     - Einstein crossing time, in the same units as ``times`` and ``t0``.
+     - Time to move one Einstein radius, in the same units as ``times`` and ``t0``.
    * - ``u0``
-     - Signed impact parameter in Einstein-radius units.
+     - Signed closest separation from the binary centre of mass, in Einstein radii.
    * - ``alpha``
      - Trajectory angle from the binary axis, in radians.
 
-The static binary model uses seven parameters in the order
+The static models keep the lens positions fixed and use a straight-line
+source trajectory. The binary model uses seven parameters in the order
 ``[t0, tE, u0, q, s, alpha, rho]``. The static triple model appends
 ``[q3, r3, psi]``, giving ten parameters. Values are in physical units, with
 angles in radians. Pass ``u1`` separately; it is not part of the array.
@@ -53,10 +54,11 @@ elsewhere, use the position-based functions. For example:
    mag = mj.make_mag_binary(backend="cpu")
    A = mag(w, rho=0.005, s=1.0, q=0.001, u1=0.5)
 
-Here ``w`` is a one-dimensional complex array. The result has one
-magnification per position. The module-level ``mj.mag_binary`` and
-``mj.mag_triple`` use the CPU integrator. The factories select either
-backend once, with the same physical arguments and array output.
+Here ``w`` is a one-dimensional complex array of positions ``x + 1j*y``.
+The result has one magnification per position. The module-level ``mj.mag_binary`` and
+``mj.mag_triple`` use the CPU integrator. Use ``make_mag_binary`` or
+``make_mag_triple`` to choose CPU or GPU; the returned function takes the
+same physical arguments and returns the same kind of array.
 
 .. autofunction:: microjax.mag_binary
 
@@ -142,8 +144,8 @@ The CPU integrator uses internal settings and does not accept ``config``.
    * - ``radial_chunk_size``
      - Number of radial image regions evaluated together within each position.
 
-The two batch sizes trade memory for throughput; increasing them does not
-increase accuracy. Changing a configuration triggers a new JAX compilation.
+The two batch sizes affect speed and memory use, but do not change accuracy.
+Changing a configuration triggers a new JAX compilation.
 
 .. autoclass:: microjax.BinaryMagConfig
    :no-members:
@@ -161,8 +163,8 @@ have one entry per observation time or source position.
 .. autoclass:: microjax.CpuMagnificationResult
    :members: magnification, status
 
-A zero status means no structural problem was detected. Nonzero flags
-indicate problems with image roots, geometry, integration capacity, or
-non-finite arithmetic. The calculated magnification is retained; the
-status is a diagnostic flag, not a flux-error estimate. The GPU
+A zero status means no calculation problem was detected. Nonzero flags
+indicate difficulty locating or integrating the images, an integration
+limit being reached, or a non-finite result. The calculated magnification
+is retained. The status does not estimate the magnification error. The GPU
 implementation returns ``NaN`` for detected calculation failures.

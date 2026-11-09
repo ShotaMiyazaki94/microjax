@@ -36,26 +36,30 @@ described below. The largest difference is :math:`6.19\times10^{-4}`.
    :target: _static/cpu_overview.png
 
    **a:** cumulative relative error; **b:** cumulative runtime ratio.
+   The height of each curve is the fraction of measurements below the
+   value on the horizontal axis.
    Colours progress from purple to orange as the selected parameter
    increases; the legend lists the ranges. The black dashed curve shows
    all sources. Grey dashed lines mark :math:`10^{-4}` error and equal
    runtime. The black points mark the overall 99th-percentile error and
-   median speed ratio, with 68.27% and 95% bootstrap intervals.
+   median speed ratio, with 68.27% and 95% uncertainty intervals estimated
+   by resampling the measurements (bootstrap intervals).
 
-The median paired speed ratio is **1.20**, with a 95% interval of
+The median speed ratio is **1.20**, with a 95% interval of
 [1.17, 1.22]. The ratio is :math:`t_{\rm VBM}/t_{\rm microJAX}`: values above
-one favour microJAX, and values below one favour VBM. It is calculated for
-each source before taking the median.
+one favour microJAX, and values below one favour VBM. Each ratio compares
+the two codes at the same source position; the median is taken over those ratios.
 
 What was compared
 -----------------
 
 Each measurement evaluates the magnification of **one finite source** on
-the same CPU. microJAX uses its full CPU integrator, bypassing the multipole
-shortcut in the public light-curve API. VBM uses ``BinaryMag2`` with its own
-normal method selection. The figures therefore measure this single-source
-workload; complete light curves also depend on batching and the frequency
-of full finite-source calculations.
+the same CPU. microJAX integrates over the lensed images at every position.
+The public light-curve functions can also use a faster approximation away
+from caustics (the multipole expansion), which is disabled here. VBM uses
+``BinaryMag2``, which chooses its calculation method internally. For a
+complete light curve, speed also depends on how often the approximation
+can be used and how many positions are calculated together.
 
 The VBM call used for the timing comparison is:
 
@@ -80,11 +84,12 @@ The VBM call used for the timing comparison is:
    * - VBM accuracy controls
      - Absolute ``Tol=1e-4`` and relative ``RelTol=1e-4``.
    * - microJAX integration
-     - 112 boundary samples; adaptive two-moment integration with an internal
-       relative indicator of ``1e-4`` and a limit of 84 rays per support cell.
+     - 112 samples around the source boundary; adaptive integration of the
+       uniform and limb-darkened brightness terms, with an internal relative
+       stopping threshold of ``1e-4`` and up to 84 rays per integration region.
    * - Timing
-     - Median of three calls per source after warm-up. JAX results are
-       synchronized before stopping the timer.
+     - Median of three calls per source after compilation and an untimed call.
+       Each JAX result is complete before the timer stops.
    * - Excluded from timing
      - Compilation, warm-up, worker startup, and communication between processes.
    * - Software and device
@@ -124,13 +129,13 @@ magnification bins. Of these positions, 81 have no usable reference;
    **a–c:** median runtime ratio, VBM/microJAX.
    **d–f:** 99th-percentile relative error. Each cell shows its estimate;
    numbers in **d–f** are in units of :math:`10^{-5}`. Grey cells have too few
-   measured configurations or no sources in the saved reference frame.
+   measured configurations or no reference sources in that range.
    The error colour scale runs from :math:`5\times10^{-5}` to
    :math:`2\times10^{-4}`, with :math:`10^{-4}` at its centre.
 
 The columns group the same measurements by :math:`(q,\rho)`,
 :math:`(A_{\rm ref},\rho)`, and :math:`(A_{\rm ref},q)`; separation ``s``
-is pooled within each cell. Estimates need at least 15 configurations,
+varies within each cell. Estimates need at least 15 configurations,
 and error percentiles need at least 50 positions.
 
 Uncertainty is shown in the
@@ -152,14 +157,15 @@ Running a comparison
 --------------------
 
 For a quick check on your own machine, run the bundled binary and triple
-cases from a source checkout:
+cases from a local copy of the repository:
 
 .. code-block:: sh
 
    python tools/cpu_benchmark.py --output results/cpu-benchmark.json
 
-This checks magnification against saved references and measures warm
-runtimes for magnification and forward Jacobians. Use ``--lens binary`` or
+This checks magnification against saved references and measures runtime
+after compilation for magnifications and their parameter derivatives
+(Jacobians). Use ``--lens binary`` or
 ``--lens triple`` to run one model. The cases include central and third-body
 caustics, comparable masses, and small mass ratios; their inputs and reference
 methods are recorded in
@@ -177,8 +183,9 @@ JSON report contains the settings, accuracy, and timings for your own run.
 Recreating the maps
 ~~~~~~~~~~~~~~~~~~~
 
-The regional benchmark needs a dense reference CSV and its same-stem JSON
-metadata, which are not bundled with the package. If you have those inputs:
+The regional benchmark needs a dense reference CSV and a JSON settings file
+with the same base name (for example, ``xdense_cpu.csv`` and ``xdense_cpu.json``).
+These are not bundled with the package. If you have those inputs:
 
 .. code-block:: sh
 

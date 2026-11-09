@@ -19,8 +19,8 @@ linear limb-darkened sources (`u1=0.5`). Use `--quick` for a 24-point run,
 ## Measurements
 
 The generated JSON report records the event parameters, software versions,
-reference settings, relative magnification errors, and synchronized warm
-timings. Compilation is excluded from the timed repetitions. Use `--repeats`
+reference settings, relative magnification errors, and runtimes after
+compilation. Each result is complete before the timer stops. Use `--repeats`
 and `--accuracy` to change the measurement settings.
 
 ## Outputs

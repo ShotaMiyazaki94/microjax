@@ -15,9 +15,10 @@ Use `--s`, `--q`, `--rho`, `--u1`, and `--points` to change the event.
 
 ## Measurements
 
-The generated JSON report records the parameters, reference tolerances, warm timings, and relative magnification
-errors for each profile. JAX compilation is excluded from the median of three
-synchronized calls; change the count with `--repeats`.
+The generated JSON report records the parameters, reference tolerances,
+runtimes after compilation, and relative magnification errors for each profile.
+Times are the median of three calls, waiting for each result to finish;
+change the count with `--repeats`.
 
 VBMicrolensing uses `Tol=RelTol=1e-4` for timing and `1e-6` for residuals.
 The report also compares those two reference resolutions.

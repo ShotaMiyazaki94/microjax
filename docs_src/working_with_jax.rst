@@ -16,7 +16,7 @@ Enable double precision before creating arrays:
    import jax
    jax.config.update("jax_enable_x64", True)
 
-Use ``jax.numpy`` inside your model so JAX can trace its calculations.
+Use ``jax.numpy`` inside your model so JAX can compile and differentiate it.
 Ordinary NumPy is fine for loading data or plotting results outside the model.
 If you are new to JAX, its
 `introduction to automatic differentiation <https://docs.jax.dev/en/latest/automatic-differentiation.html>`_
@@ -31,7 +31,7 @@ Create a compiled function once and reuse it. For example, using
    A = model(parameters, times, u1=0.5)
 
 The first call compiles the function. Changing parameter or time values
-reuses the compiled model when the array shapes and dtypes stay the same.
+reuses the compiled model when the array shapes and numeric types stay the same.
 Changing the number of observation times triggers a new compilation.
 
 JAX may return before the calculation has finished. When measuring runtime,
@@ -62,8 +62,9 @@ the default; both accept the same event parameters and observation times:
    cpu_lightcurve = mj.make_binary_lightcurve(backend="cpu")
    gpu_lightcurve = mj.make_binary_lightcurve(backend="gpu")
 
-CPU integration uses its internal adaptive settings. To tune GPU batching,
-pass a configuration when you create the function:
+The CPU calculation refines its integration where needed, using built-in
+settings. On the GPU, you can choose how many source positions are evaluated
+together. For example:
 
 .. code-block:: python
 
@@ -81,22 +82,23 @@ GPU, you can force a CPU example to run on the CPU with:
 
 To use a GPU, install GPU-enabled JAX and select the GPU backend.
 The :doc:`examples/index` includes ready-to-run GPU scripts. Start with the
-default settings; if memory or throughput becomes an issue, adjust the
+default settings; to reduce memory use or improve speed, adjust the
 :ref:`GPU batch sizes <gpu-configuration>` or split the
 observation times into fixed-size batches.
 
 Numerical accuracy
 ------------------
 
-Both implementations use a multipole approximation away from caustics and
-integrate the lensed images where a full finite-source calculation is
-needed. The :doc:`benchmark maps <benchmarks>` show how measured accuracy
-and speed vary with lens parameters and magnification.
+Both implementations use a fast approximation away from caustics
+(the :doc:`multipole expansion <api/multipole>`). Where this is insufficient,
+they integrate the brightness over the images formed by the lens.
+The :doc:`benchmark maps <benchmarks>` show how measured accuracy and speed
+vary with lens parameters and magnification.
 
 Near a caustic, derivatives can be more sensitive to numerical resolution
 than magnifications. For a fit dominated by a caustic crossing, compare a
 few model values and derivatives with an independent calculation at your
-event's parameters. The solver uses fixed work limits, rather than a
-requested relative-error tolerance. CPU status flags and GPU
+event's parameters. The calculation has built-in limits on integration
+resolution; it does not accept a target relative error. CPU status flags and GPU
 resolution settings are described in the
 :doc:`finite-source reference <api/magnification>`.

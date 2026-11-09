@@ -4,8 +4,8 @@ microJAX
 microJAX is a Python package for modeling gravitational microlensing by
 binary and triple lenses. It calculates how a star's brightness changes as
 it passes behind a lens system, including the effects of the star's size
-and limb darkening. The lenses can describe a star with planetary companions
-or a system of stars.
+and limb darkening (the dimmer appearance of its edge). The lenses can
+describe a star with planetary companions or a system of stars.
 
 The package is built with JAX, so you can also calculate how a light curve
 changes with each model parameter. These derivatives are useful when fitting

@@ -6,10 +6,10 @@ in one figure. They are useful starting points for exploring an event of
 your own. The CPU and GPU versions use the same parameters and observation
 times, with linear limb darkening fixed at ``u1=0.5``.
 
-To fit simulated photometry and compare the posterior with known parameters,
+To fit simulated photometry and compare the inferred parameters with known values,
 see :doc:`../inference`.
 
-Run the commands below from a :doc:`source checkout <../getting_started>`
+Run the commands below from a :doc:`local copy of the repository <../getting_started>`
 with Matplotlib installed. The CPU examples share one
 :download:`script <../../example/cpu/lightcurve.py>`; edit ``params`` and
 ``times`` in its ``main()`` function to change the event.
@@ -33,6 +33,9 @@ responds to ``t0, tE, u0, q, s, alpha, rho``.
 
    The inset shows the source trajectory in blue, caustics in red, and
    critical curves in green. Black crosses mark the lens positions.
+
+Critical curves mark image positions where the point-source magnification
+diverges; mapping them back to source positions gives the caustics.
 
 The derivatives are largest around the short feature before the peak.
 They also have different shapes: changing the event time shifts the feature,
@@ -75,7 +78,7 @@ this origin and the binary midpoint.
    :alt: Triple magnification with lens geometry and ten parameter derivatives
    :width: 100%
 
-   A triple-lens event and its forward Jacobian, calculated on the CPU.
+   A triple-lens event and its ten parameter derivatives, calculated on the CPU.
 
 Running on a GPU
 ----------------

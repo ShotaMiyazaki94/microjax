@@ -3,15 +3,16 @@ A binary light curve
 
 Let's calculate a microlensing event produced by a star and a low-mass
 companion. We will choose its event parameters, evaluate the magnification
-at a set of observation times, and plot the result. The same steps apply to
-a stellar binary; only the lens parameters change.
+at a set of observation times, and plot the result. Magnification is the
+source's brightness divided by its brightness without lensing. The same
+steps apply to a stellar binary; only the lens parameters change.
 
 Setting up the event
 --------------------
 
 We use ``jax.numpy`` for arrays and Matplotlib for the plot. Enable double
-precision at the start: resolving the small images near a caustic needs more
-precision than JAX's default 32-bit arithmetic.
+precision at the start: the lens calculations need more precision than
+JAX's default 32-bit arithmetic.
 
 .. code-block:: python
 
@@ -22,7 +23,7 @@ precision than JAX's default 32-bit arithmetic.
    import matplotlib.pyplot as plt
    import microjax as mj
 
-Choose the CPU integrator once. The resulting function takes event
+Create a function for CPU calculations. It takes event
 parameters and observation times, and returns the magnification:
 
 .. code-block:: python
@@ -30,10 +31,13 @@ parameters and observation times, and returns the magnification:
    times = jnp.linspace(-5.0, 10.0, 500)
    lightcurve = mj.make_binary_lightcurve(backend="cpu")
 
-The source follows a straight line. Its time of closest approach is ``t0``,
-its Einstein crossing time is ``tE``, and its impact parameter is ``u0``.
-The trajectory angle ``alpha`` is measured from the binary axis in radians.
-Here, all times are in days:
+Distances on the sky are measured in Einstein radii, the angular scale set
+by the total lens mass and the distances to the lens and source. The source
+follows a straight line. Its time of closest approach to the binary's centre
+of mass is ``t0``; ``u0`` is that closest separation in Einstein radii.
+``tE`` is the time it takes to move one Einstein radius. The trajectory
+angle ``alpha`` is measured from the binary axis in radians. Here, all
+times are in days:
 
 .. code-block:: python
 
@@ -43,13 +47,12 @@ Here, all times are in days:
    ])
 
 The companion has mass ratio ``q=0.001`` relative to the primary and
-separation ``s=1`` Einstein radius. The source has radius ``rho=0.005`` and
-a linear limb-darkening coefficient ``u1=0.5``, so its edge is darker than
-its centre. Setting ``u1=0`` gives a uniform disk.
+separation ``s=1`` Einstein radius. The source radius is also in Einstein
+radii: ``rho=0.005``. Its linear limb-darkening coefficient is ``u1=0.5``,
+so its edge is darker than its centre. Setting ``u1=0`` gives a uniform disk.
 
 The trajectory passes 0.1 Einstein radii from the binary's centre of mass
-at day zero. This defines the geometry, rather than the time of peak
-magnification, which also depends on the lens.
+at day zero. The light-curve peak need not occur at this time.
 
 Calculating the magnification
 -----------------------------
@@ -86,12 +89,15 @@ of the parameter array, to see how it changes:
 
    A_larger_source = lightcurve(parameters.at[6].set(0.01), times, u1=0.5)
 
+``parameters.at[6].set(0.01)`` makes a copy with the new radius; the original
+parameter array is unchanged.
+
 Magnification to observed flux
 ------------------------------
 
 microJAX returns the magnification. To compare it with photometry, combine
-it with the source flux :math:`F_s` and any constant blended light
-:math:`F_b`:
+it with the unlensed source flux :math:`F_s` and the constant flux
+:math:`F_b` from other stars in the same measurement (blended light):
 
 .. math::
 

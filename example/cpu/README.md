@@ -1,7 +1,8 @@
 # CPU light curves and Jacobians
 
 These examples show how the lens geometry produces a light curve, and how
-that curve responds to each event parameter. Run them from the repository
+that curve responds to each event parameter. The array of these derivatives
+is the Jacobian. Run the examples from the repository
 root after installing microJAX and Matplotlib:
 
 ```bash
@@ -12,7 +13,7 @@ python example/cpu/lightcurve.py --lens triple
 Install with `python -m pip install -e . matplotlib`.
 [`lightcurve.py`](lightcurve.py) creates a `make_binary_lightcurve` or
 `make_triple_lightcurve` function with `backend="cpu"`, then passes an event
-parameter array and observation times. It uses the CPU device and float64,
+parameter array and observation times. It uses the CPU device and double precision,
 and computes magnification and all parameter derivatives in one `jax.jacfwd` call.
 Linear limb darkening is fixed at `u1=0.5`.
 

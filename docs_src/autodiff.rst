@@ -35,9 +35,9 @@ limb-darkening coefficient separately as ``u1=0.5``.
 Calculating the Jacobian
 ------------------------
 
-``jax.jacfwd`` constructs a function that evaluates the Jacobian. Each row
-corresponds to an observation time; the seven columns follow the parameter
-order above.
+The Jacobian is a table of derivatives: each row corresponds to an
+observation time, and the seven columns follow the parameter order above.
+``jax.jacfwd`` creates a function that calculates this table.
 ``argnums=0`` selects the parameter argument for differentiation.
 Wrapping the result in ``jax.jit`` compiles it for repeated use:
 
@@ -52,9 +52,11 @@ Wrapping the result in ``jax.jit`` compiles it for repeated use:
    (500, 7)
 
 The first call includes compilation. Subsequent calls with the same array
-shapes and dtypes reuse it. This forward-mode calculation works for both CPU
-and GPU models; use ``jacfwd`` for the CPU integrator, whose adaptive loops
-do not support reverse-mode ``grad`` or ``jacrev``.
+shapes and numeric types reuse it. ``jacfwd`` uses forward-mode automatic
+differentiation, which follows how changes in each input affect the outputs.
+It works for both CPU and GPU models. The CPU calculation uses adaptive
+loops, so use ``jacfwd``; JAX's reverse-mode alternatives, ``grad`` and
+``jacrev``, cannot differentiate those loops.
 
 Looking at one derivative
 -------------------------
@@ -93,8 +95,10 @@ quantities a least-squares fit uses to update the event parameters.
 Values and derivatives in one call
 ----------------------------------
 
-A fit usually needs both the light curve and its Jacobian. Return the curve
-as auxiliary data to get them from the same calculation:
+A fit usually needs both the light curve and its Jacobian. With
+``has_aux=True``, ``jacfwd`` differentiates the first return value and passes
+the second through unchanged. Returning the curve twice gives us both
+results from the same calculation:
 
 .. code-block:: python
 
@@ -106,6 +110,6 @@ as auxiliary data to get them from the same calculation:
    jacobian, A = value_and_jacobian(parameters, times)
 
 For a triple lens, the same pattern applies with three additional parameters
-and ``make_triple_lightcurve``. The :doc:`examples/index` keeps ``u1`` fixed
-and plots the seven binary and ten triple event derivatives, with complete
+and ``make_triple_lightcurve``. The :doc:`examples/index` keep ``u1`` fixed
+and plot the seven binary and ten triple event derivatives, with complete
 scripts for both CPU and GPU.
