@@ -18,7 +18,7 @@ From a :doc:`source checkout <getting_started>`:
 
 The script first fits from a rough initial solution and rescales the sampling
 coordinates using the local covariance. It then runs **one chain with
-150 warm-up steps and 1,000 retained draws in total**. Each model evaluation
+500 warm-up steps and 1,000 retained draws in total**. Each model evaluation
 distributes observation times across six CPU devices with JAX ``pmap``;
 the worker count does not multiply the number of draws. This follows the
 time-parallel calculation in the

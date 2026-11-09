@@ -24,7 +24,7 @@ from scipy.special import expit, logit
 NAMES = ("t0", "tE", "u0", "q", "s", "alpha", "rho")
 LOG_INDICES = np.array([1, 3, 4, 6])
 CPU_WORKERS = 6
-NUM_WARMUP = 150
+NUM_WARMUP = 500
 # Total retained draws: one chain, with time-parallel model evaluations.
 NUM_SAMPLES = 1000
 SAMPLER_SEED = 42

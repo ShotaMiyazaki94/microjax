@@ -13,7 +13,7 @@ python example/hmc/injection_recovery.py
 
 The data contain 180 uniformly spaced times from day −30 to day 30.
 The script fits from a rough initial solution, whitens the sampling coordinates
-using its covariance, then runs **one chain with 150 warm-up steps and
+using its covariance, then runs **one chain with 500 warm-up steps and
 1,000 retained draws in total**. Warm-up adjusts the mass matrix and step size.
 Six CPU devices share the observation times in each model evaluation.
 
