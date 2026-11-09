@@ -79,5 +79,4 @@ If you use microJAX, please cite Miyazaki & Kawahara (2025), ApJ, 994, 144
 See the [citation guide](docs_src/citing.rst) for BibTeX and version information.
 
 microJAX is released under the [MIT License](LICENSE).
-[Third-party attribution](third_party/README.md) covers code adapted from
-`caustics`.
+Code adapted from `caustics` retains its [MIT notice](LICENSES/caustics-MIT.txt).
