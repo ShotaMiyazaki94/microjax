@@ -20,9 +20,9 @@ Six CPU devices share the observation times in each model evaluation.
 
 `TRUTH` and `FLUX_TRUTH` define the injection; `INITIAL` starts the local fit.
 The event priors in `PRIOR_BOUNDS` use coarse ranges for this weeks-long event:
-`t0` from −10 to 10 days, `tE` from 1 to 100 days, `q` from 10⁻⁴ to 1,
-`s` from 0.5 to 2, and `rho` from 10⁻⁴ to 0.05. Both signs of `u0` and all
-trajectory angles are included. Source and blend
+`t0` from −1 to 1 day, `tE` from 1 to 100 days, `u0` from 0 to 1,
+`q` from 10⁻⁴ to 1, `s` from 0.5 to 2, and `rho` from 10⁻⁴ to 0.05.
+All trajectory angles are included. Source and blend
 fluxes each have a zero-mean Gaussian prior with standard deviation 10
 (`FLUX_PRIOR_SCALE`), without truncation. These priors are independent of the
 injection; their ranges, widths, and shapes still encode assumptions.

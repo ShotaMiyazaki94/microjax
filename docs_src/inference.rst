@@ -129,13 +129,13 @@ model.
      - Prior
    * - :math:`t_0`
      - 0 days
-     - Uniform(−10, 10) days
+     - Uniform(−1, 1) days
    * - :math:`t_E`
      - 10 days
      - LogUniform(1, 100) days
    * - :math:`u_0`
      - 0.1
-     - Uniform(−1, 1)
+     - Uniform(0, 1)
    * - :math:`q`
      - 0.001
      - LogUniform(10⁻⁴, 1)
@@ -156,12 +156,12 @@ model.
      - :math:`\mathcal{N}(0,10^2)`
 
 Uniform and LogUniform list bounds in physical units; LogUniform is uniform
-in the logarithm between those bounds. The time bounds reflect a peak within
-the central part of the observations and an event lasting weeks. The lens
+in the logarithm between those bounds. The time bounds assume the event epoch
+is known to about one day and the event lasts weeks. The lens
 bounds leave a wide range of mass ratios and source sizes around separations
 of order one Einstein radius. They are rounded choices for this example,
 not intervals fitted around the injected values or the local solution.
-Both signs of :math:`u_0` and the full range of :math:`\alpha` are included.
+We use nonnegative :math:`u_0` and the full range of :math:`\alpha`.
 Raising the lower bound on :math:`\rho` excludes small-source solutions
 allowed in the recorded run, so its posterior interval will depend on this
 choice when the data do not resolve the source size.
