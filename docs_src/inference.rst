@@ -10,19 +10,20 @@ Recorded run
 ------------
 
 The figures below use the run from 9 November 2026 at
-`4e9ffaa <https://github.com/ShotaMiyazaki94/microjax/commit/4e9ffaa>`_:
-500 warm-up steps and 1,000 retained draws. This run predates the revised
-prior bounds below and used ``max_tree_depth=8``; the linked commit preserves
-its settings. The new configuration has not yet been run.
-NUTS took **179 seconds**, including compilation and warm-up; the local fit
-took another 9.45 seconds. This used six CPU workers, float64, JAX 0.8.0,
+`8877b31 <https://github.com/ShotaMiyazaki94/microjax/commit/8877b31>`_:
+500 warm-up steps, 1,000 retained draws, and ``max_tree_depth=10``, with
+the prior bounds below and 1% flux errors.
+NUTS took **205 seconds**, including compilation and warm-up; the local fit
+took another 9.51 seconds. This used six CPU workers, float64, JAX 0.8.0,
 and NumPyro 0.19.0. Curve evaluation and plotting are outside those timings.
 
-The photometry is fitted closely, but **48 of the 1,000 retained transitions
-are divergent**. The posterior summaries here are provisional:
+The photometry is fitted closely, but **the chain is not yet well mixed**:
+35 of the 1,000 retained transitions are divergent, and effective sample
+sizes are only 3.9 for :math:`q`, 5.7 for :math:`s`, and 4.6 for
+:math:`\alpha`. The posterior summaries here are provisional:
 `divergences can bias HMC estimates <https://mc-stan.org/learn-stan/diagnostics-warnings.html#divergent-transitions-after-warmup>`_.
-No draw reached the tree-depth limit. Effective sample sizes are 81–614;
-the smallest are for :math:`s`, :math:`\rho`, and :math:`q`.
+No draw reached the tree-depth limit. Mean acceptance was 0.734, below
+the warm-up target of 0.9.
 
 .. figure:: _static/hmc_lightcurve.png
    :alt: Dense injected and posterior light curves with data, and residuals relative to the injection
@@ -52,27 +53,31 @@ the observations. Zero therefore represents the injection.
    injection. Magenta crosses mark retained states associated with divergent
    transitions; all draws remain in the plotted distributions.
 
-The :math:`q`–:math:`s` correlation is visible, and the source radius spans
-several orders of magnitude, so :math:`\rho` is shown logarithmically.
-With a 0.335-day cadence, the short caustic feature has only a few observations;
-the radius is weakly constrained. Of the 48 divergent transitions, 35 are
-associated with :math:`10^{-3}\leq\rho<10^{-2}`. Their cause has not been
-isolated from this run alone.
+The corner plot shows two clusters in :math:`q`, :math:`s`, and
+:math:`\alpha`. The first 500 draws have median :math:`q=9.67\times10^{-4}`;
+the last 500 have median :math:`q=1.40\times10^{-3}`. Mean acceptance falls
+from 0.928 to 0.540, and 31 of the 35 divergent transitions occur in the
+second half. This chain does not establish the relative weights of the
+two clusters reliably; the cause of the divergences remains unresolved.
+
+The source radius spans roughly two orders of magnitude, so :math:`\rho`
+is shown logarithmically. With a 0.335-day cadence, the short caustic feature
+has only a few observations and the radius remains weakly constrained.
 
 .. csv-table:: Posterior summaries from this run
    :header: "Parameter", "Injected", "Median", "Central 95% interval", "ESS"
    :widths: 18 14 18 36 14
 
-   ":math:`t_0` [day]", "0", "−0.0113", "[−0.0233, 0.0013]", "577"
-   ":math:`t_E` [day]", "10", "9.814", "[9.536, 10.069]", "614"
-   ":math:`u_0`", "0.1", "0.10191", "[0.09816, 0.10662]", "567"
-   ":math:`q`", "0.001", "9.57×10⁻⁴", "[6.23×10⁻⁴, 1.17×10⁻³]", "94"
-   ":math:`s`", "1", "0.99675", "[0.97914, 1.00657]", "81"
-   ":math:`\alpha` [deg]", "50", "51.04", "[49.59, 52.67]", "263"
-   ":math:`\rho`", "0.005", "3.46×10⁻⁴", "[1.27×10⁻⁵, 8.14×10⁻³]", "87"
+   ":math:`t_0` [day]", "0", "−0.00763", "[−0.02044, 0.00644]", "10"
+   ":math:`t_E` [day]", "10", "9.810", "[9.551, 10.102]", "424"
+   ":math:`u_0`", "0.1", "0.10267", "[0.09825, 0.10709]", "165"
+   ":math:`q`", "0.001", "1.10×10⁻³", "[7.61×10⁻⁴, 1.66×10⁻³]", "3.9"
+   ":math:`s`", "1", "1.00186", "[0.98575, 1.01792]", "5.7"
+   ":math:`\alpha` [deg]", "50", "51.78", "[49.73, 54.02]", "4.6"
+   ":math:`\rho`", "0.005", "1.15×10⁻³", "[1.16×10⁻⁴, 7.82×10⁻³]", "229"
 
 All seven injected values lie in the reported 95% intervals. This agreement
-for one noisy realization does not resolve the divergent transitions. ESS
+for one noisy realization does not resolve the poor mixing or divergences. ESS
 accounts for correlation between draws; with one chain there is no
 between-chain convergence comparison.
 
@@ -162,9 +167,8 @@ bounds leave a wide range of mass ratios and source sizes around separations
 of order one Einstein radius. They are rounded choices for this example,
 not intervals fitted around the injected values or the local solution.
 We use nonnegative :math:`u_0` and the full range of :math:`\alpha`.
-Raising the lower bound on :math:`\rho` excludes small-source solutions
-allowed in the recorded run, so its posterior interval will depend on this
-choice when the data do not resolve the source size.
+The lower tail of :math:`\rho` approaches its prior cutoff; its posterior
+interval depends on this choice when the data do not resolve the source size.
 
 The two flux priors are independent,
 untruncated Gaussians with mean zero and standard deviation 10 in the chosen

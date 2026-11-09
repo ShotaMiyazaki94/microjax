@@ -38,8 +38,8 @@ The script saves data, samples, diagnostics, model curves, and two figures:
   logarithmic source radius and marked divergent transitions.
 
 The model interval includes conditional source/blend flux uncertainty.
-The tutorial records the previous run, including its 48 divergent transitions;
-those figures use the earlier prior bounds and tree depth.
+The tutorial records the completed 1%-noise run, including its 35 divergent
+transitions and poor mixing in `q`, `s`, and `alpha`.
 To redraw the figures from saved arrays without sampling again:
 
 ```bash
