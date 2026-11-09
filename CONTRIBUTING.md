@@ -61,12 +61,9 @@ reader can follow: explain the model, show the code and figure, then help
 them interpret the result. Put parameter definitions and solver settings
 in the API reference. Documentation builds use saved figures.
 
-The Documentation workflow builds pull requests and publishes `develop` through
-GitHub Pages. For the initial migration, install the workflow on `develop` and
-confirm its build succeeds, then set **Settings → Pages → Source → GitHub Actions**.
-Deployment stays disabled while Pages still uses the old branch source.
-Generated HTML is uploaded as a Pages artifact instead of committed to Git.
-The legacy tracked HTML can be removed once that migration is complete.
+The Documentation workflow builds pull requests and publishes `develop`
+through GitHub Pages. It builds from `docs_src/` and uploads the generated
+site as a Pages artifact. The local preview in `docs/` is ignored by Git.
 
 For a longer experiment, use a standalone script or a manually launched
 batch. Save its configuration, numerical outputs, and log under `results/`;
