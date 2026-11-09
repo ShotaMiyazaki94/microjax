@@ -80,45 +80,42 @@ model.
      - LogUniform(10⁻⁵, 0.1)
    * - :math:`F_s`
      - 1.0
-     - Uniform(0, 10)
+     - :math:`\mathcal{N}(0,10^2)`
    * - :math:`F_b`
      - 0.2
-     - Uniform(−5, 5)
+     - :math:`\mathcal{N}(0,10^2)`
 
-Both arguments are bounds in physical units; LogUniform is uniform in the
-logarithm between those bounds. These broad priors are specified independently
-of the injection and initial guess. Finite bounds and the choice of uniform
-or log-uniform distributions still encode assumptions. In particular, the
-mass-ratio prior includes planetary and comparable-mass binaries.
+Uniform and LogUniform list bounds in physical units; LogUniform is uniform
+in the logarithm between those bounds. The two flux priors are independent,
+untruncated Gaussians with mean zero and standard deviation 10 in the chosen
+flux units. Their width is fixed independently of the injection and fit.
+These are broad priors; their ranges, widths, and shapes still encode assumptions.
 
 ``PRIOR_BOUNDS`` and ``LOG_INDICES`` define the seven event priors;
-``FLUX_BOUNDS`` defines the two flux priors. ``TRUTH`` and ``FLUX_TRUTH``
-are used only to generate data and compare the recovery. ``INITIAL`` starts
-the local fit and does not define a prior.
+``FLUX_PRIOR_SCALE`` sets the flux-prior standard deviation. ``TRUTH`` and
+``FLUX_TRUTH`` are used only for data generation and recovery comparisons.
+``INITIAL`` starts the local fit and does not define a prior.
 
 Marginalizing the fluxes
 ------------------------
 
-For each trial event, the likelihood integrates over :math:`F_s` and
-:math:`F_b` within their prior bounds. With Gaussian noise, these linear
-parameters have a conditional Gaussian likelihood. Its mean :math:`\hat\beta`
-is the weighted least-squares solution and its covariance is
-:math:`(M^\mathsf{T}WM)^{-1}`, where :math:`M=[A,1]` and
-:math:`W=\mathrm{diag}(\sigma^{-2})`. The marginal negative log-likelihood is
+For each trial event, let :math:`M=[A,1]` and
+:math:`V=\mathrm{diag}(\sigma^2)`. With
+:math:`\beta=(F_s,F_b)^\mathsf{T}\sim\mathcal{N}(0,\Lambda)` and
+:math:`\Lambda=10^2 I`, integrating over both fluxes gives
 
 .. math::
 
-   -\log p(f\mid\theta)
-   = \tfrac12\chi^2(\hat\beta)
-     + \tfrac12\log\det(M^\mathsf{T}WM)
-     - \log P_{\rm bounds} + \mathrm{constant}.
+   p(f\mid\theta) = \mathcal{N}\!\left(f;\,0,\,V+M\Lambda M^\mathsf{T}\right).
 
-:math:`P_{\rm bounds}` is the probability that this Gaussian lies inside
-the flux-prior rectangle. The script integrates the conditional blend flux
-analytically and evaluates the remaining boundary correction with a small
-one-dimensional quadrature. The determinant and boundary terms are included
-in the gradients. The priors stay Uniform(0, 10) for :math:`F_s` and
-Uniform(−5, 5) for :math:`F_b`.
+The script uses :func:`microjax.likelihood.nll_ulens` to evaluate this
+Gaussian marginal likelihood analytically through a two-by-two system,
+including its determinant term. No numerical integration is needed.
+
+For plotting, the conditional flux posterior is also Gaussian, with
+precision :math:`B=\Lambda^{-1}+M^\mathsf{T}V^{-1}M` and mean
+:math:`B^{-1}M^\mathsf{T}V^{-1}f`. Drawing from it includes source and blend
+flux uncertainty in the model-curve interval.
 
 The NumPyro model therefore samples only the seven event parameters:
 
@@ -162,8 +159,8 @@ The run saves two figures:
 * ``lightcurve.png`` shows the full event and a closer view of the peak,
   with residuals below. Blue is the median model flux and its central 68%
   interval from 64 posterior draws. For each event draw, source and blend
-  fluxes are drawn from their conditional Gaussian restricted to the prior
-  bounds, so the band includes their uncertainty. Orange is the injected
+  fluxes are drawn from their conditional Gaussian posterior, so the band
+  includes their uncertainty. Orange is the injected
   curve; data error bars show measurement noise.
 * ``corner.png`` shows the seven event parameters. The diagonal gives each
   marginal distribution; the lower triangle shows pairwise correlations.

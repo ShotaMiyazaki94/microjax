@@ -18,7 +18,6 @@ import numpyro.distributions as dist
 from numpyro.diagnostics import effective_sample_size
 from numpyro.distributions.transforms import LowerCholeskyAffine
 from numpyro.infer import MCMC, NUTS, init_to_value
-from jax.scipy.special import log_ndtr, logsumexp
 from scipy.optimize import minimize
 from scipy.special import expit, logit
 
@@ -48,9 +47,8 @@ PRIOR_BOUNDS = np.array(
         [1e-5, 0.1],  # rho
     ]
 )
-FLUX_BOUNDS = np.array([[0.0, 10.0], [-5.0, 5.0]])
-# One-dimensional quadrature for the finite flux-prior boundary correction.
-FLUX_NODES, FLUX_WEIGHTS = np.polynomial.legendre.leggauss(32)
+# Independent zero-mean Gaussian flux priors, in the chosen flux units.
+FLUX_PRIOR_SCALE = 10.0
 COORDINATE_BOUNDS = PRIOR_BOUNDS.copy()
 COORDINATE_BOUNDS[LOG_INDICES] = np.log(COORDINATE_BOUNDS[LOG_INDICES])
 U1 = 0.5
@@ -82,58 +80,19 @@ def make_parallel_magnification(lightcurve):
 
 
 def flux_terms(magnification, flux, error):
-    """Gaussian flux fit and marginal NLL correction for the uniform flux priors."""
-    weights = 1 / error**2
-    sumw = weights.sum()
-    mean_a = jnp.sum(weights * magnification) / sumw
-    mean_y = jnp.sum(weights * flux) / sumw
-    centered = magnification - mean_a
-    precision_s = jnp.sum(weights * centered**2)
-    fs = jnp.sum(weights * centered * (flux - mean_y)) / precision_s
-    mean = jnp.array([fs, mean_y - mean_a * fs])
-    sigma_s, sigma_b_given_s = 1 / jnp.sqrt(precision_s), 1 / jnp.sqrt(sumw)
-    covariance = jnp.array([[1, -mean_a], [-mean_a, mean_a**2]]) / precision_s
-    covariance = covariance.at[1, 1].add(1 / sumw)
-    residual = (magnification * mean[0] + mean[1] - flux) / error
+    """Analytic Gaussian marginal likelihood and conditional flux posterior."""
+    # Import after main configures the CPU devices.
+    from microjax.likelihood import nll_ulens
 
-    # Integrate the conditional Gaussian over the original rectangular bounds.
-    # Splits resolve both blend-flux edges even when the two fluxes correlate.
-    lower, upper = jnp.asarray(FLUX_BOUNDS).T
-    left, right = (jnp.array([lower[0], upper[0]]) - fs) / sigma_s
-    # Resolve the nearest Gaussian tail even when its mean is outside the prior.
-    center = jnp.clip(0.0, left, right)
-    radius = 40 / (1 + jnp.abs(center))
-    left, right = jnp.maximum(left, center - radius), jnp.minimum(right, center + radius)
-    slope = -mean_a * sigma_s
-    edges = (
-        (jnp.array([lower[1], upper[1]]) - mean[1])[:, None] + sigma_b_given_s * jnp.array([-8.0, 0.0, 8.0])
-    ) / slope
-    knots = jnp.sort(jnp.clip(jnp.concatenate((jnp.array([left, right, -8.0, 0.0, 8.0]), edges.ravel())), left, right))
-    halfwidth = 0.5 * jnp.diff(knots)
-    x = (0.5 * (knots[:-1] + knots[1:]))[:, None] + halfwidth[:, None] * FLUX_NODES
-    conditional_mean = mean[1] + slope * x
-    lo = (lower[1] - conditional_mean) / sigma_b_given_s
-    hi = (upper[1] - conditional_mean) / sigma_b_given_s
-    # Reflect positive tails before differencing Gaussian CDFs in log space.
-    lo, hi = jnp.where(lo + hi > 0, -hi, lo), jnp.where(lo + hi > 0, -lo, hi)
-    log_interval = log_ndtr(hi) + jnp.log(-jnp.expm1(log_ndtr(lo) - log_ndtr(hi)))
-    log_width = jnp.log(jnp.where(halfwidth > 0, halfwidth, 1.0))
-    log_integrand = -0.5 * x**2 - 0.5 * jnp.log(2 * jnp.pi) + log_interval
-    log_probability = logsumexp(
-        jnp.where(
-            halfwidth[:, None] > 0,
-            log_integrand + log_width[:, None] + jnp.log(FLUX_WEIGHTS),
-            -jnp.inf,
-        )
-    )
-    correction = (
-        0.5 * jnp.log(sumw * precision_s)
-        - log_probability
-        + jnp.log(upper - lower).sum()
-        + jnp.log(error).sum()
-        + 0.5 * (flux.size - 2) * jnp.log(2 * jnp.pi)
-    )
-    return residual, correction, mean, covariance
+    design = jnp.column_stack((magnification, jnp.ones_like(magnification)))
+    variance = FLUX_PRIOR_SCALE**2
+    precision = design.T @ (design / error[:, None] ** 2) + jnp.eye(2) / variance
+    covariance = jnp.linalg.inv(precision)
+    mean = covariance @ (design.T @ (flux / error**2))
+    residual = (design @ mean - flux) / error
+    # nll_ulens omits only the data-independent normalizing constant.
+    nll = nll_ulens(flux, design, error**2, variance, variance) + 0.5 * flux.size * jnp.log(2 * jnp.pi)
+    return residual, nll, mean, covariance
 
 
 def model(times, flux, error, *, forward_model, to_logit):
@@ -143,8 +102,8 @@ def model(times, flux, error, *, forward_model, to_logit):
     whitened = numpyro.sample("whitened", prior)
     parameters = physical_parameters(jax.nn.sigmoid(to_logit(whitened)))
     magnification = forward_model(parameters, times)
-    residual, correction, _, _ = flux_terms(magnification, flux, error)
-    numpyro.factor("flux", -0.5 * jnp.sum(residual**2) - correction)
+    _, nll, _, _ = flux_terms(magnification, flux, error)
+    numpyro.factor("flux", -nll)
 
 
 def initialize_hmc(initial, times, flux, error, *, forward_model, maxiter):
@@ -159,8 +118,8 @@ def initialize_hmc(initial, times, flux, error, *, forward_model, maxiter):
     def fit_terms(z):
         parameters = physical_parameters(jax.nn.sigmoid(z))
         magnification = forward_model(parameters, times)
-        residual, correction, _, _ = flux_terms(magnification, flux, error)
-        terms = jnp.concatenate((residual, jnp.atleast_1d(correction)))
+        residual, nll, _, _ = flux_terms(magnification, flux, error)
+        terms = jnp.concatenate((residual, jnp.atleast_1d(nll)))
         return terms, terms
 
     # has_aux shares the forward evaluation between residuals and their Jacobian.
@@ -168,11 +127,10 @@ def initialize_hmc(initial, times, flux, error, *, forward_model, maxiter):
 
     def objective(z):
         jacobian, terms = map(np.asarray, terms_jacobian(jnp.asarray(z)))
-        residual, correction = terms[:-1], terms[-1]
         # Fit in z = logit(unit). Include the transform's Jacobian:
         # -log p(z) = softplus(z) + softplus(-z), for a uniform physical/log prior.
-        value = 0.5 * (residual @ residual) + correction + np.sum(np.logaddexp(0, z) + np.logaddexp(0, -z))
-        gradient = jacobian[:-1].T @ residual + jacobian[-1] + 2 * expit(z) - 1
+        value = terms[-1] + np.sum(np.logaddexp(0, z) + np.logaddexp(0, -z))
+        gradient = jacobian[-1] + 2 * expit(z) - 1
         return float(value), gradient
 
     fit = minimize(objective, logit(unit), jac=True, method="L-BFGS-B", options={"maxiter": maxiter})
@@ -240,10 +198,10 @@ def main():
         "parameter_names": NAMES,
         "truth": TRUTH.tolist(),
         "flux_truth": FLUX_TRUTH.tolist(),
-        "flux_treatment": "marginalized_uniform",
+        "flux_treatment": "marginalized_gaussian",
         "flux_priors": {
-            name: {"distribution": "uniform", "bounds": bounds.tolist()}
-            for name, bounds in zip(("fs", "fb"), FLUX_BOUNDS)
+            name: {"distribution": "normal", "mean": 0.0, "standard_deviation": FLUX_PRIOR_SCALE}
+            for name in ("fs", "fb")
         },
         "observations": {"count": 180, "start_day": -30.0, "end_day": 30.0, "spacing": "uniform"},
         "initial_parameters": INITIAL.tolist(),
@@ -367,10 +325,7 @@ def main():
             _, _, mean, covariance = flux_terms(magnification, jnp.asarray(flux), jnp.asarray(error))
             mean, covariance = np.asarray(mean), np.asarray(covariance)
             # Conditional flux uncertainty belongs in the model-curve interval.
-            while True:
-                draw = rng.multivariate_normal(mean, covariance)
-                if np.all((draw >= FLUX_BOUNDS[:, 0]) & (draw <= FLUX_BOUNDS[:, 1])):
-                    break
+            draw = rng.multivariate_normal(mean, covariance)
             curves.append(np.asarray(magnification) * draw[0] + draw[1])
             flux_draws.append(draw)
         np.savez_compressed(output / "curves.npz", model_flux=np.stack(curves), flux_draws=np.stack(flux_draws))

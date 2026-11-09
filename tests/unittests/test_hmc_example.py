@@ -12,8 +12,6 @@ numpyro = pytest.importorskip("numpyro")
 import numpyro.distributions as dist
 from numpyro.distributions.transforms import LowerCholeskyAffine
 from numpyro.infer.util import potential_energy
-from scipy.integrate import quad
-from scipy.special import ndtr
 
 spec = spec_from_file_location(
     "hmc_example", Path(__file__).resolve().parents[2] / "example" / "hmc" / "injection_recovery.py"
@@ -35,8 +33,8 @@ def test_whitening_preserves_original_density_and_gradient(scale, offset):
     def original_model():
         unit = numpyro.sample("unit", dist.Uniform(0.0, 1.0).expand((n,)).to_event(1))
         magnification = forward_model(example.physical_parameters(unit), times)
-        residual, correction, _, _ = example.flux_terms(magnification, flux, error)
-        numpyro.factor("flux", -0.5 * jnp.sum(residual**2) - correction)
+        _, nll, _, _ = example.flux_terms(magnification, flux, error)
+        numpyro.factor("flux", -nll)
 
     # Unequal scales and correlations, with two unrelated choices of fit geometry.
     cholesky = scale * jnp.diag(jnp.geomspace(0.003, 0.5, n)) @ (jnp.eye(n) + 0.2 * jnp.tril(jnp.ones((n, n)), -1))
@@ -61,44 +59,30 @@ def test_whitening_preserves_original_density_and_gradient(scale, offset):
     )
 
 
-@pytest.mark.parametrize("fs, fb, amplitude", [(1.0, 0.2, 1.0), (0.015, 4.98, 1.0), (1.0, 0.2, 0.001)])
-def test_uniform_flux_marginal_matches_independent_integral(fs, fb, amplitude):
-    a = 1 + amplitude * np.array([0.0, 0.3, 1.0, 3.0, 5.0, 1.5])
-    error = np.array([0.1, 0.12, 0.18, 0.3, 0.4, 0.2])
-    flux = fs * a + fb
+@pytest.mark.parametrize("amplitude", [1.0, 0.001, 0.0])
+def test_gaussian_flux_marginal_matches_full_covariance(amplitude):
+    # Include constant magnification: the proper Gaussian prior keeps it finite.
+    a = 1 + amplitude * jnp.array([0.0, 0.3, 1.0, 3.0, 5.0, 1.5])
+    error = jnp.array([0.01, 0.012, 0.018, 0.03, 0.04, 0.02])
+    flux = 1.1 * a + 0.3 + error * jnp.array([0.4, -0.8, 0.3, 0.1, -0.5, 0.6])
+    variance = example.FLUX_PRIOR_SCALE**2
 
     def reference(scale):
-        design = np.column_stack((scale * a, np.ones(a.size)))
-        covariance = np.linalg.inv(design.T @ (design / error[:, None] ** 2))
-        mean = covariance @ design.T @ (flux / error**2)
-        sigma_s = np.sqrt(covariance[0, 0])
-        sigma_b_given_s = np.sqrt(covariance[1, 1] - covariance[0, 1] ** 2 / covariance[0, 0])
-        bounds = example.FLUX_BOUNDS
-
-        def integrand(x):
-            mu_b = mean[1] + covariance[0, 1] / sigma_s * x
-            lo, hi = (bounds[1] - mu_b) / sigma_b_given_s
-            return np.exp(-0.5 * x * x) / np.sqrt(2 * np.pi) * (ndtr(hi) - ndtr(lo))
-
-        left, right = np.clip((bounds[0] - mean[0]) / sigma_s, -38, 38)
-        edges = (bounds[1] - mean[1]) * sigma_s / covariance[0, 1]
-        points = np.unique(np.clip(np.r_[-12, -5, -2, 0, 2, 5, 12, edges], left, right))
-        probability = quad(integrand, left, right, points=points, epsabs=1e-11, epsrel=1e-11)[0]
-        residual = (design @ mean - flux) / error
-        return (
-            0.5 * residual @ residual
-            - 0.5 * np.linalg.slogdet(covariance)[1]
-            - np.log(probability)
-            + np.log(np.diff(bounds, axis=1)).sum()
-            + np.log(error).sum()
-            + 0.5 * (a.size - 2) * np.log(2 * np.pi)
-        )
+        design = jnp.column_stack((scale * a, jnp.ones_like(a)))
+        covariance = jnp.diag(error**2) + variance * design @ design.T
+        return -dist.MultivariateNormal(jnp.zeros_like(flux), covariance_matrix=covariance).log_prob(flux)
 
     def actual(scale):
-        residual, correction, _, _ = example.flux_terms(scale * jnp.asarray(a), jnp.asarray(flux), jnp.asarray(error))
-        return 0.5 * jnp.sum(residual**2) + correction
+        return example.flux_terms(scale * a, flux, error)[1]
 
-    np.testing.assert_allclose(actual(1.0), reference(1.0), atol=2e-8)
-    step = 1e-4
-    finite_difference = (reference(1.0 + step) - reference(1.0 - step)) / (2 * step)
-    np.testing.assert_allclose(jax.jacfwd(actual)(1.0), finite_difference, rtol=2e-5, atol=2e-5)
+    np.testing.assert_allclose(actual(1.0), reference(1.0), rtol=0, atol=2e-7)
+    np.testing.assert_allclose(jax.jacfwd(actual)(1.0), jax.jacfwd(reference)(1.0), rtol=2e-6, atol=2e-7)
+
+    # The curve draws must use the same prior-conditioned mean and covariance.
+    design = jnp.column_stack((a, jnp.ones_like(a)))
+    marginal_covariance = jnp.diag(error**2) + variance * design @ design.T
+    expected_mean = variance * design.T @ jnp.linalg.solve(marginal_covariance, flux)
+    expected_covariance = variance * jnp.eye(2) - variance**2 * design.T @ jnp.linalg.solve(marginal_covariance, design)
+    _, _, mean, covariance = example.flux_terms(a, flux, error)
+    np.testing.assert_allclose(mean, expected_mean, rtol=2e-6, atol=2e-7)
+    np.testing.assert_allclose(covariance, expected_covariance, rtol=2e-6, atol=2e-7)

@@ -2,7 +2,7 @@
 
 Generate mock photometry of a binary lens and infer its seven event parameters
 with NumPyro NUTS on CPU. Source and blend fluxes are marginalized over broad
-uniform priors.
+Gaussian priors, using analytic integration.
 
 From the repository root:
 
@@ -18,9 +18,10 @@ using its covariance, then runs **one chain with 150 warm-up steps and
 Six CPU devices share the observation times in each model evaluation.
 
 `TRUTH` and `FLUX_TRUTH` define the injection; `INITIAL` starts the local fit.
-The priors are specified separately in `PRIOR_BOUNDS` and `FLUX_BOUNDS`.
-They are broad uniform or log-uniform distributions, independent of the
-injection. Their bounds and distribution shapes still encode assumptions.
+The event priors are specified separately in `PRIOR_BOUNDS`. Source and blend
+fluxes each have a zero-mean Gaussian prior with standard deviation 10
+(`FLUX_PRIOR_SCALE`), without truncation. These priors are independent of the
+injection; their ranges, widths, and shapes still encode assumptions.
 The [tutorial](../../docs_src/inference.rst) explains these choices and the
 flux marginalization.
 
