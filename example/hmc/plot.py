@@ -8,10 +8,21 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
+import corner
 
 
-LABELS = (r"$t_0$ [day]", r"$t_E$ [day]", r"$u_0$", r"$q$", r"$s$", r"$\alpha$ [rad]", r"$\rho$", r"$F_s$", r"$F_b$")
+LABELS = (
+    r"$t_0$ [day]",
+    r"$t_E$ [day]",
+    r"$u_0$",
+    r"$10^3 q$",
+    r"$s$",
+    r"$\alpha$ [deg]",
+    r"$10^3\rho$",
+)
+DISPLAY_SCALE = np.array([1, 1, 1, 1e3, 1, 180 / np.pi, 1e3])
 BLUE, ORANGE = "#31688e", "#b45f2a"
 OUTPUT = Path(__file__).resolve().parents[2] / "results" / "hmc" / "binary"
 
@@ -19,10 +30,11 @@ OUTPUT = Path(__file__).resolve().parents[2] / "results" / "hmc" / "binary"
 def plot_results():
     output = OUTPUT
     config = json.loads((output / "run.json").read_text())
+    names = config["parameter_names"][:7]
     with np.load(output / "data.npz") as saved:
         times, flux, error, injected = (saved[key] for key in ("times", "flux", "error", "injected_flux"))
     with np.load(output / "samples.npz") as saved:
-        samples = {name: saved[name] for name in config["parameter_names"]}
+        samples = {name: saved[name] for name in names}
     with np.load(output / "curves.npz") as saved:
         lower, median, upper = np.quantile(saved["model_flux"], [0.16, 0.5, 0.84], axis=0)
 
@@ -36,40 +48,66 @@ def plot_results():
         }
     )
     fig, axes = plt.subplots(
-        2, 1, figsize=(8, 5), sharex=True, layout="constrained", gridspec_kw={"height_ratios": [3, 1]}
+        2,
+        2,
+        figsize=(9, 4.6),
+        sharex="col",
+        layout="constrained",
+        gridspec_kw={"height_ratios": [3, 1], "width_ratios": [1.3, 1]},
     )
-    axes[0].errorbar(times, flux, yerr=error, fmt=".", ms=3, color="0.55", elinewidth=0.6, label="Data")
-    axes[0].fill_between(times, lower, upper, color=BLUE, alpha=0.25, label="68% model interval")
-    axes[0].plot(times, median, color=BLUE, lw=1.2, label="Posterior median")
-    axes[0].plot(times, injected, color=ORANGE, lw=1, ls="--", label="Injected")
-    axes[0].set_ylabel("Flux")
-    axes[0].legend(fontsize=9)
-    axes[1].axhline(0, color="0.5", lw=0.8)
-    axes[1].plot(times, (flux - median) / error, ".", ms=3, color=BLUE)
-    axes[1].set(xlabel="Time [day]", ylabel=r"Residual / $\sigma$")
+    for column, (left, right) in enumerate(((times[0], times[-1]), (-5.0, 5.0))):
+        visible = (times >= left) & (times <= right)
+        x = times[visible]
+        ax = axes[0, column]
+        ax.errorbar(x, flux[visible], yerr=error[visible], fmt=".", ms=3, color="0.5", elinewidth=0.6, label="Data")
+        ax.fill_between(x, lower[visible], upper[visible], color=BLUE, alpha=0.25)
+        ax.plot(x, median[visible], color=BLUE, lw=1.3, label="Posterior")
+        ax.plot(x, injected[visible], color=ORANGE, lw=1, ls="--", label="Injected")
+        ax.set_xlim(left, right)
+        axes[1, column].axhline(0, color="0.5", lw=0.8)
+        axes[1, column].plot(x, ((flux - median) / error)[visible], ".", ms=3, color=BLUE)
+        axes[1, column].set(xlabel="Time [day]")
+    axes[0, 0].set_ylabel("Flux")
+    axes[0, 0].legend(fontsize=9)
+    axes[0, 1].set_title("Peak", fontsize=10)
+    axes[1, 0].set_ylabel(r"Residual / $\sigma$")
     fig.savefig(output / "lightcurve.png", dpi=190)
     plt.close(fig)
 
-    fig, axes = plt.subplots(3, 3, figsize=(9, 7), layout="constrained")
-    for ax, name, label, truth in zip(axes.flat, config["parameter_names"], LABELS, config["truth"]):
-        ax.hist(samples[name].ravel(), bins=35, density=True, color=BLUE, alpha=0.6)
-        ax.axvline(truth, color=ORANGE, lw=1.5, label="Injected")
-        ax.set_xlabel(label)
-        ax.set_yticks([])
-        ax.ticklabel_format(axis="x", style="sci", scilimits=(-2, 3), useOffset=False)
-    axes[0, 0].legend(fontsize=9)
-    fig.savefig(output / "recovery.png", dpi=190)
-    plt.close(fig)
-
-    fig, axes = plt.subplots(3, 3, figsize=(9, 7), layout="constrained")
-    for ax, name, label, truth in zip(axes.flat, config["parameter_names"], LABELS, config["truth"]):
-        ax.plot(samples[name][0], lw=0.6, color=BLUE)
-        ax.axhline(truth, color="0.35", lw=0.8, ls="--")
-        ax.set_ylabel(label)
-        ax.ticklabel_format(axis="y", style="sci", scilimits=(-2, 3), useOffset=False)
-    for ax in axes[-1]:
-        ax.set_xlabel("Retained draw")
-    fig.savefig(output / "traces.png", dpi=190)
+    draws = np.column_stack([samples[name].ravel() for name in names]) * DISPLAY_SCALE
+    truth = np.asarray(config["truth"][:7]) * DISPLAY_SCALE
+    low = np.minimum(draws.min(axis=0), truth)
+    high = np.maximum(draws.max(axis=0), truth)
+    padding = 0.05 * (high - low)
+    fig = corner.corner(
+        draws,
+        labels=LABELS,
+        truths=truth,
+        truth_color=ORANGE,
+        color=BLUE,
+        range=list(zip(low - padding, high + padding)),
+        bins=30,
+        smooth=0.7,
+        smooth1d=0.7,
+        levels=(0.68, 0.95),
+        fill_contours=True,
+        plot_density=False,
+        max_n_ticks=3,
+        labelpad=0.14,
+        label_kwargs={"fontsize": 11},
+        data_kwargs={"ms": 1, "alpha": 0.15},
+        contour_kwargs={"linewidths": 0.9},
+        fig=plt.figure(figsize=(10, 10)),
+    )
+    for ax in fig.axes:
+        ax.tick_params(labelsize=8)
+    fig.legend(
+        handles=[Line2D([], [], color=BLUE, label="Posterior"), Line2D([], [], color=ORANGE, label="Injected")],
+        loc="upper right",
+        bbox_to_anchor=(0.89, 0.91),
+        fontsize=12,
+    )
+    fig.savefig(output / "corner.png", dpi=190, bbox_inches="tight")
     plt.close(fig)
 
 

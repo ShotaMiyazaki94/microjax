@@ -1,51 +1,41 @@
 # HMC injection–recovery
 
-Generate mock photometry of a binary lens, then infer its seven event parameters
-and source/blend fluxes with NumPyro NUTS on CPU.
+Generate mock photometry of a binary lens and infer its seven event parameters
+with NumPyro NUTS on CPU. Source and blend fluxes are marginalized over broad
+uniform priors.
 
 From the repository root:
 
 ```bash
-python -m pip install -e . 'numpyro>=0.19' scipy matplotlib
+python -m pip install -e . 'numpyro>=0.19' scipy matplotlib corner
 python example/hmc/injection_recovery.py
 ```
 
-The script first fits the data from a rough initial solution and uses the
-local covariance to rescale the sampling coordinates. It then runs **one
-chain with 150 warm-up steps and 500 retained draws in total**.
-Each light-curve evaluation distributes
-the observation times across six CPU devices with JAX `pmap`. CPU workers
-do not multiply the number of samples. The settings are constants at the
-top of the script; there are no command-line options.
+The data contain 180 uniformly spaced times from day −30 to day 30.
+The script fits from a rough initial solution, whitens the sampling coordinates
+using its covariance, then runs **one chain with 150 warm-up steps and
+1,000 retained draws in total**. Warm-up adjusts the mass matrix and step size.
+Six CPU devices share the observation times in each model evaluation.
 
-Results go to `results/hmc/binary/` in the checkout. Each run replaces the
-contents of this directory. Compilation and the local fit happen before the
-sampling progress bar advances.
+`TRUTH` and `FLUX_TRUTH` define the injection; `INITIAL` starts the local fit.
+The priors are specified separately in `PRIOR_BOUNDS` and `FLUX_BOUNDS`.
+They are broad uniform or log-uniform distributions, independent of the
+injection. Their bounds and distribution shapes still encode assumptions.
+The [tutorial](../../docs_src/inference.rst) explains these choices and the
+flux marginalization.
 
-The script saves data, posterior samples, sampler diagnostics, model curves,
-and three figures. To redraw the figures without running JAX or sampling again:
+Results go to `results/hmc/binary/`; each run replaces that directory.
+The script saves data, samples, diagnostics, model curves, and two figures:
+
+- `lightcurve.png`: data, posterior model interval, injection, and residuals.
+- `corner.png`: the seven event parameters and their correlations.
+
+The model interval includes conditional source/blend flux uncertainty.
+To redraw the figures from saved arrays without sampling again:
 
 ```bash
 python example/hmc/plot.py
 ```
 
-After the run, share `run.json`, `summary.json`, `lightcurve.png`, `recovery.png`,
-and `traces.png`. The `.npz` files retain the arrays for further analysis.
-
-The [tutorial](../../docs_src/inference.rst) describes the priors and outputs.
-`TRUTH` defines the injected event; `INITIAL` is a rough solution used only
-to start optimization. Broad uniform and log-uniform priors are specified
-separately in `PRIOR_BOUNDS`. Neither the initial guess nor the fitted
-covariance narrows those priors. The chain explores the mode found by the
-local fit. Data and fitting use the same model.
-
-Warm-up adjusts both the mass matrix and step size in these whitened
-coordinates; both stay fixed for the retained draws. The full likelihood
-and broad priors are preserved, including the coordinate-transform Jacobian.
-`run.json` records the fit status and parameters. `initialization.npz` saves
-the fitted point, covariance Cholesky factor, and initial whitened position.
-`sampler.npz` saves the whitened draws, diagnostics, and final
-`inverse_mass_matrix` and `step_size`. `samples.npz` contains the physical parameters.
-
-This example is prepared for a user-run calculation; recovery results have
-not yet been generated or assessed.
+After the run, share `run.json`, `summary.json`, and the two PNGs. The `.npz`
+files retain the samples, initialization, and sampler diagnostics.
