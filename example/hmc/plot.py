@@ -1,8 +1,8 @@
 """Plot saved injection-recovery results without JAX or another sampling run."""
 
-import argparse
 import json
 from pathlib import Path
+import sys
 
 import matplotlib
 
@@ -13,10 +13,11 @@ import numpy as np
 
 LABELS = (r"$t_0$ [day]", r"$t_E$ [day]", r"$u_0$", r"$q$", r"$s$", r"$\alpha$ [rad]", r"$\rho$", r"$F_s$", r"$F_b$")
 BLUE, ORANGE = "#31688e", "#b45f2a"
+OUTPUT = Path(__file__).resolve().parents[2] / "results" / "hmc" / "binary"
 
 
-def plot_results(output):
-    output = Path(output)
+def plot_results():
+    output = OUTPUT
     config = json.loads((output / "run.json").read_text())
     with np.load(output / "data.npz") as saved:
         times, flux, error, injected = (saved[key] for key in ("times", "flux", "error", "injected_flux"))
@@ -75,6 +76,6 @@ def plot_results(output):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output_dir", type=Path)
-    plot_results(parser.parse_args().output_dir)
+    if len(sys.argv) != 1:
+        raise SystemExit("Usage: python example/hmc/plot.py")
+    plot_results()

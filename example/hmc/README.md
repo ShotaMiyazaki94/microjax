@@ -1,7 +1,7 @@
 # HMC injection–recovery
 
 Generate mock photometry of a binary lens, then infer its seven event parameters
-and source/blend fluxes with NumPyro NUTS. CPU is the default.
+and source/blend fluxes with NumPyro NUTS on CPU.
 
 From the repository root:
 
@@ -11,24 +11,19 @@ python example/hmc/injection_recovery.py
 ```
 
 The script first fits the data from a rough initial solution and estimates a
-local covariance for NUTS. It then runs two parallel CPU chains, each with 300
-warm-up steps and 500 retained draws. Change `--map-maxiter`, `--warmup`,
-`--samples`, `--chains`, or `--seed` as needed. With GPU-enabled JAX, select
-`--backend gpu`.
+local covariance for NUTS. It then runs six CPU chains concurrently with JAX
+`pmap`, each with 300 warm-up steps and 500 retained draws. The settings are
+constants at the top of the script; there are no command-line options.
 
-CPU chains use JAX `pmap`, with one logical CPU device per chain configured
-before microJAX is imported. On GPU, the chains run together on one device
-using NumPyro's `vectorized` method. `run.json` records the method and devices.
-
-Results go to `results/hmc/binary/`. Use a new `--output-dir` for another run;
-existing directories are preserved. Compilation and the local fit happen
-before the sampling progress bar advances.
+Results go to `results/hmc/binary/` in the checkout. Each run replaces the
+contents of this directory. Compilation and the local fit happen before the
+sampling progress bar advances.
 
 The script saves data, posterior samples, sampler diagnostics, model curves,
 and three figures. To redraw the figures without running JAX or sampling again:
 
 ```bash
-python example/hmc/plot.py results/hmc/binary
+python example/hmc/plot.py
 ```
 
 After the run, share `run.json`, `summary.json`, `lightcurve.png`, `recovery.png`,

@@ -23,26 +23,19 @@ From a :doc:`source checkout <getting_started>`:
    python example/hmc/injection_recovery.py
 
 The script first fits the data from a rough event solution and estimates a
-local covariance. It then runs two parallel CPU chains, with 300 warm-up
+local covariance. It then runs six parallel CPU chains, with 300 warm-up
 steps and 500 retained draws per chain. Model compilation and the fit happen
 before the NUTS progress bar starts.
 
-``--map-maxiter`` limits optimization iterations (300 by default).
-``--warmup``, ``--samples``, and ``--chains`` control sampling.
-``--seed`` changes the sampler's random seed; the mock photometry keeps its
-fixed noise seed. With a GPU-enabled JAX installation, use ``--backend gpu``.
+This example has one CPU execution path and no command-line options.
+The run settings are constants at the top of the script. It creates six
+logical CPU devices before importing microJAX and runs the chains with
+NumPyro's ``chain_method="parallel"`` (``jax.pmap``). ``run.json`` records
+the settings and devices. Launch the script in a fresh Python process.
 
-On CPU, the script creates one logical JAX device per chain and uses
-NumPyro's ``chain_method="parallel"`` (``jax.pmap``). On GPU, it uses
-``chain_method="vectorized"`` to run the chains together on one device.
-``run.json`` records the method and devices. The device setup happens before
-importing microJAX, so launch the script in a fresh Python process.
-
-Results go to ``results/hmc/binary/``. Choose a different ``--output-dir``
-for each run so that earlier results are preserved. The two scripts are
-available to download:
-:download:`injection_recovery.py <../example/hmc/injection_recovery.py>` and
-:download:`plot.py <../example/hmc/plot.py>`.
+Results go to ``results/hmc/binary/`` in the checkout; each run replaces
+the contents of that directory. The code is in
+``example/hmc/injection_recovery.py`` and ``example/hmc/plot.py``.
 
 The event and its priors
 ------------------------
@@ -166,7 +159,7 @@ To redraw the figures from saved arrays:
 
 .. code-block:: sh
 
-   python example/hmc/plot.py results/hmc/binary
+   python example/hmc/plot.py
 
 This plotting command does not evaluate microJAX or run the sampler.
 After the first run, ``run.json``, ``summary.json``, and the three PNGs are

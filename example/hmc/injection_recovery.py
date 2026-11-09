@@ -1,10 +1,10 @@
 """Generate a binary-lens event and recover its parameters with NumPyro NUTS."""
 
-import argparse
 from functools import partial
 from importlib.metadata import version
 import json
-from pathlib import Path
+import shutil
+import sys
 import time
 
 import jax
@@ -22,6 +22,11 @@ from scipy.special import expit, logit
 
 NAMES = ("t0", "tE", "u0", "q", "s", "alpha", "rho", "fs", "fb")
 LOG_INDICES = np.array([1, 3, 4, 6])
+NUM_CHAINS = 6
+NUM_WARMUP = 300
+NUM_SAMPLES = 500
+SAMPLER_SEED = 42
+MAP_MAXITER = 300
 
 # Times are in days, alpha in radians. The last two entries are fluxes.
 TRUTH = np.array([0.0, 10.0, 0.1, 0.001, 1.0, np.deg2rad(50.0), 0.005, 1.0, 0.2])
@@ -123,40 +128,28 @@ def finite_float(value):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--backend", choices=("cpu", "gpu"), default="cpu")
-    parser.add_argument("--warmup", type=int, default=300)
-    parser.add_argument("--samples", type=int, default=500, help="Retained draws per chain")
-    parser.add_argument("--chains", type=int, default=2)
-    parser.add_argument("--map-maxiter", type=int, default=300, help="Maximum local optimization iterations")
-    parser.add_argument("--seed", type=int, default=42, help="Sampler seed; the mock-data seed stays fixed")
-    parser.add_argument("--output-dir", type=Path, default=Path("results/hmc/binary"))
-    args = parser.parse_args()
-    if args.warmup < 1 or args.samples < 4 or args.chains < 1 or args.map_maxiter < 1:
-        parser.error("Use positive warm-up, chain and optimization counts, and at least four retained draws.")
-
     # Configure CPU devices before importing microJAX, which creates JAX arrays.
-    numpyro.set_platform(args.backend)
-    if args.backend == "cpu":
-        numpyro.set_host_device_count(args.chains)
-    chain_method = "parallel" if args.backend == "cpu" else "vectorized"
+    numpyro.set_platform("cpu")
+    numpyro.set_host_device_count(NUM_CHAINS)
 
     from microjax import make_binary_lightcurve
+    from plot import OUTPUT, plot_results
 
-    devices = jax.local_devices(backend=args.backend)
+    devices = jax.local_devices(backend="cpu")
     device = devices[0]
-    output = args.output_dir
-    # Keep separate runs separate, including an interrupted run's saved data.
-    output.mkdir(parents=True, exist_ok=False)
+    output = OUTPUT
+    # A rerun replaces this example's outputs, including any incomplete run.
+    shutil.rmtree(output, ignore_errors=True)
+    output.mkdir(parents=True)
     config = {
-        "backend": args.backend,
-        "devices": [str(d) for d in (devices if chain_method == "parallel" else devices[:1])],
-        "chain_method": chain_method,
+        "backend": "cpu",
+        "devices": [str(d) for d in devices],
+        "chain_method": "parallel",
         "float64": True,
-        "warmup": args.warmup,
-        "samples_per_chain": args.samples,
-        "chains": args.chains,
-        "sampler_seed": args.seed,
+        "warmup": NUM_WARMUP,
+        "samples_per_chain": NUM_SAMPLES,
+        "chains": NUM_CHAINS,
+        "sampler_seed": SAMPLER_SEED,
         "data_seed": DATA_SEED,
         "u1": U1,
         "relative_noise": RELATIVE_NOISE,
@@ -170,13 +163,13 @@ def main():
             name: {"distribution": "log_uniform" if i in LOG_INDICES else "uniform", "bounds": bounds.tolist()}
             for i, (name, bounds) in enumerate(zip(NAMES, PRIOR_BOUNDS))
         },
-        "map_maxiter": args.map_maxiter,
+        "map_maxiter": MAP_MAXITER,
         "versions": {name: version(name) for name in ("microjaxx", "jax", "jaxlib", "numpyro", "numpy", "scipy")},
     }
     (output / "run.json").write_text(json.dumps(config, indent=2) + "\n")
 
     with jax.default_device(device):
-        lightcurve = make_binary_lightcurve(backend=args.backend)
+        lightcurve = make_binary_lightcurve(backend="cpu")
         forward_model = jax.jit(partial(flux_model, lightcurve=lightcurve))
         # Sample the baseline, broad peak, and short feature near day -0.65.
         times = jnp.asarray(
@@ -200,7 +193,7 @@ def main():
         print("Fitting from INITIAL and estimating the local covariance (forward-mode compilation first).", flush=True)
         start = time.perf_counter()
         map_z, covariance, initialization = initialize_hmc(
-            INITIAL, times, jnp.asarray(flux), jnp.asarray(error), forward_model=forward_model, maxiter=args.map_maxiter
+            INITIAL, times, jnp.asarray(flux), jnp.asarray(error), forward_model=forward_model, maxiter=MAP_MAXITER
         )
         initialization["seconds_including_compilation"] = time.perf_counter() - start
         config["initialization"] = initialization
@@ -209,7 +202,7 @@ def main():
         chain_z = (
             map_z
             + 0.1
-            * np.random.default_rng(args.seed).normal(size=(args.chains, len(NAMES)))
+            * np.random.default_rng(SAMPLER_SEED).normal(size=(NUM_CHAINS, len(NAMES)))
             @ np.linalg.cholesky(covariance).T
         )
         np.savez_compressed(output / "initialization.npz", map_z=map_z, inverse_mass_matrix=covariance, chain_z=chain_z)
@@ -227,23 +220,23 @@ def main():
         )
         mcmc = MCMC(
             kernel,
-            num_warmup=args.warmup,
-            num_samples=args.samples,
-            num_chains=args.chains,
-            chain_method=chain_method,
+            num_warmup=NUM_WARMUP,
+            num_samples=NUM_SAMPLES,
+            num_chains=NUM_CHAINS,
+            chain_method="parallel",
             progress_bar=True,
         )
         print(
-            f"Starting NUTS: {args.chains} chains, {chain_method}; compilation precedes the progress updates.",
+            f"Starting NUTS: {NUM_CHAINS} parallel CPU chains; compilation precedes the progress updates.",
             flush=True,
         )
         start = time.perf_counter()
         mcmc.run(
-            jax.random.PRNGKey(args.seed),
+            jax.random.PRNGKey(SAMPLER_SEED),
             times,
             jnp.asarray(flux),
             jnp.asarray(error),
-            init_params={"unit": jnp.asarray(chain_z[0] if args.chains == 1 else chain_z)},
+            init_params={"unit": jnp.asarray(chain_z)},
             extra_fields=("diverging", "num_steps", "accept_prob"),
         )
         unit = np.asarray(mcmc.get_samples(group_by_chain=True)["unit"])
@@ -279,17 +272,17 @@ def main():
 
         # Draw a small, reproducible subset for the uncertainty in the model curve.
         flattened = physical.reshape(-1, len(NAMES))
-        indices = np.random.default_rng(args.seed + 1).choice(
+        indices = np.random.default_rng(SAMPLER_SEED + 1).choice(
             len(flattened), size=min(POSTERIOR_CURVES, len(flattened)), replace=False
         )
         curves = np.stack([np.asarray(forward_model(jnp.asarray(flattened[i]), times)) for i in indices])
         np.savez_compressed(output / "curves.npz", model_flux=curves)
 
-    from plot import plot_results
-
-    plot_results(output)
+    plot_results()
     print(f"Done. Share {output / 'summary.json'} and the PNG figures together with run.json.")
 
 
 if __name__ == "__main__":
+    if len(sys.argv) != 1:
+        raise SystemExit("Usage: python example/hmc/injection_recovery.py")
     main()
