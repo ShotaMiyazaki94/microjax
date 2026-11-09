@@ -23,7 +23,7 @@ from scipy.special import expit, logit
 NAMES = ("t0", "tE", "u0", "q", "s", "alpha", "rho", "fs", "fb")
 LOG_INDICES = np.array([1, 3, 4, 6])
 CPU_WORKERS = 6
-NUM_WARMUP = 300
+NUM_WARMUP = 150
 # Total retained draws: one chain, with time-parallel model evaluations.
 NUM_SAMPLES = 500
 SAMPLER_SEED = 42
@@ -172,6 +172,7 @@ def main():
         "relative_noise": RELATIVE_NOISE,
         "max_tree_depth": MAX_TREE_DEPTH,
         "target_accept_prob": 0.9,
+        "adapt_mass_matrix": False,
         "forward_mode_differentiation": True,
         "parameter_names": NAMES,
         "truth": TRUTH.tolist(),
@@ -230,6 +231,8 @@ def main():
             dense_mass=True,
             # NumPyro's inverse_mass_matrix takes a covariance, not a precision.
             inverse_mass_matrix=jnp.asarray(covariance),
+            # Keep the fitted scales: default covariance shrinkage can swamp them.
+            adapt_mass_matrix=False,
             target_accept_prob=0.9,
             max_tree_depth=MAX_TREE_DEPTH,
             init_strategy=init_to_value(values={"unit": jax.nn.sigmoid(jnp.asarray(map_z))}),

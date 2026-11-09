@@ -11,7 +11,7 @@ python example/hmc/injection_recovery.py
 ```
 
 The script first fits the data from a rough initial solution and estimates a
-local covariance for NUTS. It then runs **one chain with 300 warm-up steps
+local covariance for NUTS. It then runs **one chain with 150 warm-up steps
 and 500 retained draws in total**. Each light-curve evaluation distributes
 the observation times across six CPU devices with JAX `pmap`. CPU workers
 do not multiply the number of samples. The settings are constants at the
@@ -40,7 +40,8 @@ local fit. Data and fitting use the same model.
 
 `run.json` records the fit status and parameters. `initialization.npz` retains
 the fitted point, initial position, and covariance passed to NumPyro's
-`inverse_mass_matrix`. Warm-up continues to adapt this matrix.
+`inverse_mass_matrix`. This matrix stays fixed; warm-up tunes the step size.
+The full likelihood and broad priors are used throughout sampling.
 
 This example is prepared for a user-run calculation; recovery results have
 not yet been generated or assessed.

@@ -24,7 +24,7 @@ From a :doc:`source checkout <getting_started>`:
 
 The script first fits the data from a rough event solution and estimates a
 local covariance. It then runs **one chain with 500 retained draws in total**,
-after 300 warm-up steps. Warm-up draws are not saved. Model compilation and
+after 150 warm-up steps. Warm-up draws are not saved. Model compilation and
 the fit happen before the NUTS progress bar starts.
 
 This example has one CPU execution path and no command-line options.
@@ -124,9 +124,14 @@ and works with the CPU integrator. A small eigenvalue floor stabilizes the
 matrix inversion.
 
 NumPyro's ``inverse_mass_matrix`` takes this **covariance**, rather than its
-inverse. The chain starts with a small displacement from the fitted point,
-and warm-up continues to adapt both the matrix and step size. The fit status
-and parameters are recorded in ``run.json``; the initial matrix and starting
+inverse. The chain starts with a small displacement from the fitted point.
+The matrix stays fixed (``adapt_mass_matrix=False``), while warm-up tunes
+the step size. In these coordinates, the fitted variance in narrow directions
+can be much smaller than NumPyro's default covariance regularization. Keeping
+the fitted matrix preserves those scales. This changes how the sampler moves;
+the full nonlinear likelihood and broad priors remain the same.
+
+The fit status and parameters are recorded in ``run.json``; the matrix and starting
 position are saved in ``initialization.npz``. A fit that reaches its iteration
 limit can still supply an initial point, and its status is reported.
 
