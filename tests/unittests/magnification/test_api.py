@@ -14,14 +14,14 @@ def test_factory_binds_solver_and_settings(monkeypatch, lens):
     config = getattr(mj, f"{lens.title()}MagConfig")(source_tile_size=16)
     calls = []
 
-    def accelerator(w, rho, **parameters):
+    def gpu(w, rho, **parameters):
         calls.append(parameters)
         return w.real + rho
 
     def cpu(w, rho, **parameters):
         return mj.CpuMagnificationResult(w.real + rho, jnp.zeros(w.shape, dtype=jnp.int32))
 
-    monkeypatch.setattr(lightcurve, f"_mag_{lens}_single_pass_impl", accelerator)
+    monkeypatch.setattr(lightcurve, f"_mag_{lens}_single_pass_impl", gpu)
     monkeypatch.setattr(lightcurve, f"_mag_{lens}_cpu_impl", cpu)
     mag_gpu = make_mag(backend="gpu", config=config)
     mag_cpu = make_mag(backend="cpu")

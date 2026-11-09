@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from microjax._magnification.roots.angular import ANGULAR_OK
-from microjax._magnification.extended_source import (
+from microjax._magnification.integrators import (
     mag_limb_dark_boundary,
     mag_radial_profile_boundary,
     mag_uniform_triple_boundary,

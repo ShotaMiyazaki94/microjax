@@ -291,7 +291,7 @@ def fixed_radial_integral(
     single G19 fast rule, while 47 uses independent G23/G47 rules. Unlike
     :func:`adaptive_radial_integral`, this path performs no compact/scatter
     refinement and never recomputes an original interval at successively finer
-    depths.  It is intended for accelerator workloads where a single regular
+    depths.  It is intended for GPU workloads where a single regular
     batch is cheaper than divergent bounded retries.
 
     The 19-point rule reports propagated integrand error but deliberately does
@@ -440,7 +440,7 @@ def adaptive_radial_integral(
 
     The sine-squared map removes the square-root behaviour at radial topology
     changes. Embedded G15/K31 disagreement supplies an error estimate; failing
-    cells are compacted and refined as parallel accelerator batches. Cells
+    cells are compacted and refined as parallel GPU batches. Cells
     that still miss ``absolute_tolerance + relative_tolerance * abs(value)``
     report ``RADIAL_TOLERANCE`` so the caller can use its bounded retry/reject
     instead of silently returning an under-resolved value.  The default zero

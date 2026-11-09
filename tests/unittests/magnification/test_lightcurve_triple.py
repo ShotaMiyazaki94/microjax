@@ -7,7 +7,7 @@ from dataclasses import fields
 import microjax._magnification.lightcurve as lightcurve_module
 from microjax import BinaryMagConfig, TripleMagConfig, mag_triple, make_mag_triple
 from microjax._magnification.config import DEFAULT_TRIPLE_CONFIG
-from microjax._magnification.extended_source import (
+from microjax._magnification.integrators import (
     BoundaryMagnificationResult,
     mag_limb_dark_boundary,
     mag_uniform_triple_boundary,

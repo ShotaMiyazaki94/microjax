@@ -74,6 +74,14 @@ def test_values_retain_critical_image_support():
             2.791818587815443,
             1e-3,
         ),
+        # Saved VBBL cases from the retired local-chart solver: an enclosing
+        # annulus, narrow fold pairs, and transient planetary images.
+        (-2.845269680283363e-05 + 8.040213267373542e-05j, 1e-4, 1.6, 1e-5, 0.0, 15873.646704428846, 1e-4),
+        (0.025872115099088773 - 0.00012660115914060716j, 1e-5, 1.0, 1e-5, 0.0, 144.17177551337485, 1e-4),
+        (-7.794776723440755e-05 - 7.416540530774523e-05j, 1e-5, 1.6, 1e-4, 0.0, 20696.29552460964, 1e-4),
+        (0.9824943188437842 + 0.00880220969350141j, 1e-5, 1.6, 1e-3, 0.0, 49.87308550714601, 1e-4),
+        (-0.728614562384981 - 0.007200699676102258j, 1e-5, 0.7, 1e-5, 0.0, 7.055904959651395, 1e-4),
+        (0.9788824508896057 + 0.001942618692247761j, 1e-4, 1.6, 1e-4, 0.0, 9.551087158506649, 1e-4),
     )
     for source, rho, s, q, u1, reference, tolerance in cases:
         result = mag_binary(jnp.asarray([source]), rho, s=s, q=q, u1=u1)

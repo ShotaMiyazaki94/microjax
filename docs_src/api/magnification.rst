@@ -54,7 +54,7 @@ elsewhere, use the position-based functions. For example:
 
 Here ``w`` is a one-dimensional complex array. The result has one
 magnification per position. The module-level ``mj.mag_binary`` and
-``mj.mag_triple`` use the default accelerator settings; the factories let
+``mj.mag_triple`` use the default GPU settings; the factories let
 you choose settings once for repeated calls.
 
 .. autofunction:: microjax.mag_binary
@@ -119,10 +119,10 @@ Its disk-average brightness is proportional to :math:`1-u_1/3`, which is
 included in the magnification normalization. ``u1=0`` gives a uniform disk;
 ``0 < u1 <= 1`` darkens the limb.
 
-.. _accelerator-configuration:
+.. _gpu-configuration:
 
-Accelerator configuration
--------------------------
+GPU configuration
+-----------------
 
 Pass a configuration object when creating a function, for example
 ``make_binary_lightcurve(config=BinaryMagConfig(source_tile_size=256))``.
@@ -163,5 +163,5 @@ have one entry per observation time or source position.
 A zero status means no structural problem was detected. Nonzero flags
 indicate problems with image roots, geometry, integration capacity, or
 non-finite arithmetic. The calculated magnification is retained; the
-status is a diagnostic flag, not a flux-error estimate. The accelerator
+status is a diagnostic flag, not a flux-error estimate. The GPU
 implementation returns ``NaN`` for detected calculation failures.

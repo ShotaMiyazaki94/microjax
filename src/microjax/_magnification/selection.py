@@ -10,7 +10,6 @@ from functools import partial
 import jax.numpy as jnp
 from jax import jit
 
-# Consistent array alias used across inverse_ray and trajectory modules
 Array = jnp.ndarray
 
 

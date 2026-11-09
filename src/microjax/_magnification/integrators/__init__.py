@@ -4,7 +4,7 @@ The modules follow the numerical flow rather than the public API surface:
 
 ``charts`` selects global or image-local polar coordinates; ``uniform`` and
 ``triple`` integrate uniform sources; ``profile`` adds radial brightness
-profiles.  :mod:`microjax._magnification.extended_source` is the public façade.
+profiles.
 """
 
 from .common import BoundaryMagnificationResult

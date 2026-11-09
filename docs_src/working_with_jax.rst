@@ -60,14 +60,14 @@ Select the implementation when creating the light-curve function:
 
    lightcurve = mj.make_binary_lightcurve(backend="cpu")
 
-Use ``backend="accelerator"`` for the GPU implementation; this is the
+Use ``backend="gpu"`` for the GPU implementation; this is the
 default. The returned function takes event parameters and times. To tune
 GPU batching, pass a configuration when you create it:
 
 .. code-block:: python
 
    lightcurve = mj.make_binary_lightcurve(
-       backend="accelerator",
+       backend="gpu",
        config=mj.BinaryMagConfig(source_tile_size=256),
    )
 
@@ -78,10 +78,10 @@ GPU, you can force a CPU example to run on the CPU with:
 
    JAX_PLATFORMS=cpu python example/cpu/lightcurve.py
 
-To use a GPU, install GPU-enabled JAX and select the accelerator backend.
+To use a GPU, install GPU-enabled JAX and select the GPU backend.
 The :doc:`examples/index` includes ready-to-run GPU scripts. Start with the
 default settings; if memory or throughput becomes an issue, adjust the
-:ref:`accelerator batch sizes <accelerator-configuration>` or split the
+:ref:`GPU batch sizes <gpu-configuration>` or split the
 observation times into fixed-size batches.
 
 Numerical accuracy
@@ -96,6 +96,6 @@ Near a caustic, derivatives can be more sensitive to numerical resolution
 than magnifications. For a fit dominated by a caustic crossing, compare a
 few model values and derivatives with an independent calculation at your
 event's parameters. The solver uses fixed work limits, rather than a
-requested relative-error tolerance. CPU status flags and accelerator
+requested relative-error tolerance. CPU status flags and GPU
 resolution settings are described in the
 :doc:`finite-source reference <api/magnification>`.

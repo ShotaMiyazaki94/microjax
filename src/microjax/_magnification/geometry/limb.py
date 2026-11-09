@@ -186,7 +186,7 @@ def calc_source_limb(
     if nlenses == 2:
         # Construct the binary quintic at its physical low-q scale while
         # retaining one independent batched solve per limb point.  This is the
-        # accelerator path: unlike the CPU continuation tracer, it exposes the
+        # GPU path: unlike the CPU continuation tracer, it exposes the
         # complete limb dimension to XLA/GPU parallelism.
         quintic = binary_quintic_coefficients(w_limb, s=s, q=q)
         image_com = jnp.moveaxis(poly_roots(quintic.coefficients), -1, 0)

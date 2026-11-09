@@ -11,7 +11,7 @@ Both functions support a uniform source (``u1=0``) and linear limb darkening
 forward-mode automatic differentiation.
 
 The CPU implementation can return diagnostic status flags with each value.
-The accelerator implementation returns ``NaN`` for detected calculation
+The GPU implementation returns ``NaN`` for detected calculation
 failures.
 """
 
@@ -32,7 +32,7 @@ from .selection import (
     _caustics_proximity_test,
     _planetary_caustic_test,
 )
-from .extended_source import (
+from .integrators import (
     mag_limb_dark_boundary,
     mag_uniform_boundary,
     mag_uniform_triple_boundary,
@@ -379,7 +379,7 @@ def _mag_binary_single_pass_impl(
     u1
         Linear limb-darkening coefficient. Use zero for a uniform source.
     config
-        Source-boundary sampling and accelerator scheduling configuration. The
+        Source-boundary sampling and GPU scheduling configuration. The
         default is recommended for normal use. Scheduler settings change static
         JAX shapes and therefore trigger separate compilation.
 
@@ -500,7 +500,7 @@ def _mag_triple_single_pass_impl(
     u1
         Linear limb-darkening coefficient. Use zero for a uniform source.
     config
-        Source-boundary sampling and accelerator scheduling configuration. The
+        Source-boundary sampling and GPU scheduling configuration. The
         default is recommended for normal use. Scheduler settings change static
         JAX shapes and therefore trigger separate compilation.
 

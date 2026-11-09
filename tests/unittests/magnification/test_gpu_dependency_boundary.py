@@ -13,7 +13,7 @@ def test_profile_topology_density_is_independent_of_root_budget():
     assert _binary_profile_limb_count(64, True) == 253
 
 
-def test_accelerator_numerical_layers_do_not_import_cpu_modules():
+def test_gpu_numerical_layers_do_not_import_cpu_modules():
     package = Path(__file__).parents[3] / "src" / "microjax" / "_magnification"
     layers = ("geometry", "integrators", "quadrature", "roots")
     offenders = []

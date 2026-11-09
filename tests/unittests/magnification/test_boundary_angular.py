@@ -17,16 +17,13 @@ from microjax._magnification.roots.angular import (
 )
 from microjax._magnification.geometry.mapping import distance_from_source
 from microjax._magnification.geometry.lens import binary_geometry
-from microjax._magnification.extended_source import (
+from microjax._magnification.integrators import (
     mag_limb_dark_boundary,
     mag_radial_profile_boundary,
     mag_uniform_boundary,
 )
 from microjax import make_mag_binary
 from microjax._magnification.config import BinaryMagConfig
-from microjax.inverse_ray_dense.lightcurve import mag_binary_dense
-from microjax.inverse_ray_retry.extended_source import mag_uniform_local_boundary
-from microjax.inverse_ray_retry.lightcurve import mag_binary_safe
 from microjax._magnification.roots.level_set import (
     binary_level_set,
     binary_level_set_fourier,
@@ -40,11 +37,9 @@ from microjax._magnification.geometry.topology import (
     RADIAL_TOPOLOGY,
     define_radial_topology,
 )
-from microjax.inverse_ray_retry.radial import build_local_image_charts
 from microjax._magnification.integrators.charts import _planetary_mixed_topology
-from microjax.point_source import _images_point_source
 
-_FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "inverse_ray"
+_FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "magnification"
 
 
 def _load_fixture(name):
@@ -171,203 +166,6 @@ def test_analytic_binary_fourier_coefficients_match_local_image_chart():
     scale = jnp.vdot(reconstructed, direct) / jnp.vdot(reconstructed, reconstructed)
 
     assert np.max(np.abs(np.asarray(direct - scale * reconstructed))) <= (2e-13 * np.max(np.abs(np.asarray(direct))))
-
-
-def test_local_image_charts_reject_an_empty_limb_root_set():
-    charts = build_local_image_charts(
-        jnp.zeros((5, 8), dtype=jnp.complex128),
-        jnp.zeros((5, 8), dtype=bool),
-        1e-4,
-        margin_r=1.0,
-        shifted=0.8,
-        a=0.8,
-        e1=1e-4 / (1.0 + 1e-4),
-    )
-
-    assert int(charts.status) & RADIAL_CAPACITY
-    assert not np.any(np.asarray(charts.active))
-
-
-@pytest.mark.slow
-def test_local_image_rescue_handles_caustic_enclosing_annulus():
-    point = -2.845269680283363e-05 + 8.040213267373542e-05j
-    reference = 15873.646704428846
-    result = mag_uniform_local_boundary(
-        point,
-        1e-4,
-        s=1.6,
-        q=1e-5,
-        Nlimb=500,
-        margin_r=1.0,
-        angular_atol=1e-5,
-        relative_tolerance=1e-4,
-        return_info=True,
-    )
-
-    assert int(result.status) == 0
-    assert abs(float(result.magnification) - reference) / reference < 1e-4
-
-
-def test_nonannular_fold_pair_uses_a_guaranteed_interior_chart_origin():
-    point = -7.794776723440755e-05 - 7.416540530774523e-05j
-    rho = 1e-5
-    q = 1e-4
-    s = 1.6
-    a = 0.5 * s
-    e1 = q / (1.0 + q)
-    shifted = a * (1.0 - q) / (1.0 + q)
-    image_limb, mask_limb = calc_source_limb(
-        point,
-        rho,
-        500,
-        nlenses=2,
-        q=q,
-        s=s,
-        a=a,
-        e1=e1,
-    )
-    interior_images, interior_mask = _images_point_source(point - shifted, nlenses=2, a=a, e1=e1)
-    interior_images = interior_images + shifted
-    charts = build_local_image_charts(
-        image_limb,
-        mask_limb,
-        rho,
-        margin_r=1.0,
-        shifted=shifted,
-        a=a,
-        e1=e1,
-        interior_images=interior_images,
-        interior_mask=interior_mask,
-        prefer_interior_anchor=True,
-    )
-
-    # Slots 1 and 4 are the two boundary arcs of one transient fold pair.
-    # Their two source-centre images belong to the physical image, but their
-    # arithmetic mean lies in the gap and maps outside the source.  The chart
-    # must therefore use one guaranteed-interior image, not that mean.
-    label = int(charts.branch_labels[1])
-    assert label == int(charts.branch_labels[4])
-    center = charts.centers[label]
-    assert binary_level_set(center, point - shifted, rho, shifted, a=a, e1=e1) <= 0.0
-    assert np.min(np.abs(np.asarray(interior_images)[np.asarray(interior_mask)] - complex(center))) < 1e-12
-
-
-@pytest.mark.slow
-@pytest.mark.parametrize(
-    "point,q,s,reference",
-    [
-        (
-            0.025872115099088773 - 0.00012660115914060716j,
-            1e-5,
-            1.0,
-            144.17177551337485,
-        ),
-        (
-            -7.794776723440755e-05 - 7.416540530774523e-05j,
-            1e-4,
-            1.6,
-            20696.29552460964,
-        ),
-    ],
-)
-def test_local_nested_phase_closes_strict_rho1e5_audit_points(point, q, s, reference):
-    result = mag_uniform_local_boundary(
-        point,
-        1e-5,
-        s=s,
-        q=q,
-        Nlimb=500,
-        margin_r=1.0,
-        angular_atol=1e-5,
-        relative_tolerance=1e-4,
-        prefer_interior_anchor=True,
-        return_info=True,
-    )
-
-    tolerance = 1e-5 + 1e-4 * abs(reference)
-    assert int(result.status) == 0
-    assert float(result.estimated_error) <= tolerance
-    assert abs(float(result.magnification) - reference) <= tolerance
-
-
-@pytest.mark.slow
-def test_safe_lightcurve_compacts_mean_local_failure_into_interior_anchor_retry():
-    point = -7.794776723440755e-05 - 7.416540530774523e-05j
-    reference = 20696.29552460964
-    common = dict(
-        s=1.6,
-        q=1e-4,
-        Nlimb=500,
-        margin_r=1.0,
-        angular_atol=1e-5,
-        relative_tolerance=1e-4,
-    )
-    mean_local = mag_uniform_local_boundary(point, 1e-5, return_info=True, **common)
-    interior_local = mag_uniform_local_boundary(
-        point,
-        1e-5,
-        prefer_interior_anchor=True,
-        return_info=True,
-        **common,
-    )
-    highlevel = mag_binary_safe(
-        jnp.asarray([point]),
-        1e-5,
-        MAX_FULL_CALLS=1,
-        chunk_size=1,
-        **common,
-    )[0]
-
-    assert int(mean_local.status) != 0
-    assert int(interior_local.status) == 0
-    assert np.isfinite(float(highlevel))
-    assert abs(float(highlevel) - reference) <= (1e-5 + 1e-4 * abs(reference))
-
-
-@pytest.mark.slow
-def test_local_nested_support_closes_between_sample_fold_minimum():
-    point = 0.9824943188437842 + 0.00880220969350141j
-    reference = 49.87308550714601
-    result = mag_uniform_local_boundary(
-        point,
-        1e-5,
-        s=1.6,
-        q=1e-3,
-        Nlimb=500,
-        margin_r=1.0,
-        angular_atol=1e-5,
-        relative_tolerance=1e-4,
-        return_info=True,
-    )
-    actual_error = abs(float(result.magnification) - reference)
-    tolerance = 1e-5 + 1e-4 * abs(reference)
-
-    assert int(result.status) == 0
-    # The nested difference is an empirical estimator, not a formal bound on
-    # the independent-reference error.  Both must satisfy the public budget;
-    # one is not required to dominate the other point by point.
-    assert float(result.estimated_error) <= tolerance
-    assert actual_error <= tolerance
-
-
-@pytest.mark.slow
-def test_local_nested_chart_closes_transient_planetary_component():
-    point = -0.728614562384981 - 0.007200699676102258j
-    reference = 7.055904959651395
-    result = mag_uniform_local_boundary(
-        point,
-        1e-5,
-        s=0.7,
-        q=1e-5,
-        Nlimb=500,
-        margin_r=1.0,
-        angular_atol=1e-5,
-        relative_tolerance=1e-4,
-        return_info=True,
-    )
-
-    assert int(result.status) == 0
-    assert abs(float(result.magnification) - reference) <= (1e-5 + 1e-4 * abs(reference))
 
 
 def test_radial_topology_reports_small_capacity_and_large_kernel_closes():
@@ -713,57 +511,14 @@ def test_uniform_boundary_is_finite_at_rho_1e4_regression_point():
 
 
 @pytest.mark.slow
-def test_safe_lightcurve_rescues_small_planet_boundary_failure():
-    # VBBinaryLensing 3.7.0, Tol=RelTol=1e-12.  In the global COM polar frame
-    # this tiny planetary image produces poorly conditioned angular roots and
-    # a fatal boundary status.  The image-local fixed-chart pass is finite.
+def test_gpu_lightcurve_preserves_small_planet_image():
+    # VBBinaryLensing 3.7.0, Tol=RelTol=1e-12. This tiny planetary
+    # image requires local coordinates for well-conditioned angular roots.
     point = 0.9788824508896057 + 0.001942618692247761j
     reference = 9.551087158506649
-    common = dict(
-        s=1.6,
-        q=1e-4,
-        Nlimb=500,
-        margin_r=1.0,
-        angular_atol=1e-5,
-        relative_tolerance=1e-4,
-    )
-    global_boundary = mag_uniform_boundary(
-        point,
-        1e-4,
-        max_radial_subdivisions=8,
-        robust_roots=True,
-        return_info=True,
-        **common,
-    )
-    local_boundary = mag_uniform_local_boundary(
-        point,
-        1e-4,
-        max_radial_subdivisions=8,
-        return_info=True,
-        **common,
-    )
-    lightcurve = mag_binary_safe(
-        jnp.asarray([point]),
-        1e-4,
-        MAX_FULL_CALLS=1,
-        chunk_size=1,
-        **common,
-    )
-    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=common["Nlimb"]))
-    single_pass = mag_binary(
-        jnp.asarray([point]),
-        1e-4,
-        s=common["s"],
-        q=common["q"],
-    )
-
-    assert int(global_boundary.status) != ANGULAR_OK
-    assert int(local_boundary.status) == ANGULAR_OK
-    assert np.isclose(float(local_boundary.magnification), reference, rtol=1.5e-4)
-    assert np.isfinite(float(single_pass[0]))
-    assert np.isclose(float(single_pass[0]), reference, rtol=1e-3)
-    assert np.isfinite(float(lightcurve[0]))
-    assert np.isclose(float(lightcurve[0]), reference, rtol=1.5e-4)
+    mag_binary = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
+    actual = mag_binary(jnp.asarray([point]), 1e-4, s=1.6, q=1e-4)
+    np.testing.assert_allclose(actual, [reference], rtol=1e-3)
 
 
 @pytest.mark.slow
@@ -1017,21 +772,6 @@ def test_limb_boundary_resolves_profile_quadrature_near_peak():
     assert float(result.estimated_error) <= tolerance
     assert abs(float(result.magnification) - reference) <= float(result.estimated_error)
     assert np.isclose(float(result.magnification), reference, rtol=1e-4, atol=0.0)
-
-
-@pytest.mark.parametrize(
-    "solver",
-    [mag_uniform_boundary, mag_limb_dark_boundary],
-)
-def test_boundary_api_rejects_dense_grid_arguments(solver):
-    with pytest.raises(TypeError, match="unexpected keyword argument"):
-        solver(
-            0.03 + 0.01j,
-            5e-3,
-            s=1.0,
-            q=1e-2,
-            r_resolution=500,
-        )
 
 
 @pytest.mark.slow
@@ -1327,7 +1067,7 @@ def test_binary_public_config_exposes_topology_and_scheduler_settings():
 
 
 @pytest.mark.slow
-def test_binary_fast_path_retains_tolerance_warning_without_dense_retry():
+def test_gpu_fixed_work_value_matches_radial_reference():
     s, q, _, _, _, w_center, _, rho = _binary_setup()
     w_points = jnp.asarray([w_center])
     config = BinaryMagConfig(n_limb=64)
@@ -1353,24 +1093,9 @@ def test_binary_fast_path_retains_tolerance_warning_without_dense_retry():
     )
     mag_binary = make_mag_binary(config=config)
     boundary = mag_binary(w_points, rho, s=s, q=q)
-    dense = mag_binary_dense(
-        w_points,
-        rho,
-        s=s,
-        q=q,
-        r_resolution=30,
-        th_resolution=120,
-        Nlimb=40,
-        bins_r=20,
-        bins_th=40,
-        margin_r=0.5,
-        margin_th=0.5,
-        MAX_FULL_CALLS=1,
-        chunk_size=1,
-    )
+
 
     assert not np.isfinite(float(failed_boundary))
     assert np.isfinite(float(relative_boundary))
     assert np.isfinite(float(boundary[0]))
     assert np.isclose(float(boundary[0]), float(relative_boundary), rtol=1e-3)
-    assert np.isfinite(float(dense[0]))

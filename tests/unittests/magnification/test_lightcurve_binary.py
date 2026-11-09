@@ -3,7 +3,7 @@ import numpy as np
 import jax.numpy as jnp
 import pytest
 from tests.utils.gpu import has_cuda
-from microjax import mag_binary, make_mag_binary
+from microjax import make_mag_binary
 
 import microjax._magnification.lightcurve as lightcurve_module
 from microjax._magnification.lightcurve import (
@@ -11,12 +11,11 @@ from microjax._magnification.lightcurve import (
     _select_full_points,
 )
 from microjax._magnification.config import BinaryMagConfig, DEFAULT_BINARY_CONFIG
-from microjax._magnification.extended_source import (
+from microjax._magnification.integrators import (
     BoundaryMagnificationResult,
     mag_limb_dark_boundary,
     mag_uniform_boundary,
 )
-from microjax.inverse_ray_dense.lightcurve import mag_binary_dense
 from microjax.multipole import mag_hexadecapole
 from microjax.point_source import _images_point_source
 
@@ -134,7 +133,7 @@ def test_small_q_public_path_matches_local_chart_value_and_forward_q():
         return _uniform_single_pass(point, rho, s, mass_ratio, True)
 
     public_value, public_forward = jax.jvp(public, (q,), (jnp.ones_like(q),))
-    # The public accelerator is JIT compiled.  The polynomial-root custom JVP
+    # The public GPU is JIT compiled.  The polynomial-root custom JVP
     # performs its fixed polishing in the compiled graph, so compare it with
     # the same transformed local graph instead of eager JVP execution.
     local_value, local_forward = jax.jit(
@@ -244,36 +243,6 @@ def test_far_field_uses_multipole_matches_internal():
     assert np.allclose(np.array(mags), np.array(mu_multi), rtol=1e-6, atol=1e-8)
 
 
-@pytest.mark.parametrize(
-    "name,value",
-    [
-        ("th_resolution", 120),
-        ("grid_fp32", True),
-        ("full_method", "dense"),
-    ],
-)
-def test_boundary_api_rejects_dense_backend_arguments(name, value):
-    with pytest.raises(TypeError, match="unexpected keyword argument"):
-        mag_binary(
-            jnp.asarray([4.0 + 0.2j]),
-            5e-3,
-            s=1.0,
-            q=1e-2,
-            **{name: value},
-        )
-
-
-def test_dense_api_rejects_boundary_backend_arguments():
-    with pytest.raises(TypeError, match="unexpected keyword argument"):
-        mag_binary_dense(
-            jnp.asarray([4.0 + 0.2j]),
-            5e-3,
-            s=1.0,
-            q=1e-2,
-            angular_atol=1e-5,
-        )
-
-
 @pytest.mark.slow
 def test_boundary_lightcurve_supports_linear_limb_darkening():
     s, q, rho, u1 = 1.0, 1e-2, 5e-3, 0.5
@@ -298,41 +267,6 @@ def test_boundary_lightcurve_supports_linear_limb_darkening():
 
     assert np.isfinite(float(expected))
     assert np.allclose(np.asarray(result), np.asarray([expected]), atol=1e-10)
-
-
-@pytest.mark.parametrize("u1", [0.0, 0.5])
-@pytest.mark.slow
-def test_binary_grid_fp32_matches_baseline_on_small_case(u1):
-    s, q, rho = 1.0, 1e-2, 5e-3
-    _, w = make_trajectory(
-        u0=0.03,
-        tE=20.0,
-        t0=0.0,
-        alpha=jnp.deg2rad(15.0),
-        n=6,
-        span=0.15,
-    )
-
-    common = dict(
-        s=s,
-        q=q,
-        u1=u1,
-        r_resolution=60,
-        th_resolution=60,
-        Nlimb=60,
-        bins_r=20,
-        bins_th=40,
-        margin_r=0.5,
-        margin_th=0.5,
-        MAX_FULL_CALLS=6,
-        chunk_size=3,
-    )
-
-    mags_base = mag_binary_dense(w, rho, grid_fp32=False, **common)
-    mags_mixed = mag_binary_dense(w, rho, grid_fp32=True, **common)
-
-    assert np.all(np.isfinite(np.array(mags_mixed)))
-    assert np.allclose(np.array(mags_mixed), np.array(mags_base), rtol=1e-6, atol=1e-8)
 
 
 @pytest.mark.parametrize(

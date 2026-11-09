@@ -8,10 +8,10 @@ from . import lightcurve
 from .config import DEFAULT_BINARY_CONFIG, DEFAULT_TRIPLE_CONFIG
 
 
-def _bind_solver(backend, config, return_info, cpu, accelerator, default_config):
+def _bind_solver(backend, config, return_info, cpu, gpu, default_config):
     if backend == "cpu":
         if config is not None:
-            raise ValueError("config applies only to the accelerator backend")
+            raise ValueError("config applies only to backend='gpu'")
         if return_info:
             return cpu
 
@@ -19,19 +19,19 @@ def _bind_solver(backend, config, return_info, cpu, accelerator, default_config)
             return cpu(*args, **kwargs).magnification
 
         return magnification
-    if backend not in ("accelerator", "gpu"):
-        raise ValueError("backend must be 'accelerator', 'gpu', or 'cpu'")
+    if backend != "gpu":
+        raise ValueError("backend must be 'cpu' or 'gpu'")
     if return_info:
         raise ValueError("return_info is available only for backend='cpu'")
-    return partial(accelerator, config=default_config if config is None else config)
+    return partial(gpu, config=default_config if config is None else config)
 
 
-def make_mag_binary(*, backend="accelerator", config=None, return_info=False):
+def make_mag_binary(*, backend="gpu", config=None, return_info=False):
     """Create a binary-lens magnification function for source positions.
 
-    Choose ``backend="cpu"`` for the CPU integrator or ``"accelerator"``
-    (also called ``"gpu"``) for the accelerator implementation. ``config``
-    accepts a :class:`~microjax.BinaryMagConfig` for the latter.
+    Choose ``backend="cpu"`` for the CPU integrator or ``"gpu"`` for the
+    GPU implementation (the default). ``config`` accepts a
+    :class:`~microjax.BinaryMagConfig` for the GPU implementation.
 
     The returned function has the signature ``mag(w_points, rho, *, s, q,
     u1=0.0)``. It accepts only physical parameters and supports ``jax.jit``
@@ -55,7 +55,7 @@ def make_mag_binary(*, backend="accelerator", config=None, return_info=False):
         ``u1`` is the linear limb-darkening coefficient; zero gives a uniform
         source. The result has one magnification per source position.
 
-        ``microjax.mag_binary`` uses the default accelerator configuration. To select
+        ``microjax.mag_binary`` uses the default GPU configuration. To select
         the CPU integrator or other settings, use :func:`make_mag_binary`.
         For event parameters and observation times, use
         :func:`make_binary_lightcurve`.
@@ -65,11 +65,11 @@ def make_mag_binary(*, backend="accelerator", config=None, return_info=False):
     return mag_binary
 
 
-def make_mag_triple(*, backend="accelerator", config=None, return_info=False):
+def make_mag_triple(*, backend="gpu", config=None, return_info=False):
     """Create a triple-lens magnification function for source positions.
 
     Settings follow :func:`make_mag_binary`, with a
-    :class:`~microjax.TripleMagConfig` for the accelerator implementation.
+    :class:`~microjax.TripleMagConfig` for the GPU implementation.
     The returned signature is ``mag(w_points, rho, *, s, q, q3, r3, psi,
     u1=0.0)``; see :func:`mag_triple` for the lens convention.
     """
@@ -90,7 +90,7 @@ def make_mag_triple(*, backend="accelerator", config=None, return_info=False):
         lenses 1 and 2. Angles are in radians; source positions are relative
         to the centre of mass of lenses 1 and 2.
 
-        ``microjax.mag_triple`` uses the default accelerator configuration. Use
+        ``microjax.mag_triple`` uses the default GPU configuration. Use
         :func:`make_mag_triple` to select the CPU integrator or other settings,
         or :func:`make_triple_lightcurve` to work with event parameters.
         """
@@ -104,7 +104,7 @@ def _trajectory(times, t0, tE, u0, alpha):
     return (tau + 1j * u0) * jnp.exp(1j * alpha)
 
 
-def make_binary_lightcurve(*, backend="accelerator", config=None, return_info=False):
+def make_binary_lightcurve(*, backend="gpu", config=None, return_info=False):
     """Create ``lightcurve(parameters, times, *, u1=0.0)`` for a static binary.
 
     ``parameters`` is a seven-element array in the order
@@ -130,7 +130,7 @@ def make_binary_lightcurve(*, backend="accelerator", config=None, return_info=Fa
     return lightcurve
 
 
-def make_triple_lightcurve(*, backend="accelerator", config=None, return_info=False):
+def make_triple_lightcurve(*, backend="gpu", config=None, return_info=False):
     """Create ``lightcurve(parameters, times, *, u1=0.0)`` for a static triple.
 
     ``parameters`` is a ten-element array in the order

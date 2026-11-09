@@ -19,7 +19,7 @@ def _validate_positive_integer(name: str, value: int) -> None:
 
 @dataclass(frozen=True)
 class _BoundaryMagConfig:
-    """Source-boundary sampling and batching for the accelerator integrator.
+    """Source-boundary sampling and batching for the GPU integrator.
 
     ``source_tile_size`` batches source positions; ``radial_chunk_size``
     batches radial image regions within each position. Changing these
@@ -39,7 +39,7 @@ class _BoundaryMagConfig:
 
 @dataclass(frozen=True)
 class BinaryMagConfig(_BoundaryMagConfig):
-    """Sampling and batching settings for accelerator binary magnification.
+    """Sampling and batching settings for GPU binary magnification.
 
     ``n_limb`` samples the source boundary and must be at least 64.
     The two batch sizes control memory use and throughput.
@@ -59,7 +59,7 @@ class BinaryMagConfig(_BoundaryMagConfig):
 
 @dataclass(frozen=True)
 class TripleMagConfig(_BoundaryMagConfig):
-    """Sampling and batching settings for accelerator triple magnification.
+    """Sampling and batching settings for GPU triple magnification.
 
     ``n_limb`` samples the source boundary. The two batch sizes control
     memory use and throughput, independently of the sampling resolution.
