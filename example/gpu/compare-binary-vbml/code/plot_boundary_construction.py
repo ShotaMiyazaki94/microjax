@@ -10,10 +10,10 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 
-from microjax.inverse_ray.geometry.limb import calc_source_limb
-from microjax.inverse_ray.geometry.topology import define_radial_topology
-from microjax.inverse_ray.roots.angular import angular_intervals_binary_roots
-from microjax.inverse_ray.roots.level_set import binary_level_set
+from microjax._magnification.gpu.geometry.limb import calc_source_limb
+from microjax._magnification.gpu.geometry.topology import define_radial_topology
+from microjax._magnification.gpu.roots.angular import angular_intervals_binary_roots
+from microjax._magnification.gpu.roots.level_set import binary_level_set
 from microjax.point_source import critical_and_caustic_curves
 
 

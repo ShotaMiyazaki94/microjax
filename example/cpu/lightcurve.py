@@ -16,10 +16,9 @@ from matplotlib.collections import PatchCollection
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np
 
-from microjax.inverse_ray import mag_binary, mag_triple
+from microjax import make_binary_lightcurve, make_triple_lightcurve
 from microjax.point_source import critical_and_caustic_curves
 
-PARAMETER_NAMES = ("t0", "tE", "u0", "q", "s", "alpha", "rho", "q3", "r3", "psi")
 PARAMETER_LABELS = (r"t_0", r"t_E", r"u_0", "q", "s", r"\alpha", r"\rho", r"q_3", r"r_3", r"\psi")
 
 
@@ -97,17 +96,15 @@ def main():
         times = jnp.linspace(-5.0, 10.0, 1000 if triple else 500)
         u1 = 0.5  # Fixed; the example differentiates physical and trajectory parameters.
 
-        def light_curve(p):
-            if triple:
-                values = mag_triple(
-                    trajectory(p, times), p[6], s=p[4], q=p[3], q3=p[7], r3=p[8], psi=p[9], u1=u1, backend="cpu"
-                )
-            else:
-                values = mag_binary(trajectory(p, times), p[6], s=p[4], q=p[3], u1=u1, backend="cpu")
+        make_lightcurve = make_triple_lightcurve if triple else make_binary_lightcurve
+        magnification = make_lightcurve(backend="cpu")
+
+        def light_curve(p, times):
+            values = magnification(p, times, u1=u1)
             # Keep the value as auxiliary data to obtain A and its Jacobian together.
             return values, values
 
-        jacobian, values = jax.jit(jax.jacfwd(light_curve, has_aux=True))(params)
+        jacobian, values = jax.jit(jax.jacfwd(light_curve, argnums=0, has_aux=True))(params, times)
         times, values, jacobian, params = map(np.asarray, (times, values, jacobian, params))
 
     if not (np.isfinite(values).all() and np.isfinite(jacobian).all()):

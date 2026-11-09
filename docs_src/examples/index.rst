@@ -6,6 +6,9 @@ in one figure. They are useful starting points for exploring an event of
 your own. The CPU and GPU versions use the same parameters and observation
 times, with linear limb darkening fixed at ``u1=0.5``.
 
+To fit simulated photometry and compare the posterior with known parameters,
+see :doc:`../inference`.
+
 Run the commands below from a :doc:`source checkout <../getting_started>`
 with Matplotlib installed. The CPU examples share one
 :download:`script <../../example/cpu/lightcurve.py>`; edit ``params`` and
@@ -48,22 +51,22 @@ Triple lens
 
 Here the first two lenses have ``q=0.1`` and ``s=1.1``. A third lens has
 mass ratio ``q3=0.01`` relative to the primary and lies at ``0.3+1.2j``
-relative to the binary midpoint. Its location is passed to ``mag_triple``
-as a distance and an angle:
+relative to the binary midpoint. The parameter array contains the seven
+binary event parameters followed by ``q3, r3, psi``:
 
 .. code-block:: python
 
-   from microjax.inverse_ray import mag_triple
-
-   # Using w from the first tutorial:
-   A_triple = mag_triple(
-       w, rho=0.01, s=1.1, q=0.1, q3=0.01,
-       r3=abs(0.3 + 1.2j), psi=jnp.angle(0.3 + 1.2j),
-       u1=0.5, backend="cpu",
-   )
+   # t0, tE, u0, q, s, alpha, rho, q3, r3, psi
+   triple_parameters = jnp.array([
+       0.0, 10.0, 0.1, 0.1, 1.1, jnp.deg2rad(50.0), 0.01,
+       0.01, abs(0.3 + 1.2j), jnp.angle(0.3 + 1.2j),
+   ])
+   triple_times = jnp.linspace(-5.0, 10.0, 1000)
+   triple_lightcurve = mj.make_triple_lightcurve(backend="cpu")
+   A_triple = triple_lightcurve(triple_parameters, triple_times, u1=0.5)
 
 The script samples 1000 times and differentiates all ten event parameters,
-adding ``q3, r3, psi`` to the binary parameter vector. The source coordinate
+adding ``q3, r3, psi`` to the binary parameters. The source coordinate
 origin is still the centre of mass of the first two lenses; see the
 :ref:`coordinate conventions <lens-coordinates>` for the conversion between
 this origin and the binary midpoint.
@@ -81,8 +84,8 @@ With a GPU-enabled JAX installation, run the corresponding scripts:
 
 .. code-block:: sh
 
-   python example/gpu/jacobian-binary/code/grads_limb_dark_binary.py
-   python example/gpu/jacobian-triple/code/grads_limb_dark_triple.py
+   python example/gpu/jacobian-binary/code/jacobian.py
+   python example/gpu/jacobian-triple/code/jacobian.py
 
 The `binary <https://github.com/ShotaMiyazaki94/microjax/tree/develop/example/gpu/jacobian-binary>`_
 and `triple <https://github.com/ShotaMiyazaki94/microjax/tree/develop/example/gpu/jacobian-triple>`_
@@ -95,4 +98,4 @@ The CPU script saves ``lightcurve.png``, ``lightcurve.csv`` (time and
 magnification), and ``jacobian_forward.npy`` under ``results/cpu/example/``.
 Triple results go in its ``triple/`` subdirectory. You can load these files
 in a notebook to explore the results without repeating the calculation.
-GPU results go under each script's ``outputs/limb_dark/`` directory.
+GPU results go under each script's ``outputs/`` directory.

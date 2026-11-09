@@ -18,11 +18,16 @@ python example/cpu/lightcurve.py
 
 ## Tests and benchmarks
 
+Finite-source code lives in `src/microjax/_magnification/`: `api.py` binds
+the chosen backend, and `cpu/` and `gpu/` contain the numerical implementations.
+Common geometry, coefficients, and multipole selection stay beside `api.py`.
+Each backend has a `lightcurve.py` entry point for binary and triple lenses.
+
 Run the tests relevant to the change. For the shared binary/triple CPU
 integrator:
 
 ```bash
-pytest -q tests/unittests/inverse_ray/test_cpu.py tests/unittests/inverse_ray/test_cpu_triple.py
+pytest -q tests/unittests/magnification/test_cpu.py tests/unittests/magnification/test_cpu_triple.py
 ```
 
 For changes to CPU numerical behavior or performance, run the small

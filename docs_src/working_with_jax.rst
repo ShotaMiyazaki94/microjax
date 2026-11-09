@@ -28,11 +28,11 @@ Create a compiled function once and reuse it. For example, using
 .. code-block:: python
 
    model = jax.jit(lightcurve)
-   A = model(parameters)
+   A = model(parameters, times, u1=0.5)
 
-The first call compiles the function. Changing parameter values reuses the
-compiled model; changing array shapes, such as the number of observation
-times, normally triggers a new compilation.
+The first call compiles the function. Changing parameter or time values
+reuses the compiled model when the array shapes and dtypes stay the same.
+Changing the number of observation times triggers a new compilation.
 
 JAX may return before the calculation has finished. When measuring runtime,
 wait for each result and keep compilation outside the timed section:
@@ -43,7 +43,7 @@ wait for each result and keep compilation outside the timed section:
 
    A.block_until_ready()
    start = time.perf_counter()
-   A = model(parameters).block_until_ready()
+   A = model(parameters, times, u1=0.5).block_until_ready()
    print(f"{1e3 * (time.perf_counter() - start):.2f} ms")
 
 Repeat the timed call to compare typical runtimes on your machine.
@@ -52,10 +52,25 @@ The :doc:`benchmarks` use this approach for magnifications and Jacobians.
 CPU and GPU
 -----------
 
-``mag_binary`` and ``mag_triple`` offer two implementations. Select
-``backend="cpu"`` for the dedicated CPU integrator or
-``backend="accelerator"`` for the GPU implementation. The latter is the
-default, so the CPU examples set their backend explicitly.
+Select the implementation when creating the light-curve function. CPU is
+the default; both accept the same event parameters and observation times:
+
+.. code-block:: python
+
+   import microjax as mj
+
+   cpu_lightcurve = mj.make_binary_lightcurve(backend="cpu")
+   gpu_lightcurve = mj.make_binary_lightcurve(backend="gpu")
+
+CPU integration uses its internal adaptive settings. To tune GPU batching,
+pass a configuration when you create the function:
+
+.. code-block:: python
+
+   lightcurve = mj.make_binary_lightcurve(
+       backend="gpu",
+       config=mj.BinaryMagConfig(source_tile_size=256),
+   )
 
 JAX chooses the device separately from this setting. On a machine with a
 GPU, you can force a CPU example to run on the CPU with:
@@ -64,10 +79,10 @@ GPU, you can force a CPU example to run on the CPU with:
 
    JAX_PLATFORMS=cpu python example/cpu/lightcurve.py
 
-To use a GPU, install GPU-enabled JAX and select the accelerator backend.
+To use a GPU, install GPU-enabled JAX and select the GPU backend.
 The :doc:`examples/index` includes ready-to-run GPU scripts. Start with the
 default settings; if memory or throughput becomes an issue, adjust the
-:ref:`accelerator batch sizes <accelerator-configuration>` or split the
+:ref:`GPU batch sizes <gpu-configuration>` or split the
 observation times into fixed-size batches.
 
 Numerical accuracy
@@ -82,6 +97,6 @@ Near a caustic, derivatives can be more sensitive to numerical resolution
 than magnifications. For a fit dominated by a caustic crossing, compare a
 few model values and derivatives with an independent calculation at your
 event's parameters. The solver uses fixed work limits, rather than a
-requested relative-error tolerance. CPU status flags and accelerator
+requested relative-error tolerance. CPU status flags and GPU
 resolution settings are described in the
-:doc:`finite-source reference <api/inverse_ray_lightcurve>`.
+:doc:`finite-source reference <api/magnification>`.

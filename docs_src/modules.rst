@@ -1,15 +1,16 @@
 API reference
 =============
 
-For most light-curve models, start with ``mag_binary`` or ``mag_triple`` in
-the finite-source API. It also documents the lens coordinates, source profile,
-and CPU/GPU settings. The point-source API includes magnifications, lens mappings, and
-critical and caustic curves.
+For event light curves, start with ``make_binary_lightcurve`` or
+``make_triple_lightcurve`` in the finite-source API. The same page covers
+source-position functions, lens coordinates, and CPU/GPU settings.
+The point-source API includes magnifications, lens mappings, and critical
+and caustic curves.
 
 .. toctree::
    :maxdepth: 1
 
-   api/inverse_ray_lightcurve
+   api/magnification
    api/point_source
    api/trajectory
    api/likelihood

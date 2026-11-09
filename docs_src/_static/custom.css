@@ -8,3 +8,13 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+.benchmark-selector select {
+  margin-left: 0.4rem;
+  padding: 0.2rem 0.4rem;
+  font: inherit;
+  color: var(--pst-color-text-base);
+  background: var(--pst-color-background);
+  border: 1px solid var(--pst-color-border);
+  border-radius: 0.25rem;
+}

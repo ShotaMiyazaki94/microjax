@@ -1,50 +1,152 @@
 Benchmarks
 ==========
 
-How fast is a finite-source calculation, and how accurately does it reproduce
-an independent reference? Both answers depend on the lens configuration and
-where the source lies. The maps below show this variation for binary lenses,
-comparing the CPU integrator with VBMicrolensing for a limb-darkened source
-with ``u1=0.5``.
+These figures compare **microJAX on CPU** with **VBMicrolensing (VBM)** for
+binary lenses with linear limb darkening, ``u1=0.5``. Both codes receive the
+same lens parameters and source position. The overview groups error and
+speed distributions by one parameter at a time; the maps show the variation
+across pairs of parameters.
+
+Overall accuracy and speed
+--------------------------
+
+In this sample, **typical relative differences are below** :math:`10^{-4}`:
+99.5% of the 12,244 checked positions fall below that level. The median is
+:math:`2.24\times10^{-5}` and the 99th percentile is
+:math:`7.51\times10^{-5}`. Here, relative error means
+:math:`\epsilon=|A_{\rm microJAX}/A_{\rm ref}-1|`, using the saved reference
+described below. The largest difference is :math:`6.19\times10^{-4}`.
+
+.. raw:: html
+
+   <p class="benchmark-selector">
+     <label for="benchmark-group">Group by:</label>
+     <select id="benchmark-group"
+       onchange="const figure = document.getElementById('cpu-overview'); figure.querySelector('img').src = this.value; figure.querySelector('a').href = this.value;">
+       <option value="_static/cpu_overview.png">Source radius (ρ)</option>
+       <option value="_static/cpu_overview_q.png">Mass ratio (q)</option>
+       <option value="_static/cpu_overview_magnification.png">Magnification (Aref)</option>
+     </select>
+   </p>
+
+.. figure:: _static/cpu_overview.png
+   :name: cpu-overview
+   :alt: Two panels showing cumulative relative errors and paired runtime ratios, grouped by the selected parameter
+   :width: 100%
+   :target: _static/cpu_overview.png
+
+   **a:** cumulative relative error; **b:** cumulative runtime ratio.
+   Colours progress from purple to orange as the selected parameter
+   increases; the legend lists the ranges. The black dashed curve shows
+   all sources. Grey dashed lines mark :math:`10^{-4}` error and equal
+   runtime. The black points mark the overall 99th-percentile error and
+   median speed ratio, with 68.27% and 95% bootstrap intervals.
+
+The median paired speed ratio is **1.20**, with a 95% interval of
+[1.17, 1.22]. The ratio is :math:`t_{\rm VBM}/t_{\rm microJAX}`: values above
+one favour microJAX, and values below one favour VBM. It is calculated for
+each source before taking the median.
+
+What was compared
+-----------------
+
+Each measurement evaluates the magnification of **one finite source** on
+the same CPU. microJAX uses its full CPU integrator, bypassing the multipole
+shortcut in the public light-curve API. VBM uses ``BinaryMag2`` with its own
+normal method selection. The figures therefore measure this single-source
+workload; complete light curves also depend on batching and the frequency
+of full finite-source calculations.
+
+The VBM call used for the timing comparison is:
+
+.. code-block:: python
+
+   import VBMicrolensing
+
+   vbm = VBMicrolensing.VBMicrolensing()
+   vbm.Tol = 1e-4
+   vbm.RelTol = 1e-4
+   vbm.a1 = 0.5
+   A_vbm = vbm.BinaryMag2(s, q, x, y, rho)
+
+.. list-table:: Measurement settings
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Setting
+     - Value
+   * - Source profile
+     - Linear limb darkening: microJAX ``u1=0.5``, VBM ``a1=0.5``.
+   * - VBM accuracy controls
+     - Absolute ``Tol=1e-4`` and relative ``RelTol=1e-4``.
+   * - microJAX integration
+     - 112 boundary samples; adaptive two-moment integration with an internal
+       relative indicator of ``1e-4`` and a limit of 84 rays per support cell.
+   * - Timing
+     - Median of three calls per source after warm-up. JAX results are
+       synchronized before stopping the timer.
+   * - Excluded from timing
+     - Compilation, warm-up, worker startup, and communication between processes.
+   * - Software and device
+     - JAX/JAXLIB 0.8.0 with float64; VBMicrolensing 5.3.5;
+       macOS 26.5 arm64 CPU.
+
+The two methods run sequentially, with their order randomized across
+configurations. A pair enters the speed statistics when both outputs are
+finite, positive, and within :math:`10^{-3}` of the saved reference.
+This leaves 12,236 pairs; eight measured pairs fail that selection.
+
+The **accuracy reference is separate from the timed VBM call**. It contains
+saved VBBinaryLensing values, with selected difficult cases rechecked using
+VBMicrolensing at ``Tol=RelTol=1e-8``. The error panels compare microJAX
+with these saved values, rather than with the fresh ``1e-4`` timing call.
+The reference set has mixed precision; ``1e-8`` applies to the targeted
+rechecks. The
+`benchmark runner <https://github.com/ShotaMiyazaki94/microjax/blob/develop/tools/cpu_benchmark_grid.py>`_
+records the input hashes and settings alongside each run.
+
+Variation across the parameter range
+------------------------------------
+
+The grid contains 29 mass ratios, 25 separations, and 17 source radii:
+``q=1e-6..1``, ``s=0.5..1.5``, and ``rho=3e-5..1``. This includes planetary
+and comparable-mass lenses. One source position is selected for each of the
+12,325 configurations from a stored set of caustic-centred positions.
+Selection balances the available mass-ratio, source-radius, and
+magnification bins. Of these positions, 81 have no usable reference;
+12,244 enter the accuracy comparison.
 
 .. figure:: _static/cpu_parameter_maps_ld.png
-   :alt: Binary-lens speed ratios and relative errors across mass ratio, source radius, and magnification, with uncertainty intervals and sample counts
+   :alt: Two-dimensional maps of median speed ratios and 99th-percentile errors, with a numerical estimate in each populated cell
    :width: 100%
    :target: _static/cpu_parameter_maps_ld.png
 
-   CPU speed and accuracy across the sampled binary configurations.
-   Click the figure to read the individual cells.
+   **a–c:** median runtime ratio, VBM/microJAX.
+   **d–f:** 99th-percentile relative error. Each cell shows its estimate;
+   numbers in **d–f** are in units of :math:`10^{-5}`. Grey cells have too few
+   measured configurations or no sources in the saved reference frame.
+   The error colour scale runs from :math:`5\times10^{-5}` to
+   :math:`2\times10^{-4}`, with :math:`10^{-4}` at its centre.
 
-Reading the maps
-----------------
+The columns group the same measurements by :math:`(q,\rho)`,
+:math:`(A_{\rm ref},\rho)`, and :math:`(A_{\rm ref},q)`; separation ``s``
+is pooled within each cell. Estimates need at least 15 configurations,
+and error percentiles need at least 50 positions.
 
-The upper row shows the median runtime ratio, VBMicrolensing/microJAX.
-A value of 2 means microJAX took half as long. The lower row shows the
-95th-percentile relative magnification error in parts per million:
-100 ppm corresponds to 0.01%. Reading the two rows together shows the
-accuracy reached at a given speed.
+Uncertainty is shown in the
+`regional interval figure <_static/cpu_regional_intervals_ld.png>`_. Each
+row is a :math:`q`–:math:`\rho` region; indices run from the lowest to the
+highest of the five logarithmic bins on each axis. Thick bars span 68.27%
+(about 1σ) and thin bars 95%. These intervals come from 4,000 resamples of
+whole configurations within :math:`q`–:math:`\rho` groups. They describe
+uncertainty in the median or percentile, rather than the scatter of
+individual errors. They do not include uncertainty in the saved reference.
+Exact values, standard errors, and counts remain in ``regional_statistics.csv``.
 
-Each cell gives an estimate, a 68.27% bootstrap interval, and the number of
-measured configurations out of those available. The interval describes
-uncertainty in the median or percentile, rather than the spread of individual
-measurements. It is estimated from 4,000 resamples of whole configurations
-within mass-ratio/source-radius groups. Regions with too few samples retain
-their counts but omit the interval.
-
-The source positions lie near selected caustics, with one position per
-configuration. The grid spans ``q=1e-6..1``, ``s=0.5..1.5``, and
-``rho=3e-5..1``. It includes both planetary and comparable-mass lenses.
-The run contains 12,244 reference comparisons and 12,236 paired timings.
-Paired timings include positions where both solvers agree with the saved
-reference to within a relative difference of ``1e-3``.
-
-This figure records the binary CPU implementation at
+The figures use the measurement at
 `998c548 <https://github.com/ShotaMiyazaki94/microjax/commit/998c548>`_
-on 6 November 2026, using JAX/JAXLIB 0.8.0 and VBMicrolensing 5.3.5 on a
-macOS 26.5 arm64 CPU. Timings compare single-position, full finite-source
-calculations after compilation, with multipole screening disabled.
-They describe that workload, rather than the throughput of an entire
-light curve with the usual multipole screening enabled.
+on 6 November 2026. This is a grid of selected caustic-region positions,
+so the overall distributions describe that sample of events.
 
 Running a comparison
 --------------------

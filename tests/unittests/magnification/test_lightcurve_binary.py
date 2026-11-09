@@ -1,0 +1,303 @@
+import jax
+import numpy as np
+import jax.numpy as jnp
+import pytest
+from tests.utils.gpu import has_cuda
+from microjax import make_mag_binary
+
+import microjax._magnification.gpu.lightcurve as lightcurve_module
+from microjax._magnification.gpu.lightcurve import (
+    _tiled_vmap_active_scalar,
+    _select_full_points,
+)
+from microjax._magnification.gpu.config import BinaryMagConfig, DEFAULT_BINARY_CONFIG
+from microjax._magnification.gpu.integrators import (
+    BoundaryMagnificationResult,
+    mag_limb_dark_boundary,
+    mag_uniform_boundary,
+)
+from microjax.multipole import mag_hexadecapole
+from microjax.point_source import _images_point_source
+
+
+def make_trajectory(u0, tE, t0, alpha, n=100, span=3.0):
+    t = t0 + jnp.linspace(-span * tE, span * tE, n)
+    tau = (t - t0) / tE
+    y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
+    y2 = u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
+    w_points = jnp.array(y1 + 1j * y2, dtype=complex)
+    return t, w_points
+
+
+def test_binary_config_has_the_a100_tuned_defaults():
+    assert DEFAULT_BINARY_CONFIG == BinaryMagConfig()
+    assert DEFAULT_BINARY_CONFIG.n_limb == 64
+    assert DEFAULT_BINARY_CONFIG.source_tile_size == 512
+    assert DEFAULT_BINARY_CONFIG.radial_chunk_size == 40
+
+
+def test_binary_config_rejects_fewer_than_64_limbs():
+    with pytest.raises(ValueError, match="at least 64"):
+        BinaryMagConfig(n_limb=63)
+
+
+def test_chunked_active_map_skips_fully_inactive_chunks():
+    data = jnp.arange(8, dtype=jnp.float64).astype(jnp.complex128)
+
+    evaluate = jax.jit(
+        lambda values, n_active: _tiled_vmap_active_scalar(
+            lambda value: value.real + 1.0,
+            values,
+            n_active,
+            tile_size=4,
+        )
+    )
+    result = evaluate(data, jnp.int32(3))
+
+    # The partially active first chunk is deliberately evaluated in full.  The
+    # wholly inactive second chunk must be skipped and returned as zeros.
+    assert np.array_equal(
+        np.asarray(result),
+        np.asarray([1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0.0, 0.0]),
+    )
+
+
+def test_full_point_compaction_pads_with_the_first_rejected_point():
+    points = jnp.asarray([10.0 + 1.0j, 20.0 + 2.0j, 30.0 + 3.0j])
+    accepted = jnp.asarray([True, False, True])
+
+    compact, indices, n_active = _select_full_points(points, accepted)
+
+    assert int(n_active) == 1
+    assert np.array_equal(np.asarray(indices), np.asarray([1, 3, 3]))
+    # Inactive SIMD lanes execute in a partially filled GPU chunk.  They must
+    # duplicate the actual rejected configuration, not unrelated point zero.
+    assert np.array_equal(np.asarray(compact), np.asarray([points[1], points[1], points[1]]))
+
+
+def _uniform_single_pass(point, rho, s, q, use_local_chart):
+    return mag_uniform_boundary(
+        point,
+        rho,
+        s=s,
+        q=q,
+        Nlimb=500,
+        margin_r=0.5,
+        angular_atol=1e-5,
+        relative_tolerance=1e-4,
+        max_radial_subdivisions=1,
+        fixed_radial_order=31,
+        robust_roots=False,
+        certify_topology=False,
+        radial_strategy="fixed",
+        radial_chunk_size=8,
+        return_info=True,
+        _planetary_local_chart=use_local_chart,
+    ).magnification
+
+
+@pytest.mark.gpu
+def test_planetary_chart_gate_is_value_and_forward_continuous_at_threshold():
+    if not has_cuda():
+        pytest.skip("CUDA GPU not available")
+    point = 0.07166622782296088 + 0.07166622782296087j
+    q = jnp.asarray(1e-2)
+    def local(mass_ratio):
+        return _uniform_single_pass(point, 3e-3, 1.0, mass_ratio, True)
+
+    def global_(mass_ratio):
+        return _uniform_single_pass(point, 3e-3, 1.0, mass_ratio, False)
+
+    local_value, local_forward = jax.jvp(local, (q,), (jnp.ones_like(q),))
+    global_value, global_forward = jax.jvp(global_, (q,), (jnp.ones_like(q),))
+
+    assert np.isclose(float(local_value), float(global_value), rtol=1e-9, atol=1e-10)
+    assert np.isclose(float(local_forward), float(global_forward), rtol=1e-4, atol=1e-5)
+
+
+@pytest.mark.gpu
+def test_small_q_public_path_matches_local_chart_value_and_forward_q():
+    if not has_cuda():
+        pytest.skip("CUDA GPU not available")
+    point = 0.9699918738276432 - 0.001572032916854858j
+    rho, s = 1e-4, 1.6
+    q = jnp.asarray(1e-4)
+    mag = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
+
+    def public(mass_ratio):
+        return mag(
+            jnp.asarray([point]), rho, s=s, q=mass_ratio
+        )[0]
+
+    def local(mass_ratio):
+        return _uniform_single_pass(point, rho, s, mass_ratio, True)
+
+    public_value, public_forward = jax.jvp(public, (q,), (jnp.ones_like(q),))
+    # The public GPU is JIT compiled.  The polynomial-root custom JVP
+    # performs its fixed polishing in the compiled graph, so compare it with
+    # the same transformed local graph instead of eager JVP execution.
+    local_value, local_forward = jax.jit(
+        lambda mass_ratio: jax.jvp(
+            local,
+            (mass_ratio,),
+            (jnp.ones_like(mass_ratio),),
+        )
+    )(q)
+
+    assert np.isclose(float(public_value), float(local_value), rtol=5e-7, atol=1e-8)
+    assert np.isclose(float(public_forward), float(local_forward), rtol=1e-3, atol=1e-3)
+
+
+def test_partial_source_chunk_has_finite_reverse_gradient():
+    data = jnp.asarray([1.0, 4.0, 9.0], dtype=jnp.complex128)
+
+    def objective(scale):
+        values = _tiled_vmap_active_scalar(
+            lambda value: jnp.sqrt(scale * value.real),
+            data,
+            jnp.int32(3),
+            tile_size=2,
+        )
+        return jnp.sum(values)
+
+    forward = jax.jacfwd(objective)(jnp.asarray(1.0))
+    reverse = jax.grad(objective)(jnp.asarray(1.0))
+    assert np.isfinite(float(reverse))
+    assert np.isclose(float(reverse), float(forward), rtol=0.0, atol=1e-14)
+
+
+@pytest.mark.parametrize("u1", [0.0, 0.5])
+def test_binary_scheduler_config_reaches_source_and_radial_batches(monkeypatch, u1):
+    tile_sizes = []
+    radial_settings = []
+
+    def fake_prefilter(w_points, rho, coefficient, s, q):
+        del rho, coefficient, s, q
+        return (
+            jnp.zeros(w_points.shape, dtype=w_points.real.dtype),
+            jnp.zeros(w_points.shape, dtype=bool),
+            jnp.zeros(w_points.shape, dtype=w_points.real.dtype),
+            jnp.ones(w_points.shape, dtype=w_points.real.dtype),
+        )
+
+    def fake_boundary(w_center, rho, **kwargs):
+        del rho
+        radial_settings.append(
+            (
+                kwargs["radial_chunk_size"],
+                kwargs["parallel_regions"],
+                kwargs["fixed_radial_order"],
+            )
+        )
+        zero = jnp.asarray(0.0, dtype=w_center.real.dtype)
+        return BoundaryMagnificationResult(w_center.real, zero, jnp.int32(0))
+
+    def fake_tiled_map(function, data, n_active, tile_size):
+        del n_active
+        tile_sizes.append(tile_size)
+        return jax.vmap(function)(data)
+
+    monkeypatch.setattr(lightcurve_module, "_binary_prefilter", fake_prefilter)
+    monkeypatch.setattr(lightcurve_module, "mag_uniform_boundary", fake_boundary)
+    monkeypatch.setattr(lightcurve_module, "mag_limb_dark_boundary", fake_boundary)
+    monkeypatch.setattr(lightcurve_module, "_tiled_vmap_active_scalar", fake_tiled_map)
+
+    points = jnp.arange(5, dtype=jnp.float64).astype(jnp.complex128)
+    config = BinaryMagConfig(n_limb=64, source_tile_size=3, radial_chunk_size=64)
+    result = lightcurve_module.mag_binary.__wrapped__(
+        points,
+        1e-2,
+        s=1.0,
+        q=0.1,
+        u1=u1,
+        config=config,
+    )
+
+    assert result.shape == points.shape
+    assert tile_sizes and set(tile_sizes) == {3}
+    assert radial_settings and set(radial_settings) == {
+        (64, False, 19),
+    }
+
+
+def test_far_field_uses_multipole_matches_internal():
+    # Choose far from caustics: large |w| and tiny q
+    s, q, rho = 1.2, 1e-3, 1e-3
+    a = 0.5 * s
+    e1 = q / (1.0 + q)
+    x_cm = a * (1.0 - q) / (1.0 + q)
+    # Trajectory points far away
+    _, w = make_trajectory(u0=5.0, tE=10.0, t0=0.0, alpha=jnp.deg2rad(30), n=16, span=1.0)
+    w_shift = w - x_cm
+    z, z_mask = _images_point_source(w_shift, nlenses=2, a=a, e1=e1)
+    mu_multi, _ = mag_hexadecapole(z, z_mask, rho, nlenses=2, a=a, e1=e1, s=s, q=q)
+
+    mag = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
+    mags = mag(
+        w,
+        rho,
+        s=s,
+        q=q,
+    )
+    # All far-field points pass the multipole gate.
+    assert np.allclose(np.array(mags), np.array(mu_multi), rtol=1e-6, atol=1e-8)
+
+
+@pytest.mark.slow
+def test_boundary_lightcurve_supports_linear_limb_darkening():
+    s, q, rho, u1 = 1.0, 1e-2, 5e-3, 0.5
+    point = 0.03 + 0.01j
+    expected = mag_limb_dark_boundary(
+        point,
+        rho,
+        s=s,
+        q=q,
+        u1=u1,
+        Nlimb=500,
+        angular_atol=1e-5,
+    )
+    mag = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
+    result = mag(
+        jnp.asarray([point]),
+        rho,
+        s=s,
+        q=q,
+        u1=u1,
+    )
+
+    assert np.isfinite(float(expected))
+    assert np.allclose(np.asarray(result), np.asarray([expected]), atol=1e-10)
+
+
+@pytest.mark.parametrize(
+    "s,q,u0,tE,rho,alpha",
+    [
+        (1.0, 1e-2, 0.05, 20.0, 5e-3, np.deg2rad(15.0)),
+    ],
+)
+@pytest.mark.gpu
+def test_binary_lightcurve_matches_vbml(s, q, u0, tE, rho, alpha):
+    if not has_cuda():
+        pytest.skip("CUDA GPU not available")
+    vb = pytest.importorskip("VBMicrolensing")
+    vbml = vb.VBMicrolensing()
+    vbml.RelTol = 1e-5
+    vbml.Tol = 1e-5
+
+    t0 = 0.0
+    npts = 100
+    t, w = make_trajectory(u0=u0, tE=tE, t0=t0, alpha=alpha, n=npts, span=1.0)
+    params_vb = [jnp.log(s), jnp.log(q), u0, alpha - jnp.pi, jnp.log(rho), jnp.log(tE), t0]
+    mag_vb, _, _ = jnp.array(vbml.BinaryLightCurve(params_vb, t))
+
+    mag = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
+    mags = mag(
+        w,
+        rho,
+        s=s,
+        q=q,
+    )
+
+    diff = np.array(mags) - np.array(mag_vb)
+    # Allow a modest tolerance due to discretization and algorithmic differences
+    assert np.max(np.abs(diff)) < 5e-3

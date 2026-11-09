@@ -13,7 +13,7 @@ an event or exploring which parts of a light curve constrain the lens.
 Both the magnification and its derivatives can be evaluated on CPU or GPU.
 
 If you are new to microJAX, start with :doc:`getting_started`, then work
-through :doc:`usage`. That tutorial goes from a source trajectory to the
+through :doc:`usage`. That tutorial goes from event parameters to the
 light curve below. :doc:`autodiff` builds on the same event. Complete
 scripts are in :doc:`examples/index`.
 
@@ -36,6 +36,7 @@ scripts are in :doc:`examples/index`.
 
    usage
    autodiff
+   inference
    examples/index
 
 .. toctree::

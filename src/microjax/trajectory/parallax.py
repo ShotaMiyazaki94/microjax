@@ -36,7 +36,6 @@ import numpy as np
 
 from ._kepler import solve_kepler_newton
 
-# Lightweight array alias for readability (consistent with inverse_ray style)
 Array = jnp.ndarray
 
 def peri_vernal(tref: Union[float, Array]) -> Tuple[Array, Array]:

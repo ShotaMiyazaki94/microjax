@@ -28,20 +28,24 @@ jax.config.update("jax_enable_x64", True)
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from microjax.inverse_ray import mag_binary
+import microjax as mj
 
 times = jnp.linspace(-5.0, 10.0, 500)
-t0, t_e, u0 = 0.0, 10.0, 0.1
-alpha = jnp.deg2rad(50.0)
-w = ((times - t0) / t_e + 1j * u0) * jnp.exp(1j * alpha)
-
-A = mag_binary(w, rho=0.005, s=1.0, q=0.001, u1=0.5, backend="cpu")
+lightcurve = mj.make_binary_lightcurve(backend="cpu")
+# t0, tE, u0, q, s, alpha, rho
+parameters = jnp.array([
+    0.0, 10.0, 0.1, 0.001, 1.0, jnp.deg2rad(50.0), 0.005,
+])
+A = lightcurve(parameters, times, u1=0.5)
 
 plt.plot(times, A)
 plt.xlabel("Time (days)")
 plt.ylabel("Magnification")
 plt.show()
 ```
+
+CPU is the default. With GPU-enabled JAX, use `backend="gpu"` when creating
+the function; the event parameters and observation times stay the same.
 
 ![A binary microlensing light curve](docs_src/_static/binary_lightcurve.png)
 

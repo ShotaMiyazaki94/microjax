@@ -2,9 +2,9 @@ A binary light curve
 ====================
 
 Let's calculate a microlensing event produced by a star and a low-mass
-companion. We will describe the source's motion across the sky, evaluate its
-magnification, and plot the result. The same steps apply to a stellar binary;
-only the lens parameters change.
+companion. We will choose its event parameters, evaluate the magnification
+at a set of observation times, and plot the result. The same steps apply to
+a stellar binary; only the lens parameters change.
 
 Setting up the event
 --------------------
@@ -20,46 +20,48 @@ precision than JAX's default 32-bit arithmetic.
 
    import jax.numpy as jnp
    import matplotlib.pyplot as plt
-   from microjax.inverse_ray import mag_binary
+   import microjax as mj
 
-A source position is represented by a complex number, ``w = x + 1j*y``.
-The real axis runs along the binary, and the origin is its centre of mass.
-Distances are measured in angular Einstein radii for the total lens mass.
-
-For straight-line motion, we need four event parameters: the time of closest
-approach ``t0``, the Einstein crossing time ``t_e``, the impact parameter
-``u0``, and the trajectory angle ``alpha``. Here, all times are in days and
-the angle is converted to radians:
+Choose the CPU integrator once. The resulting function takes event
+parameters and observation times, and returns the magnification:
 
 .. code-block:: python
 
    times = jnp.linspace(-5.0, 10.0, 500)
-   t0, t_e, u0 = 0.0, 10.0, 0.1
-   alpha = jnp.deg2rad(50.0)
+   lightcurve = mj.make_binary_lightcurve(backend="cpu")
 
-   tau = (times - t0) / t_e
-   w = (tau + 1j * u0) * jnp.exp(1j * alpha)
+The source follows a straight line. Its time of closest approach is ``t0``,
+its Einstein crossing time is ``tE``, and its impact parameter is ``u0``.
+The trajectory angle ``alpha`` is measured from the binary axis in radians.
+Here, all times are in days:
 
-``tau + 1j*u0`` describes motion parallel to the real axis; multiplying by
-``exp(1j*alpha)`` rotates the path. The trajectory passes 0.1 Einstein radii
-from the origin at day zero. This defines the geometry, rather than the
-time of peak magnification, which also depends on the lens.
+.. code-block:: python
+
+   # t0, tE, u0, q, s, alpha, rho
+   parameters = jnp.array([
+       0.0, 10.0, 0.1, 0.001, 1.0, jnp.deg2rad(50.0), 0.005,
+   ])
+
+The companion has mass ratio ``q=0.001`` relative to the primary and
+separation ``s=1`` Einstein radius. The source has radius ``rho=0.005`` and
+a linear limb-darkening coefficient ``u1=0.5``, so its edge is darker than
+its centre. Setting ``u1=0`` gives a uniform disk.
+
+The trajectory passes 0.1 Einstein radii from the binary's centre of mass
+at day zero. This defines the geometry, rather than the time of peak
+magnification, which also depends on the lens.
 
 Calculating the magnification
 -----------------------------
 
-Choose a companion-to-primary mass ratio of ``q=0.001`` and a separation of
-``s=1`` Einstein radius. The source has radius ``rho=0.005`` and a linear
-limb-darkening coefficient ``u1=0.5``, so its edge is darker than its centre.
-
 .. code-block:: python
 
-   A = mag_binary(w, rho=0.005, s=1.0, q=0.001, u1=0.5, backend="cpu")
+   A = lightcurve(parameters, times, u1=0.5)
 
 ``A`` contains one magnification for each of the 500 observation times.
-The ``backend="cpu"`` setting selects the CPU integrator used throughout
-this tutorial. :doc:`working_with_jax` explains how to run the same model
-on a GPU.
+You can call ``lightcurve`` again with different parameters or times;
+:doc:`working_with_jax` explains how to compile it for repeated use or
+select the GPU implementation.
 
 .. code-block:: python
 
@@ -77,8 +79,12 @@ on a GPU.
 The broad brightening is interrupted by a short feature before the peak.
 This is where the source passes near the binary's caustic, a curve along
 which the magnification of a point source diverges. Giving the source a
-finite radius smooths the feature. Try increasing ``rho`` to see how it
-changes, or changing ``q`` to explore a more massive companion.
+finite radius smooths the feature. Try increasing ``rho``, the last entry
+of the parameter array, to see how it changes:
+
+.. code-block:: python
+
+   A_larger_source = lightcurve(parameters.at[6].set(0.01), times, u1=0.5)
 
 Magnification to observed flux
 ------------------------------
@@ -98,5 +104,5 @@ fluxes given a magnification curve and observed photometry.
 
 Next, :doc:`autodiff` shows how to calculate derivatives of this event.
 For a third lens, continue to the :ref:`triple example <triple-example>`.
-The :doc:`finite-source reference <api/inverse_ray_lightcurve>` gives the
-complete coordinate and brightness conventions.
+If you already have source positions, you can pass them directly to the
+:ref:`position-based functions <source-position-api>`.

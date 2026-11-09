@@ -310,7 +310,7 @@ def main():
 
     jax.config.update("jax_enable_x64", True)
     import jax.numpy as jnp
-    from microjax.inverse_ray.cpu.lightcurve import mag_binary_cpu_lightcurve
+    from microjax._magnification.cpu.lightcurve import mag_binary_cpu_lightcurve
 
     hashes = source_hashes()
     metadata = {

@@ -11,8 +11,9 @@ python -m pip install -e . matplotlib
 | --- | --- | --- |
 | [Binary lens on CPU](cpu/README.md#binary-lens) | `python example/cpu/lightcurve.py` | Light curve and seven-parameter Jacobian |
 | [Triple lens on CPU](cpu/README.md#triple-lens) | `python example/cpu/lightcurve.py --lens triple` | Light curve and ten-parameter Jacobian |
-| [Binary lens on GPU](gpu/jacobian-binary/README.md) | `python example/gpu/jacobian-binary/code/grads_limb_dark_binary.py` | Light curve, Jacobian, and timings |
-| [Triple lens on GPU](gpu/jacobian-triple/README.md) | `python example/gpu/jacobian-triple/code/grads_limb_dark_triple.py` | Light curve, Jacobian, and timings |
+| [Binary lens on GPU](gpu/jacobian-binary/README.md) | `python example/gpu/jacobian-binary/code/jacobian.py` | Light curve, Jacobian, and timings |
+| [Triple lens on GPU](gpu/jacobian-triple/README.md) | `python example/gpu/jacobian-triple/code/jacobian.py` | Light curve, Jacobian, and timings |
+| [HMC injection–recovery](hmc/README.md) | `python example/hmc/injection_recovery.py` | Posterior samples, recovery plots, and chain diagnostics (also needs NumPyro) |
 | Magnification benchmarks | [Binary](gpu/compare-binary-vbml/README.md) · [Triple](gpu/compare-triple-vbml/README.md) | VBMicrolensing comparison and image geometry |
 
 The light-curve examples use linear limb darkening with `u1=0.5`. CPU and

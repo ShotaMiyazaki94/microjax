@@ -4,14 +4,14 @@ Differentiating a light curve
 A derivative tells us how the model changes when we adjust a parameter.
 For example, the source-radius derivative shows which parts of the light
 curve are sensitive to the star's size. Here we calculate derivatives for
-all seven parameters of the :doc:`binary event <usage>`.
+the parameters of the :doc:`binary event <usage>`.
 
 Writing a model function
 ------------------------
 
-Put the parameters you want to vary into an array, then write a function
-that maps this array to a light curve. The times stay fixed while the
-parameters change:
+The light-curve function accepts a seven-element parameter array and
+observation times. We differentiate the event parameters, keeping the times
+and limb-darkening coefficient fixed:
 
 .. code-block:: python
 
@@ -20,53 +20,51 @@ parameters change:
 
    import jax.numpy as jnp
    import matplotlib.pyplot as plt
-   from microjax.inverse_ray import mag_binary
+   import microjax as mj
 
    times = jnp.linspace(-5.0, 10.0, 500)
+   lightcurve = mj.make_binary_lightcurve(backend="cpu")
+   # t0, tE, u0, q, s, alpha, rho
    parameters = jnp.array([
        0.0, 10.0, 0.1, 0.001, 1.0, jnp.deg2rad(50.0), 0.005,
    ])
 
-   def lightcurve(p):
-       t0, t_e, u0, q, s, alpha, rho = p
-       w = ((times - t0) / t_e + 1j * u0) * jnp.exp(1j * alpha)
-       return mag_binary(w, rho, s=s, q=q, u1=0.5, backend="cpu")
-
-The parameter order is ``t0, t_e, u0, q, s, alpha, rho``. We keep limb
-darkening fixed here; you can include ``u1`` in the array if you want its
-derivative too.
+The parameter order is ``t0, tE, u0, q, s, alpha, rho``. We pass the
+limb-darkening coefficient separately as ``u1=0.5``.
 
 Calculating the Jacobian
 ------------------------
 
 ``jax.jacfwd`` constructs a function that evaluates the Jacobian. Each row
-corresponds to an observation time and each column to a model parameter.
-Wrapping it in ``jax.jit`` compiles the calculation for repeated use:
+corresponds to an observation time; the seven columns follow the parameter
+order above.
+``argnums=0`` selects the parameter argument for differentiation.
+Wrapping the result in ``jax.jit`` compiles it for repeated use:
 
 .. code-block:: python
 
-   derivative = jax.jit(jax.jacfwd(lightcurve))
-   jacobian = derivative(parameters)
+   derivative = jax.jit(jax.jacfwd(lightcurve, argnums=0))
+   jacobian = derivative(parameters, times, u1=0.5)
    print(jacobian.shape)
 
 .. code-block:: text
 
    (500, 7)
 
-The first call includes compilation. Subsequent calls with another
-seven-element parameter array reuse it. This forward-mode calculation
-works for both CPU and GPU models; use ``jacfwd`` for the CPU integrator,
-whose adaptive loops do not support reverse-mode ``grad`` or ``jacrev``.
+The first call includes compilation. Subsequent calls with the same array
+shapes and dtypes reuse it. This forward-mode calculation works for both CPU
+and GPU models; use ``jacfwd`` for the CPU integrator, whose adaptive loops
+do not support reverse-mode ``grad`` or ``jacrev``.
 
 Looking at one derivative
 -------------------------
 
-The last column is :math:`\partial A/\partial\rho`. Let's plot it below the
-magnification so we can see where the source size matters:
+Let's plot :math:`\partial A/\partial\rho` below the magnification so we
+can see where the source size matters:
 
 .. code-block:: python
 
-   A = jax.jit(lightcurve)(parameters)
+   A = jax.jit(lightcurve)(parameters, times, u1=0.5)
 
    fig, axes = plt.subplots(2, 1, figsize=(7, 5), sharex=True,
                             layout="constrained")
@@ -100,13 +98,14 @@ as auxiliary data to get them from the same calculation:
 
 .. code-block:: python
 
-   def with_value(p):
-       A = lightcurve(p)
+   def with_value(p, times):
+       A = lightcurve(p, times, u1=0.5)
        return A, A
 
-   value_and_jacobian = jax.jit(jax.jacfwd(with_value, has_aux=True))
-   jacobian, A = value_and_jacobian(parameters)
+   value_and_jacobian = jax.jit(jax.jacfwd(with_value, argnums=0, has_aux=True))
+   jacobian, A = value_and_jacobian(parameters, times)
 
 For a triple lens, the same pattern applies with three additional parameters
-and ``mag_triple``. The :doc:`examples/index` plots all seven binary and
-all ten triple derivatives and includes the complete scripts.
+and ``make_triple_lightcurve``. The :doc:`examples/index` keeps ``u1`` fixed
+and plots the seven binary and ten triple event derivatives, with complete
+scripts for both CPU and GPU.
