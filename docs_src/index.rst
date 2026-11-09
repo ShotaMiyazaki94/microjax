@@ -1,56 +1,56 @@
 microJAX
 ========
 
-Differentiable binary- and triple-lens microlensing in JAX, with finite
-sources, limb darkening, and light-curve Jacobians on CPUs and GPUs.
+microJAX is a Python package for modeling gravitational microlensing by
+binary and triple lenses. It calculates how a star's brightness changes as
+it passes behind a lens system, including the effects of the star's size
+and limb darkening. The lenses can describe a star with planetary companions
+or a system of stars.
 
-.. code-block:: python
+The package is built with JAX, so you can also calculate how a light curve
+changes with each model parameter. These derivatives are useful when fitting
+an event or exploring which parts of a light curve constrain the lens.
+Both the magnification and its derivatives can be evaluated on CPU or GPU.
 
-   import jax
-   jax.config.update("jax_enable_x64", True)
-   import jax.numpy as jnp
-   from microjax.inverse_ray import mag_binary
+If you are new to microJAX, start with :doc:`getting_started`, then work
+through :doc:`usage`. That tutorial goes from a source trajectory to the
+light curve below. :doc:`autodiff` builds on the same event. Complete
+scripts are in :doc:`examples/index`.
 
-   times = jnp.linspace(-5., 10., 101)
-   t0, t_e, u0 = 0., 10., 0.1
-   alpha = jnp.deg2rad(50.)
-   w = ((times - t0) / t_e + 1j * u0) * jnp.exp(1j * alpha)
+.. figure:: _static/binary_lightcurve.png
+   :alt: A binary microlensing light curve with a short feature near its peak
+   :width: 100%
+   :target: usage.html
 
-   lightcurve = jax.jit(lambda rho: mag_binary(
-       w, rho, s=1., q=0.001, u1=0.5, backend="cpu",
-   ))
-   A = lightcurve(0.005)
-
-Supply source positions as a complex array in Einstein-radius units.
-``mag_binary`` and ``mag_triple`` evaluate circular finite sources;
-``u1`` sets the linear limb darkening. Use ``backend="cpu"`` for the
-dedicated CPU integrator or ``backend="accelerator"`` for GPU batches.
-
-Continue with :doc:`usage` and :doc:`autodiff`, or run the illustrated
-:doc:`examples/index`. Single-lens models are available in
-`singlens <https://github.com/ShotaMiyazaki94/singlens>`_.
+   A binary-lens event calculated in the first tutorial.
 
 .. toctree::
    :caption: Getting started
    :maxdepth: 1
 
    getting_started
-   usage
-   autodiff
 
 .. toctree::
-   :caption: Modeling
+   :caption: Tutorials
    :maxdepth: 1
 
-   cpu_backend
+   usage
+   autodiff
    examples/index
 
 .. toctree::
    :caption: Reference
    :maxdepth: 1
 
-   modules
-   caveats
+   working_with_jax
    benchmarks
-   performance
+   modules
    citing
+
+The methods are described in
+`Miyazaki & Kawahara (2025) <https://doi.org/10.3847/1538-4357/ae1005>`_.
+See :doc:`citing` if you use microJAX in your work. For single-lens models,
+see `singlens <https://github.com/ShotaMiyazaki94/singlens>`_.
+
+Questions, bug reports, and suggestions are welcome on
+`GitHub <https://github.com/ShotaMiyazaki94/microjax/issues>`_.

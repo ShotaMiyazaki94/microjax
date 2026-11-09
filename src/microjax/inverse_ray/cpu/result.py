@@ -5,6 +5,8 @@ import jax
 
 
 class CpuMagnificationResult(NamedTuple):
+    """Magnification and structural status, with one entry per source position."""
+
     magnification: jax.Array
     status: jax.Array
 

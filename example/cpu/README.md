@@ -1,11 +1,15 @@
 # CPU light curves and Jacobians
 
+These examples show how the lens geometry produces a light curve, and how
+that curve responds to each event parameter. Run them from the repository
+root after installing microJAX and Matplotlib:
+
 ```bash
 python example/cpu/lightcurve.py
 python example/cpu/lightcurve.py --lens triple
 ```
 
-Run from the repository root after `python -m pip install -e . matplotlib`.
+Install with `python -m pip install -e . matplotlib`.
 [`lightcurve.py`](lightcurve.py) selects the CPU device, float64, and
 `backend="cpu"`. It computes magnification and all parameter derivatives
 in one `jax.jacfwd` call. Linear limb darkening is fixed at `u1=0.5`.
@@ -45,12 +49,8 @@ and `jacobian_forward.npy`:
 | Binary | `results/cpu/example/` | 500 × 7 |
 | Triple | `results/cpu/example/triple/` | 1000 × 10 |
 
-Generated data stay under `results/`. To refresh the two README previews:
-
-```bash
-cp results/cpu/example/lightcurve.png example/cpu/lightcurve.png
-cp results/cpu/example/triple/lightcurve.png example/cpu/triple_jacobian.png
-```
+Load the saved arrays in a notebook to explore the results without
+repeating the calculation.
 
 For accuracy and timing comparisons, see the
 [benchmarks](../../docs_src/benchmarks.rst).

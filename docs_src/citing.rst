@@ -1,10 +1,8 @@
 Citation
 ========
 
-Methods paper and software archive
-----------------------------------
-
-If you use microJAX, cite the methods paper and the archived software version:
+If you use microJAX in your work, please cite the methods paper and the
+software archive:
 
 - Miyazaki, S., & Kawahara, H. 2025, ApJ, 994, 144,
   `doi:10.3847/1538-4357/ae1005 <https://doi.org/10.3847/1538-4357/ae1005>`_
@@ -40,7 +38,3 @@ BibTeX
      doi = {10.5281/zenodo.17247892},
      url = {https://doi.org/10.5281/zenodo.17247892}
    }
-
-For a numerical comparison, include the event parameters, backend settings,
-JAX version, and hardware alongside the microJAX version. State whether
-timings include compilation; see :doc:`benchmarks` for the measurement setup.

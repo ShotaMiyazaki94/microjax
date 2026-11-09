@@ -18,8 +18,8 @@ python example/cpu/lightcurve.py
 
 ## Tests and benchmarks
 
-Run the tests relevant to the change. The shared binary/triple CPU integrator
-has seven focused checks:
+Run the tests relevant to the change. For the shared binary/triple CPU
+integrator:
 
 ```bash
 pytest -q tests/unittests/inverse_ray/test_cpu.py tests/unittests/inverse_ray/test_cpu_triple.py
@@ -56,17 +56,17 @@ Edit the guides in `docs_src/` and build the documentation locally:
 python -m sphinx -b html -W docs_src docs
 ```
 
-Open `docs/index.html` to review it. `docs_src/` is the source; `docs/` is
-the generated site and is excluded from Git. Keep examples short,
-show the resulting figure, and give a command that runs from the repository
-root. Documentation builds should read existing figures rather than run
-long calculations.
+Open `docs/index.html` to review it. Write guides around a calculation the
+reader can follow: explain the model, show the code and figure, then help
+them interpret the result. Put parameter definitions and solver settings
+in the API reference. Documentation builds use saved figures.
 
 The Documentation workflow builds pull requests and publishes `develop` through
 GitHub Pages. For the initial migration, install the workflow on `develop` and
 confirm its build succeeds, then set **Settings → Pages → Source → GitHub Actions**.
 Deployment stays disabled while Pages still uses the old branch source.
 Generated HTML is uploaded as a Pages artifact instead of committed to Git.
+The legacy tracked HTML can be removed once that migration is complete.
 
 For a longer experiment, use a standalone script or a manually launched
 batch. Save its configuration, numerical outputs, and log under `results/`;
@@ -77,9 +77,9 @@ a notebook session open while the calculation runs.
 
 Commit source, documentation, focused tests, and small required fixtures.
 Keep runtime measurements in `results/`, generated HTML in `docs/`, and retired
-local experiments in `archive/`; these directories are ignored. Selected
-example PNGs are versioned beside their scripts so the README figures can
-be viewed without running a calculation.
+local experiments in `archive/`. Do not add their contents to new commits.
+Version the selected figures used in the guides and example READMEs so
+readers can view them without running a calculation.
 
 Describe the resulting behavior and the checks performed in the pull
 request. For bug reports, include a small reproducer, the microJAX and JAX

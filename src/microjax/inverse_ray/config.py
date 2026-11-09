@@ -19,14 +19,11 @@ def _validate_positive_integer(name: str, value: int) -> None:
 
 @dataclass(frozen=True)
 class _BoundaryMagConfig:
-    """Shared topology-sampling and accelerator-scheduling settings.
+    """Source-boundary sampling and batching for the accelerator integrator.
 
-    ``source_tile_size`` controls the outer batch of source positions.
-    ``radial_chunk_size`` controls the inner batch of radial regions; a value
-    of 64 evaluates the complete fixed-capacity region buffer together.
-
-    These values alter Python control flow or static JAX shapes, so changing
-    them produces a separately compiled executable.
+    ``source_tile_size`` batches source positions; ``radial_chunk_size``
+    batches radial image regions within each position. Changing these
+    settings produces a new JAX compilation.
     """
 
     n_limb: int = 500
@@ -42,13 +39,10 @@ class _BoundaryMagConfig:
 
 @dataclass(frozen=True)
 class BinaryMagConfig(_BoundaryMagConfig):
-    """Static configuration for the accelerator ``mag_binary`` fast path.
+    """Sampling and batching settings for accelerator binary magnification.
 
-    The defaults expose at least 512 independent source points to the GPU and
-    retain 64 source-limb samples. The 40-lane radial buffer covers the audited
-    local-chart topology in one parallel launch without paying for the complete
-    64-slot general-purpose buffer. Every fast radial cell uses one externally
-    audited 19-point rule across the full binary mass-ratio range.
+    ``n_limb`` samples the source boundary and must be at least 64.
+    The two batch sizes control memory use and throughput.
     """
 
     n_limb: int = 64
@@ -65,13 +59,10 @@ class BinaryMagConfig(_BoundaryMagConfig):
 
 @dataclass(frozen=True)
 class TripleMagConfig(_BoundaryMagConfig):
-    """Static configuration for the accelerator ``mag_triple`` path.
+    """Sampling and batching settings for accelerator triple magnification.
 
-    The A100 triple-lens audit selected 128 source-limb samples. The smaller
-    100-point outer tile and eight-cell radial chunk retain substantially more
-    throughput for the ten-direction forward Jacobian than the wider binary
-    scheduler while keeping the audited comparison track below ``1e-3``
-    relative error.
+    ``n_limb`` samples the source boundary. The two batch sizes control
+    memory use and throughput, independently of the sampling resolution.
     """
 
     n_limb: int = 128

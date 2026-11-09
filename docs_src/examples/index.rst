@@ -1,99 +1,98 @@
-Examples
-========
+Binary and triple examples
+==========================
 
-Compute binary and triple light curves and their parameter derivatives.
-The examples use linear limb darkening with ``u1=0.5`` and float64.
-CPU and GPU versions share the event parameters and observation times.
+These examples put the light curve, lens geometry, and parameter derivatives
+in one figure. They are useful starting points for exploring an event of
+your own. The CPU and GPU versions use the same parameters and observation
+times, with linear limb darkening fixed at ``u1=0.5``.
 
-Run from a source checkout with Matplotlib installed:
+Run the commands below from a :doc:`source checkout <../getting_started>`
+with Matplotlib installed. The CPU examples share one
+:download:`script <../../example/cpu/lightcurve.py>`; edit ``params`` and
+``times`` in its ``main()`` function to change the event.
 
-.. code-block:: bash
+Binary lens
+-----------
 
-   python -m pip install -e . matplotlib
-
-.. list-table::
-   :header-rows: 1
-   :widths: 35 20 45
-
-   * - Example
-     - Backend
-     - Result
-   * - `Binary light curve`_
-     - CPU or GPU
-     - 500 observations, seven derivatives
-   * - `Triple light curve`_
-     - CPU or GPU
-     - 1000 observations, ten derivatives
-   * - :doc:`Magnification benchmarks <../benchmarks>`
-     - CPU
-     - Accuracy and synchronized runtime
-
-Binary light curve
-------------------
-
-.. code-block:: bash
+.. code-block:: sh
 
    python example/cpu/lightcurve.py
 
-The event has ``q=0.001``, ``s=1``, ``rho=0.005``, ``u0=0.1``,
-``tE=10`` days, and ``alpha=50°``. The upper panel shows magnification,
-with the source trajectory, caustics, and critical curves in the inset.
-The remaining panels show derivatives with respect to
-``t0, tE, u0, q, s, alpha, rho``.
+This is the event from :doc:`../usage`: a low-mass companion with
+``q=0.001`` and ``s=1``, observed along a trajectory that passes close to a
+caustic. The source radius is ``rho=0.005``. The upper panel shows the
+magnification, and the seven panels below it show how the light curve
+responds to ``t0, tE, u0, q, s, alpha, rho``.
 
 .. figure:: ../../example/cpu/lightcurve.png
-   :alt: Binary-lens light curve, lens geometry, and seven parameter derivatives
-   :width: 720px
+   :alt: Binary magnification with lens geometry and seven parameter derivatives
+   :width: 100%
 
-   CPU binary-lens magnification and forward Jacobian, sampled from −5 to 10 days.
+   The inset shows the source trajectory in blue, caustics in red, and
+   critical curves in green. Black crosses mark the lens positions.
 
-The GPU version runs the same event through the accelerator backend:
+The derivatives are largest around the short feature before the peak.
+They also have different shapes: changing the event time shifts the feature,
+while changing the source radius changes its smoothing. The
+:doc:`differentiation tutorial <../autodiff>` explains how to obtain these
+curves from a model function.
 
-.. code-block:: bash
+.. _triple-example:
 
-   python example/gpu/jacobian-binary/code/grads_limb_dark_binary.py
+Triple lens
+-----------
 
-See the `GPU binary example <https://github.com/ShotaMiyazaki94/microjax/tree/develop/example/gpu/jacobian-binary>`_
-for its timing report and output options.
-
-Triple light curve
-------------------
-
-.. code-block:: bash
+.. code-block:: sh
 
    python example/cpu/lightcurve.py --lens triple
 
-The triple event has ``q=0.1``, ``s=1.1``, ``q3=0.01``, and ``rho=0.01``.
-The third lens lies at ``0.3+1.2j`` relative to the midpoint of the first two.
-Its position is supplied as ``r3=abs(0.3+1.2j)`` and
-``psi=angle(0.3+1.2j)``. The trajectory uses ``u0=0.1``, ``tE=10`` days,
-and ``alpha=50°``. The Jacobian adds ``q3, r3, psi`` to the binary parameters.
+Here the first two lenses have ``q=0.1`` and ``s=1.1``. A third lens has
+mass ratio ``q3=0.01`` relative to the primary and lies at ``0.3+1.2j``
+relative to the binary midpoint. Its location is passed to ``mag_triple``
+as a distance and an angle:
+
+.. code-block:: python
+
+   from microjax.inverse_ray import mag_triple
+
+   # Using w from the first tutorial:
+   A_triple = mag_triple(
+       w, rho=0.01, s=1.1, q=0.1, q3=0.01,
+       r3=abs(0.3 + 1.2j), psi=jnp.angle(0.3 + 1.2j),
+       u1=0.5, backend="cpu",
+   )
+
+The script samples 1000 times and differentiates all ten event parameters,
+adding ``q3, r3, psi`` to the binary parameter vector. The source coordinate
+origin is still the centre of mass of the first two lenses; see the
+:ref:`coordinate conventions <lens-coordinates>` for the conversion between
+this origin and the binary midpoint.
 
 .. figure:: ../../example/cpu/triple_jacobian.png
-   :alt: Triple-lens light curve, lens geometry, and ten parameter derivatives
-   :width: 720px
+   :alt: Triple magnification with lens geometry and ten parameter derivatives
+   :width: 100%
 
-   CPU triple-lens magnification and forward Jacobian at 1000 observation times.
+   A triple-lens event and its forward Jacobian, calculated on the CPU.
 
-To evaluate the same trajectory on GPU:
+Running on a GPU
+----------------
 
-.. code-block:: bash
+With a GPU-enabled JAX installation, run the corresponding scripts:
 
+.. code-block:: sh
+
+   python example/gpu/jacobian-binary/code/grads_limb_dark_binary.py
    python example/gpu/jacobian-triple/code/grads_limb_dark_triple.py
 
-See the `GPU triple example <https://github.com/ShotaMiyazaki94/microjax/tree/develop/example/gpu/jacobian-triple>`_
-for its timing report and output options.
+The `binary <https://github.com/ShotaMiyazaki94/microjax/tree/develop/example/gpu/jacobian-binary>`_
+and `triple <https://github.com/ShotaMiyazaki94/microjax/tree/develop/example/gpu/jacobian-triple>`_
+example READMEs describe the timing and output options.
 
-Source and outputs
-------------------
+Saved results
+-------------
 
-Download the :download:`CPU example script <../../example/cpu/lightcurve.py>`
-or open it `on GitHub <https://github.com/ShotaMiyazaki94/microjax/blob/develop/example/cpu/lightcurve.py>`_.
-Edit ``params`` and ``times`` in ``main()`` to change the event.
-The script obtains magnification and derivatives together using
-``jax.jacfwd(..., has_aux=True)``; see :doc:`../autodiff` to build your own model.
-
-CPU output files are ``lightcurve.png``, ``lightcurve.csv``, and
-``jacobian_forward.npy``. They go to ``results/cpu/example/`` for the binary
-and ``results/cpu/example/triple/`` for the triple. GPU scripts write to their
-``outputs/limb_dark/`` directories and accept ``--output-dir PATH``.
+The CPU script saves ``lightcurve.png``, ``lightcurve.csv`` (time and
+magnification), and ``jacobian_forward.npy`` under ``results/cpu/example/``.
+Triple results go in its ``triple/`` subdirectory. You can load these files
+in a notebook to explore the results without repeating the calculation.
+GPU results go under each script's ``outputs/limb_dark/`` directory.

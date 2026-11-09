@@ -15,20 +15,16 @@ Use `--s`, `--q`, `--rho`, `--u1`, and `--points` to change the event.
 
 ## Measurements
 
-The generated JSON report records the
-parameters, reference tolerances, warm timings, and relative magnification
+The generated JSON report records the parameters, reference tolerances, warm timings, and relative magnification
 errors for each profile. JAX compilation is excluded from the median of three
 synchronized calls; change the count with `--repeats`.
 
 VBMicrolensing uses `Tol=RelTol=1e-4` for timing and `1e-6` for residuals.
-The report also compares those two reference resolutions. For its version 5.5
-API, the script sets `solver.a1` and calls `BinaryMag2` for finite-source
-magnification.
+The report also compares those two reference resolutions.
 
 ## Outputs
 
-Files are written to `outputs/` and stay local; generated outputs are excluded
-from Git:
+The script saves its results under `outputs/`:
 
 - `benchmark_binary_profiles.json`: settings, timings, and error statistics;
 - `compare_binary_uniform_limb_dark.png`: light curves, residuals, and caustics;

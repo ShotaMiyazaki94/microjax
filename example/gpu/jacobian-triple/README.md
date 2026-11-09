@@ -1,12 +1,14 @@
 # Triple-lens Jacobian on GPU
 
+This example calculates a triple-lens light curve and shows how it changes
+with each event parameter. Run it from the repository root with microJAX,
+Matplotlib, and GPU-enabled JAX installed:
+
 ```bash
 python example/gpu/jacobian-triple/code/grads_limb_dark_triple.py
 ```
 
-Run from the repository root with microJAX, Matplotlib, and CUDA-enabled JAX
-installed. The script evaluates a limb-darkened light curve and its ten-parameter
-forward Jacobian with `jax.jacfwd`; `u1=0.5` is held fixed.
+The calculation uses `jax.jacfwd` with limb darkening fixed at `u1=0.5`.
 
 The event has `t0=0`, `tE=10` days, `u0=0.1`, `q=0.1`, `s=1.1`,
 `alpha=50°`, `rho=0.01`, and `q3=0.01`. The third lens is at `0.3+1.2j`
@@ -19,22 +21,16 @@ from −5 to 10 days. Jacobian columns follow
 The [CPU example](../../cpu/README.md#triple-lens) evaluates the same event
 with `backend="cpu"` and produces the same panel layout.
 
-## Options and outputs
+## Changing the example
 
-Use `--quick` for a smaller run, `--u1` to change limb darkening,
-`--n-points` to change the time sampling, and `--output-dir PATH` to change
-the destination. `--no-plot` writes only data and timings. The source-boundary
-sampling defaults to `n_limb=128` and can be changed with `--n-limb`.
+Use `--quick` for a smaller run, `--u1` to change limb darkening, or
+`--n-points` to change the time sampling. Run the script with `--help` for
+all options.
 
-Each run writes to `outputs/limb_dark/`: `magnification.csv`, a `(1000, 10)`
-`jacobian_forward.npy`, `benchmark.json`, the light-curve figure, and
-`ad_benchmark.png`. The report separates compilation plus the first call
-from the median of three synchronized warm calls; change this count with
-`--repeats`.
+The light curve, Jacobian array, figures, and timing report are saved under
+`outputs/limb_dark/`. Set `--output-dir PATH` to use another directory.
+The timing report separates the first call, which includes compilation,
+from subsequent calls.
 
-The numerical outputs, timing reports, and diagnostic plots stay local and
-are excluded from Git. Only the representative Jacobian figure above is
-versioned.
-
-For magnification accuracy, see the separate
+For magnification accuracy, see the
 [VBMicrolensing comparison](../compare-triple-vbml/README.md).

@@ -10,8 +10,7 @@ python example/gpu/compare-triple-vbml/code/compare_triple_profiles.py
 
 The event has `q=0.1`, `s=1.1`, `q3=0.01`, `rho=0.01`, `u0=0.1`,
 `tE=10` days, and `alpha=50°`. The third lens is at `0.3+1.2j` relative
-to the midpoint of the first two. The script translates the positions sent
-to VBMicrolensing to match microJAX's binary-centre-of-mass source frame.
+to the midpoint of the first two.
 
 The calculation covers −5 to 10 days, with `n_limb=128`, for uniform and
 linear limb-darkened sources (`u1=0.5`). Use `--quick` for a 24-point run,
@@ -26,8 +25,7 @@ and `--accuracy` to change the measurement settings.
 
 ## Outputs
 
-Files are written to `outputs/` and stay local; generated outputs are excluded
-from Git:
+The script saves its results under `outputs/`:
 
 - `benchmark_triple_profiles.json`: versions, event parameters, timings, and errors;
 - `compare_triple_uniform_limb_dark.png`: light curves, residuals, and caustics;

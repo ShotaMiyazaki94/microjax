@@ -1,147 +1,102 @@
-Light curves
-============
+A binary light curve
+====================
 
-Calculate binary and triple light curves from a trajectory of complex source
-positions. The finite-source functions integrate a circular source with linear
-limb darkening; ``mag_point_source`` evaluates the point-source model.
+Let's calculate a microlensing event produced by a star and a low-mass
+companion. We will describe the source's motion across the sky, evaluate its
+magnification, and plot the result. The same steps apply to a stellar binary;
+only the lens parameters change.
 
-Binary lens
------------
+Setting up the event
+--------------------
 
-Enable float64, construct a trajectory, and evaluate its magnification:
+We use ``jax.numpy`` for arrays and Matplotlib for the plot. Enable double
+precision at the start: resolving the small images near a caustic needs more
+precision than JAX's default 32-bit arithmetic.
 
 .. code-block:: python
 
    import jax
    jax.config.update("jax_enable_x64", True)
+
    import jax.numpy as jnp
-   from microjax.inverse_ray import mag_binary, mag_triple
+   import matplotlib.pyplot as plt
+   from microjax.inverse_ray import mag_binary
 
-   def trajectory(times, t0, t_e, u0, alpha):
-       tau = (times - t0) / t_e
-       return (tau + 1j * u0) * jnp.exp(1j * alpha)
+A source position is represented by a complex number, ``w = x + 1j*y``.
+The real axis runs along the binary, and the origin is its centre of mass.
+Distances are measured in angular Einstein radii for the total lens mass.
 
-   times = jnp.linspace(-5., 10., 500)
-   w = trajectory(times, t0=0., t_e=10., u0=.1,
-                  alpha=jnp.deg2rad(50.))
-
-   binary = jax.jit(lambda w: mag_binary(
-       w, rho=.005, s=1., q=.001, u1=.5, backend="cpu",
-   ))
-   A = binary(w)
-   print(A.shape)  # (500,)
-
-``w`` is a one-dimensional array of source positions; the result contains one
-magnification per position. ``t0`` is the closest-approach time, ``t_e`` is the
-Einstein crossing time, ``u0`` is the signed impact parameter, and ``alpha``
-rotates the trajectory from the binary axis. Use the same time unit for
-``times``, ``t0``, and ``t_e``; these examples use days.
-
-To plot the result:
+For straight-line motion, we need four event parameters: the time of closest
+approach ``t0``, the Einstein crossing time ``t_e``, the impact parameter
+``u0``, and the trajectory angle ``alpha``. Here, all times are in days and
+the angle is converted to radians:
 
 .. code-block:: python
 
-   import matplotlib.pyplot as plt
+   times = jnp.linspace(-5.0, 10.0, 500)
+   t0, t_e, u0 = 0.0, 10.0, 0.1
+   alpha = jnp.deg2rad(50.0)
 
-   plt.plot(times, A)
-   plt.xlabel("Time (day)")
-   plt.ylabel("Magnification")
+   tau = (times - t0) / t_e
+   w = (tau + 1j * u0) * jnp.exp(1j * alpha)
+
+``tau + 1j*u0`` describes motion parallel to the real axis; multiplying by
+``exp(1j*alpha)`` rotates the path. The trajectory passes 0.1 Einstein radii
+from the origin at day zero. This defines the geometry, rather than the
+time of peak magnification, which also depends on the lens.
+
+Calculating the magnification
+-----------------------------
+
+Choose a companion-to-primary mass ratio of ``q=0.001`` and a separation of
+``s=1`` Einstein radius. The source has radius ``rho=0.005`` and a linear
+limb-darkening coefficient ``u1=0.5``, so its edge is darker than its centre.
+
+.. code-block:: python
+
+   A = mag_binary(w, rho=0.005, s=1.0, q=0.001, u1=0.5, backend="cpu")
+
+``A`` contains one magnification for each of the 500 observation times.
+The ``backend="cpu"`` setting selects the CPU integrator used throughout
+this tutorial. :doc:`working_with_jax` explains how to run the same model
+on a GPU.
+
+.. code-block:: python
+
+   fig, ax = plt.subplots(figsize=(7, 3.5), layout="constrained")
+   ax.plot(times, A, color="C0")
+   ax.set(xlabel="Time (days)", ylabel="Magnification")
    plt.show()
 
-The :doc:`examples/index` includes this light curve, its lens geometry, and
-derivatives with respect to all seven event parameters.
+.. figure:: _static/binary_lightcurve.png
+   :alt: Binary magnification from day minus five to day ten, with a short dip and sharp rise before the broad peak
+   :width: 100%
 
-Triple lens
------------
+   The light curve from the code above.
 
-Add a third lens with mass ratio ``q3`` and position ``r3 * exp(1j * psi)``.
-Using the trajectory above:
+The broad brightening is interrupted by a short feature before the peak.
+This is where the source passes near the binary's caustic, a curve along
+which the magnification of a point source diverges. Giving the source a
+finite radius smooths the feature. Try increasing ``rho`` to see how it
+changes, or changing ``q`` to explore a more massive companion.
 
-.. code-block:: python
+Magnification to observed flux
+------------------------------
 
-   triple = jax.jit(lambda w: mag_triple(
-       w, rho=.01, s=1.1, q=.1, q3=.01,
-       r3=jnp.abs(.3 + 1.2j), psi=jnp.angle(.3 + 1.2j),
-       u1=.5, backend="cpu",
-   ))
-   A_triple = triple(w)
-
-Here the third lens lies at ``0.3 + 1.2j`` relative to the first two lenses'
-midpoint. See :doc:`examples/index` for the ten-parameter triple Jacobian.
-
-Coordinates and masses
-----------------------
-
-Lengths are in Einstein-radius units for the total lens mass. The source
-coordinate is ``w = x + 1j*y``. Both lens models place the origin at the
-centre of mass of lenses 1 and 2, with their axis along the real direction:
+microJAX returns the magnification. To compare it with photometry, combine
+it with the source flux :math:`F_s` and any constant blended light
+:math:`F_b`:
 
 .. math::
 
-   z_1 = -\frac{q}{1+q}s, \qquad
-   z_2 = \frac{1}{1+q}s.
+   F(t) = F_s A(t) + F_b.
 
-.. list-table:: Lens and source parameters
-   :header-rows: 1
-   :widths: 18 82
+The unlensed baseline is :math:`F_s+F_b`. This lets you use the same
+magnification curve with different flux scales for different data sets.
+The :doc:`flux-fitting functions <api/likelihood>` can solve for these two
+fluxes given a magnification curve and observed photometry.
 
-   * - Parameter
-     - Meaning
-   * - ``s``
-     - Separation of lenses 1 and 2.
-   * - ``q``
-     - Mass ratio :math:`m_2/m_1`.
-   * - ``rho``
-     - Angular source radius :math:`\theta_*/\theta_E`.
-   * - ``u1``
-     - Linear limb-darkening coefficient.
-   * - ``q3``
-     - Third-lens mass ratio :math:`m_3/m_1`.
-   * - ``r3``, ``psi``
-     - Third-lens distance and angle from the binary midpoint; ``psi`` is in radians.
-
-In source coordinates, the third lens is at
-
-.. math::
-
-   z_3 = r_3 e^{i\psi} + \frac{s(1-q)}{2(1+q)}.
-
-The source origin remains fixed when changing ``q3``, ``r3``, or ``psi``.
-
-Source brightness
------------------
-
-The linear brightness law is
-
-.. math::
-
-   I(r) \propto 1-u_1+u_1\sqrt{1-(r/\rho)^2},
-   \qquad 0 \le r \le \rho.
-
-The disk-average brightness is proportional to :math:`1-u_1/3`.
-``u1=0`` gives a uniform disk; ``0 < u1 <= 1`` darkens the limb. On CPU,
-these profiles share the same compiled model, including differentiation with
-respect to ``u1`` at zero.
-
-Point sources
--------------
-
-Use the point-source API when the source radius is negligible:
-
-.. code-block:: python
-
-   from microjax.point_source import mag_point_source
-
-   A_point = mag_point_source(w, nlenses=2, s=1., q=.001)
-   A_point_triple = mag_point_source(
-       w, nlenses=3, s=1.1, q=.1, q3=.01,
-       r3=jnp.abs(.3 + 1.2j), psi=jnp.angle(.3 + 1.2j),
-   )
-
-CPU and GPU
------------
-
-The examples above select the dedicated :doc:`cpu_backend`. For GPU execution,
-use ``backend="accelerator"`` (the default) with a GPU-enabled JAX installation.
-``backend="gpu"`` is an alias. See :doc:`performance` for accelerator batching
-and :doc:`autodiff` for derivatives of either backend.
+Next, :doc:`autodiff` shows how to calculate derivatives of this event.
+For a third lens, continue to the :ref:`triple example <triple-example>`.
+The :doc:`finite-source reference <api/inverse_ray_lightcurve>` gives the
+complete coordinate and brightness conventions.

@@ -1,0 +1,87 @@
+Working with JAX
+================
+
+You can use microJAX much like an array-based NumPy model. JAX adds two
+particularly useful tools: ``jit`` compiles a model for repeated evaluation,
+and ``jacfwd`` calculates its parameter derivatives. The tutorials introduce
+both; this page collects the details that matter when using them in a fit.
+
+Precision and compilation
+-------------------------
+
+Enable double precision before creating arrays:
+
+.. code-block:: python
+
+   import jax
+   jax.config.update("jax_enable_x64", True)
+
+Use ``jax.numpy`` inside your model so JAX can trace its calculations.
+Ordinary NumPy is fine for loading data or plotting results outside the model.
+If you are new to JAX, its
+`introduction to automatic differentiation <https://docs.jax.dev/en/latest/automatic-differentiation.html>`_
+is a useful companion to the :doc:`autodiff` tutorial.
+
+Create a compiled function once and reuse it. For example, using
+``lightcurve`` and ``parameters`` from that tutorial:
+
+.. code-block:: python
+
+   model = jax.jit(lightcurve)
+   A = model(parameters)
+
+The first call compiles the function. Changing parameter values reuses the
+compiled model; changing array shapes, such as the number of observation
+times, normally triggers a new compilation.
+
+JAX may return before the calculation has finished. When measuring runtime,
+wait for each result and keep compilation outside the timed section:
+
+.. code-block:: python
+
+   import time
+
+   A.block_until_ready()
+   start = time.perf_counter()
+   A = model(parameters).block_until_ready()
+   print(f"{1e3 * (time.perf_counter() - start):.2f} ms")
+
+Repeat the timed call to compare typical runtimes on your machine.
+The :doc:`benchmarks` use this approach for magnifications and Jacobians.
+
+CPU and GPU
+-----------
+
+``mag_binary`` and ``mag_triple`` offer two implementations. Select
+``backend="cpu"`` for the dedicated CPU integrator or
+``backend="accelerator"`` for the GPU implementation. The latter is the
+default, so the CPU examples set their backend explicitly.
+
+JAX chooses the device separately from this setting. On a machine with a
+GPU, you can force a CPU example to run on the CPU with:
+
+.. code-block:: sh
+
+   JAX_PLATFORMS=cpu python example/cpu/lightcurve.py
+
+To use a GPU, install GPU-enabled JAX and select the accelerator backend.
+The :doc:`examples/index` includes ready-to-run GPU scripts. Start with the
+default settings; if memory or throughput becomes an issue, adjust the
+:ref:`accelerator batch sizes <accelerator-configuration>` or split the
+observation times into fixed-size batches.
+
+Numerical accuracy
+------------------
+
+Both implementations use a multipole approximation away from caustics and
+integrate the lensed images where a full finite-source calculation is
+needed. The :doc:`benchmark maps <benchmarks>` show how measured accuracy
+and speed vary with lens parameters and magnification.
+
+Near a caustic, derivatives can be more sensitive to numerical resolution
+than magnifications. For a fit dominated by a caustic crossing, compare a
+few model values and derivatives with an independent calculation at your
+event's parameters. The solver uses fixed work limits, rather than a
+requested relative-error tolerance. CPU status flags and accelerator
+resolution settings are described in the
+:doc:`finite-source reference <api/inverse_ray_lightcurve>`.

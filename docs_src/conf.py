@@ -40,6 +40,6 @@ html_theme_options = {
     "repository_branch": "develop",
     "path_to_docs": "docs_src",
     "use_repository_button": True,
-    "show_navbar_depth": 2,
+    "show_navbar_depth": 1,
     "show_toc_level": 2,
 }

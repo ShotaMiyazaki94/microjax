@@ -1,12 +1,14 @@
 # Binary-lens Jacobian on GPU
 
+This example calculates a binary-lens light curve and shows how it changes
+with each event parameter. Run it from the repository root with microJAX,
+Matplotlib, and GPU-enabled JAX installed:
+
 ```bash
 python example/gpu/jacobian-binary/code/grads_limb_dark_binary.py
 ```
 
-Run from the repository root with microJAX, Matplotlib, and CUDA-enabled JAX
-installed. The script evaluates a limb-darkened light curve and its forward
-Jacobian with `jax.jacfwd`; `u1=0.5` is held fixed.
+The calculation uses `jax.jacfwd` with limb darkening fixed at `u1=0.5`.
 
 The event has `t0=0`, `tE=10` days, `u0=0.1`, `q=0.001`, `s=1`,
 `alpha=50°`, and `rho=0.005`. There are 500 observations from −5 to 10 days.
@@ -17,22 +19,16 @@ Jacobian columns follow `t0, tE, u0, q, s, alpha, rho`.
 The [CPU example](../../cpu/README.md#binary-lens) evaluates the same event
 with `backend="cpu"` and produces the same panel layout.
 
-## Options and outputs
+## Changing the example
 
-Use `--quick` for a smaller run, `--u1` to change limb darkening,
-`--n-points` to change the time sampling, and `--output-dir PATH` to change
-the destination. `--no-plot` writes only data and timings. The source-boundary
-sampling defaults to `n_limb=64` and can be changed with `--n-limb`.
+Use `--quick` for a smaller run, `--u1` to change limb darkening, or
+`--n-points` to change the time sampling. Run the script with `--help` for
+all options.
 
-Each run writes to `outputs/limb_dark/`: `magnification.csv`, a `(500, 7)`
-`jacobian_forward.npy`, `benchmark.json`, the light-curve figure, and
-`ad_benchmark.png`. The report separates compilation plus the first call
-from the median of three synchronized warm calls; change this count with
-`--repeats`.
+The light curve, Jacobian array, figures, and timing report are saved under
+`outputs/limb_dark/`. Set `--output-dir PATH` to use another directory.
+The timing report separates the first call, which includes compilation,
+from subsequent calls.
 
-The numerical outputs, timing reports, and diagnostic plots stay local and
-are excluded from Git. Only the representative Jacobian figure above is
-versioned.
-
-For magnification accuracy, see the separate
+For magnification accuracy, see the
 [VBMicrolensing comparison](../compare-binary-vbml/README.md).
