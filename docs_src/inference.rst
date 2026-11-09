@@ -23,15 +23,20 @@ From a :doc:`source checkout <getting_started>`:
    python example/hmc/injection_recovery.py
 
 The script first fits the data from a rough event solution and estimates a
-local covariance. It then runs six parallel CPU chains, with 300 warm-up
-steps and 500 retained draws per chain. Model compilation and the fit happen
-before the NUTS progress bar starts.
+local covariance. It then runs **one chain with 500 retained draws in total**,
+after 300 warm-up steps. Warm-up draws are not saved. Model compilation and
+the fit happen before the NUTS progress bar starts.
 
 This example has one CPU execution path and no command-line options.
-The run settings are constants at the top of the script. It creates six
-logical CPU devices before importing microJAX and runs the chains with
-NumPyro's ``chain_method="parallel"`` (``jax.pmap``). ``run.json`` records
-the settings and devices. Launch the script in a fresh Python process.
+The run settings are constants at the top of the script. Each light-curve
+evaluation distributes observation times across six logical CPU devices
+using ``jax.pmap``. The times are interleaved to share the short, expensive
+feature across devices, then returned to their original order. This follows
+the time-parallel calculation in the
+`microlux example <https://github.com/CoastEgo/microlux/blob/master/example/KB0371.py>`_.
+The number of CPU workers does not change the sample count. ``run.json``
+records both counts. Launch the script in a fresh Python process so the
+CPU devices can be configured before importing microJAX.
 
 Results go to ``results/hmc/binary/`` in the checkout; each run replaces
 the contents of that directory. The code is in
@@ -119,10 +124,10 @@ and works with the CPU integrator. A small eigenvalue floor stabilizes the
 matrix inversion.
 
 NumPyro's ``inverse_mass_matrix`` takes this **covariance**, rather than its
-inverse. Each chain starts with a small displacement from the fitted point,
+inverse. The chain starts with a small displacement from the fitted point,
 and warm-up continues to adapt both the matrix and step size. The fit status
-and parameters are recorded in ``run.json``; the initial matrix and chain
-positions are saved in ``initialization.npz``. A fit that reaches its iteration
+and parameters are recorded in ``run.json``; the initial matrix and starting
+position are saved in ``initialization.npz``. A fit that reaches its iteration
 limit can still supply an initial point, and its status is reported.
 
 This example explores the mode near the initial solution; it does not search
@@ -140,18 +145,18 @@ The run saves three figures:
   in the model curve; the data error bars show measurement noise.
 * ``recovery.png`` shows the nine marginal posterior distributions and
   their injected values.
-* ``traces.png`` shows the retained draws from each chain.
+* ``traces.png`` shows the retained draws and the injected parameter values.
 
 ``summary.json`` contains posterior medians, central 68% and 95% intervals,
-effective sample sizes, and split :math:`\hat R`. It also records divergences,
-acceptance probabilities, and how often a draw used the full 255-step NUTS
-budget. Compare the chains and these diagnostics before interpreting the
-recovery plot. ``run.json`` records the settings, priors, seeds, and software
-versions.
+and effective sample sizes, which account for correlation between draws.
+It also records divergences, the mean acceptance probability, and how often
+a draw used the full 255-step NUTS budget. With one chain, no between-chain
+convergence statistic is reported. ``run.json`` records the settings, priors,
+seeds, and software versions.
 
 The arrays are retained in ``data.npz``, ``samples.npz``, ``sampler.npz``, and
 ``curves.npz``. Posterior parameters in ``samples.npz`` have shape
-``(chain, draw)``, with angles in radians. Samples are saved before curve
+``(1, 500)``, with angles in radians. Samples are saved before curve
 evaluation and plotting, so those later steps cannot discard a completed
 sampling run.
 

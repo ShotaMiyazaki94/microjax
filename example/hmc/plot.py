@@ -63,14 +63,12 @@ def plot_results():
 
     fig, axes = plt.subplots(3, 3, figsize=(9, 7), layout="constrained")
     for ax, name, label, truth in zip(axes.flat, config["parameter_names"], LABELS, config["truth"]):
-        for i, chain in enumerate(samples[name]):
-            ax.plot(chain, lw=0.6, alpha=0.8, label=f"Chain {i + 1}")
+        ax.plot(samples[name][0], lw=0.6, color=BLUE)
         ax.axhline(truth, color="0.35", lw=0.8, ls="--")
         ax.set_ylabel(label)
         ax.ticklabel_format(axis="y", style="sci", scilimits=(-2, 3), useOffset=False)
     for ax in axes[-1]:
         ax.set_xlabel("Retained draw")
-    axes[0, 0].legend(fontsize=8)
     fig.savefig(output / "traces.png", dpi=190)
     plt.close(fig)
 

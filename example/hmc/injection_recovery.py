@@ -15,15 +15,16 @@ import jax.numpy as jnp
 import numpy as np
 import numpyro
 import numpyro.distributions as dist
-from numpyro.diagnostics import summary
+from numpyro.diagnostics import effective_sample_size
 from numpyro.infer import MCMC, NUTS, init_to_value
 from scipy.optimize import minimize
 from scipy.special import expit, logit
 
 NAMES = ("t0", "tE", "u0", "q", "s", "alpha", "rho", "fs", "fb")
 LOG_INDICES = np.array([1, 3, 4, 6])
-NUM_CHAINS = 6
+CPU_WORKERS = 6
 NUM_WARMUP = 300
+# Total retained draws: one chain, with time-parallel model evaluations.
 NUM_SAMPLES = 500
 SAMPLER_SEED = 42
 MAP_MAXITER = 300
@@ -65,6 +66,20 @@ def physical_parameters(unit):
 def flux_model(parameters, times, *, lightcurve):
     magnification = lightcurve(parameters[:7], times, u1=U1)
     return parameters[7] * magnification + parameters[8]
+
+
+def make_parallel_flux(lightcurve):
+    """Distribute observation times across CPUs while preserving their order."""
+    parallel = jax.pmap(partial(flux_model, lightcurve=lightcurve), in_axes=(None, 0))
+
+    @jax.jit
+    def evaluate(parameters, times):
+        padded = jnp.pad(times, (0, (-times.size) % CPU_WORKERS), mode="edge")
+        # Interleave times so the short, expensive feature is shared by all CPUs.
+        blocks = padded.reshape(-1, CPU_WORKERS).T
+        return parallel(parameters, blocks).T.reshape(-1)[: times.size]
+
+    return evaluate
 
 
 def model(times, flux, error, *, forward_model):
@@ -130,7 +145,7 @@ def finite_float(value):
 def main():
     # Configure CPU devices before importing microJAX, which creates JAX arrays.
     numpyro.set_platform("cpu")
-    numpyro.set_host_device_count(NUM_CHAINS)
+    numpyro.set_host_device_count(CPU_WORKERS)
 
     from microjax import make_binary_lightcurve
     from plot import OUTPUT, plot_results
@@ -144,11 +159,13 @@ def main():
     config = {
         "backend": "cpu",
         "devices": [str(d) for d in devices],
-        "chain_method": "parallel",
+        "parallelism": "observation_times",
+        "cpu_workers": CPU_WORKERS,
         "float64": True,
         "warmup": NUM_WARMUP,
         "samples_per_chain": NUM_SAMPLES,
-        "chains": NUM_CHAINS,
+        "samples_total": NUM_SAMPLES,
+        "chains": 1,
         "sampler_seed": SAMPLER_SEED,
         "data_seed": DATA_SEED,
         "u1": U1,
@@ -170,7 +187,7 @@ def main():
 
     with jax.default_device(device):
         lightcurve = make_binary_lightcurve(backend="cpu")
-        forward_model = jax.jit(partial(flux_model, lightcurve=lightcurve))
+        forward_model = make_parallel_flux(lightcurve)
         # Sample the baseline, broad peak, and short feature near day -0.65.
         times = jnp.asarray(
             np.unique(np.r_[np.linspace(-30, 30, 80), np.linspace(-5, 5, 40), np.linspace(-0.9, -0.4, 60)])
@@ -198,14 +215,13 @@ def main():
         initialization["seconds_including_compilation"] = time.perf_counter() - start
         config["initialization"] = initialization
         (output / "run.json").write_text(json.dumps(config, indent=2, allow_nan=False) + "\n")
-        # Small independent displacements in the fitted covariance, not a narrower prior.
-        chain_z = (
-            map_z
-            + 0.1
-            * np.random.default_rng(SAMPLER_SEED).normal(size=(NUM_CHAINS, len(NAMES)))
-            @ np.linalg.cholesky(covariance).T
+        # A small displacement in the fitted covariance, not a narrower prior.
+        initial_z = map_z + 0.1 * np.linalg.cholesky(covariance) @ np.random.default_rng(SAMPLER_SEED).normal(
+            size=len(NAMES)
         )
-        np.savez_compressed(output / "initialization.npz", map_z=map_z, inverse_mass_matrix=covariance, chain_z=chain_z)
+        np.savez_compressed(
+            output / "initialization.npz", map_z=map_z, inverse_mass_matrix=covariance, initial_z=initial_z
+        )
         print(f"Local fit: {initialization['message']} (chi-squared = {initialization['chi_squared']:.1f})", flush=True)
 
         kernel = NUTS(
@@ -222,12 +238,11 @@ def main():
             kernel,
             num_warmup=NUM_WARMUP,
             num_samples=NUM_SAMPLES,
-            num_chains=NUM_CHAINS,
-            chain_method="parallel",
+            num_chains=1,
             progress_bar=True,
         )
         print(
-            f"Starting NUTS: {NUM_CHAINS} parallel CPU chains; compilation precedes the progress updates.",
+            f"Starting NUTS: {NUM_WARMUP} warm-up + {NUM_SAMPLES} retained draws, one chain, {CPU_WORKERS} CPU workers.",
             flush=True,
         )
         start = time.perf_counter()
@@ -236,7 +251,7 @@ def main():
             times,
             jnp.asarray(flux),
             jnp.asarray(error),
-            init_params={"unit": jnp.asarray(chain_z)},
+            init_params={"unit": jnp.asarray(initial_z)},
             extra_fields=("diverging", "num_steps", "accept_prob"),
         )
         unit = np.asarray(mcmc.get_samples(group_by_chain=True)["unit"])
@@ -248,7 +263,6 @@ def main():
         np.savez_compressed(output / "samples.npz", **samples)
         np.savez_compressed(output / "sampler.npz", unit=unit, **extra)
 
-        diagnostics = summary(samples, group_by_chain=True)
         parameters = {}
         for i, name in enumerate(NAMES):
             lo95, lo68, median, hi68, hi95 = np.quantile(samples[name], [0.025, 0.16, 0.5, 0.84, 0.975])
@@ -257,15 +271,14 @@ def main():
                 "median": float(median),
                 "ci68": [float(lo68), float(hi68)],
                 "ci95": [float(lo95), float(hi95)],
-                "effective_samples": finite_float(diagnostics[name]["n_eff"]),
-                "split_r_hat": finite_float(diagnostics[name]["r_hat"]),
+                "effective_samples": finite_float(effective_sample_size(samples[name])),
             }
         report = {
             "sampling_seconds_including_compilation": elapsed,
             "parameters": parameters,
-            "divergences_per_chain": extra["diverging"].sum(axis=1).tolist(),
-            "step_limit_hits_per_chain": (extra["num_steps"] >= 2**MAX_TREE_DEPTH - 1).sum(axis=1).tolist(),
-            "mean_acceptance_per_chain": extra["accept_prob"].mean(axis=1).tolist(),
+            "divergences": int(extra["diverging"].sum()),
+            "step_limit_hits": int((extra["num_steps"] >= 2**MAX_TREE_DEPTH - 1).sum()),
+            "mean_acceptance": float(extra["accept_prob"].mean()),
         }
         (output / "summary.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
         print(f"Posterior samples and summary saved to {output}", flush=True)
