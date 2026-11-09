@@ -1,0 +1,37 @@
+# HMC injection–recovery
+
+Generate mock photometry of a binary lens, then infer its seven event parameters
+and source/blend fluxes with NumPyro NUTS. CPU is the default.
+
+From the repository root:
+
+```bash
+python -m pip install -e . 'numpyro>=0.19' matplotlib
+python example/hmc/injection_recovery.py
+```
+
+The default run uses two sequential chains, each with 300 warm-up steps and
+500 retained draws. Change `--warmup`, `--samples`, `--chains`, or `--seed`
+as needed. With GPU-enabled JAX, select `--backend gpu`.
+
+Results go to `results/hmc/binary/`. Use a new `--output-dir` for another run;
+existing directories are preserved. Initial compilation happens before the
+sampling progress bar advances.
+
+The script saves data, posterior samples, sampler diagnostics, model curves,
+and three figures. To redraw the figures without running JAX or sampling again:
+
+```bash
+python example/hmc/plot.py results/hmc/binary
+```
+
+After the run, share `run.json`, `summary.json`, `lightcurve.png`, `recovery.png`,
+and `traces.png`. The `.npz` files retain the arrays for further analysis.
+
+The [tutorial](../../docs_src/inference.rst) describes the priors and outputs.
+Edit `TRUTH`, `PRIOR_CENTER`, and `PRIOR_SCALE` at the top of the sampling
+script to change the event. Chains start near the approximate event solution;
+the example studies that local posterior. Data and fitting use the same model.
+
+This example is prepared for a user-run calculation; recovery results have
+not yet been generated or assessed.

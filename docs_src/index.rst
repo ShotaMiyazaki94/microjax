@@ -36,6 +36,7 @@ scripts are in :doc:`examples/index`.
 
    usage
    autodiff
+   inference
    examples/index
 
 .. toctree::

@@ -6,6 +6,9 @@ in one figure. They are useful starting points for exploring an event of
 your own. The CPU and GPU versions use the same parameters and observation
 times, with linear limb darkening fixed at ``u1=0.5``.
 
+To fit simulated photometry and compare the posterior with known parameters,
+see :doc:`../inference`.
+
 Run the commands below from a :doc:`source checkout <../getting_started>`
 with Matplotlib installed. The CPU examples share one
 :download:`script <../../example/cpu/lightcurve.py>`; edit ``params`` and
