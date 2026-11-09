@@ -10,9 +10,10 @@ python -m pip install -e . 'numpyro>=0.19' scipy matplotlib
 python example/hmc/injection_recovery.py
 ```
 
-The script first fits the data from a rough initial solution and estimates a
-local covariance for NUTS. It then runs **one chain with 150 warm-up steps
-and 500 retained draws in total**. Each light-curve evaluation distributes
+The script first fits the data from a rough initial solution and uses the
+local covariance to rescale the sampling coordinates. It then runs **one
+chain with 150 warm-up steps and 500 retained draws in total**.
+Each light-curve evaluation distributes
 the observation times across six CPU devices with JAX `pmap`. CPU workers
 do not multiply the number of samples. The settings are constants at the
 top of the script; there are no command-line options.
@@ -38,10 +39,13 @@ separately in `PRIOR_BOUNDS`. Neither the initial guess nor the fitted
 covariance narrows those priors. The chain explores the mode found by the
 local fit. Data and fitting use the same model.
 
-`run.json` records the fit status and parameters. `initialization.npz` retains
-the fitted point, initial position, and covariance passed to NumPyro's
-`inverse_mass_matrix`. This matrix stays fixed; warm-up tunes the step size.
-The full likelihood and broad priors are used throughout sampling.
+Warm-up adjusts both the mass matrix and step size in these whitened
+coordinates; both stay fixed for the retained draws. The full likelihood
+and broad priors are preserved, including the coordinate-transform Jacobian.
+`run.json` records the fit status and parameters. `initialization.npz` saves
+the fitted point, covariance Cholesky factor, and initial whitened position.
+`sampler.npz` saves the whitened draws, diagnostics, and final
+`inverse_mass_matrix` and `step_size`. `samples.npz` contains the physical parameters.
 
 This example is prepared for a user-run calculation; recovery results have
 not yet been generated or assessed.

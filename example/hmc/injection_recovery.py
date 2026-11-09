@@ -16,6 +16,7 @@ import numpy as np
 import numpyro
 import numpyro.distributions as dist
 from numpyro.diagnostics import effective_sample_size
+from numpyro.distributions.transforms import LowerCholeskyAffine
 from numpyro.infer import MCMC, NUTS, init_to_value
 from scipy.optimize import minimize
 from scipy.special import expit, logit
@@ -82,15 +83,18 @@ def make_parallel_flux(lightcurve):
     return evaluate
 
 
-def model(times, flux, error, *, forward_model):
-    unit = numpyro.sample("unit", dist.Uniform(0.0, 1.0).expand((len(NAMES),)).to_event(1))
-    parameters = physical_parameters(unit)
+def model(times, flux, error, *, forward_model, to_logit):
+    # logit(Uniform(0, 1)) is Logistic(0, 1). Transform this same prior into
+    # whitened coordinates, including the affine Jacobian automatically.
+    prior = dist.TransformedDistribution(dist.Logistic(0.0, 1.0).expand((len(NAMES),)).to_event(1), to_logit.inv)
+    whitened = numpyro.sample("whitened", prior)
+    parameters = physical_parameters(jax.nn.sigmoid(to_logit(whitened)))
     mean = forward_model(parameters, times)
     numpyro.sample("flux", dist.Normal(mean, error).to_event(1), obs=flux)
 
 
 def initialize_hmc(initial, times, flux, error, *, forward_model, maxiter):
-    """Fit locally, then estimate covariance in NumPyro's unconstrained coordinates."""
+    """Fit locally, then estimate covariance in unbounded logit coordinates."""
     coordinates = np.array(initial, dtype=float)
     coordinates[LOG_INDICES] = np.log(coordinates[LOG_INDICES])
     lower, upper = COORDINATE_BOUNDS.T
@@ -108,7 +112,7 @@ def initialize_hmc(initial, times, flux, error, *, forward_model, maxiter):
 
     def objective(z):
         jacobian, residual = map(np.asarray, residual_jacobian(jnp.asarray(z)))
-        # NumPyro samples z = logit(unit). Include the transform's Jacobian:
+        # Fit in z = logit(unit). Include the transform's Jacobian:
         # -log p(z) = softplus(z) + softplus(-z), for a uniform physical/log prior.
         value = 0.5 * (residual @ residual) + np.sum(np.logaddexp(0, z) + np.logaddexp(0, -z))
         gradient = jacobian.T @ residual + 2 * expit(z) - 1
@@ -172,7 +176,8 @@ def main():
         "relative_noise": RELATIVE_NOISE,
         "max_tree_depth": MAX_TREE_DEPTH,
         "target_accept_prob": 0.9,
-        "adapt_mass_matrix": False,
+        "sampling_coordinates": "map_whitened",
+        "adapt_mass_matrix": True,
         "forward_mode_differentiation": True,
         "parameter_names": NAMES,
         "truth": TRUTH.tolist(),
@@ -216,26 +221,24 @@ def main():
         initialization["seconds_including_compilation"] = time.perf_counter() - start
         config["initialization"] = initialization
         (output / "run.json").write_text(json.dumps(config, indent=2, allow_nan=False) + "\n")
-        # A small displacement in the fitted covariance, not a narrower prior.
-        initial_z = map_z + 0.1 * np.linalg.cholesky(covariance) @ np.random.default_rng(SAMPLER_SEED).normal(
-            size=len(NAMES)
-        )
+        cholesky = np.linalg.cholesky(covariance)
+        # z = map_z + L @ whitened makes the local covariance approximately I.
+        to_logit = LowerCholeskyAffine(jnp.asarray(map_z), jnp.asarray(cholesky))
+        initial_whitened = jnp.asarray(0.1 * np.random.default_rng(SAMPLER_SEED).normal(size=len(NAMES)))
         np.savez_compressed(
-            output / "initialization.npz", map_z=map_z, inverse_mass_matrix=covariance, initial_z=initial_z
+            output / "initialization.npz", map_z=map_z, cholesky=cholesky, initial_whitened=np.asarray(initial_whitened)
         )
         print(f"Local fit: {initialization['message']} (chi-squared = {initialization['chi_squared']:.1f})", flush=True)
 
         kernel = NUTS(
-            partial(model, forward_model=forward_model),
+            partial(model, forward_model=forward_model, to_logit=to_logit),
             forward_mode_differentiation=True,
             dense_mass=True,
-            # NumPyro's inverse_mass_matrix takes a covariance, not a precision.
-            inverse_mass_matrix=jnp.asarray(covariance),
-            # Keep the fitted scales: default covariance shrinkage can swamp them.
-            adapt_mass_matrix=False,
+            inverse_mass_matrix=jnp.eye(len(NAMES)),
+            adapt_mass_matrix=True,
             target_accept_prob=0.9,
             max_tree_depth=MAX_TREE_DEPTH,
-            init_strategy=init_to_value(values={"unit": jax.nn.sigmoid(jnp.asarray(map_z))}),
+            init_strategy=init_to_value(values={"whitened": initial_whitened}),
         )
         mcmc = MCMC(
             kernel,
@@ -254,17 +257,23 @@ def main():
             times,
             jnp.asarray(flux),
             jnp.asarray(error),
-            init_params={"unit": jnp.asarray(initial_z)},
+            init_params={"whitened": initial_whitened},
             extra_fields=("diverging", "num_steps", "accept_prob"),
         )
-        unit = np.asarray(mcmc.get_samples(group_by_chain=True)["unit"])
+        whitened = mcmc.get_samples(group_by_chain=True)["whitened"]
+        physical = np.asarray(physical_parameters(jax.nn.sigmoid(to_logit(whitened))))
         elapsed = time.perf_counter() - start
         extra = {name: np.asarray(value) for name, value in mcmc.get_extra_fields(group_by_chain=True).items()}
-        physical = np.asarray(physical_parameters(jnp.asarray(unit)))
         samples = {name: physical[..., i] for i, name in enumerate(NAMES)}
         # Save the expensive part before computing curves or making figures.
         np.savez_compressed(output / "samples.npz", **samples)
-        np.savez_compressed(output / "sampler.npz", unit=unit, **extra)
+        np.savez_compressed(
+            output / "sampler.npz",
+            whitened=np.asarray(whitened),
+            inverse_mass_matrix=np.asarray(mcmc.last_state.adapt_state.inverse_mass_matrix[("whitened",)]),
+            step_size=np.asarray(mcmc.last_state.adapt_state.step_size),
+            **extra,
+        )
 
         parameters = {}
         for i, name in enumerate(NAMES):

@@ -112,7 +112,7 @@ Initial position and mass matrix
 --------------------------------
 
 ``INITIAL`` is a rough event solution used only to start a local fit.
-L-BFGS-B finds a posterior mode in NumPyro's unconstrained coordinates,
+L-BFGS-B finds a posterior mode in unbounded logit coordinates,
 including the coordinate-transform Jacobian. The prior remains the broad
 distribution above throughout optimization and sampling.
 
@@ -123,17 +123,28 @@ The residual Jacobian uses ``jax.jacfwd``; this follows the approach in
 and works with the CPU integrator. A small eigenvalue floor stabilizes the
 matrix inversion.
 
-NumPyro's ``inverse_mass_matrix`` takes this **covariance**, rather than its
-inverse. The chain starts with a small displacement from the fitted point.
-The matrix stays fixed (``adapt_mass_matrix=False``), while warm-up tunes
-the step size. In these coordinates, the fitted variance in narrow directions
-can be much smaller than NumPyro's default covariance regularization. Keeping
-the fitted matrix preserves those scales. This changes how the sampler moves;
-the full nonlinear likelihood and broad priors remain the same.
+The sampler uses whitened coordinates :math:`w`, defined by
 
-The fit status and parameters are recorded in ``run.json``; the matrix and starting
-position are saved in ``initialization.npz``. A fit that reaches its iteration
-limit can still supply an initial point, and its status is reported.
+.. math::
+
+   z = z_{\mathrm{MAP}} + Lw, \qquad LL^\mathsf{T} = C_{\mathrm{MAP}},
+
+where :math:`z` are the unbounded logit coordinates and :math:`C_{\mathrm{MAP}}`
+is the estimated covariance. This makes the local covariance approximately
+the identity, so NumPyro's covariance regularization acts on comparable scales.
+NUTS starts near :math:`w=0` with an identity mass matrix. Warm-up adjusts
+both the dense mass matrix and step size; both stay fixed during the 500
+retained draws. The coordinate transform stays fixed throughout the run.
+
+The original broad priors are transformed exactly, with their Jacobian
+included by ``TransformedDistribution``. The MAP covariance sets the sampling
+coordinates; the posterior still uses the original broad priors and full
+nonlinear likelihood.
+
+``run.json`` records the fit status and parameters. ``initialization.npz``
+saves ``map_z``, ``cholesky``, and ``initial_whitened`` so the coordinate
+transform and starting point can be reconstructed. A fit that reaches its
+iteration limit can still supply an initial point, and its status is reported.
 
 This example explores the mode near the initial solution; it does not search
 for every binary-lens degeneracy. Injection and fitting use the same microJAX
@@ -161,7 +172,9 @@ seeds, and software versions.
 
 The arrays are retained in ``data.npz``, ``samples.npz``, ``sampler.npz``, and
 ``curves.npz``. Posterior parameters in ``samples.npz`` have shape
-``(1, 500)``, with angles in radians. Samples are saved before curve
+``(1, 500)``, with angles in radians. ``sampler.npz`` stores the whitened
+draws, diagnostics, and the final ``inverse_mass_matrix`` and ``step_size``
+in whitened coordinates. Samples are saved before curve
 evaluation and plotting, so those later steps cannot discard a completed
 sampling run.
 
