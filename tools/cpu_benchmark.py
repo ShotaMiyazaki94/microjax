@@ -19,7 +19,7 @@ import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 
-from microjax.inverse_ray import mag_binary, mag_triple
+from microjax import make_mag_binary, make_mag_triple
 
 
 def timed(function, arguments, repeats):
@@ -76,12 +76,14 @@ def main():
         },
         "values": {},
     }
+    mag_binary = make_mag_binary(backend="cpu")
+    mag_triple = make_mag_triple(backend="cpu")
     with jax.default_device(jax.devices("cpu")[0]):
         if args.lens in ("binary", "all"):
             cases = json.loads(Path(__file__).with_name("cpu_benchmark_cases.json").read_text())["cases"]
             evaluate = jax.jit(
                 lambda sources, rho, s, q, coefficient: mag_binary(
-                    sources, rho, s=s, q=q, u1=coefficient, backend="cpu"
+                    sources, rho, s=s, q=q, u1=coefficient
                 )
             )
             for case in cases:
@@ -100,7 +102,7 @@ def main():
             )
 
             def binary_model(p):
-                return mag_binary(jnp.asarray([p[0] + 1j * p[1]]), p[2], s=p[3], q=p[4], u1=0.5, backend="cpu")[0]
+                return mag_binary(jnp.asarray([p[0] + 1j * p[1]]), p[2], s=p[3], q=p[4], u1=0.5)[0]
 
             record_jacobian(report, "forward_jacobian", binary_model, (point,), args.repeats)
 
@@ -108,7 +110,7 @@ def main():
             references = json.loads(Path(__file__).with_name("cpu_triple_cases.json").read_text())
             evaluate = jax.jit(
                 lambda sources, rho, s, q, q3, r3, psi: mag_triple(
-                    sources, rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=0.5, backend="cpu"
+                    sources, rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=0.5
                 )
             )
             for case in references["cases"]:
@@ -132,7 +134,7 @@ def main():
                 source = (-u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)) + 1j * (
                     u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
                 )
-                return mag_triple(jnp.asarray([source]), rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=0.5, backend="cpu")[0]
+                return mag_triple(jnp.asarray([source]), rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=0.5)[0]
 
             record_jacobian(
                 report,

@@ -4,11 +4,11 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from microjax.inverse_ray.geometry.lens import binary_geometry
-from microjax.inverse_ray.integrators.cartesian_gpu import (
+from microjax._magnification.geometry.lens import binary_geometry
+from microjax._magnification.integrators.cartesian_gpu import (
     binary_line_level_set_coefficients_gpu,
 )
-from microjax.inverse_ray.roots.level_set import binary_level_set
+from microjax._magnification.roots.level_set import binary_level_set
 
 
 jax.config.update("jax_enable_x64", True)

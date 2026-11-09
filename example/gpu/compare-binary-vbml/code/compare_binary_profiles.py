@@ -18,7 +18,7 @@ import numpy as np
 import VBMicrolensing
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-from microjax.inverse_ray import BinaryMagConfig, mag_binary
+from microjax import BinaryMagConfig, make_mag_binary
 from microjax.multipole import _mag_hexadecapole
 from microjax.point_source import (
     _images_point_source,
@@ -141,7 +141,7 @@ def evaluate_profile(
     points: jax.Array,
     args: argparse.Namespace,
 ) -> ProfileResult:
-    config = BinaryMagConfig(n_limb=args.n_limb)
+    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=args.n_limb))
     timing_solver = VBMicrolensing.VBMicrolensing()
     timing_solver.RelTol = VBML_TIMING_TOL
     timing_solver.Tol = VBML_TIMING_TOL
@@ -172,7 +172,6 @@ def evaluate_profile(
         return mag_binary(
             points,
             args.rho,
-            config=config,
             s=args.s,
             q=args.q,
             u1=u1,

@@ -20,7 +20,7 @@ import numpy as np
 import VBMicrolensing
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
-from microjax.inverse_ray import TripleMagConfig, mag_triple
+from microjax import TripleMagConfig, make_mag_triple
 from microjax.point_source import critical_and_caustic_curves
 from plot_triple_boundary_construction import plot_triple_boundary_construction
 
@@ -167,7 +167,7 @@ def evaluate_profile(
     args: argparse.Namespace,
 ) -> ProfileResult:
     jax_positions = jnp.asarray(positions)
-    config = TripleMagConfig(n_limb=args.n_limb)
+    mag_triple = make_mag_triple(config=TripleMagConfig(n_limb=args.n_limb))
 
     def evaluate_gpu():
         return mag_triple(
@@ -179,7 +179,6 @@ def evaluate_profile(
             r3=params["r3"],
             psi=params["psi"],
             u1=u1,
-            config=config,
         )
 
     gpu_call = jax.jit(evaluate_gpu)

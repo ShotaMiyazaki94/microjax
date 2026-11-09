@@ -7,7 +7,7 @@ import numpy as np
 import jax.numpy as jnp
 import pytest
 
-from microjax.inverse_ray.roots.angular import (
+from microjax._magnification.roots.angular import (
     ANGULAR_OK,
     ANGULAR_ROOT_FAILURE,
     _reciprocal_pair_rescue,
@@ -15,24 +15,24 @@ from microjax.inverse_ray.roots.angular import (
     angular_measure_binary_roots,
     evaluate_fourier,
 )
-from microjax.inverse_ray.geometry.mapping import distance_from_source
-from microjax.inverse_ray.geometry.lens import binary_geometry
-from microjax.inverse_ray.extended_source import (
+from microjax._magnification.geometry.mapping import distance_from_source
+from microjax._magnification.geometry.lens import binary_geometry
+from microjax._magnification.extended_source import (
     mag_limb_dark_boundary,
     mag_radial_profile_boundary,
     mag_uniform_boundary,
 )
-from microjax.inverse_ray.lightcurve import mag_binary
-from microjax.inverse_ray.config import BinaryMagConfig
+from microjax import make_mag_binary
+from microjax._magnification.config import BinaryMagConfig
 from microjax.inverse_ray_dense.lightcurve import mag_binary_dense
 from microjax.inverse_ray_retry.extended_source import mag_uniform_local_boundary
 from microjax.inverse_ray_retry.lightcurve import mag_binary_safe
-from microjax.inverse_ray.roots.level_set import (
+from microjax._magnification.roots.level_set import (
     binary_level_set,
     binary_level_set_fourier,
 )
-from microjax.inverse_ray.geometry.limb import calc_source_limb
-from microjax.inverse_ray.geometry.topology import (
+from microjax._magnification.geometry.limb import calc_source_limb
+from microjax._magnification.geometry.topology import (
     RADIAL_CAPACITY,
     RADIAL_RETRY_BREAKPOINT_CAPACITY,
     RADIAL_RETRY_INTERVAL_CAPACITY,
@@ -41,7 +41,7 @@ from microjax.inverse_ray.geometry.topology import (
     define_radial_topology,
 )
 from microjax.inverse_ray_retry.radial import build_local_image_charts
-from microjax.inverse_ray.integrators.charts import _planetary_mixed_topology
+from microjax._magnification.integrators.charts import _planetary_mixed_topology
 from microjax.point_source import _images_point_source
 
 _FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "inverse_ray"
@@ -749,12 +749,12 @@ def test_safe_lightcurve_rescues_small_planet_boundary_failure():
         chunk_size=1,
         **common,
     )
+    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=common["Nlimb"]))
     single_pass = mag_binary(
         jnp.asarray([point]),
         1e-4,
         s=common["s"],
         q=common["q"],
-        config=BinaryMagConfig(n_limb=common["Nlimb"]),
     )
 
     assert int(global_boundary.status) != ANGULAR_OK
@@ -794,12 +794,12 @@ def test_binary_public_path_handles_difficult_resonant_caustic_point():
     # difficult point from the public comparison trajectory.
     point = -0.22880106808663814 - 0.2288010680866381j
     vbbl = 5.611936739107956
+    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=500))
     lightcurve = mag_binary(
         jnp.asarray([point]),
         0.03,
         s=1.0,
         q=0.05,
-        config=BinaryMagConfig(n_limb=500),
     )
 
     assert np.isfinite(float(lightcurve[0]))
@@ -811,12 +811,12 @@ def test_binary_public_path_handles_difficult_resonant_caustic_point():
 def test_binary_public_path_avoids_false_planetary_radial_overflow():
     point = 0.0722579255149055 - 0.0024438627408989305j
     vbbl = 13.34459941133492
+    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=500))
     lightcurve = mag_binary(
         jnp.asarray([point]),
         0.0017685892259106202,
         s=1.0484985960884143,
         q=9.962312735135355e-6,
-        config=BinaryMagConfig(n_limb=500),
     )
 
     assert np.isfinite(float(lightcurve[0]))
@@ -827,13 +827,13 @@ def test_binary_public_path_handles_vmapped_dynamic_ea_boundary_pair():
     point = 0.07009147785397735 - 0.0012258946844154843j
     vbbl = 15.377807025845549
 
+    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=500))
     evaluate = jax.jit(
         lambda value, radius, separation, mass_ratio: mag_binary(
             value[None],
             radius,
             s=separation,
             q=mass_ratio,
-            config=BinaryMagConfig(n_limb=500),
         )[0]
     )
     magnification = jax.block_until_ready(
@@ -851,13 +851,13 @@ def test_binary_public_path_handles_vmapped_dynamic_ea_boundary_pair():
 
 @pytest.mark.slow
 def test_binary_public_path_difficult_point_has_consistent_derivatives():
+    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=500))
     def public_magnification(real):
         return mag_binary(
             jnp.asarray([real - 0.2288010680866381j]),
             0.03,
             s=1.0,
             q=0.05,
-            config=BinaryMagConfig(n_limb=500),
         )[0]
 
     real = jnp.asarray(-0.22880106808663814)
@@ -907,12 +907,12 @@ def test_deep_global_sixteen_way_retry_closes_saved_tolerance_failures():
 def test_binary_public_path_handles_saved_stress_point():
     case = _load_fixture("binary_highlevel_stress_failures.json")["cases"][0]
     point = jnp.asarray(complex(case["source_x"], case["source_y"]))
+    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=500))
     single_pass = mag_binary(
         jnp.asarray([point]),
         case["rho"],
         s=case["s"],
         q=case["q"],
-        config=BinaryMagConfig(n_limb=500),
     )[0]
     reference = float(case["vbbl"])
 
@@ -1351,7 +1351,8 @@ def test_binary_fast_path_retains_tolerance_warning_without_dense_retry():
         Nlimb=40,
         margin_r=0.5,
     )
-    boundary = mag_binary(w_points, rho, s=s, q=q, config=config)
+    mag_binary = make_mag_binary(config=config)
+    boundary = mag_binary(w_points, rho, s=s, q=q)
     dense = mag_binary_dense(
         w_points,
         rho,

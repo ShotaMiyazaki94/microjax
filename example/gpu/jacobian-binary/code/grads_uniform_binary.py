@@ -19,7 +19,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from microjax.inverse_ray import BinaryMagConfig, mag_binary
+from microjax import BinaryMagConfig, make_binary_lightcurve
 from microjax.point_source import critical_and_caustic_curves
 
 jax.config.update("jax_enable_x64", True)
@@ -44,22 +44,12 @@ def make_model(
 ):
     """Build the binary-lens light-curve function used by forward AD."""
 
-    config = BinaryMagConfig(n_limb=n_limb)
+    lightcurve = make_binary_lightcurve(
+        times, config=BinaryMagConfig(n_limb=n_limb),
+    )
 
     def get_magnification(params: jax.Array) -> jax.Array:
-        t0, t_e, u0, q, s, alpha, rho = params
-        tau = (times - t0) / t_e
-        y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
-        y2 = u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
-        source_positions = jnp.asarray(y1 + 1j * y2)
-        return mag_binary(
-            source_positions,
-            rho,
-            q=q,
-            s=s,
-            u1=u1,
-            config=config,
-        )
+        return lightcurve({**dict(zip(PARAMETER_NAMES, params)), "u1": u1})
 
     return get_magnification
 
@@ -272,7 +262,7 @@ def main():
         "device_kind": getattr(devices[0], "device_kind", "unknown"),
         "platform": platform.platform(),
         "jax_version": jax.__version__,
-        "api": "microjax.inverse_ray.mag_binary",
+        "api": "microjax.make_binary_lightcurve",
         "automatic_differentiation": "jax.jacfwd",
         "parameter_names": list(PARAMETER_NAMES),
         "config": {

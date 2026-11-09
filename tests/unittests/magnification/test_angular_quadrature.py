@@ -2,9 +2,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from microjax.inverse_ray.roots.angular import ANGULAR_OK, AngularIntervals
-from microjax.inverse_ray.quadrature.angular import integrate_angular_profile
-from microjax.inverse_ray.profiles import linear_limb_intensity
+from microjax._magnification.roots.angular import ANGULAR_OK, AngularIntervals
+from microjax._magnification.quadrature.angular import integrate_angular_profile
+from microjax._magnification.profiles import linear_limb_intensity
 
 
 def test_angular_profile_quadrature_integrates_active_intervals_only():

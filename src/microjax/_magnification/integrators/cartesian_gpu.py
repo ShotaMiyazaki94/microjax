@@ -1,6 +1,6 @@
 """Single-pass Cartesian strip integration for accelerator workloads.
 
-This module deliberately does not import :mod:`microjax.inverse_ray.cpu`.
+This module deliberately does not import :mod:`microjax._magnification.cpu`.
 It reuses the source-limb roots already computed by the boundary solver, then
 solves all independent line sextics as one regular accelerator batch.  The
 chart is useful when a low-q planetary image is too anisotropic for the

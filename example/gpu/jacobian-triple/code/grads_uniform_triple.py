@@ -19,7 +19,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from microjax.inverse_ray import TripleMagConfig, mag_triple
+from microjax import TripleMagConfig, make_triple_lightcurve
 from microjax.point_source import critical_and_caustic_curves
 
 jax.config.update("jax_enable_x64", True)
@@ -47,25 +47,12 @@ def make_model(
 ):
     """Build the triple boundary light-curve function used by forward AD."""
 
-    config = TripleMagConfig(n_limb=n_limb)
+    lightcurve = make_triple_lightcurve(
+        times, config=TripleMagConfig(n_limb=n_limb),
+    )
 
     def get_magnification(params: jax.Array) -> jax.Array:
-        t0, t_e, u0, q, s, alpha, rho, q3, r3, psi = params
-        tau = (times - t0) / t_e
-        y1 = -u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)
-        y2 = u0 * jnp.cos(alpha) + tau * jnp.sin(alpha)
-        source_positions = jnp.asarray(y1 + 1j * y2)
-        return mag_triple(
-            source_positions,
-            rho,
-            s=s,
-            q=q,
-            q3=q3,
-            r3=r3,
-            psi=psi,
-            u1=u1,
-            config=config,
-        )
+        return lightcurve({**dict(zip(PARAMETER_NAMES, params)), "u1": u1})
 
     return get_magnification
 
@@ -288,7 +275,7 @@ def main():
         "device_kind": getattr(devices[0], "device_kind", "unknown"),
         "platform": platform.platform(),
         "jax_version": jax.__version__,
-        "api": "microjax.inverse_ray.mag_triple",
+        "api": "microjax.make_triple_lightcurve",
         "automatic_differentiation": "jax.jacfwd",
         "parameter_names": list(PARAMETER_NAMES),
         "config": {

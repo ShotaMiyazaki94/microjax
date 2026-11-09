@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from microjax.inverse_ray.integrators.profile import _binary_profile_limb_count
+from microjax._magnification.integrators.profile import _binary_profile_limb_count
 
 
 def test_profile_topology_density_is_independent_of_root_budget():
@@ -14,7 +14,7 @@ def test_profile_topology_density_is_independent_of_root_budget():
 
 
 def test_accelerator_numerical_layers_do_not_import_cpu_modules():
-    package = Path(__file__).parents[3] / "src" / "microjax" / "inverse_ray"
+    package = Path(__file__).parents[3] / "src" / "microjax" / "_magnification"
     layers = ("geometry", "integrators", "quadrature", "roots")
     offenders = []
     for layer in layers:

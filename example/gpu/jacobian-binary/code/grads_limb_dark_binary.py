@@ -101,7 +101,7 @@ def main():
         "device_kind": getattr(devices[0], "device_kind", "unknown"),
         "platform": platform.platform(),
         "jax_version": jax.__version__,
-        "api": "microjax.inverse_ray.mag_binary",
+        "api": "microjax.make_binary_lightcurve",
         "automatic_differentiation": "jax.jacfwd",
         "limb_darkening_coefficient_u1": args.u1,
         "differentiated_parameter_names": list(PARAMETER_NAMES),

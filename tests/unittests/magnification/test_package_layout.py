@@ -1,13 +1,12 @@
-import microjax.inverse_ray.lightcurve as current_lightcurve
-import microjax.inverse_ray.extended_source as current_extended_source
+import microjax._magnification.lightcurve as current_lightcurve
+import microjax._magnification.extended_source as current_extended_source
 import microjax.inverse_ray_dense.lightcurve as dense_lightcurve
 import microjax.inverse_ray_dense.extended_source as dense_extended_source
 import microjax.inverse_ray_retry.lightcurve as retry_lightcurve
 import microjax.inverse_ray_retry.extended_source as retry_extended_source
 
 
-def test_inverse_ray_packages_expose_disjoint_algorithms():
-    assert current_lightcurve.__all__ == ["mag_binary", "mag_triple"]
+def test_magnification_implementations_remain_separate():
     assert dense_lightcurve.__all__ == ["mag_binary_dense", "mag_triple"]
     assert retry_lightcurve.__all__ == ["mag_binary_safe"]
 
@@ -32,7 +31,7 @@ def test_backend_packages_use_their_own_extended_source_modules():
         "microjax.inverse_ray_retry."
     )
     assert current_lightcurve.mag_uniform_boundary.__module__.startswith(
-        "microjax.inverse_ray."
+        "microjax._magnification."
     )
 
 

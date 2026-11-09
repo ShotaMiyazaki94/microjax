@@ -7,13 +7,13 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from microjax.inverse_ray import mag_binary
+from microjax import make_mag_binary, make_binary_lightcurve
 
 pytestmark = pytest.mark.fast
 
 
 def test_public_result_preserves_best_effort_values(monkeypatch):
-    from microjax.inverse_ray import lightcurve
+    from microjax._magnification import lightcurve
 
     expected = SimpleNamespace(
         magnification=jnp.asarray([4.0, 5.0, jnp.nan]),
@@ -21,19 +21,23 @@ def test_public_result_preserves_best_effort_values(monkeypatch):
     )
     monkeypatch.setattr(lightcurve, "_mag_binary_cpu_impl", lambda *args, **kwargs: expected)
     sources = jnp.asarray([0.1 + 0.2j, 0.2 + 0.3j, 0.3 + 0.4j])
-    ordinary = mag_binary(sources, 0.01, s=1.0, q=0.3, backend="cpu")
-    diagnostic = mag_binary(sources, 0.01, s=1.0, q=0.3, backend="cpu", return_info=True)
+    mag = make_mag_binary(backend="cpu")
+    mag_with_info = make_mag_binary(backend="cpu", return_info=True)
+    ordinary = mag(sources, 0.01, s=1.0, q=0.3)
+    diagnostic = mag_with_info(sources, 0.01, s=1.0, q=0.3)
     np.testing.assert_array_equal(ordinary, expected.magnification)
     assert diagnostic is expected
 
 
 def test_empty_input_keeps_the_public_result_shape():
-    result = mag_binary(jnp.asarray([], dtype=jnp.complex128), 0.01, s=1.0, q=0.3, backend="cpu", return_info=True)
+    mag_binary = make_mag_binary(backend="cpu", return_info=True)
+    result = mag_binary(jnp.asarray([], dtype=jnp.complex128), 0.01, s=1.0, q=0.3)
     assert result._fields == ("magnification", "status")
     assert result.magnification.shape == result.status.shape == (0,)
 
 
 def test_values_retain_critical_image_support():
+    mag_binary = make_mag_binary(backend="cpu", return_info=True)
     # Independent frozen VBM/VBBL values. These cover smooth values, hidden
     # angular support, a thin central image, and a narrow Cartesian image pair.
     cases = (
@@ -72,7 +76,7 @@ def test_values_retain_critical_image_support():
         ),
     )
     for source, rho, s, q, u1, reference, tolerance in cases:
-        result = mag_binary(jnp.asarray([source]), rho, s=s, q=q, u1=u1, backend="cpu", return_info=True)
+        result = mag_binary(jnp.asarray([source]), rho, s=s, q=q, u1=u1)
         assert result._fields == ("magnification", "status")
         np.testing.assert_allclose(result.magnification, [reference], rtol=tolerance, atol=0)
 
@@ -89,8 +93,6 @@ def test_values_retain_critical_image_support():
             s=0.9,
             q=0.01,
             u1=coefficient,
-            backend="cpu",
-            return_info=True,
         )
 
     coefficients = (0.0, 0.5, 1.0)
@@ -105,19 +107,22 @@ def test_values_retain_critical_image_support():
 
 
 def test_public_forward_jacobian_matches_independent_reference():
-    from microjax.inverse_ray.cpu.one_shot import mag_binary_cpu_one_shot
+    from microjax._magnification.cpu.one_shot import mag_binary_cpu_one_shot
 
-    def value(p):
-        return mag_binary(jnp.asarray([p[0] + 1j * p[1]]), p[2], s=p[3], q=p[4], backend="cpu")[0]
-
-    point = jnp.asarray(
-        [-0.3421551581838465, 0.19397867617641237, 0.0048408299514288945, 0.8917065758514715, 0.028320791269324543]
+    x, y = -0.3421551581838465, 0.19397867617641237
+    parameters = dict(
+        t0=-x, tE=1.0, u0=y, alpha=0.0, rho=0.0048408299514288945, s=0.8917065758514715, q=0.028320791269324543
     )
+    lightcurve = make_binary_lightcurve([0.0], backend="cpu")
     # VBBinaryLensing Tol=RelTol=1e-10, centered steps
     # (2e-7, 2e-7, 1e-7, 3e-7, 5e-8), independent of the JAX graph.
-    expected = [-6.64195328, 112.58030501, 30.67879960, 87.58013554, -446.69389094]
-    actual = jax.jit(jax.jacfwd(value))(point)
-    np.testing.assert_allclose(actual, expected, rtol=5e-4, atol=1e-5)
+    dx, dy, drho, ds, dq = [-6.64195328, 112.58030501, 30.67879960, 87.58013554, -446.69389094]
+    # At time zero and alpha=0, w=x+iy. Convert the independent position
+    # derivatives analytically to the seven event-parameter derivatives.
+    expected = dict(t0=-dx, tE=-x * dx, u0=dy, alpha=-y * dx + x * dy, rho=drho, s=ds, q=dq)
+    actual = jax.jit(jax.jacfwd(lightcurve))(parameters)
+    for name in parameters:
+        np.testing.assert_allclose(actual[name], [expected[name]], rtol=5e-4, atol=1e-5)
 
     # Force a full theta solve instead of taking the public multipole shortcut.
     # Its moving-endpoint rho derivative exposed a former outer-rule failure;
@@ -139,12 +144,12 @@ def test_public_forward_jacobian_matches_independent_reference():
 
 
 def test_root_correction_and_moving_support_keep_their_derivatives():
-    from microjax.inverse_ray.cpu.line_roots import (
+    from microjax._magnification.cpu.line_roots import (
         binary_line_level_set_roots,
         physical_binary_line_level_set_roots,
     )
-    from microjax.inverse_ray.cpu.angular_moment import _refine_angular_tangencies
-    from microjax.inverse_ray.cpu.lens import binary_lens
+    from microjax._magnification.cpu.angular_moment import _refine_angular_tangencies
+    from microjax._magnification.cpu.lens import binary_lens
 
     source = jnp.asarray(-1.4998598061310287 + 0.003443021045947857j)
     arguments = (-0.0004415497608313467j, -1.0 + 0j, source, 0.00021142727844446993)

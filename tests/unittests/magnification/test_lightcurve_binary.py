@@ -3,15 +3,15 @@ import numpy as np
 import jax.numpy as jnp
 import pytest
 from tests.utils.gpu import has_cuda
+from microjax import mag_binary, make_mag_binary
 
-import microjax.inverse_ray.lightcurve as lightcurve_module
-from microjax.inverse_ray.lightcurve import (
+import microjax._magnification.lightcurve as lightcurve_module
+from microjax._magnification.lightcurve import (
     _tiled_vmap_active_scalar,
     _select_full_points,
-    mag_binary,
 )
-from microjax.inverse_ray.config import BinaryMagConfig, DEFAULT_BINARY_CONFIG
-from microjax.inverse_ray.extended_source import (
+from microjax._magnification.config import BinaryMagConfig, DEFAULT_BINARY_CONFIG
+from microjax._magnification.extended_source import (
     BoundaryMagnificationResult,
     mag_limb_dark_boundary,
     mag_uniform_boundary,
@@ -123,10 +123,11 @@ def test_small_q_public_path_matches_local_chart_value_and_forward_q():
     point = 0.9699918738276432 - 0.001572032916854858j
     rho, s = 1e-4, 1.6
     q = jnp.asarray(1e-4)
-    config = BinaryMagConfig(n_limb=500)
+    mag = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+
     def public(mass_ratio):
-        return mag_binary(
-            jnp.asarray([point]), rho, s=s, q=mass_ratio, config=config
+        return mag(
+            jnp.asarray([point]), rho, s=s, q=mass_ratio
         )[0]
 
     def local(mass_ratio):
@@ -232,12 +233,12 @@ def test_far_field_uses_multipole_matches_internal():
     z, z_mask = _images_point_source(w_shift, nlenses=2, a=a, e1=e1)
     mu_multi, _ = mag_hexadecapole(z, z_mask, rho, nlenses=2, a=a, e1=e1, s=s, q=q)
 
-    mags = mag_binary(
+    mag = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mags = mag(
         w,
         rho,
         s=s,
         q=q,
-        config=BinaryMagConfig(n_limb=500),
     )
     # All far-field points pass the multipole gate.
     assert np.allclose(np.array(mags), np.array(mu_multi), rtol=1e-6, atol=1e-8)
@@ -286,13 +287,13 @@ def test_boundary_lightcurve_supports_linear_limb_darkening():
         Nlimb=500,
         angular_atol=1e-5,
     )
-    result = mag_binary(
+    mag = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    result = mag(
         jnp.asarray([point]),
         rho,
         s=s,
         q=q,
         u1=u1,
-        config=BinaryMagConfig(n_limb=500),
     )
 
     assert np.isfinite(float(expected))
@@ -355,12 +356,12 @@ def test_binary_lightcurve_matches_vbml(s, q, u0, tE, rho, alpha):
     params_vb = [jnp.log(s), jnp.log(q), u0, alpha - jnp.pi, jnp.log(rho), jnp.log(tE), t0]
     mag_vb, _, _ = jnp.array(vbml.BinaryLightCurve(params_vb, t))
 
-    mags = mag_binary(
+    mag = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mags = mag(
         w,
         rho,
         s=s,
         q=q,
-        config=BinaryMagConfig(n_limb=500),
     )
 
     diff = np.array(mags) - np.array(mag_vb)

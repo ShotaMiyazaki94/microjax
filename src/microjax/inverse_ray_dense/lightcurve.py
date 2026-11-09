@@ -218,7 +218,7 @@ def _mag_binary_dense_impl(
 
     This compatibility function owns all dense-grid resolution and mixed-
     precision controls. It never calls the boundary-root integrator. Ordinary
-    calculations should use ``microjax.inverse_ray.mag_binary``; call this
+    calculations should use ``microjax.mag_binary``; call this
     function explicitly for legacy reproduction or dense-grid comparisons.
     """
 

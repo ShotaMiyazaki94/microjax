@@ -1,6 +1,6 @@
 """Finite-source binary- and triple-lens light curves.
 
-Use :func:`mag_binary` and :func:`mag_triple` with a complex source trajectory.
+Use :func:`microjax.mag_binary` and :func:`microjax.mag_triple` with a complex source trajectory.
 For source positions sufficiently far from caustics, microJAX uses a fast
 finite-source approximation. Where a full calculation is needed, it traces
 the lensed images of the circular source boundary and integrates the enclosed
@@ -14,8 +14,6 @@ The CPU implementation can return diagnostic status flags with each value.
 The accelerator implementation returns ``NaN`` for detected calculation
 failures.
 """
-
-__all__ = ["mag_binary", "mag_triple"]
 
 from functools import partial
 
@@ -581,104 +579,3 @@ def _mag_triple_single_pass_impl(
     tile_size = min(config.source_tile_size, w_points.shape[0])
     full_values = _tiled_vmap_active_scalar(boundary, full_points, n_active, tile_size)
     return _scatter_full_values(multipole, indices, full_values)
-
-
-def mag_binary(
-    w_points: Array,
-    rho: float,
-    *,
-    s: float,
-    q: float,
-    u1: float = 0.0,
-    config: BinaryMagConfig = DEFAULT_BINARY_CONFIG,
-    backend: str = "accelerator",
-    return_info: bool = False,
-) -> Array:
-    """Calculate a binary-lens finite-source light curve.
-
-    Pass source positions in ``w_points``, a source radius ``rho``, and the
-    binary separation ``s`` and mass ratio ``q = m2/m1``. ``u1`` sets linear
-    limb darkening; zero gives a uniform source. The returned array has one
-    magnification per position.
-
-    Use ``backend="cpu"`` for the CPU integrator or ``"accelerator"``
-    (the default, also called ``"gpu"``) for the accelerator implementation.
-    ``config`` applies only to the latter. Both support ``jax.jacfwd``.
-
-    With the CPU backend, ``return_info=True`` returns a
-    :class:`~microjax.inverse_ray.cpu.CpuMagnificationResult` containing
-    magnification and diagnostic status arrays.
-    """
-
-    if backend == "cpu":
-        result = _mag_binary_cpu_impl(
-            w_points,
-            rho,
-            s=s,
-            q=q,
-            u1=u1,
-        )
-        if return_info:
-            return result
-        return result.magnification
-
-    if backend not in ("accelerator", "gpu"):
-        raise ValueError("backend must be 'accelerator', 'gpu', or 'cpu'")
-    if return_info:
-        raise ValueError("return_info is available only for backend='cpu'")
-
-    return _mag_binary_single_pass_impl(
-        w_points,
-        rho,
-        s=s,
-        q=q,
-        u1=u1,
-        config=config,
-    )
-
-
-def mag_triple(
-    w_points: Array,
-    rho: float,
-    *,
-    s: float,
-    q: float,
-    q3: float,
-    r3: float,
-    psi: float,
-    u1: float = 0.0,
-    config: TripleMagConfig = DEFAULT_TRIPLE_CONFIG,
-    backend: str = "accelerator",
-    return_info: bool = False,
-) -> Array:
-    """Calculate a triple-lens finite-source light curve.
-
-    The arguments follow :func:`mag_binary`, with three additions: ``q3`` is
-    the third-lens mass ratio ``m3/m1``, while ``r3`` and ``psi`` give its
-    distance and angle from the midpoint of the first two lenses. Angles
-    are in radians. Source positions remain relative to the centre of mass
-    of the first two lenses.
-
-    Both backends support forward derivatives with ``jax.jacfwd``. As for
-    the binary model, ``config`` applies to the accelerator implementation
-    and ``return_info=True`` is available with ``backend="cpu"``.
-    """
-    if backend == "cpu":
-        result = _mag_triple_cpu_impl(w_points, rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=u1)
-        return result if return_info else result.magnification
-    if backend not in ("accelerator", "gpu"):
-        raise ValueError("backend must be 'accelerator', 'gpu', or 'cpu'")
-    if return_info:
-        raise ValueError("return_info is available only for backend='cpu'")
-
-    return _mag_triple_single_pass_impl(
-        w_points,
-        rho,
-        s=s,
-        q=q,
-        q3=q3,
-        r3=r3,
-        psi=psi,
-        u1=u1,
-        config=config,
-    )

@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from microjax.inverse_ray_dense.extended_source import mag_limb_dark, mag_uniform
-from microjax.inverse_ray.geometry.limb import calc_source_limb
+from microjax._magnification.geometry.limb import calc_source_limb
 from microjax.inverse_ray_dense.lightcurve import mag_triple
 from microjax.lens_geometry import triple_lens_geometry
 from microjax.multipole import mag_hexadecapole

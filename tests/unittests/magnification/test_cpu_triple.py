@@ -8,20 +8,21 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from microjax.inverse_ray import mag_triple
+from microjax import make_mag_triple, make_triple_lightcurve
 
 pytestmark = pytest.mark.fast
 REFERENCES = json.loads((Path(__file__).resolve().parents[3] / "tools" / "cpu_triple_cases.json").read_text())
 
 
 def test_triple_values_and_shared_brightness_geometry():
+    mag_triple = make_mag_triple(backend="cpu", return_info=True)
     traces = []
 
     @jax.jit
     def evaluate(source, p, coefficient):
         traces.append(None)
         rho, s, q, q3, r3, psi = p
-        return mag_triple(source, rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=coefficient, backend="cpu", return_info=True)
+        return mag_triple(source, rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=coefficient)
 
     # Independent VBM values cover two central-caustic cases, the third-body
     # fold, comparable masses, and small/wide and tiny third-lens images. The reference
@@ -60,23 +61,24 @@ def test_triple_values_and_shared_brightness_geometry():
 def test_triple_forward_jacobian_matches_independent_reference():
     reference = REFERENCES["forward_jacobian"]
 
-    def model(p, time):
-        t0, t_e, u0, q, s, alpha, rho, q3, r3, psi = p
-        tau = (time - t0) / t_e
-        source = (-u0 * jnp.sin(alpha) + tau * jnp.cos(alpha)) + 1j * (u0 * jnp.cos(alpha) + tau * jnp.sin(alpha))
-        return mag_triple(jnp.asarray([source]), rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=0.5, backend="cpu")[0]
+    times = [reference["observation_time"]] + [
+        case["observation_time"] for case in REFERENCES["critical_forward_jacobians"]
+    ]
+    lightcurve = make_triple_lightcurve(times, backend="cpu")
+    names = ("t0", "tE", "u0", "q", "s", "alpha", "rho", "q3", "r3", "psi")
+    parameters = dict(zip(names, reference["parameters"]))
+
+    def model(p):
+        return lightcurve({**p, "u1": 0.5})
 
     # VBM Tol=RelTol=1e-9, centered finite differences, independent of the
     # JAX graph. Halving the stored steps changed all ten columns by <8e-8
     # relative. This position requires the full finite-source calculation.
-    evaluate = jax.jit(jax.jacfwd(model))
-    parameters = jnp.asarray(reference["parameters"])
-    actual = evaluate(parameters, reference["observation_time"])
-    np.testing.assert_allclose(actual, reference["derivatives"], rtol=1e-3, atol=1e-6)
+    derivatives = jax.jit(jax.jacfwd(model))(parameters)
+    actual = np.column_stack([derivatives[name] for name in names])
+    np.testing.assert_allclose(actual[0], reference["derivatives"], rtol=1e-3, atol=1e-6)
 
-    # Reuse the compiled Jacobian at central and third-body caustic points.
-    # Their selected columns have independent references; fixture notes retain
-    # the radial-integration oracle's incomplete half-step check for r3.
-    for case in REFERENCES["critical_forward_jacobians"]:
-        actual = np.asarray(evaluate(parameters, case["observation_time"]))
-        np.testing.assert_allclose(actual[case["parameter_indices"]], case["derivatives"], rtol=1e-3, atol=1e-6)
+    # Central and third-body caustics have independent selected-column references.
+    # Fixture notes retain the radial oracle's incomplete half-step check for r3.
+    for row, case in zip(actual[1:], REFERENCES["critical_forward_jacobians"]):
+        np.testing.assert_allclose(row[case["parameter_indices"]], case["derivatives"], rtol=1e-3, atol=1e-6)

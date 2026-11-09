@@ -4,17 +4,17 @@ import numpy as np
 import pytest
 from dataclasses import fields
 
-import microjax.inverse_ray.lightcurve as lightcurve_module
-from microjax.inverse_ray import BinaryMagConfig, TripleMagConfig, mag_triple
-from microjax.inverse_ray.config import DEFAULT_TRIPLE_CONFIG
-from microjax.inverse_ray.extended_source import (
+import microjax._magnification.lightcurve as lightcurve_module
+from microjax import BinaryMagConfig, TripleMagConfig, mag_triple, make_mag_triple
+from microjax._magnification.config import DEFAULT_TRIPLE_CONFIG
+from microjax._magnification.extended_source import (
     BoundaryMagnificationResult,
     mag_limb_dark_boundary,
     mag_uniform_triple_boundary,
 )
-from microjax.inverse_ray.geometry.limb import calc_source_limb
-from microjax.inverse_ray.integrators.charts import _triple_compact_mixed_topology
-from microjax.inverse_ray.roots.level_set import triple_level_set
+from microjax._magnification.geometry.limb import calc_source_limb
+from microjax._magnification.integrators.charts import _triple_compact_mixed_topology
+from microjax._magnification.roots.level_set import triple_level_set
 from microjax.lens_geometry import triple_lens_geometry
 from tests.utils.gpu import has_cuda
 
@@ -121,11 +121,11 @@ def test_triple_public_path_is_finite_on_gpu(u1):
     # The first point fails the multipole gate and exercises the boundary
     # kernel; the second remains on the fast multipole path.
     points = jnp.asarray([0.2 + 0.1j, 1.5 - 0.7j])
-    result = mag_triple(
+    mag = make_mag_triple(config=TripleMagConfig(n_limb=40))
+    result = mag(
         points,
         1e-2,
         u1=u1,
-        config=TripleMagConfig(n_limb=40),
         **PARAMS,
     )
     assert result.shape == points.shape
@@ -160,11 +160,11 @@ def test_triple_public_path_has_finite_forward_q3_derivative_on_gpu():
     if not has_cuda():
         pytest.skip("CUDA GPU not available")
     point = jnp.asarray([0.2 + 0.1j])
-    config = TripleMagConfig(n_limb=40)
+    mag = make_mag_triple(config=TripleMagConfig(n_limb=40))
     fixed_params = {name: value for name, value in PARAMS.items() if name != "q3"}
 
     def evaluate(q3):
-        return mag_triple(point, 1e-2, q3=q3, config=config, **fixed_params)[0]
+        return mag(point, 1e-2, q3=q3, **fixed_params)[0]
 
     value, derivative = jax.jvp(evaluate, (jnp.asarray(PARAMS["q3"]),), (jnp.asarray(1.0),))
     assert np.isfinite(float(value))
