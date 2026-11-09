@@ -5,7 +5,7 @@ with each event parameter. Run it from the repository root with microJAX,
 Matplotlib, and GPU-enabled JAX installed:
 
 ```bash
-python example/gpu/jacobian-triple/code/grads_limb_dark_triple.py
+python example/gpu/jacobian-triple/code/jacobian.py
 ```
 
 The calculation uses `jax.jacfwd` with limb darkening fixed at `u1=0.5`.
@@ -16,7 +16,7 @@ relative to the midpoint of the first two lenses. There are 1000 observations
 from −5 to 10 days. Jacobian columns follow
 `t0, tE, u0, q, s, alpha, rho, q3, r3, psi`.
 
-![Triple-lens light curve, image geometry, and ten forward derivatives](outputs/limb_dark/triple_limb_dark_jacobian.png)
+![Triple-lens light curve, image geometry, and ten forward derivatives](jacobian.png)
 
 The [CPU example](../../cpu/README.md#triple-lens) evaluates the same event
 with `make_triple_lightcurve(backend="cpu")` and produces the same
@@ -25,11 +25,11 @@ panel layout.
 ## Changing the example
 
 Use `--quick` for a smaller run, `--u1` to change limb darkening, or
-`--n-points` to change the time sampling. Run the script with `--help` for
-all options.
+`--n-points` to change the time sampling. `--u1 0` gives a uniform source.
+Run the script with `--help` for all options.
 
 The light curve, Jacobian array, figures, and timing report are saved under
-`outputs/limb_dark/`. Set `--output-dir PATH` to use another directory.
+`outputs/`. Set `--output-dir PATH` to use another directory.
 The timing report separates the first call, which includes compilation,
 from subsequent calls.
 

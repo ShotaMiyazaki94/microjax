@@ -39,9 +39,5 @@ tmp/
 /docs_src/internal/
 /archive/
 
-# GPU runtime outputs stay local; keep the two documented Jacobian previews.
-/example/gpu/*/outputs/**
-!/example/gpu/jacobian-binary/outputs/limb_dark/
-!/example/gpu/jacobian-triple/outputs/limb_dark/
-!/example/gpu/jacobian-binary/outputs/limb_dark/binary_limb_dark_jacobian.png
-!/example/gpu/jacobian-triple/outputs/limb_dark/triple_limb_dark_jacobian.png
+# GPU runtime outputs stay local; documented previews live beside the READMEs.
+/example/gpu/*/outputs/

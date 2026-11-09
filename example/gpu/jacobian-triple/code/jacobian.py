@@ -1,10 +1,8 @@
-"""Triple-lens uniform-source magnification and forward Jacobian benchmark.
+"""Triple-lens magnification and forward Jacobian on GPU.
 
-This is the triple-lens counterpart of
-``example/gpu/jacobian-binary/code/grads_uniform_binary.py``. It benchmarks the
-current ``mag_triple`` API, separating JIT warm-up from compiled execution,
-and differentiates all ten trajectory, source, and lens parameters with
-forward-mode automatic differentiation.
+The linear limb-darkening coefficient is held fixed (default: u1=0.5).
+Use --u1 0 for a uniform source. Timings separate JIT compilation from
+subsequent evaluations.
 """
 
 from __future__ import annotations
@@ -39,9 +37,9 @@ PARAMETER_LABELS = (
 )
 
 
-def make_model(*, u1: float = 0.0, n_limb: int):
+def make_model(*, u1: float = 0.5, n_limb: int):
     """Build the triple-lens light-curve function used by forward AD."""
-    lightcurve = make_triple_lightcurve(config=TripleMagConfig(n_limb=n_limb))
+    lightcurve = make_triple_lightcurve(backend="gpu", config=TripleMagConfig(n_limb=n_limb))
 
     def get_magnification(params: jax.Array, times: jax.Array) -> jax.Array:
         return lightcurve(params, times, u1=u1)
@@ -188,21 +186,17 @@ def save_benchmark_plot(
     fig.savefig(output_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--quick",
-        action="store_true",
-        help="use a small configuration for a smoke benchmark",
-    )
+    parser.add_argument("--quick", action="store_true", help="use a small configuration for a smoke benchmark")
+    parser.add_argument("--u1", type=float, default=0.5)
     parser.add_argument("--n-points", type=int)
     parser.add_argument("--n-limb", type=int)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path(__file__).resolve().parent.parent / "outputs" / "uniform",
+        default=Path(__file__).resolve().parent.parent / "outputs",
     )
     parser.add_argument("--no-plot", action="store_true")
     return parser.parse_args()
@@ -210,18 +204,18 @@ def parse_args():
 
 def resolved_config(args) -> dict[str, int]:
     """Resolve CLI overrides against full-size or quick defaults."""
-
-    defaults = (
-        {"n_points": 24, "n_limb": 80}
-        if args.quick
-        else {"n_points": 1000, "n_limb": TripleMagConfig().n_limb}
-    )
+    defaults = {
+        "n_points": 24 if args.quick else 1000,
+        "n_limb": TripleMagConfig().n_limb,
+    }
     return {name: getattr(args, name) if getattr(args, name) is not None else value for name, value in defaults.items()}
 
 
 def main():
     args = parse_args()
     config = resolved_config(args)
+    if not 0.0 <= args.u1 <= 1.0:
+        raise ValueError("--u1 must lie in the interval [0, 1]")
     if args.repeats < 1:
         raise ValueError("--repeats must be at least one")
     if any(value < 1 for value in config.values()):
@@ -237,12 +231,9 @@ def main():
     r3, psi = np.abs(r3_complex), np.angle(r3_complex)
     params = jnp.asarray([t0, t_e, u0, q, s, alpha, rho, q3, r3, psi])
     times = t0 + jnp.linspace(-0.5 * t_e, t_e, config["n_points"])
-    model = make_model(n_limb=config["n_limb"])
+    model = make_model(u1=args.u1, n_limb=config["n_limb"])
 
-    functions = {
-        "value": jax.jit(model),
-        "forward": jax.jit(jax.jacfwd(model, argnums=0)),
-    }
+    functions = {"value": jax.jit(model), "forward": jax.jit(jax.jacfwd(model, argnums=0))}
     results = {}
     for name, function in functions.items():
         print(f"benchmarking {name}...", flush=True)
@@ -266,7 +257,8 @@ def main():
         "jax_version": jax.__version__,
         "api": "microjax.make_triple_lightcurve",
         "automatic_differentiation": "jax.jacfwd",
-        "parameter_names": list(PARAMETER_NAMES),
+        "limb_darkening_coefficient_u1": args.u1,
+        "differentiated_parameter_names": list(PARAMETER_NAMES),
         "config": {
             **config,
             "repeats": args.repeats,
@@ -288,15 +280,17 @@ def main():
     (args.output_dir / "benchmark.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     if not args.no_plot:
         save_jacobian_plot(
-            args.output_dir / "triple_jacobian.png",
+            args.output_dir / "jacobian.png",
             np.asarray(times),
             magnification,
             forward,
             np.asarray(params),
+            source_label=rf"Linear limb darkening: $u_1={args.u1:g}$ (held fixed)",
         )
         save_benchmark_plot(args.output_dir / "ad_benchmark.png", warmups, medians)
 
     print(f"device: {devices[0]}")
+    print(f"u1: {args.u1:.6g} (held fixed; not differentiated)")
     print(
         f"median of {args.repeats} compiled runs: "
         f"value={medians['value']:.3f} s, forward={medians['forward']:.3f} s"

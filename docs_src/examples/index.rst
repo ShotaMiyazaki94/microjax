@@ -81,8 +81,8 @@ With a GPU-enabled JAX installation, run the corresponding scripts:
 
 .. code-block:: sh
 
-   python example/gpu/jacobian-binary/code/grads_limb_dark_binary.py
-   python example/gpu/jacobian-triple/code/grads_limb_dark_triple.py
+   python example/gpu/jacobian-binary/code/jacobian.py
+   python example/gpu/jacobian-triple/code/jacobian.py
 
 The `binary <https://github.com/ShotaMiyazaki94/microjax/tree/develop/example/gpu/jacobian-binary>`_
 and `triple <https://github.com/ShotaMiyazaki94/microjax/tree/develop/example/gpu/jacobian-triple>`_
@@ -95,4 +95,4 @@ The CPU script saves ``lightcurve.png``, ``lightcurve.csv`` (time and
 magnification), and ``jacobian_forward.npy`` under ``results/cpu/example/``.
 Triple results go in its ``triple/`` subdirectory. You can load these files
 in a notebook to explore the results without repeating the calculation.
-GPU results go under each script's ``outputs/limb_dark/`` directory.
+GPU results go under each script's ``outputs/`` directory.
