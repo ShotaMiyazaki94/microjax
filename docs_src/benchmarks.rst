@@ -36,8 +36,8 @@ described below. The largest difference is :math:`6.19\times10^{-4}`.
    :target: _static/cpu_overview.png
 
    **a:** cumulative relative error; **b:** cumulative runtime ratio.
-   Colours identify logarithmic bins of the selected parameter; black
-   shows all sources. Dashed lines mark :math:`10^{-4}` error and equal
+   Colours distinguish the ranges listed in the legend; black shows all
+   sources. Dashed lines mark :math:`10^{-4}` error and equal
    runtime. The black points mark the overall 99th-percentile error and
    median speed ratio, with 68.27% and 95% bootstrap intervals.
 
@@ -124,6 +124,8 @@ magnification bins. Of these positions, 81 have no usable reference;
    **d–f:** 99th-percentile relative error. Each cell shows its estimate;
    numbers in **d–f** are in units of :math:`10^{-5}`. Grey cells have too few
    measured configurations or no sources in the saved reference frame.
+   The error colour scale runs from :math:`5\times10^{-5}` to
+   :math:`2\times10^{-4}`, with :math:`10^{-4}` at its centre.
 
 The columns group the same measurements by :math:`(q,\rho)`,
 :math:`(A_{\rm ref},\rho)`, and :math:`(A_{\rm ref},q)`; separation ``s``

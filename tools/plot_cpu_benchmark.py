@@ -197,12 +197,13 @@ def interval(ax, result, coordinate, color):
 
 
 def overview(points, groups, edges, summary, directory):
-    names = {"rho": r"Source radius $\rho$", "q": r"Mass ratio $q$", "reference": r"$A_{\rm ref}$"}
+    names = {"rho": r"Source radius $\rho$", "q": r"Mass ratio $q$", "reference": r"Magnification $A_{\rm ref}$"}
+    colors = plt.get_cmap("tab10")([0, 1, 2, 3, 4, 5, 6, 9])
     for parameter, label in names.items():
         bins = edges[parameter]
-        cmap = ListedColormap(plt.get_cmap("viridis")(np.linspace(0.08, 0.88, len(bins) - 1)))
-        norm = LogNorm(bins[0], bins[-1])
-        fig, axes = plt.subplots(1, 2, figsize=(10.6, 3.8), sharey=True, layout="constrained")
+        ranges = [f"{lo:.2g}–{hi:.2g}".replace("e-0", "e−").replace("e+0", "e")
+                  for lo, hi in zip(bins[:-1], bins[1:])]
+        fig, axes = plt.subplots(1, 2, figsize=(11.6, 3.8), sharey=True, layout="constrained")
         for ax, data, key, title, xlabel, threshold, statistic, level in (
             (axes[0], points, "relative_error", "a   Relative error", r"$|A/A_{\rm ref}-1|$",
              1e-4, summary["accuracy_p99"], ACCURACY_QUANTILE),
@@ -212,9 +213,8 @@ def overview(points, groups, edges, summary, directory):
             for i in range(len(bins) - 1):
                 values = np.sort(np.maximum(data[key][in_bin(data[parameter], bins, i)], 1e-13))
                 if values.size:
-                    color = cmap(norm(np.sqrt(bins[i:i+2].prod())))
                     ax.step(values, np.arange(1, len(values) + 1) / len(values),
-                            where="post", lw=1.2, color=color, alpha=0.9)
+                            where="post", lw=1.3, color=colors[i], label=ranges[i])
             values = np.sort(np.maximum(data[key], 1e-13))
             ax.step(values, np.arange(1, len(values) + 1) / len(values),
                     where="post", lw=1.5, color=INK, label="All sources")
@@ -225,13 +225,8 @@ def overview(points, groups, edges, summary, directory):
             ax.set_title(title, loc="left")
             ax.set(xlabel=xlabel, ylim=(0, 1.04))
         axes[0].set_ylabel("Cumulative fraction")
-        axes[0].legend(loc="upper left", fontsize=9)
-        colorbar = fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap),
-                               ax=axes, pad=0.025, fraction=0.025, aspect=25)
-        colorbar.set_label(label)
-        colorbar.locator = LogLocator(base=10, numticks=5)
-        colorbar.update_ticks()
-        colorbar.ax.yaxis.set_minor_formatter(NullFormatter())
+        axes[1].legend(loc="upper left", bbox_to_anchor=(1.02, 1), title=label,
+                       fontsize=8.5, title_fontsize=9, handlelength=2)
         suffix = "" if parameter == "rho" else "_" + ("magnification" if parameter == "reference" else parameter)
         save(fig, directory / ("cpu_overview" + suffix))
 
@@ -244,8 +239,8 @@ def parameter_maps(edges, cells, directory):
     names = {"q": r"Mass ratio $q$", "rho": r"Source radius $\rho$", "reference": r"$A_{\rm ref}$"}
     combinations = (("q", "rho"), ("reference", "rho"), ("reference", "q"))
     for row, metric in enumerate(("speed", "accuracy")):
-        cmap = speed_cmap if row == 0 else plt.get_cmap("viridis_r")
-        norm = BoundaryNorm(speed_bounds, cmap.N) if row == 0 else LogNorm(1e-5, 1e-3)
+        cmap = speed_cmap if row == 0 else plt.get_cmap("coolwarm")
+        norm = BoundaryNorm(speed_bounds, cmap.N) if row == 0 else LogNorm(5e-5, 2e-4)
         for col, (x, y) in enumerate(combinations):
             ax = axes[row, col]
             matrix = np.full((len(edges[y])-1, len(edges[x])-1), np.nan)
@@ -277,7 +272,9 @@ def parameter_maps(edges, cells, directory):
             colorbar.ax.yaxis.set_major_formatter(FuncFormatter(ratio_label))
             colorbar.set_label(r"Median $t_{\rm VBM}/t_{\rm microJAX}$")
         else:
-            colorbar.set_ticks([1e-5, 1e-4, 1e-3])
+            colorbar.set_ticks([5e-5, 1e-4, 2e-4],
+                               labels=[r"$5\times10^{-5}$", r"$10^{-4}$", r"$2\times10^{-4}$"])
+            colorbar.minorticks_off()
             colorbar.set_label("99th-percentile relative error")
     save(fig, directory / "cpu_parameter_maps_ld")
 
