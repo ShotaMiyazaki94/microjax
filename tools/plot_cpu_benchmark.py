@@ -198,9 +198,9 @@ def interval(ax, result, coordinate, color):
 
 def overview(points, groups, edges, summary, directory):
     names = {"rho": r"Source radius $\rho$", "q": r"Mass ratio $q$", "reference": r"Magnification $A_{\rm ref}$"}
-    colors = plt.get_cmap("tab10")([0, 1, 2, 3, 4, 5, 6, 9])
     for parameter, label in names.items():
         bins = edges[parameter]
+        colors = plt.get_cmap("plasma")(np.linspace(0.05, 0.8, len(bins) - 1))
         ranges = [f"{lo:.2g}–{hi:.2g}".replace("e-0", "e−").replace("e+0", "e")
                   for lo, hi in zip(bins[:-1], bins[1:])]
         fig, axes = plt.subplots(1, 2, figsize=(11.6, 3.8), sharey=True, layout="constrained")
@@ -214,10 +214,10 @@ def overview(points, groups, edges, summary, directory):
                 values = np.sort(np.maximum(data[key][in_bin(data[parameter], bins, i)], 1e-13))
                 if values.size:
                     ax.step(values, np.arange(1, len(values) + 1) / len(values),
-                            where="post", lw=1.3, color=colors[i], label=ranges[i])
+                            where="post", lw=1.5, color=colors[i], label=ranges[i])
             values = np.sort(np.maximum(data[key], 1e-13))
             ax.step(values, np.arange(1, len(values) + 1) / len(values),
-                    where="post", lw=1.5, color=INK, label="All sources")
+                    where="post", lw=1.4, ls="--", color=INK, label="All sources")
             interval(ax, statistic, level, INK)
             ax.axvline(threshold, color=MUTED, ls="--", lw=0.9)
             log_axis(ax, "x")

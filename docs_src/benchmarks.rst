@@ -36,8 +36,9 @@ described below. The largest difference is :math:`6.19\times10^{-4}`.
    :target: _static/cpu_overview.png
 
    **a:** cumulative relative error; **b:** cumulative runtime ratio.
-   Colours distinguish the ranges listed in the legend; black shows all
-   sources. Dashed lines mark :math:`10^{-4}` error and equal
+   Colours progress from purple to orange as the selected parameter
+   increases; the legend lists the ranges. The black dashed curve shows
+   all sources. Grey dashed lines mark :math:`10^{-4}` error and equal
    runtime. The black points mark the overall 99th-percentile error and
    median speed ratio, with 68.27% and 95% bootstrap intervals.
 
