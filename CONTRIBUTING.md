@@ -22,7 +22,7 @@ Run the tests relevant to the change. For the shared binary/triple CPU
 integrator:
 
 ```bash
-pytest -q tests/unittests/inverse_ray/test_cpu.py tests/unittests/inverse_ray/test_cpu_triple.py
+pytest -q tests/unittests/magnification/test_cpu.py tests/unittests/magnification/test_cpu_triple.py
 ```
 
 For changes to CPU numerical behavior or performance, run the small

@@ -1,10 +1,66 @@
 Finite-source magnification
 ===========================
 
-``mag_binary`` and ``mag_triple`` integrate a circular source with linear
-limb darkening. Both take a one-dimensional complex array of source positions
-and return one magnification per position. See :doc:`../usage` for a worked
-binary event and :doc:`../autodiff` for parameter derivatives.
+Create a light-curve function with observation times and a choice of
+integrator, then pass the event parameters to it. See :doc:`../usage` for
+a worked binary event and :doc:`../autodiff` for parameter derivatives.
+The position-based functions below support custom source trajectories.
+
+Event light curves
+------------------
+
+.. autofunction:: microjax.make_binary_lightcurve
+
+.. autofunction:: microjax.make_triple_lightcurve
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 78
+
+   * - Event parameter
+     - Meaning
+   * - ``t0``
+     - Time of closest approach to the centre of mass of lenses 1 and 2.
+   * - ``tE``
+     - Einstein crossing time, in the same units as ``times`` and ``t0``.
+   * - ``u0``
+     - Signed impact parameter in Einstein-radius units.
+   * - ``alpha``
+     - Trajectory angle from the binary axis, in radians.
+
+The remaining dictionary entries describe the lenses and source: ``s``,
+``q``, ``rho``, and optionally ``u1``; triples also need ``q3``, ``r3``,
+``psi``. Their conventions are given below. A dictionary of floating-point
+values can be passed directly to ``jax.jacfwd``; the result is a dictionary
+of derivative arrays with the same keys.
+
+.. _source-position-api:
+
+Source-position functions
+-------------------------
+
+For trajectories including parallax, or source positions calculated
+elsewhere, use the position-based functions. For example:
+
+.. code-block:: python
+
+   import microjax as mj
+
+   mag = mj.make_mag_binary(backend="cpu")
+   A = mag(w, rho=0.005, s=1.0, q=0.001, u1=0.5)
+
+Here ``w`` is a one-dimensional complex array. The result has one
+magnification per position. The module-level ``mj.mag_binary`` and
+``mj.mag_triple`` use the default accelerator settings; the factories let
+you choose settings once for repeated calls.
+
+.. autofunction:: microjax.mag_binary
+
+.. autofunction:: microjax.mag_triple
+
+.. autofunction:: microjax.make_mag_binary
+
+.. autofunction:: microjax.make_mag_triple
 
 .. _lens-coordinates:
 
@@ -60,21 +116,14 @@ Its disk-average brightness is proportional to :math:`1-u_1/3`, which is
 included in the magnification normalization. ``u1=0`` gives a uniform disk;
 ``0 < u1 <= 1`` darkens the limb.
 
-Light-curve functions
----------------------
-
-.. autofunction:: microjax.inverse_ray.mag_binary
-
-.. autofunction:: microjax.inverse_ray.mag_triple
-
 .. _accelerator-configuration:
 
 Accelerator configuration
 -------------------------
 
-Pass a configuration object to tune the accelerator implementation, for
-example ``config=BinaryMagConfig(source_tile_size=256)``. The CPU integrator
-uses internal settings and ignores ``config``.
+Pass a configuration object when creating a function, for example
+``make_binary_lightcurve(times, config=BinaryMagConfig(source_tile_size=256))``.
+The CPU integrator uses internal settings and does not accept ``config``.
 
 .. list-table::
    :header-rows: 1
@@ -92,18 +141,20 @@ uses internal settings and ignores ``config``.
 The two batch sizes trade memory for throughput; increasing them does not
 increase accuracy. Changing a configuration triggers a new JAX compilation.
 
-.. autoclass:: microjax.inverse_ray.BinaryMagConfig
+.. autoclass:: microjax.BinaryMagConfig
+   :no-members:
 
-.. autoclass:: microjax.inverse_ray.TripleMagConfig
+.. autoclass:: microjax.TripleMagConfig
+   :no-members:
 
 CPU result and status
 ---------------------
 
-With ``backend="cpu", return_info=True``, either function returns a
-``CpuMagnificationResult``. Its ``magnification`` and ``status`` arrays
-have one entry per source position.
+Set ``backend="cpu", return_info=True`` when creating a function to return
+a ``CpuMagnificationResult``. Its ``magnification`` and ``status`` arrays
+have one entry per observation time or source position.
 
-.. autoclass:: microjax.inverse_ray.cpu.CpuMagnificationResult
+.. autoclass:: microjax.CpuMagnificationResult
    :members: magnification, status
 
 A zero status means no structural problem was detected. Nonzero flags

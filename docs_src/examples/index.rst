@@ -48,22 +48,21 @@ Triple lens
 
 Here the first two lenses have ``q=0.1`` and ``s=1.1``. A third lens has
 mass ratio ``q3=0.01`` relative to the primary and lies at ``0.3+1.2j``
-relative to the binary midpoint. Its location is passed to ``mag_triple``
-as a distance and an angle:
+relative to the binary midpoint. Starting from the first tutorial, add its
+distance and angle to the event parameters:
 
 .. code-block:: python
 
-   from microjax.inverse_ray import mag_triple
-
-   # Using w from the first tutorial:
-   A_triple = mag_triple(
-       w, rho=0.01, s=1.1, q=0.1, q3=0.01,
+   triple_parameters = dict(
+       parameters, rho=0.01, s=1.1, q=0.1, q3=0.01,
        r3=abs(0.3 + 1.2j), psi=jnp.angle(0.3 + 1.2j),
-       u1=0.5, backend="cpu",
    )
+   triple_times = jnp.linspace(-5.0, 10.0, 1000)
+   triple_lightcurve = mj.make_triple_lightcurve(triple_times, backend="cpu")
+   A_triple = triple_lightcurve(triple_parameters)
 
 The script samples 1000 times and differentiates all ten event parameters,
-adding ``q3, r3, psi`` to the binary parameter vector. The source coordinate
+adding ``q3, r3, psi`` to the binary parameters. The source coordinate
 origin is still the centre of mass of the first two lenses; see the
 :ref:`coordinate conventions <lens-coordinates>` for the conversion between
 this origin and the binary midpoint.

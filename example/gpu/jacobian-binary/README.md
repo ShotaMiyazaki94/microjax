@@ -17,7 +17,8 @@ Jacobian columns follow `t0, tE, u0, q, s, alpha, rho`.
 ![Binary-lens light curve, image geometry, and seven forward derivatives](outputs/limb_dark/binary_limb_dark_jacobian.png)
 
 The [CPU example](../../cpu/README.md#binary-lens) evaluates the same event
-with `backend="cpu"` and produces the same panel layout.
+with `make_binary_lightcurve(times, backend="cpu")` and produces the same
+panel layout.
 
 ## Changing the example
 

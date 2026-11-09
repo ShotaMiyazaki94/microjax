@@ -8,10 +8,22 @@ development series.
 
 The `0.2` line is a redesigned release, not a patch update to `0.1.1`.
 
+The current magnification API is imported from `microjax`. Numerical internals
+have moved from `inverse_ray` to `_magnification`. Replace a per-call
+`mag_binary(..., backend="cpu")` with
+`mag = microjax.make_mag_binary(backend="cpu")`, then call `mag(...)` with
+physical parameters only. Configure accelerator settings the same way;
+CPU factories reject accelerator-only `config` objects.
+
 ### Added
 
-- Current `microjax.inverse_ray.mag_binary` and `mag_triple` light-curve APIs,
-  with `BinaryMagConfig` and `TripleMagConfig` for source-boundary sampling.
+- Root-level `microjax.mag_binary` and `mag_triple` for source positions,
+  with `make_mag_binary` and `make_mag_triple` to select the backend and
+  accelerator configuration once.
+- `make_binary_lightcurve(times, ...)` and `make_triple_lightcurve(times, ...)`
+  return functions that accept event-parameter dictionaries, including
+  `t0`, `tE`, `u0`, and `alpha`. They construct the rectilinear source trajectory
+  and support JAX forward derivatives directly from the dictionary.
 - Full finite-source calculations for uniform and linearly limb-darkened
   binary and triple lenses.
 - Direct calculation of the angles where image-plane circles cross a lensed

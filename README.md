@@ -28,14 +28,15 @@ jax.config.update("jax_enable_x64", True)
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from microjax.inverse_ray import mag_binary
+import microjax as mj
 
 times = jnp.linspace(-5.0, 10.0, 500)
-t0, t_e, u0 = 0.0, 10.0, 0.1
-alpha = jnp.deg2rad(50.0)
-w = ((times - t0) / t_e + 1j * u0) * jnp.exp(1j * alpha)
-
-A = mag_binary(w, rho=0.005, s=1.0, q=0.001, u1=0.5, backend="cpu")
+lightcurve = mj.make_binary_lightcurve(times, backend="cpu")
+parameters = dict(
+    t0=0.0, tE=10.0, u0=0.1, alpha=jnp.deg2rad(50.0),
+    q=0.001, s=1.0, rho=0.005, u1=0.5,
+)
+A = lightcurve(parameters)
 
 plt.plot(times, A)
 plt.xlabel("Time (days)")

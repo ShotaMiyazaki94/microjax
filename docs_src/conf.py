@@ -22,8 +22,6 @@ extensions = [
 ]
 autodoc_default_options = {
     "members": True,
-    "undoc-members": False,
-    "show-inheritance": False,
 }
 autodoc_typehints = "none"
 napoleon_google_docstring = True

@@ -52,10 +52,24 @@ The :doc:`benchmarks` use this approach for magnifications and Jacobians.
 CPU and GPU
 -----------
 
-``mag_binary`` and ``mag_triple`` offer two implementations. Select
-``backend="cpu"`` for the dedicated CPU integrator or
-``backend="accelerator"`` for the GPU implementation. The latter is the
-default, so the CPU examples set their backend explicitly.
+Select the implementation when creating the light-curve function:
+
+.. code-block:: python
+
+   import microjax as mj
+
+   lightcurve = mj.make_binary_lightcurve(times, backend="cpu")
+
+Use ``backend="accelerator"`` for the GPU implementation; this is the
+default. The returned function takes only event parameters. To tune GPU
+batching, pass a configuration when you create it:
+
+.. code-block:: python
+
+   lightcurve = mj.make_binary_lightcurve(
+       times, backend="accelerator",
+       config=mj.BinaryMagConfig(source_tile_size=256),
+   )
 
 JAX chooses the device separately from this setting. On a machine with a
 GPU, you can force a CPU example to run on the CPU with:
@@ -84,4 +98,4 @@ few model values and derivatives with an independent calculation at your
 event's parameters. The solver uses fixed work limits, rather than a
 requested relative-error tolerance. CPU status flags and accelerator
 resolution settings are described in the
-:doc:`finite-source reference <api/inverse_ray_lightcurve>`.
+:doc:`finite-source reference <api/magnification>`.
