@@ -19,6 +19,9 @@ This release introduces a new API for binary- and triple-lens modeling.
   and `TripleMagConfig` control boundary sampling and batching.
 - Added CPU and GPU examples with light curves, image geometry, and parameter
   derivatives, plus CPU accuracy and speed maps against VBMicrolensing.
+- Added a CPU HMC injection–recovery example with local-fit initialization,
+  Gaussian flux marginalization, and joint event/flux posterior plots.
+- Stabilized the Gaussian flux likelihood for nearly constant magnification.
 - Removed the old dense-grid, retry, and contour implementations and their
   separate APIs. Numerical internals now live under `microjax._magnification`.
   CPU and GPU implementations have sibling `cpu/` and `gpu/` packages, with
