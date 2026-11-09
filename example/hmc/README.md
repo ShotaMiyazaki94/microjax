@@ -12,6 +12,7 @@ python example/hmc/injection_recovery.py
 ```
 
 The data contain 180 uniformly spaced times from day −30 to day 30.
+Gaussian noise has a standard deviation of 3% of the injected flux.
 The script fits from a rough initial solution, whitens the sampling coordinates
 using its covariance, then runs **one chain with 500 warm-up steps and
 1,000 retained draws in total**. Warm-up adjusts the mass matrix and step size.
@@ -39,7 +40,7 @@ The script saves data, samples, diagnostics, model curves, and two figures:
 
 The model interval includes conditional source/blend flux uncertainty.
 The tutorial records the completed 1%-noise run, including its 35 divergent
-transitions and poor mixing in `q`, `s`, and `alpha`.
+transitions and poor mixing in `q`, `s`, and `alpha`. The next run uses 3% noise.
 To redraw the figures from saved arrays without sampling again:
 
 ```bash

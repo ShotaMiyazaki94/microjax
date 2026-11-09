@@ -13,6 +13,7 @@ The figures below use the run from 9 November 2026 at
 `8877b31 <https://github.com/ShotaMiyazaki94/microjax/commit/8877b31>`_:
 500 warm-up steps, 1,000 retained draws, and ``max_tree_depth=10``, with
 the prior bounds below and 1% flux errors.
+The script now uses 3% errors; these figures retain the completed 1% run.
 NUTS took **205 seconds**, including compilation and warm-up; the local fit
 took another 9.51 seconds. This used six CPU workers, float64, JAX 0.8.0,
 and NumPyro 0.19.0. Curve evaluation and plotting are outside those timings.
@@ -39,8 +40,8 @@ the warm-up target of 0.9.
 The lower panels use the **injected curve as the common reference**. Grey
 points show :math:`(F_{\rm data}-F_{\rm inj})/\sigma`; the blue line and band
 show the corresponding posterior-model differences. At every plotting time,
-:math:`\sigma(t)=0.01F_{\rm inj}(t)`, the same noise prescription used for
-the observations. Zero therefore represents the injection.
+:math:`\sigma(t)=0.01F_{\rm inj}(t)`, the noise prescription used for this
+run's observations. Zero therefore represents the injection.
 
 .. figure:: _static/hmc_corner.png
    :alt: Seven-parameter corner plot with logarithmic source radius and marked divergent transitions
@@ -121,7 +122,7 @@ The flux model is
 
    F(t) = F_s A(t; t_0,t_E,u_0,q,s,\alpha,\rho) + F_b.
 
-Independent Gaussian noise has a standard deviation of 1% of the injected
+Independent Gaussian noise has a standard deviation of 3% of the injected
 flux at each time. Those error bars stay fixed in the fit. Linear limb
 darkening is fixed at ``u1=0.5``. Injection and fitting use the same microJAX
 model.
