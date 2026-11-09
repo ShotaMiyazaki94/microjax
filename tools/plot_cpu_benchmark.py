@@ -24,6 +24,7 @@ TARGET = 1e-3
 MIN_CONFIGS = 15
 BOOTSTRAPS = 4000
 SEED = 20261106
+ACCURACY_QUANTILE = 0.99
 
 
 def style():
@@ -125,7 +126,7 @@ def statistics(points, groups, metadata):
     cells = []
     for metric, data, key, quantile, log in (
         ("speed", groups, "ratio", 0.5, True),
-        ("accuracy", points, "relative_error", 0.95, False),
+        ("accuracy", points, "relative_error", ACCURACY_QUANTILE, False),
     ):
         for x, y in combinations:
             for iy in range(len(edges[y]) - 1):
@@ -152,6 +153,7 @@ def statistics(points, groups, metadata):
                     cells.append(
                         {
                             "metric": metric,
+                            "quantile": quantile,
                             "x": x,
                             "y": y,
                             "ix": ix,
@@ -184,85 +186,54 @@ def save(fig, destination):
     plt.close(fig)
 
 
-def interval(ax, result, coordinate, color, *, horizontal=False, scale=1):
+def interval(ax, result, coordinate, color):
     if not result["eligible"]:
         return
-    center = result["estimate"] * scale
-    lo95, hi95 = np.asarray(result["ci95"]) * scale
-    lo68, hi68 = np.asarray(result["ci68"]) * scale
-    if horizontal:
-        ax.hlines(coordinate, lo95, hi95, color=color, alpha=0.38, lw=1.8)
-        ax.hlines(coordinate, lo68, hi68, color=color, lw=5)
-        ax.scatter(center, coordinate, s=28, color=color, edgecolor="white", linewidth=0.65, zorder=3)
-    else:
-        ax.vlines(coordinate, lo95, hi95, color=color, alpha=0.38, lw=1.8)
-        ax.vlines(coordinate, lo68, hi68, color=color, lw=5)
-        ax.scatter(coordinate, center, s=28, color=color, edgecolor="white", linewidth=0.65, zorder=3)
+    lo95, hi95 = result["ci95"]
+    lo68, hi68 = result["ci68"]
+    ax.hlines(coordinate, lo95, hi95, color=color, alpha=0.38, lw=1.8)
+    ax.hlines(coordinate, lo68, hi68, color=color, lw=5)
+    ax.scatter(result["estimate"], coordinate, s=28, color=color, edgecolor="white", linewidth=0.65, zorder=3)
 
 
 def overview(points, groups, edges, summary, directory):
-    fig, axes = plt.subplots(2, 2, figsize=(10.6, 7.2), layout="constrained")
-    error = np.sort(np.maximum(points["relative_error"], 1e-13))
-    error_limits = (max(1e-13, error[0] / 2), max(1e-3, error[-1] * 1.5))
-
-    ax = axes[0, 0]
-    ax.set_title("a   Relative error", loc="left")
-    ax.step(error, np.arange(1, len(error) + 1) / len(error), where="post", lw=1.7, color=BLUE)
-    ax.axvline(1e-4, color=MUTED, ls="--", lw=0.9)
-    interval(ax, summary["accuracy_p95"], 0.95, BLUE, horizontal=True)
-    log_axis(ax, "x")
-    ax.xaxis.set_major_locator(LogLocator(base=10, numticks=5))
-    ax.set(xlabel=r"$|A/A_{\rm ref}-1|$", ylabel="Cumulative fraction", xlim=error_limits, ylim=(0, 1.04))
-
-    ax = axes[0, 1]
-    ax.set_title("b   By source radius", loc="left")
-    for i in range(len(edges["rho"]) - 1):
-        selected = in_bin(points["rho"], edges["rho"], i)
-        errors = points["relative_error"][selected]
-        positive = errors[errors > 0]
-        center = np.sqrt(edges["rho"][i:i+2].prod())
-        if positive.size:
-            violin = ax.violinplot(
-                np.log10(positive), positions=[np.log10(center)],
-                widths=0.72 * np.diff(np.log10(edges["rho"][i:i+2])),
-                showextrema=False, points=160, bw_method="scott",
-            )
-            body = violin["bodies"][0]
-            for path in body.get_paths():
-                path.vertices[:] = 10**path.vertices
-            body.set_facecolor(BLUE)
-            body.set_edgecolor(BLUE)
-            body.set_alpha(0.3)
-            ax.scatter(center, np.quantile(errors, 0.95), s=21, color=ORANGE, zorder=3)
-    ax.axhline(1e-4, color=MUTED, ls="--", lw=0.9)
-    log_axis(ax, "x")
-    log_axis(ax, "y")
-    ax.yaxis.set_major_locator(LogLocator(base=10, numticks=5))
-    ax.set(xlabel=r"Source radius $\rho$", ylabel=r"$|A/A_{\rm ref}-1|$",
-           xlim=(edges["rho"][0], edges["rho"][-1]), ylim=error_limits)
-
-    ax = axes[1, 0]
-    ax.set_title("c   Time per source", loc="left")
-    for y, key, color in ((1, "cpu_runtime", BLUE), (0, "vbm_runtime", ORANGE)):
-        interval(ax, summary[key], y, color, horizontal=True, scale=1000)
-        value = summary[key]["estimate"] * 1000
-        ax.annotate(f"{value:.2f}", (value, y), xytext=(0, 10), textcoords="offset points",
-                    ha="center", fontsize=9, color=color)
-    ax.grid(True, axis="x")
-    upper_time = max(summary[key]["ci95"][1] for key in ("cpu_runtime", "vbm_runtime"))
-    ax.set(yticks=[1, 0], yticklabels=["microJAX", "VBM"], ylim=(-0.6, 1.6),
-           xlim=(0, upper_time * 1150), xlabel="Time [ms]")
-
-    ax = axes[1, 1]
-    ax.set_title("d   Relative speed", loc="left")
-    ratios = np.sort(groups["ratio"])
-    ax.step(ratios, np.arange(1, len(ratios) + 1) / len(ratios), where="post", lw=1.7, color=ORANGE)
-    ax.axvline(1, color=MUTED, ls="--", lw=0.9)
-    interval(ax, summary["speed"], 0.5, ORANGE, horizontal=True)
-    log_axis(ax, "x")
-    ax.xaxis.set_major_locator(LogLocator(base=10, numticks=5))
-    ax.set(xlabel=r"$t_{\rm VBM}/t_{\rm microJAX}$", ylabel="Cumulative fraction", ylim=(0, 1.04))
-    save(fig, directory / "cpu_overview")
+    names = {"rho": r"Source radius $\rho$", "q": r"Mass ratio $q$", "reference": r"$A_{\rm ref}$"}
+    for parameter, label in names.items():
+        bins = edges[parameter]
+        cmap = ListedColormap(plt.get_cmap("viridis")(np.linspace(0.08, 0.88, len(bins) - 1)))
+        norm = LogNorm(bins[0], bins[-1])
+        fig, axes = plt.subplots(1, 2, figsize=(10.6, 3.8), sharey=True, layout="constrained")
+        for ax, data, key, title, xlabel, threshold, statistic, level in (
+            (axes[0], points, "relative_error", "a   Relative error", r"$|A/A_{\rm ref}-1|$",
+             1e-4, summary["accuracy_p99"], ACCURACY_QUANTILE),
+            (axes[1], groups, "ratio", "b   Relative speed", r"$t_{\rm VBM}/t_{\rm microJAX}$",
+             1, summary["speed"], 0.5),
+        ):
+            for i in range(len(bins) - 1):
+                values = np.sort(np.maximum(data[key][in_bin(data[parameter], bins, i)], 1e-13))
+                if values.size:
+                    color = cmap(norm(np.sqrt(bins[i:i+2].prod())))
+                    ax.step(values, np.arange(1, len(values) + 1) / len(values),
+                            where="post", lw=1.2, color=color, alpha=0.9)
+            values = np.sort(np.maximum(data[key], 1e-13))
+            ax.step(values, np.arange(1, len(values) + 1) / len(values),
+                    where="post", lw=1.5, color=INK, label="All sources")
+            interval(ax, statistic, level, INK)
+            ax.axvline(threshold, color=MUTED, ls="--", lw=0.9)
+            log_axis(ax, "x")
+            ax.xaxis.set_major_locator(LogLocator(base=10, numticks=5))
+            ax.set_title(title, loc="left")
+            ax.set(xlabel=xlabel, ylim=(0, 1.04))
+        axes[0].set_ylabel("Cumulative fraction")
+        axes[0].legend(loc="upper left", fontsize=9)
+        colorbar = fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap),
+                               ax=axes, pad=0.025, fraction=0.025, aspect=25)
+        colorbar.set_label(label)
+        colorbar.locator = LogLocator(base=10, numticks=5)
+        colorbar.update_ticks()
+        colorbar.ax.yaxis.set_minor_formatter(NullFormatter())
+        suffix = "" if parameter == "rho" else "_" + ("magnification" if parameter == "reference" else parameter)
+        save(fig, directory / ("cpu_overview" + suffix))
 
 
 def parameter_maps(edges, cells, directory):
@@ -284,6 +255,13 @@ def parameter_maps(edges, cells, directory):
             ax.set_facecolor(EMPTY)
             mesh = ax.pcolormesh(edges[x], edges[y], np.ma.masked_invalid(matrix),
                                  cmap=cmap, norm=norm, shading="flat", edgecolors="white", linewidth=0.45)
+            for iy, ix in np.argwhere(np.isfinite(matrix)):
+                value = matrix[iy, ix]
+                red, green, blue, _ = cmap(norm(value))
+                color = INK if 0.2126 * red + 0.7152 * green + 0.0722 * blue > 0.55 else "white"
+                label = f"{value:.2g}" if row == 0 else f"{value / 1e-5:.2g}"
+                ax.text(np.sqrt(edges[x][ix:ix+2].prod()), np.sqrt(edges[y][iy:iy+2].prod()),
+                        label, ha="center", va="center", fontsize=7, color=color)
             ax.set(xscale="log", yscale="log", ylabel=names[y])
             if row == 1:
                 ax.set_xlabel(names[x])
@@ -291,7 +269,8 @@ def parameter_maps(edges, cells, directory):
             ax.yaxis.set_major_locator(LogLocator(base=10, numticks=4))
             ax.xaxis.set_minor_formatter(NullFormatter())
             ax.yaxis.set_minor_formatter(NullFormatter())
-            ax.set_title(chr(97 + row*3 + col), loc="left")
+            title = chr(97 + row*3 + col) + (r"   $\times10^{-5}$" if row == 1 else "")
+            ax.set_title(title, loc="left")
         colorbar = fig.colorbar(mesh, ax=axes[row, :], pad=0.025, fraction=0.025, aspect=22)
         if row == 0:
             colorbar.set_ticks([1/16, 1/4, 1, 4, 16])
@@ -299,7 +278,7 @@ def parameter_maps(edges, cells, directory):
             colorbar.set_label(r"Median $t_{\rm VBM}/t_{\rm microJAX}$")
         else:
             colorbar.set_ticks([1e-5, 1e-4, 1e-3])
-            colorbar.set_label("95th-percentile relative error")
+            colorbar.set_label("99th-percentile relative error")
     save(fig, directory / "cpu_parameter_maps_ld")
 
 
@@ -311,7 +290,7 @@ def regional_intervals(cells, directory):
             ax.axhspan(j*5-0.5, j*5+4.5, color="#f2f2f2", zorder=0)
         for cell in cells:
             if cell["metric"] == metric and cell["x"] == "q" and cell["y"] == "rho":
-                interval(ax, cell, cell["iy"]*5+cell["ix"], color, horizontal=True)
+                interval(ax, cell, cell["iy"]*5+cell["ix"], color)
         ax.set(ylim=(24.7, -0.7), yticks=range(25), yticklabels=labels)
         log_axis(ax, "x")
         ax.set_title("a   Relative speed" if metric == "speed" else "b   Relative error", loc="left")
@@ -324,8 +303,9 @@ def regional_intervals(cells, directory):
             lo, hi = ax.get_xlim()
             ax.set_xlim(min(lo, 3.8e-5), max(hi, 1.03e-4))
             ax.axvline(1e-4, color=MUTED, lw=0.9, ls="--")
-            ax.xaxis.set_major_locator(FixedLocator([4e-5, 6e-5, 1e-4]))
-            ax.set_xlabel(r"95th percentile of $|A/A_{\rm ref}-1|$")
+            ax.xaxis.set_major_locator(LogLocator(base=10, subs=(1, 2, 5), numticks=6))
+            ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:.0e}".replace("e-0", "e−")))
+            ax.set_xlabel(r"99th percentile of $|A/A_{\rm ref}-1|$")
     save(fig, directory / "cpu_regional_intervals_ld")
 
 
@@ -353,9 +333,8 @@ def main():
         "maximum_relative_error": float(points["relative_error"].max()),
         "above_target": int(np.sum(points["relative_error"] > TARGET)),
         "speed": stat(groups, "ratio", log=True),
-        "accuracy_p95": stat(points, "relative_error", quantile=0.95),
-        "cpu_runtime": stat(groups, "cpu_seconds_per_point"),
-        "vbm_runtime": stat(groups, "vbm_seconds_per_point"),
+        "accuracy_quantile": ACCURACY_QUANTILE,
+        "accuracy_p99": stat(points, "relative_error", quantile=ACCURACY_QUANTILE),
         "edges": {key: value.tolist() for key, value in edges.items()},
     }
     style()

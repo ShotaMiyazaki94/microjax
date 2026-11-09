@@ -3,29 +3,43 @@ Benchmarks
 
 These figures compare **microJAX on CPU** with **VBMicrolensing (VBM)** for
 binary lenses with linear limb darkening, ``u1=0.5``. Both codes receive the
-same lens parameters and source position. The overview shows the overall
-error and timing distributions; the maps show where they change.
+same lens parameters and source position. The overview groups error and
+speed distributions by one parameter at a time; the maps show the variation
+across pairs of parameters.
 
 Overall accuracy and speed
 --------------------------
 
 In this sample, **typical relative differences are below** :math:`10^{-4}`:
 99.5% of the 12,244 checked positions fall below that level. The median is
-:math:`2.24\times10^{-5}` and the 95th percentile is
-:math:`5.46\times10^{-5}`. Here, relative error means
+:math:`2.24\times10^{-5}` and the 99th percentile is
+:math:`7.51\times10^{-5}`. Here, relative error means
 :math:`\epsilon=|A_{\rm microJAX}/A_{\rm ref}-1|`, using the saved reference
 described below. The largest difference is :math:`6.19\times10^{-4}`.
 
+.. raw:: html
+
+   <p class="benchmark-selector">
+     <label for="benchmark-group">Group by:</label>
+     <select id="benchmark-group"
+       onchange="const figure = document.getElementById('cpu-overview'); figure.querySelector('img').src = this.value; figure.querySelector('a').href = this.value;">
+       <option value="_static/cpu_overview.png">Source radius (ρ)</option>
+       <option value="_static/cpu_overview_q.png">Mass ratio (q)</option>
+       <option value="_static/cpu_overview_magnification.png">Magnification (Aref)</option>
+     </select>
+   </p>
+
 .. figure:: _static/cpu_overview.png
-   :alt: Cumulative magnification errors, error violins by source radius, median CPU runtimes, and paired speed ratios
+   :name: cpu-overview
+   :alt: Two panels showing cumulative relative errors and paired runtime ratios, grouped by the selected parameter
    :width: 100%
    :target: _static/cpu_overview.png
 
-   **a:** cumulative error distribution; **b:** error distributions by source
-   radius, with orange dots at the 95th percentile. Dashed lines mark
-   :math:`10^{-4}`. **c:** median time per source; **d:** the distribution of
-   paired runtime ratios. Thick and thin bars show 68.27% and 95% bootstrap
-   intervals for the marked estimates.
+   **a:** cumulative relative error; **b:** cumulative runtime ratio.
+   Colours identify logarithmic bins of the selected parameter; black
+   shows all sources. Dashed lines mark :math:`10^{-4}` error and equal
+   runtime. The black points mark the overall 99th-percentile error and
+   median speed ratio, with 68.27% and 95% bootstrap intervals.
 
 The median paired speed ratio is **1.20**, with a 95% interval of
 [1.17, 1.22]. The ratio is :math:`t_{\rm VBM}/t_{\rm microJAX}`: values above
@@ -102,13 +116,14 @@ magnification bins. Of these positions, 81 have no usable reference;
 12,244 enter the accuracy comparison.
 
 .. figure:: _static/cpu_parameter_maps_ld.png
-   :alt: Regional median speed ratios and 95th-percentile errors across mass ratio, source radius, and reference magnification
+   :alt: Two-dimensional maps of median speed ratios and 99th-percentile errors, with a numerical estimate in each populated cell
    :width: 100%
    :target: _static/cpu_parameter_maps_ld.png
 
    **a–c:** median runtime ratio, VBM/microJAX.
-   **d–f:** 95th-percentile relative error. Grey cells have too few measured
-   configurations or no sources in the saved reference frame.
+   **d–f:** 99th-percentile relative error. Each cell shows its estimate;
+   numbers in **d–f** are in units of :math:`10^{-5}`. Grey cells have too few
+   measured configurations or no sources in the saved reference frame.
 
 The columns group the same measurements by :math:`(q,\rho)`,
 :math:`(A_{\rm ref},\rho)`, and :math:`(A_{\rm ref},q)`; separation ``s``
