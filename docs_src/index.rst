@@ -1,51 +1,56 @@
 microJAX
 ========
 
-`microJAX <https://github.com/ShotaMiyazaki94/microjax>`_ is a differentiable
-microlensing library built with JAX. It provides point-source and finite-source
-calculations for binary and triple lenses, along with trajectory utilities.
+microJAX is a Python package for modeling gravitational microlensing by
+binary and triple lenses. It calculates how a star's brightness changes as
+it passes behind a lens system, including the effects of the star's size
+and limb darkening. The lenses can describe a star with planetary companions
+or a system of stars.
 
-The finite-source API includes a GPU-oriented accelerator backend and a
-separate CPU backend for binary lenses. Both support uniform and linear
-limb-darkened circular sources. Use :doc:`getting_started` to install the
-package and verify the JAX environment, then continue with :doc:`usage` for
-public API examples.
+The package is built with JAX, so you can also calculate how a light curve
+changes with each model parameter. These derivatives are useful when fitting
+an event or exploring which parts of a light curve constrain the lens.
+Both the magnification and its derivatives can be evaluated on CPU or GPU.
+
+If you are new to microJAX, start with :doc:`getting_started`, then work
+through :doc:`usage`. That tutorial goes from a source trajectory to the
+light curve below. :doc:`autodiff` builds on the same event. Complete
+scripts are in :doc:`examples/index`.
+
+.. figure:: _static/binary_lightcurve.png
+   :alt: A binary microlensing light curve with a short feature near its peak
+   :width: 100%
+   :target: usage.html
+
+   A binary-lens event calculated in the first tutorial.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Guides
+   :caption: Getting started
+   :maxdepth: 1
 
    getting_started
-   usage
-   cpu_backend
-   performance
-   caveats
-   citing
 
 .. toctree::
+   :caption: Tutorials
    :maxdepth: 1
-   :caption: API Reference
 
+   usage
+   autodiff
+   examples/index
+
+.. toctree::
+   :caption: Reference
+   :maxdepth: 1
+
+   working_with_jax
+   benchmarks
    modules
+   citing
 
-Choosing a guide
-----------------
+The methods are described in
+`Miyazaki & Kawahara (2025) <https://doi.org/10.3847/1538-4357/ae1005>`_.
+See :doc:`citing` if you use microJAX in your work. For single-lens models,
+see `singlens <https://github.com/ShotaMiyazaki94/singlens>`_.
 
-- :doc:`cpu_backend` defines the binary/triple CPU interface, supported
-  differentiation, and numerical contract.
-- :doc:`performance` explains accelerator scheduler settings and sound timing
-  practice.
-- :doc:`caveats` collects microJAX-specific limitations that can affect a
-  scientific result.
-- :doc:`citing` gives citations and the reproducibility information to report.
-
-The methods-paper implementation is archived as ``v0.1.1``. The ``0.2``
-series is a substantial solver redesign, so reproducible work should record
-the exact microJAX release or Git commit.
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+Questions, bug reports, and suggestions are welcome on
+`GitHub <https://github.com/ShotaMiyazaki94/microjax/issues>`_.

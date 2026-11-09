@@ -1,17 +1,24 @@
 # Examples
 
-Examples are grouped by the backend they are intended to exercise:
+Compute binary and triple light curves, differentiate event parameters, and
+compare magnifications with VBMicrolensing. Run from the repository root:
 
-- [`cpu/`](cpu/) contains limb-darkened binary and triple light curves and
-  forward Jacobians using the dedicated CPU backend, with figure previews.
-  Running the examples writes figures and data to `results/`.
-- [`gpu/`](gpu/) contains the accelerator-oriented binary and triple lens
-  workflows.
-- CPU checks and benchmarks live in [`tools/`](../tools/) and
-  [`tests/unittests/inverse_ray/test_cpu.py`](../tests/unittests/inverse_ray/test_cpu.py).
-  Previous CPU examples remain available in Git history.
+```bash
+python -m pip install -e . matplotlib
+```
 
-Run commands from the repository root unless an example README says otherwise.
-Committed numerical products record the hardware, JAX version, trajectory, and
-solver configuration used for that run; they are not general performance or
-accuracy guarantees.
+| Example | Run | Result |
+| --- | --- | --- |
+| [Binary lens on CPU](cpu/README.md#binary-lens) | `python example/cpu/lightcurve.py` | Light curve and seven-parameter Jacobian |
+| [Triple lens on CPU](cpu/README.md#triple-lens) | `python example/cpu/lightcurve.py --lens triple` | Light curve and ten-parameter Jacobian |
+| [Binary lens on GPU](gpu/jacobian-binary/README.md) | `python example/gpu/jacobian-binary/code/grads_limb_dark_binary.py` | Light curve, Jacobian, and timings |
+| [Triple lens on GPU](gpu/jacobian-triple/README.md) | `python example/gpu/jacobian-triple/code/grads_limb_dark_triple.py` | Light curve, Jacobian, and timings |
+| Magnification benchmarks | [Binary](gpu/compare-binary-vbml/README.md) · [Triple](gpu/compare-triple-vbml/README.md) | VBMicrolensing comparison and image geometry |
+
+The light-curve examples use linear limb darkening with `u1=0.5`. CPU and
+GPU examples share their event parameters and observation times. See each
+README for figures and output paths, or browse the
+[illustrated gallery](../docs_src/examples/index.rst).
+
+GPU runs use a CUDA-enabled JAX installation. The VBMicrolensing comparisons
+also need `python -m pip install VBMicrolensing`.

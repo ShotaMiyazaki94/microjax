@@ -1,0 +1,80 @@
+name: Documentation
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "docs_src/**"
+      - "example/**"
+      - "logo/**"
+      - "src/microjax/**"
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "pyproject.toml"
+      - ".github/workflows/docs.yml"
+  push:
+    branches: [develop]
+    paths:
+      - "docs_src/**"
+      - "example/**"
+      - "logo/**"
+      - "src/microjax/**"
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "pyproject.toml"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install project and documentation dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Build documentation
+        run: |
+          rm -rf docs
+          python -m sphinx -b html -W docs_src docs
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs
+
+  deploy:
+    if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check publishing source
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pages_mode=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq .build_type)
+          echo "mode=$pages_mode" >> "$GITHUB_OUTPUT"
+      - name: Configure Pages
+        if: steps.pages.outputs.mode == 'workflow'
+        uses: actions/configure-pages@v5
+      - name: Deploy site
+        if: steps.pages.outputs.mode == 'workflow'
+        id: deployment
+        uses: actions/deploy-pages@v4

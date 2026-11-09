@@ -14,8 +14,7 @@ benchmark/
 benchmark_cpu
 benchmark_gpu/
 .pytest_cache/
-docs/.doctrees/
-docs/.buildinfo.bak
+/docs/
 docs_src/_build/
 .DS_Store
 src/microjax/_legacy/
@@ -39,3 +38,10 @@ tmp/
 # Local research logs, retired code snapshots, and measurement archives.
 /docs_src/internal/
 /archive/
+
+# GPU runtime outputs stay local; keep the two documented Jacobian previews.
+/example/gpu/*/outputs/**
+!/example/gpu/jacobian-binary/outputs/limb_dark/
+!/example/gpu/jacobian-triple/outputs/limb_dark/
+!/example/gpu/jacobian-binary/outputs/limb_dark/binary_limb_dark_jacobian.png
+!/example/gpu/jacobian-triple/outputs/limb_dark/triple_limb_dark_jacobian.png

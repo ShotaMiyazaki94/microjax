@@ -1,0 +1,10 @@
+.bd-article-container { max-width: 58rem; }
+.bd-main .bd-content .bd-article-container { padding-top: 1.5rem; }
+.bd-article h1 { letter-spacing: -0.03em; }
+
+.bd-article .sig,
+.bd-article div.math { overflow-x: auto; }
+.bd-article code.literal .pre {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

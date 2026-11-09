@@ -1,101 +1,83 @@
-<p align="center">
-  <img src="logo/microjax.png" width="50%" alt="microJAX logo">
-</p>
-
 # microJAX
 
-**Differentiable microlensing models for CPUs and GPUs in JAX.**
+<img src="logo/microjax.png" alt="microJAX logo" width="280">
 
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
-[![JAX](https://img.shields.io/badge/built%20with-JAX-blue)](https://github.com/jax-ml/jax)
-[![PyPI](https://img.shields.io/pypi/v/microjaxx.svg)](https://pypi.org/project/microjaxx/)
-[![DOI](https://zenodo.org/badge/774485090.svg)](https://doi.org/10.5281/zenodo.17247892)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+microJAX models gravitational microlensing by binary and triple lenses.
+It calculates finite-source light curves with limb darkening, and uses JAX
+to differentiate them with respect to the lens and event parameters.
+Magnifications and derivatives can be evaluated on CPU or GPU.
 
-microJAX models point and finite sources in binary- and triple-lens
-microlensing systems. It provides an accelerator-oriented boundary integrator,
-a shared binary/triple CPU backend, forward-mode automatic differentiation,
-caustic calculations, and trajectory utilities.
+## Getting started
 
-Single-lens models are maintained separately in
-[singlens](https://github.com/ShotaMiyazaki94/singlens).
-
-## Installation
+Install the development version used by the examples below:
 
 ```bash
-python -m pip install microjaxx
+python -m pip install "microjaxx @ git+https://github.com/ShotaMiyazaki94/microjax.git@develop" matplotlib
 ```
 
-The distribution is named `microjaxx`; import it as `microjax`. Install the JAX
-build appropriate for your platform using the
-[official JAX installation guide](https://docs.jax.dev/en/latest/installation.html).
+The pip package is named `microjaxx`; the Python module is `microjax`.
+The [installation guide](docs_src/getting_started.rst) also covers source
+checkouts and GPU setup.
 
-## Quick start
-
-Enable double precision before creating arrays or compiling functions:
+This example describes a source passing a binary lens with mass ratio
+`q=0.001` and separation `s=1` Einstein radius:
 
 ```python
 import jax
-import jax.numpy as jnp
-
 jax.config.update("jax_enable_x64", True)
 
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
 from microjax.inverse_ray import mag_binary
 
-w = jnp.asarray([0.10 + 0.20j, 0.60 - 0.20j])
-rho, s, q = 0.01, 1.0, 0.3
+times = jnp.linspace(-5.0, 10.0, 500)
+t0, t_e, u0 = 0.0, 10.0, 0.1
+alpha = jnp.deg2rad(50.0)
+w = ((times - t0) / t_e + 1j * u0) * jnp.exp(1j * alpha)
 
-mu = mag_binary(w, rho, s=s, q=q, backend="cpu")
+A = mag_binary(w, rho=0.005, s=1.0, q=0.001, u1=0.5, backend="cpu")
+
+plt.plot(times, A)
+plt.xlabel("Time (days)")
+plt.ylabel("Magnification")
+plt.show()
 ```
 
-The first call includes JAX compilation. The CPU backend is selected explicitly
-and is available for finite-source binary and triple lenses. For a triple lens,
-use `mag_triple(..., backend="cpu")` with `q3`, `r3`, and `psi` in addition to
-the binary parameters.
+![A binary microlensing light curve](docs_src/_static/binary_lightcurve.png)
+
+The [first tutorial](docs_src/usage.rst) explains the trajectory, lens
+parameters, and the short feature near the peak. Continue with
+[differentiating a light curve](docs_src/autodiff.rst) to see which parts
+of the event constrain each parameter, or run the complete
+[binary and triple examples](example/README.md).
+For single-lens models, see [singlens](https://github.com/ShotaMiyazaki94/singlens).
 
 ## Documentation
 
-- [User guides and API reference](https://shotamiyazaki94.github.io/microjax/)
-- [CPU binary/triple backend](https://shotamiyazaki94.github.io/microjax/cpu_backend.html)
-- [Solver caveats](https://shotamiyazaki94.github.io/microjax/caveats.html)
+The guides in [docs_src/](docs_src/index.rst) describe this branch, including
+[working with JAX](docs_src/working_with_jax.rst),
+[accuracy and speed benchmarks](docs_src/benchmarks.rst), and the
+[API reference](docs_src/modules.rst).
+The [published website](https://shotamiyazaki94.github.io/microjax/) follows `develop`.
 
-Critical limb-darkened CPU benchmarks run through
-[`tools/cpu_benchmark.py`](tools/cpu_benchmark.py). Regional binary LD measurements and
-figures with configuration-bootstrap uncertainty use
-[`tools/cpu_benchmark_grid.py`](tools/cpu_benchmark_grid.py) and
-[`tools/plot_cpu_benchmark.py`](tools/plot_cpu_benchmark.py), writing to
-`results/cpu/figures-benchmark/`. The regional benchmark requires a separately
-provided reference CSV; see the tool's `--help`. Runnable binary and triple CPU
-light-curve and forward-Jacobian examples live under [`example/cpu/`](example/cpu/). GPU
-workflows live under [`example/gpu/`](example/gpu/). Benchmark outputs and local
-archives are excluded from version control; the CPU examples include two
-reproducible figure previews. Historical CPU code remains in Git history.
+To preview the documentation from a source checkout:
 
-## Scientific use
+```bash
+python -m pip install -e '.[dev]'
+python -m sphinx -b html -W docs_src docs
+```
 
-Finite-source results are numerical estimates without guaranteed error bounds,
-and rejected configurations may return `NaN`. Validate values and derivatives
-over the parameter region used in an analysis. See the
-[solver caveats](https://shotamiyazaki94.github.io/microjax/caveats.html) for
-the microJAX-specific numerical contract.
+Open `docs/index.html`. The [contribution guide](CONTRIBUTING.md) has the
+test and publishing instructions. Questions and suggestions are welcome
+in [GitHub issues](https://github.com/ShotaMiyazaki94/microjax/issues).
 
-## Citation
+## Citation and license
 
-If you use microJAX, cite Miyazaki & Kawahara (2025), ApJ, 994, 144
-([doi:10.3847/1538-4357/ae1005](https://doi.org/10.3847/1538-4357/ae1005))
-and the archived software
-([doi:10.5281/zenodo.17247892](https://doi.org/10.5281/zenodo.17247892)).
-The methods paper describes the archived `v0.1.1` solver; report the exact
-microJAX version used. See the
-[citation guide](https://shotamiyazaki94.github.io/microjax/citing.html) for
-BibTeX and reproducibility metadata.
+If you use microJAX, please cite Miyazaki & Kawahara (2025), ApJ, 994, 144
+([paper](https://doi.org/10.3847/1538-4357/ae1005)) and the
+[software archive](https://doi.org/10.5281/zenodo.17247892).
+See the [citation guide](docs_src/citing.rst) for BibTeX and version information.
 
-## Development
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for source installation, test profiles,
-and contribution guidelines.
-
-## License
-
-microJAX is distributed under the [MIT License](LICENSE). Third-party code and
-attribution are listed in [third_party/README.md](third_party/README.md).
+microJAX is released under the [MIT License](LICENSE).
+[Third-party attribution](third_party/README.md) covers code adapted from
+`caustics`.

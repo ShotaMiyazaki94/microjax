@@ -10,9 +10,9 @@ Both functions support a uniform source (``u1=0``) and linear limb darkening
 (``u1>0``). They are designed for JAX compilation, vectorization, and
 forward-mode automatic differentiation.
 
-The returned values are numerical estimates without a guaranteed error bound.
-If a valid image boundary or integration region cannot be constructed, the
-corresponding result is ``NaN``.
+The CPU implementation can return diagnostic status flags with each value.
+The accelerator implementation returns ``NaN`` for detected calculation
+failures.
 """
 
 __all__ = ["mag_binary", "mag_triple"]
@@ -596,15 +596,18 @@ def mag_binary(
 ) -> Array:
     """Calculate a binary-lens finite-source light curve.
 
-    ``backend="cpu"`` uses a shared multipole gate followed by one Cartesian
-    or angular finite-source integral selected from a single image-limb trace.
-    Uniform and linear limb darkening share geometry and bounded quadrature.
-    ``return_info=True`` returns ``(magnification, status)``. Structural status
-    never masks the best-effort value or triggers a retry; zero is not an
-    accuracy guarantee. CPU supports forward-mode automatic differentiation.
+    Pass source positions in ``w_points``, a source radius ``rho``, and the
+    binary separation ``s`` and mass ratio ``q = m2/m1``. ``u1`` sets linear
+    limb darkening; zero gives a uniform source. The returned array has one
+    magnification per position.
 
-    ``backend="accelerator"`` (or ``"gpu"``) uses the accelerator scheduler
-    and its ``config``. CPU quadrature is fixed and does not use ``config``.
+    Use ``backend="cpu"`` for the CPU integrator or ``"accelerator"``
+    (the default, also called ``"gpu"``) for the accelerator implementation.
+    ``config`` applies only to the latter. Both support ``jax.jacfwd``.
+
+    With the CPU backend, ``return_info=True`` returns a
+    :class:`~microjax.inverse_ray.cpu.CpuMagnificationResult` containing
+    magnification and diagnostic status arrays.
     """
 
     if backend == "cpu":
@@ -648,11 +651,17 @@ def mag_triple(
     backend: str = "accelerator",
     return_info: bool = False,
 ) -> Array:
-    """Finite-source triple magnification with an explicit CPU backend.
+    """Calculate a triple-lens finite-source light curve.
 
-    The CPU path shares bounded image-plane integration with binary lenses.
-    It requires positive masses and distinct lens positions. Uniform and
-    limb-darkened sources use the same compiled model and forward derivatives.
+    The arguments follow :func:`mag_binary`, with three additions: ``q3`` is
+    the third-lens mass ratio ``m3/m1``, while ``r3`` and ``psi`` give its
+    distance and angle from the midpoint of the first two lenses. Angles
+    are in radians. Source positions remain relative to the centre of mass
+    of the first two lenses.
+
+    Both backends support forward derivatives with ``jax.jacfwd``. As for
+    the binary model, ``config`` applies to the accelerator implementation
+    and ``return_info=True`` is available with ``backend="cpu"``.
     """
     if backend == "cpu":
         result = _mag_triple_cpu_impl(w_points, rho, s=s, q=q, q3=q3, r3=r3, psi=psi, u1=u1)

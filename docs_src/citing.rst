@@ -1,20 +1,17 @@
-Citing and Reproducibility
-==========================
+Citation
+========
 
-Methods paper and software archive
-----------------------------------
-
-If you use microJAX, cite the methods paper and the archived software version:
+If you use microJAX in your work, please cite the methods paper and the
+software archive:
 
 - Miyazaki, S., & Kawahara, H. 2025, ApJ, 994, 144,
   `doi:10.3847/1538-4357/ae1005 <https://doi.org/10.3847/1538-4357/ae1005>`_
 - microJAX software archive,
   `doi:10.5281/zenodo.17247892 <https://doi.org/10.5281/zenodo.17247892>`_
 
-The methods paper corresponds to the archived ``v0.1.1`` implementation. The
-``0.2`` series substantially redesigns the finite-source solver. Work using
-the redesigned solver should therefore report the exact ``0.2.x`` release or
-Git commit in addition to citing the paper and software archive.
+The paper describes the archived ``v0.1.1`` implementation. The current
+``0.2`` series uses a redesigned finite-source solver; include the release
+or Git commit used in your analysis.
 
 BibTeX
 ------
@@ -41,21 +38,3 @@ BibTeX
      doi = {10.5281/zenodo.17247892},
      url = {https://doi.org/10.5281/zenodo.17247892}
    }
-
-Reproducible numerical results
-------------------------------
-
-Record the following with a published result or benchmark:
-
-- the microJAX version or Git commit;
-- the JAX and JAXLIB versions;
-- CPU or accelerator model and x64 setting;
-- selected backend and source profile;
-- lens, source, and trajectory parameters;
-- applicable ``BinaryMagConfig`` or ``TripleMagConfig`` values;
-- whether timing includes compilation;
-- the independent reference implementation, its version, and its tolerances.
-
-Store microJAX failures separately from failures or non-convergence in an
-external reference solver. Retain any advanced diagnostic output only when it
-is relevant to reproducing a solver investigation.
