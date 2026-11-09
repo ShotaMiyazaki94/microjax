@@ -36,14 +36,11 @@ described below. The largest difference is :math:`6.19\times10^{-4}`.
    :target: _static/cpu_overview.png
 
    **a:** cumulative relative error; **b:** cumulative runtime ratio.
-   The height of each curve is the fraction of measurements below the
-   value on the horizontal axis.
    Colours progress from purple to orange as the selected parameter
    increases; the legend lists the ranges. The black dashed curve shows
    all sources. Grey dashed lines mark :math:`10^{-4}` error and equal
    runtime. The black points mark the overall 99th-percentile error and
-   median speed ratio, with 68.27% and 95% uncertainty intervals estimated
-   by resampling the measurements (bootstrap intervals).
+   median speed ratio, with 68.27% and 95% bootstrap intervals.
 
 The median speed ratio is **1.20**, with a 95% interval of
 [1.17, 1.22]. The ratio is :math:`t_{\rm VBM}/t_{\rm microJAX}`: values above

@@ -1,36 +1,25 @@
-Fitting a simulated event with HMC
-==================================
+HMC injection–recovery
+======================
 
-This example adds noise to the :doc:`binary event <usage>` and fits its
-seven event parameters to see how well they can be recovered. Because we
-know the simulated event, we can compare the fit with the values used to
-generate the data. This is an injection–recovery test.
-
-We use Hamiltonian Monte Carlo (HMC) to sample the posterior: the probability
-distribution of the parameters given the observations and priors. The
-calculation runs on CPU with NumPyro's No-U-Turn Sampler (NUTS), an HMC
-algorithm that uses model derivatives.
-
-During HMC, source and blend fluxes are integrated out analytically,
-accounting for their uncertainty while sampling only the seven event
-parameters. We recover the flux distributions afterward to include them
-in the corner plot.
+This example fits noisy photometry of the :doc:`binary event <usage>` with
+NumPyro's NUTS sampler on CPU. We sample the seven event parameters and
+analytically marginalize the source and blend fluxes under Gaussian priors.
+We draw both fluxes from their conditional posterior for the corner plot.
 
 Example results
 ---------------
 
 The figures below use the run from 9 November 2026 at
 `0529a12 <https://github.com/ShotaMiyazaki94/microjax/commit/0529a12>`_:
-360 observations with 3% flux errors, 500 warm-up iterations to tune the
-sampler, and 1,000 saved draws. The priors and sampler settings are described
-below.
+360 observations with 3% flux errors, 500 warm-up steps, and 1,000 retained
+draws. The priors and sampler settings are described below.
 NUTS took **190 seconds**, including compilation and warm-up; the local fit
 took another 9.72 seconds. This used six CPU workers, double precision,
 JAX 0.8.0, and NumPyro 0.19.0. Curve evaluation and plotting are outside
 those timings.
 
-The sampler reported **no divergences** (numerical integration problems),
-and no iteration reached its maximum trajectory length.
+The sampler reported **no divergences**, and no iteration reached the
+tree-depth limit. Effective sample sizes (ESS) range from 308 to 687.
 
 .. figure:: _static/hmc_lightcurve.png
    :alt: Dense injected and posterior light curves with data, and residuals relative to the injection
@@ -55,23 +44,16 @@ added to the observations. Zero therefore represents the injected curve.
    :target: _static/hmc_corner.png
 
    The seven event parameters and :math:`F_s`, :math:`F_b`. Diagonal panels
-   show the distribution of each parameter; lower panels show pairwise
+   show marginal distributions; lower panels show pairwise
    correlations. Blue contours enclose approximately 68% and 95% of the
    smoothed distributions in the displayed coordinates. Orange marks the
-   injected values. For each of the 1,000 event draws, we draw :math:`F_s`
-   and :math:`F_b` together from their Gaussian distribution given that
-   event and the data.
+   injected values. Each of the 1,000 event draws is paired with a joint draw
+   of :math:`F_s` and :math:`F_b` from their conditional Gaussian posterior.
 
 The :math:`t_E`–:math:`u_0` and :math:`q`–:math:`s` correlations are visible
 in the corner plot. The source radius remains weakly constrained: its
 distribution spans roughly two orders of magnitude, so :math:`\rho` is
-shown logarithmically. A close light-curve fit does not require every
-parameter to be measured precisely.
-
-The table gives the median and central 95% interval for each parameter.
-The effective sample size (ESS) accounts for correlations between successive
-draws: these 1,000 saved draws carry roughly as much information as
-308–687 independent draws, depending on the parameter.
+shown logarithmically.
 
 .. csv-table:: Event-parameter summaries from this run
    :header: "Parameter", "Injected", "Median", "Central 95% interval", "ESS"
@@ -97,11 +79,11 @@ From a :doc:`local copy of the repository <getting_started>`:
    python -m pip install -e . 'numpyro>=0.19' scipy matplotlib corner
    python example/hmc/injection_recovery.py
 
-The script first finds a fit from a rough initial guess, then uses its
-estimated parameter scales and correlations to help HMC explore efficiently.
+The script starts from a rough initial guess and uses the local fit's
+covariance to whiten the sampling coordinates.
 It runs **one chain with 500 warm-up steps and 1,000 retained draws in total**.
-Each model evaluation
-distributes observation times across six CPU devices with JAX ``pmap``;
+Each model evaluation distributes observation times across six CPU devices
+with JAX ``pmap``;
 the worker count does not multiply the number of draws. This follows the
 time-parallel calculation in the
 `microlux example <https://github.com/CoastEgo/microlux/blob/master/example/KB0371.py>`_.
@@ -132,9 +114,6 @@ Independent Gaussian noise has a standard deviation of 3% of the injected
 flux at each time. Those error bars stay fixed in the fit. Linear limb
 darkening is fixed at ``u1=0.5``. Injection and fitting use the same microJAX
 model.
-
-The priors describe the allowed parameter ranges and their relative weights
-before using these observations:
 
 .. list-table:: Injected values and priors
    :header-rows: 1
@@ -170,8 +149,7 @@ before using these observations:
      - 0.2
      - :math:`\mathcal{N}(0,10^2)`
 
-Uniform and LogUniform list bounds in physical units; LogUniform is uniform
-in the logarithm between those bounds. The time bounds assume the event epoch
+Prior bounds are given in physical units. The time bounds assume the event epoch
 is known to about one day and the event lasts weeks. The lens
 bounds leave a wide range of mass ratios and source sizes around separations
 of order one Einstein radius. They are rounded choices for this example,
@@ -222,36 +200,28 @@ The NumPyro model therefore samples only the seven event parameters:
 Initialization and sampling
 ---------------------------
 
-The script maps each parameter's allowed range to an unbounded coordinate
-:math:`z` using a logit transform. Starting from ``INITIAL``, the L-BFGS-B
-optimizer then finds a nearby maximum of the posterior in these coordinates.
-Both this fit and NUTS use the marginal likelihood and event priors above,
-with the probability density adjusted for the change of coordinates.
+L-BFGS-B finds a local posterior mode from ``INITIAL`` in unbounded logit
+coordinates :math:`z`. Both this fit and NUTS use the marginal likelihood
+and event priors above, including the coordinate-transform Jacobian.
 
-At that solution, the script estimates a covariance :math:`C_{\rm fit}`:
-the widths and correlations of the nearby parameter distribution. This
-estimate uses derivatives of the fitted flux residuals, calculated with
-``jax.jacfwd``, and the transformed prior's curvature, following the approach in
+At that solution, the script estimates a covariance :math:`C_{\rm fit}`
+from the fitted flux residuals and transformed prior curvature. The residual
+Jacobian uses ``jax.jacfwd``, following the approach in
 `numpyro-inferutils <https://github.com/kemasuda/numpyro-inferutils>`_.
-We then change to coordinates :math:`w` with roughly equal widths and
-little correlation. This rescaling, called whitening, helps HMC take
-useful steps in every direction:
+This defines the whitened sampling coordinates :math:`w`:
 
 .. math::
 
    z = z_{\mathrm{fit}} + Lw, \qquad LL^\mathsf{T} = C_{\mathrm{fit}}.
 
-NUTS starts near :math:`w=0` with an identity mass matrix. The mass matrix
-controls the relative scales and correlations of the sampler's motion.
-Warm-up adjusts this matrix and the step size; both are then held fixed
-for the saved draws. The whitening transform stays fixed throughout.
+NUTS starts near :math:`w=0` with an identity mass matrix. Warm-up adapts
+the dense mass matrix and step size, then holds them fixed for the retained
+draws. The whitening transform stays fixed throughout.
 Sampling uses the priors and full marginal likelihood described above.
 
-The sampler uses ``forward_mode_differentiation=True`` to calculate
-derivatives through the CPU integration loops. It targets a 90% acceptance
-probability (``target_accept_prob=0.9``) and limits the trajectory length
-with ``max_tree_depth=10``. This run explores solutions near the initial
-guess; other binary-lens configurations can sometimes fit the same event.
+The sampler uses ``forward_mode_differentiation=True`` for the CPU
+integrator's adaptive loops, ``target_accept_prob=0.9``, and
+``max_tree_depth=10``. The chain explores the mode near the initial solution.
 
 Saved output
 ------------

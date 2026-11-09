@@ -6,8 +6,7 @@ in one figure. They are useful starting points for exploring an event of
 your own. The CPU and GPU versions use the same parameters and observation
 times, with linear limb darkening fixed at ``u1=0.5``.
 
-To fit simulated photometry and compare the inferred parameters with known values,
-see :doc:`../inference`.
+For posterior sampling and an injection–recovery test, see :doc:`../inference`.
 
 Run the commands below from a :doc:`local copy of the repository <../getting_started>`
 with Matplotlib installed. The CPU examples share one
@@ -33,9 +32,6 @@ responds to ``t0, tE, u0, q, s, alpha, rho``.
 
    The inset shows the source trajectory in blue, caustics in red, and
    critical curves in green. Black crosses mark the lens positions.
-
-Critical curves mark image positions where the point-source magnification
-diverges; mapping them back to source positions gives the caustics.
 
 The derivatives are largest around the short feature before the peak.
 They also have different shapes: changing the event time shifts the feature,

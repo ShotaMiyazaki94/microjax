@@ -1,8 +1,7 @@
 # CPU light curves and Jacobians
 
 These examples show how the lens geometry produces a light curve, and how
-that curve responds to each event parameter. The array of these derivatives
-is the Jacobian. Run the examples from the repository
+that curve responds to each event parameter. Run them from the repository
 root after installing microJAX and Matplotlib:
 
 ```bash

@@ -1,10 +1,8 @@
-# Fitting a simulated event with HMC
+# HMC injection–recovery
 
-Generate noisy photometry of a binary lens and fit its seven event parameters.
-We use Hamiltonian Monte Carlo (HMC) to estimate the uncertainties and compare
-the inferred parameters with the values used to generate the data. NumPyro's
-No-U-Turn Sampler (NUTS) runs on CPU. Source and blend fluxes are integrated
-out analytically with broad Gaussian priors.
+Fit simulated binary-lens photometry with NumPyro's NUTS sampler on CPU.
+The seven event parameters are sampled; source and blend fluxes are
+analytically marginalized under broad Gaussian priors.
 
 From the repository root:
 
@@ -16,10 +14,10 @@ python example/hmc/injection_recovery.py
 The data contain 360 uniformly spaced times from day −30 to day 30,
 about one every 0.167 days (4 hours).
 Gaussian noise has a standard deviation of 3% of the injected flux.
-The script fits from a rough initial guess, then rescales the sampling
-coordinates using the estimated parameter widths and correlations.
+The script starts from a rough initial guess and uses the local fit's
+covariance to whiten the sampling coordinates.
 It runs **one chain with 500 warm-up steps and 1,000 retained draws in total**.
-Warm-up tunes the sampler's step size and relative parameter scales.
+Warm-up adapts the dense mass matrix and step size.
 NUTS uses `max_tree_depth=10`.
 Six CPU devices share the observation times in each model evaluation.
 
@@ -45,8 +43,8 @@ For each of the 1,000 event samples, source and blend fluxes are drawn jointly
 from their conditional Gaussian posterior. The corner plot includes all nine
 variables; the model interval uses 64 of the same joint samples.
 The tutorial shows this 360-point, 3%-noise run: NUTS took 190 seconds
-including compilation and warm-up. The tutorial explains the sampling
-checks and how to read the plots.
+including compilation and warm-up. The tutorial includes posterior summaries
+and sampler diagnostics.
 To redraw the figures from saved arrays without sampling again:
 
 ```bash

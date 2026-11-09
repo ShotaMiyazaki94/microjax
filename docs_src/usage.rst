@@ -3,9 +3,8 @@ A binary light curve
 
 Let's calculate a microlensing event produced by a star and a low-mass
 companion. We will choose its event parameters, evaluate the magnification
-at a set of observation times, and plot the result. Magnification is the
-source's brightness divided by its brightness without lensing. The same
-steps apply to a stellar binary; only the lens parameters change.
+at a set of observation times, and plot the result. The same steps apply to
+a stellar binary; only the lens parameters change.
 
 Setting up the event
 --------------------
@@ -31,13 +30,9 @@ parameters and observation times, and returns the magnification:
    times = jnp.linspace(-5.0, 10.0, 500)
    lightcurve = mj.make_binary_lightcurve(backend="cpu")
 
-Distances on the sky are measured in Einstein radii, the angular scale set
-by the total lens mass and the distances to the lens and source. The source
-follows a straight line. Its time of closest approach to the binary's centre
-of mass is ``t0``; ``u0`` is that closest separation in Einstein radii.
-``tE`` is the time it takes to move one Einstein radius. The trajectory
-angle ``alpha`` is measured from the binary axis in radians. Here, all
-times are in days:
+The source follows a straight-line trajectory with parameters ``t0``, ``tE``,
+and ``u0``, relative to the binary centre of mass. The angle ``alpha`` is
+measured from the binary axis in radians. Here, all times are in days:
 
 .. code-block:: python
 
@@ -47,9 +42,9 @@ times are in days:
    ])
 
 The companion has mass ratio ``q=0.001`` relative to the primary and
-separation ``s=1`` Einstein radius. The source radius is also in Einstein
-radii: ``rho=0.005``. Its linear limb-darkening coefficient is ``u1=0.5``,
-so its edge is darker than its centre. Setting ``u1=0`` gives a uniform disk.
+separation ``s=1`` Einstein radius. The source radius is ``rho=0.005`` in
+the same units, with linear limb darkening ``u1=0.5``. Setting ``u1=0``
+gives a uniform disk.
 
 The trajectory passes 0.1 Einstein radii from the binary's centre of mass
 at day zero. The light-curve peak need not occur at this time.
@@ -80,10 +75,9 @@ select the GPU implementation.
    The light curve from the code above.
 
 The broad brightening is interrupted by a short feature before the peak.
-This is where the source passes near the binary's caustic, a curve along
-which the magnification of a point source diverges. Giving the source a
-finite radius smooths the feature. Try increasing ``rho``, the last entry
-of the parameter array, to see how it changes:
+This is where the source passes near the binary's caustic. Increasing the
+source radius smooths the feature; try changing ``rho``, the last entry
+of the parameter array:
 
 .. code-block:: python
 
@@ -96,8 +90,7 @@ Magnification to observed flux
 ------------------------------
 
 microJAX returns the magnification. To compare it with photometry, combine
-it with the unlensed source flux :math:`F_s` and the constant flux
-:math:`F_b` from other stars in the same measurement (blended light):
+it with the source flux :math:`F_s` and blend flux :math:`F_b`:
 
 .. math::
 

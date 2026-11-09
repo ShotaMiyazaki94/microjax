@@ -1,10 +1,8 @@
 Differentiating a light curve
 =============================
 
-A derivative tells us how the model changes when we adjust a parameter.
-For example, the source-radius derivative shows which parts of the light
-curve are sensitive to the star's size. Here we calculate derivatives for
-the parameters of the :doc:`binary event <usage>`.
+Here we calculate the Jacobian of the :doc:`binary event <usage>` with
+``jax.jacfwd`` and plot its source-radius derivative around the caustic feature.
 
 Writing a model function
 ------------------------
@@ -35,9 +33,8 @@ limb-darkening coefficient separately as ``u1=0.5``.
 Calculating the Jacobian
 ------------------------
 
-The Jacobian is a table of derivatives: each row corresponds to an
-observation time, and the seven columns follow the parameter order above.
-``jax.jacfwd`` creates a function that calculates this table.
+``jax.jacfwd`` creates a function that evaluates the Jacobian. Its rows
+correspond to observation times; the columns follow the parameter order above.
 ``argnums=0`` selects the parameter argument for differentiation.
 Wrapping the result in ``jax.jit`` compiles it for repeated use:
 
@@ -52,11 +49,9 @@ Wrapping the result in ``jax.jit`` compiles it for repeated use:
    (500, 7)
 
 The first call includes compilation. Subsequent calls with the same array
-shapes and numeric types reuse it. ``jacfwd`` uses forward-mode automatic
-differentiation, which follows how changes in each input affect the outputs.
-It works for both CPU and GPU models. The CPU calculation uses adaptive
-loops, so use ``jacfwd``; JAX's reverse-mode alternatives, ``grad`` and
-``jacrev``, cannot differentiate those loops.
+shapes and numeric types reuse it. ``jacfwd`` works for both CPU and GPU
+models. Use forward-mode differentiation for the CPU integrator: its
+adaptive loops do not support reverse-mode ``grad`` or ``jacrev``.
 
 Looking at one derivative
 -------------------------
@@ -83,14 +78,8 @@ can see where the source size matters:
 
    Sensitivity to source radius is concentrated around the caustic feature.
 
-Where the derivative is positive, a small increase in ``rho`` raises the
-magnification; where it is negative, the magnification falls. The nearly
-flat derivative far from the feature shows why those observations alone
-provide little information about the source radius.
-
 For a flux model :math:`F=F_s A+F_b`, the derivative with respect to an event
-parameter is simply :math:`F_s\,\partial A/\partial p`. These are the
-quantities a least-squares fit uses to update the event parameters.
+parameter is :math:`F_s\,\partial A/\partial p`.
 
 Values and derivatives in one call
 ----------------------------------
