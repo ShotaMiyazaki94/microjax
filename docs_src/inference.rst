@@ -13,7 +13,8 @@ The figures below use the run from 9 November 2026 at
 `8877b31 <https://github.com/ShotaMiyazaki94/microjax/commit/8877b31>`_:
 500 warm-up steps, 1,000 retained draws, and ``max_tree_depth=10``, with
 the prior bounds below and 1% flux errors.
-The script now uses 3% errors; these figures retain the completed 1% run.
+The script now uses 360 observations and 3% errors; these figures retain
+the completed 180-point, 1% run.
 NUTS took **205 seconds**, including compilation and warm-up; the local fit
 took another 9.51 seconds. This used six CPU workers, float64, JAX 0.8.0,
 and NumPyro 0.19.0. Curve evaluation and plotting are outside those timings.
@@ -109,12 +110,12 @@ each run replaces that directory. Settings are constants at the top of
 Data and priors
 ---------------
 
-The data contain 180 uniformly spaced observations from day −30 to day 30,
-about one every 0.335 days:
+The data contain 360 uniformly spaced observations from day −30 to day 30,
+about one every 0.167 days (4 hours):
 
 .. code-block:: python
 
-   times = jnp.linspace(-30.0, 30.0, 180)
+   times = jnp.linspace(-30.0, 30.0, 360)
 
 The flux model is
 
@@ -246,7 +247,7 @@ are evaluated.
 
 ``curves.npz`` stores a separate dense time grid, the injected curve, 64
 posterior flux curves, and the selected sample indices. The fluxes are
-conditioned on the 180 observations. Extra plotting times add resolution
+conditioned on the observations. Extra plotting times add resolution
 to the figure and do not enter the likelihood.
 
 To redraw the two figures from these saved arrays:

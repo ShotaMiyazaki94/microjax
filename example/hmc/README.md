@@ -11,7 +11,8 @@ python -m pip install -e . 'numpyro>=0.19' scipy matplotlib corner
 python example/hmc/injection_recovery.py
 ```
 
-The data contain 180 uniformly spaced times from day −30 to day 30.
+The data contain 360 uniformly spaced times from day −30 to day 30,
+about one every 0.167 days (4 hours).
 Gaussian noise has a standard deviation of 3% of the injected flux.
 The script fits from a rough initial solution, whitens the sampling coordinates
 using its covariance, then runs **one chain with 500 warm-up steps and
@@ -39,8 +40,9 @@ The script saves data, samples, diagnostics, model curves, and two figures:
   logarithmic source radius and marked divergent transitions.
 
 The model interval includes conditional source/blend flux uncertainty.
-The tutorial records the completed 1%-noise run, including its 35 divergent
-transitions and poor mixing in `q`, `s`, and `alpha`. The next run uses 3% noise.
+The tutorial records the completed 180-point, 1%-noise run, including its 35
+divergent transitions and poor mixing in `q`, `s`, and `alpha`.
+The next run uses 360 observations and 3% noise.
 To redraw the figures from saved arrays without sampling again:
 
 ```bash

@@ -54,6 +54,7 @@ COORDINATE_BOUNDS = PRIOR_BOUNDS.copy()
 COORDINATE_BOUNDS[LOG_INDICES] = np.log(COORDINATE_BOUNDS[LOG_INDICES])
 U1 = 0.5
 DATA_SEED = 20261109
+NUM_OBSERVATIONS = 360
 RELATIVE_NOISE = 0.03
 MAX_TREE_DEPTH = 10
 POSTERIOR_CURVES = 64
@@ -238,7 +239,7 @@ def main():
             name: {"distribution": "normal", "mean": 0.0, "standard_deviation": FLUX_PRIOR_SCALE}
             for name in ("fs", "fb")
         },
-        "observations": {"count": 180, "start_day": -30.0, "end_day": 30.0, "spacing": "uniform"},
+        "observations": {"count": NUM_OBSERVATIONS, "start_day": -30.0, "end_day": 30.0, "spacing": "uniform"},
         "initial_parameters": INITIAL.tolist(),
         "priors": {
             name: {"distribution": "log_uniform" if i in LOG_INDICES else "uniform", "bounds": bounds.tolist()}
@@ -252,7 +253,7 @@ def main():
     with jax.default_device(device):
         lightcurve = make_binary_lightcurve(backend="cpu")
         forward_model = make_parallel_magnification(lightcurve)
-        times = jnp.linspace(-30.0, 30.0, 180)
+        times = jnp.linspace(-30.0, 30.0, NUM_OBSERVATIONS)
         print("Generating the mock light curve (the first call compiles the model).", flush=True)
         injected_flux = FLUX_TRUTH[0] * np.asarray(forward_model(jnp.asarray(TRUTH), times)) + FLUX_TRUTH[1]
         if not np.all(np.isfinite(injected_flux) & (injected_flux > 0)):
