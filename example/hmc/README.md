@@ -6,17 +6,19 @@ and source/blend fluxes with NumPyro NUTS. CPU is the default.
 From the repository root:
 
 ```bash
-python -m pip install -e . 'numpyro>=0.19' matplotlib
+python -m pip install -e . 'numpyro>=0.19' scipy matplotlib
 python example/hmc/injection_recovery.py
 ```
 
-The default run uses two sequential chains, each with 300 warm-up steps and
-500 retained draws. Change `--warmup`, `--samples`, `--chains`, or `--seed`
-as needed. With GPU-enabled JAX, select `--backend gpu`.
+The script first fits the data from a rough initial solution and estimates a
+local covariance for NUTS. It then runs two sequential chains, each with 300
+warm-up steps and 500 retained draws. Change `--map-maxiter`, `--warmup`,
+`--samples`, `--chains`, or `--seed` as needed. With GPU-enabled JAX, select
+`--backend gpu`.
 
 Results go to `results/hmc/binary/`. Use a new `--output-dir` for another run;
-existing directories are preserved. Initial compilation happens before the
-sampling progress bar advances.
+existing directories are preserved. Compilation and the local fit happen
+before the sampling progress bar advances.
 
 The script saves data, posterior samples, sampler diagnostics, model curves,
 and three figures. To redraw the figures without running JAX or sampling again:
@@ -29,9 +31,15 @@ After the run, share `run.json`, `summary.json`, `lightcurve.png`, `recovery.png
 and `traces.png`. The `.npz` files retain the arrays for further analysis.
 
 The [tutorial](../../docs_src/inference.rst) describes the priors and outputs.
-Edit `TRUTH`, `PRIOR_CENTER`, and `PRIOR_SCALE` at the top of the sampling
-script to change the event. Chains start near the approximate event solution;
-the example studies that local posterior. Data and fitting use the same model.
+`TRUTH` defines the injected event; `INITIAL` is a rough solution used only
+to start optimization. Broad uniform and log-uniform priors are specified
+separately in `PRIOR_BOUNDS`. Neither the initial guess nor the fitted
+covariance narrows those priors. The chains explore the mode found by the
+local fit. Data and fitting use the same model.
+
+`run.json` records the fit status and parameters. `initialization.npz` retains
+the fitted point, initial chain positions, and covariance passed to NumPyro's
+`inverse_mass_matrix`. Warm-up continues to adapt this matrix.
 
 This example is prepared for a user-run calculation; recovery results have
 not yet been generated or assessed.

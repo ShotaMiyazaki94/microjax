@@ -19,14 +19,16 @@ From a :doc:`source checkout <getting_started>`:
 
 .. code-block:: sh
 
-   python -m pip install -e . 'numpyro>=0.19' matplotlib
+   python -m pip install -e . 'numpyro>=0.19' scipy matplotlib
    python example/hmc/injection_recovery.py
 
-This runs two sequential CPU chains, with 300 warm-up steps and 500 retained
-draws per chain. The first model evaluation and the start of NUTS include
-compilation. The progress bar then follows warm-up and sampling.
+The script first fits the data from a rough event solution and estimates a
+local covariance. It then runs two sequential CPU chains, with 300 warm-up
+steps and 500 retained draws per chain. Model compilation and the fit happen
+before the NUTS progress bar starts.
 
-``--warmup``, ``--samples``, and ``--chains`` control the run length.
+``--map-maxiter`` limits optimization iterations (300 by default).
+``--warmup``, ``--samples``, and ``--chains`` control sampling.
 ``--seed`` changes the sampler's random seed; the mock photometry keeps its
 fixed noise seed. With a GPU-enabled JAX installation, use ``--backend gpu``.
 
@@ -60,41 +62,37 @@ darkening is fixed at ``u1=0.5``.
      - Prior
    * - :math:`t_0`
      - 0 days
-     - Normal(0.1, 1.0)
+     - Uniform(−30, 30) days
    * - :math:`t_E`
      - 10 days
-     - LogNormal(ln 10.5, 0.3)
+     - LogUniform(0.1, 300) days
    * - :math:`u_0`
      - 0.1
-     - Normal(0.11, 0.05)
+     - Uniform(−1, 1)
    * - :math:`q`
      - 0.001
-     - LogNormal(ln 0.0012, 0.8)
+     - LogUniform(10⁻⁶, 1)
    * - :math:`s`
      - 1.0
-     - LogNormal(ln 1.02, 0.15)
+     - LogUniform(0.2, 5)
    * - :math:`\alpha`
      - 50°
-     - Normal(49° in radians, 0.3 radians)
+     - Uniform(−π, π) radians
    * - :math:`\rho`
      - 0.005
-     - LogNormal(ln 0.006, 0.7)
+     - LogUniform(10⁻⁵, 0.1)
    * - :math:`F_s`
      - 1.0
-     - LogNormal(ln 1.05, 0.3)
+     - Uniform(0, 10)
    * - :math:`F_b`
      - 0.2
-     - Normal(0.15, 0.5)
+     - Uniform(−5, 5)
 
-The second argument is a standard deviation; LogNormal uses natural-log
-space. The script samples standardised coordinates, then transforms them
-to these physical parameters. This keeps their very different numerical
-scales out of the initial sampling geometry.
-
-Each chain starts at a different point near the approximate event solution
-in ``PRIOR_CENTER``. This example explores the nearby posterior mode.
-Injection and recovery use the same microJAX model, making this an
-end-to-end check of the inference workflow.
+Both arguments are bounds in physical units; LogUniform is uniform in the
+logarithm between those bounds. These priors are independent of the injected
+values and the initial guess. In particular, the mass-ratio prior includes
+both planetary and comparable-mass binaries. ``PRIOR_BOUNDS`` and
+``LOG_INDICES`` specify the priors in the script.
 
 The likelihood is written directly in NumPyro:
 
@@ -105,6 +103,33 @@ The likelihood is written directly in NumPyro:
 NUTS uses ``forward_mode_differentiation=True``, a dense mass matrix,
 ``target_accept_prob=0.9``, and ``max_tree_depth=8``. No custom gradient
 wrapper is needed.
+
+Initial position and mass matrix
+--------------------------------
+
+``INITIAL`` is a rough event solution used only to start a local fit.
+L-BFGS-B finds a posterior mode in NumPyro's unconstrained coordinates,
+including the coordinate-transform Jacobian. The prior remains the broad
+distribution above throughout optimization and sampling.
+
+At the fitted point, the script estimates a covariance from the Gaussian
+likelihood's Fisher information and the transformed prior's curvature.
+The residual Jacobian uses ``jax.jacfwd``; this follows the approach in
+`numpyro-inferutils <https://github.com/kemasuda/numpyro-inferutils>`_
+and works with the CPU integrator. A small eigenvalue floor stabilizes the
+matrix inversion.
+
+NumPyro's ``inverse_mass_matrix`` takes this **covariance**, rather than its
+inverse. Each chain starts with a small displacement from the fitted point,
+and warm-up continues to adapt both the matrix and step size. The fit status
+and parameters are recorded in ``run.json``; the initial matrix and chain
+positions are saved in ``initialization.npz``. A fit that reaches its iteration
+limit can still supply an initial point, and its status is reported.
+
+This example explores the mode near the initial solution; it does not search
+for every binary-lens degeneracy. Injection and fitting use the same microJAX
+model. ``TRUTH`` is used for mock data and recovery comparisons, not to set
+the priors or initialize the sampler.
 
 Reading the results
 -------------------
