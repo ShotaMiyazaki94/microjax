@@ -11,15 +11,15 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.colors import BoundaryNorm, ListedColormap
+from matplotlib.colors import BoundaryNorm, ListedColormap, LogNorm
 from matplotlib.ticker import FixedLocator, FuncFormatter, LogLocator, NullFormatter
 import numpy as np
 
 from cpu_benchmark_stats import estimate
 
 ROOT = Path(__file__).resolve().parents[1]
-INK, MUTED, GRID, EMPTY = "#172536", "#596879", "#E2E8EE", "#E4E8ED"
-BLUE, ORANGE, RED = "#176B9A", "#BC6024", "#B52F46"
+INK, MUTED, GRID, EMPTY = "#222222", "#777777", "#dddddd", "#eeeeee"
+BLUE, ORANGE = "#31688e", "#b45f2a"
 TARGET = 1e-3
 MIN_CONFIGS = 15
 BOOTSTRAPS = 4000
@@ -31,23 +31,23 @@ def style():
         {
             "font.family": "DejaVu Sans",
             "font.size": 10,
-            "axes.titlesize": 12,
-            "axes.titleweight": "bold",
+            "axes.titlesize": 11,
+            "axes.titleweight": "normal",
             "axes.labelsize": 10,
             "text.color": INK,
             "axes.labelcolor": INK,
             "xtick.color": MUTED,
             "ytick.color": MUTED,
-            "figure.facecolor": "#F8FAFC",
+            "figure.facecolor": "white",
             "axes.facecolor": "white",
-            "axes.edgecolor": "#C8D1DC",
+            "axes.edgecolor": "#888888",
             "axes.spines.top": False,
             "axes.spines.right": False,
             "grid.color": GRID,
-            "grid.linewidth": 0.7,
+            "grid.linewidth": 0.5,
             "axes.axisbelow": True,
             "legend.frameon": False,
-            "savefig.facecolor": "#F8FAFC",
+            "savefig.facecolor": "white",
             "svg.fonttype": "none",
         }
     )
@@ -168,10 +168,6 @@ def statistics(points, groups, metadata):
     return edges, cells
 
 
-def percent(value, _=None):
-    return f"{100 * value:g}%"
-
-
 def ratio_label(value, _=None):
     return f"1/{round(1 / value):d}×" if value < 1 else f"{value:g}×"
 
@@ -183,8 +179,8 @@ def log_axis(ax, axis):
 
 
 def save(fig, destination):
-    fig.savefig(destination.with_suffix(".png"), dpi=190)
-    fig.savefig(destination.with_suffix(".svg"))
+    fig.savefig(destination.with_suffix(".png"), dpi=190, bbox_inches="tight")
+    fig.savefig(destination.with_suffix(".svg"), bbox_inches="tight")
     plt.close(fig)
 
 
@@ -204,352 +200,132 @@ def interval(ax, result, coordinate, color, *, horizontal=False, scale=1):
         ax.scatter(coordinate, center, s=28, color=color, edgecolor="white", linewidth=0.65, zorder=3)
 
 
-def overview(points, groups, metadata, edges, summary, directory):
-    fig, axes = plt.subplots(2, 2, figsize=(13.6, 10.2))
-    fig.subplots_adjust(left=0.085, right=0.965, top=0.79, bottom=0.16, hspace=0.45, wspace=0.29)
-    fig.text(0.085, 0.95, "microJAX CPU · limb darkening", fontsize=24, weight="bold")
-    fig.text(0.085, 0.91, "Accuracy, speed and uncertainty of the estimates", fontsize=14, color=MUTED)
-    fig.text(
-        0.085,
-        0.866,
-        f"a = 0.5   ·   {len(points['q']):,} positions   ·   "
-        f"{metadata['sampling']['selected_configs']:,} grid configurations   ·   "
-        f"{len(groups['q'])} matched timings",
-        fontsize=11,
-    )
-    fig.text(
-        0.085,
-        0.833,
-        "Full parameter-grid coverage · one source / configuration · ● estimate  ━ 68.27%  ─ 95% bootstrap interval",
-        fontsize=10,
-        color=MUTED,
-    )
+def overview(points, groups, edges, summary, directory):
+    fig, axes = plt.subplots(2, 2, figsize=(10.6, 7.2), layout="constrained")
+    error = np.sort(np.maximum(points["relative_error"], 1e-13))
+    error_limits = (max(1e-13, error[0] / 2), max(1e-3, error[-1] * 1.5))
 
     ax = axes[0, 0]
-    ax.set_title("A   Accuracy distribution", loc="left", pad=14)
-    error = np.sort(np.maximum(points["relative_error"], 1e-13))
-    ax.step(error, np.arange(1, len(error) + 1) / len(error), where="post", lw=2.3, color=BLUE)
-    ax.axvline(TARGET, color=RED, ls="--", lw=1.2)
-    ax.annotate("0.1% target", (TARGET, 0.55), xytext=(6, 0), textcoords="offset points", rotation=90, color=RED)
+    ax.set_title("a   Relative error", loc="left")
+    ax.step(error, np.arange(1, len(error) + 1) / len(error), where="post", lw=1.7, color=BLUE)
+    ax.axvline(1e-4, color=MUTED, ls="--", lw=0.9)
+    interval(ax, summary["accuracy_p95"], 0.95, BLUE, horizontal=True)
     log_axis(ax, "x")
-    ax.xaxis.set_major_locator(LogLocator(base=10, numticks=6))
-    ax.set(
-        xlabel="Relative difference from saved LD reference",
-        ylabel="Fraction of reference positions",
-        xlim=(max(1e-13, error[0] / 2), max(3e-3, error[-1] * 2)),
-        ylim=(0, 1.035),
-    )
-    ax.text(
-        0.03, 0.08, f"{int(np.sum(error > TARGET))} / {len(error):,} above target", transform=ax.transAxes, color=MUTED
-    )
+    ax.xaxis.set_major_locator(LogLocator(base=10, numticks=5))
+    ax.set(xlabel=r"$|A/A_{\rm ref}-1|$", ylabel="Cumulative fraction", xlim=error_limits, ylim=(0, 1.04))
 
     ax = axes[0, 1]
-    ax.set_title("B   Error distribution by source size", loc="left", pad=14)
-    zero_errors = 0
-    for i in range(5):
+    ax.set_title("b   By source radius", loc="left")
+    for i in range(len(edges["rho"]) - 1):
         selected = in_bin(points["rho"], edges["rho"], i)
         errors = points["relative_error"][selected]
         positive = errors[errors > 0]
-        zero_errors += int(np.sum(errors == 0))
-        center = np.sqrt(edges["rho"][i : i + 2].prod())
+        center = np.sqrt(edges["rho"][i:i+2].prod())
         if positive.size:
-            # Estimate density per log-error unit. Transform both coordinates
-            # back so violin widths are equal on the logarithmic rho axis.
             violin = ax.violinplot(
-                np.log10(positive),
-                positions=[np.log10(center)],
-                widths=0.72 * np.diff(np.log10(edges["rho"][i : i + 2])),
-                showextrema=False,
-                points=160,
-                bw_method="scott",
+                np.log10(positive), positions=[np.log10(center)],
+                widths=0.72 * np.diff(np.log10(edges["rho"][i:i+2])),
+                showextrema=False, points=160, bw_method="scott",
             )
             body = violin["bodies"][0]
             for path in body.get_paths():
                 path.vertices[:] = 10**path.vertices
             body.set_facecolor(BLUE)
             body.set_edgecolor(BLUE)
-            body.set_alpha(0.28)
-        result = stat(points, "relative_error", selected, quantile=0.95)
-        interval(ax, result, center, ORANGE)
-        ax.text(
-            center,
-            0.025,
-            f"{result['n_configurations']} cfg\n{result['n_points']} pts",
-            transform=ax.get_xaxis_transform(),
-            ha="center",
-            va="bottom",
-            fontsize=7.5,
-            color=MUTED,
-        )
-    ax.axhline(TARGET, color=RED, ls="--", lw=1.2)
-    ax.text(
-        0.02,
-        0.98,
-        "Violin: log-error density · orange: p95 + CI",
-        transform=ax.transAxes,
-        va="top",
-        fontsize=8.5,
-        color=MUTED,
-    )
-    if zero_errors:
-        ax.text(
-            0.98,
-            0.12,
-            f"{zero_errors} exact zeros omitted from density",
-            transform=ax.transAxes,
-            ha="right",
-            fontsize=7.5,
-            color=MUTED,
-        )
+            body.set_alpha(0.3)
+            ax.scatter(center, np.quantile(errors, 0.95), s=21, color=ORANGE, zorder=3)
+    ax.axhline(1e-4, color=MUTED, ls="--", lw=0.9)
     log_axis(ax, "x")
     log_axis(ax, "y")
-    ax.yaxis.set_major_formatter(FuncFormatter(percent))
-    ax.set(
-        xlabel=r"Source radius $\rho$",
-        ylabel="Relative difference from reference",
-        xlim=(edges["rho"][0], edges["rho"][-1]),
-        ylim=(max(1e-13, error[0] / 2), max(3e-3, error[-1] * 2)),
-    )
+    ax.yaxis.set_major_locator(LogLocator(base=10, numticks=5))
+    ax.set(xlabel=r"Source radius $\rho$", ylabel=r"$|A/A_{\rm ref}-1|$",
+           xlim=(edges["rho"][0], edges["rho"][-1]), ylim=error_limits)
 
     ax = axes[1, 0]
-    ax.set_title("C   Median warm runtime", loc="left", pad=14)
+    ax.set_title("c   Time per source", loc="left")
     for y, key, color in ((1, "cpu_runtime", BLUE), (0, "vbm_runtime", ORANGE)):
         interval(ax, summary[key], y, color, horizontal=True, scale=1000)
-        ax.annotate(
-            f"{summary[key]['estimate'] * 1000:.3f} ms",
-            (summary[key]["estimate"] * 1000, y),
-            xytext=(0, 14),
-            textcoords="offset points",
-            ha="center",
-            color=color,
-        )
+        value = summary[key]["estimate"] * 1000
+        ax.annotate(f"{value:.2f}", (value, y), xytext=(0, 10), textcoords="offset points",
+                    ha="center", fontsize=9, color=color)
     ax.grid(True, axis="x")
-    ax.set(
-        yticks=[1, 0],
-        yticklabels=["microJAX\nfull solve", "VBM\nBinaryMag2"],
-        ylim=(-0.6, 1.7),
-        xlabel="Warm milliseconds / position · estimate and CI",
-    )
+    upper_time = max(summary[key]["ci95"][1] for key in ("cpu_runtime", "vbm_runtime"))
+    ax.set(yticks=[1, 0], yticklabels=["microJAX", "VBM"], ylim=(-0.6, 1.6),
+           xlim=(0, upper_time * 1150), xlabel="Time [ms]")
 
     ax = axes[1, 1]
-    ax.set_title("D   Paired speed ratios", loc="left", pad=14)
+    ax.set_title("d   Relative speed", loc="left")
     ratios = np.sort(groups["ratio"])
-    ax.step(ratios, np.arange(1, len(ratios) + 1) / len(ratios), where="post", lw=2.2, color=ORANGE)
-    ax.axvline(1, color=INK, ls="--", lw=1.2)
+    ax.step(ratios, np.arange(1, len(ratios) + 1) / len(ratios), where="post", lw=1.7, color=ORANGE)
+    ax.axvline(1, color=MUTED, ls="--", lw=0.9)
     interval(ax, summary["speed"], 0.5, ORANGE, horizontal=True)
-    value = summary["speed"]
-    ax.text(
-        0.03,
-        0.94,
-        f"Median {value['estimate']:.2f}×\n95% CI [{value['ci95'][0]:.2f}, {value['ci95'][1]:.2f}]",
-        transform=ax.transAxes,
-        va="top",
-        fontsize=10,
-    )
     log_axis(ax, "x")
-    ax.xaxis.set_major_locator(LogLocator(base=2, numticks=8))
-    ax.xaxis.set_major_formatter(FuncFormatter(ratio_label))
-    ax.set(xlabel=r"$t_{\rm VBM}\,/\,t_{\rm microJAX}$", ylabel="Fraction of matched configurations", ylim=(0, 1.035))
-    ax.text(0.02, 0.035, "← VBM faster", transform=ax.transAxes, color=MUTED, fontsize=9)
-    ax.text(0.98, 0.035, "microJAX faster →", transform=ax.transAxes, ha="right", color=MUTED, fontsize=9)
-    footnotes(fig, 0.085, metadata)
+    ax.xaxis.set_major_locator(LogLocator(base=10, numticks=5))
+    ax.set(xlabel=r"$t_{\rm VBM}/t_{\rm microJAX}$", ylabel="Cumulative fraction", ylim=(0, 1.04))
     save(fig, directory / "cpu_overview")
 
 
-def footnotes(fig, left, metadata):
-    repeats = metadata["timing"]["repeats"]
-    lines = [
-        f"{BOOTSTRAPS:,} bootstrap draws within q–ρ strata; whole configurations stay together. CI describes estimator uncertainty, not point scatter.",
-        "Source selection balances occupied magnification bins; intervals describe configuration-resampling stability, conditional on this design.",
-        f"Full CPU solve · identical single-source inputs · {repeats} warm repeats · VBM Tol = RelTol = 10⁻⁴ · compilation / IPC excluded from timings.",
-    ]
-    for y, line in zip((0.073, 0.048, 0.023), lines):
-        fig.text(left, y, line, fontsize=8.8, color=MUTED)
-
-
-def parameter_maps(points, groups, metadata, edges, cells, directory):
-    fig = plt.figure(figsize=(20.0, 12.0))
-    fig.text(0.065, 0.963, "Regional estimates and their uncertainty · a = 0.5", fontsize=22, weight="bold")
-    fig.text(
-        0.065,
-        0.927,
-        "Each cell: estimate  /  [68.27% bootstrap interval]  /  measured / available configurations",
-        fontsize=12,
-        color=MUTED,
-    )
-    fig.text(
-        0.065,
-        0.897,
-        f"{len(points['q']):,} LD reference positions · {len(groups['q'])} matched timing groups · "
-        f"gray = fewer than {MIN_CONFIGS} configurations (or 50 accuracy positions)",
-        fontsize=10,
-    )
-    speed_bounds = np.array([1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8, 16])
-    speed_cmap = ListedColormap(
-        ["#205980", "#61A2BB", "#9AC7D2", "#D2E6EB", "#F6E3C7", "#EFBE83", "#D58B4B", "#AC592C"]
-    )
-    error_bounds = np.array([0, 1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4, 1e-3, 2e-3])
-    error_cmap = ListedColormap(
-        ["#176943", "#39935D", "#6EAE70", "#A8CE86", "#DAE8A5", "#F4CC7B", "#E68059", "#AC3346"]
-    )
-    names = {"q": r"Mass ratio $q$", "rho": r"Source radius $\rho$", "reference": "Reference magnification"}
+def parameter_maps(edges, cells, directory):
+    fig, axes = plt.subplots(2, 3, figsize=(11.6, 6.3), sharex="col", layout="constrained")
+    speed_bounds = np.array([1/16, 1/8, 1/4, 1/2, 1, 2, 4, 8, 16])
+    speed_cmap = ListedColormap(["#235b7c", "#5791ad", "#96becd", "#d5e4e9",
+                               "#f5e4cc", "#e8bd8c", "#cc8857", "#9a532d"])
+    names = {"q": r"Mass ratio $q$", "rho": r"Source radius $\rho$", "reference": r"$A_{\rm ref}$"}
     combinations = (("q", "rho"), ("reference", "rho"), ("reference", "q"))
-    meshes = []
     for row, metric in enumerate(("speed", "accuracy")):
-        cmap, bounds = (speed_cmap, speed_bounds) if row == 0 else (error_cmap, error_bounds)
-        cmap.set_bad(EMPTY)
-        norm = BoundaryNorm(bounds, cmap.N, clip=True)
+        cmap = speed_cmap if row == 0 else plt.get_cmap("viridis_r")
+        norm = BoundaryNorm(speed_bounds, cmap.N) if row == 0 else LogNorm(1e-5, 1e-3)
         for col, (x, y) in enumerate(combinations):
-            ax = fig.add_axes([0.065 + col * 0.322, 0.594 if row == 0 else 0.192, 0.258, 0.25])
-            selected = [c for c in cells if c["metric"] == metric and c["x"] == x and c["y"] == y]
-            matrix = np.full((len(edges[y]) - 1, len(edges[x]) - 1), np.nan)
-            for cell in selected:
-                if cell["eligible"]:
+            ax = axes[row, col]
+            matrix = np.full((len(edges[y])-1, len(edges[x])-1), np.nan)
+            for cell in cells:
+                if cell["metric"] == metric and cell["x"] == x and cell["y"] == y and cell["eligible"]:
                     matrix[cell["iy"], cell["ix"]] = cell["estimate"]
-            mesh = ax.pcolormesh(
-                edges[x],
-                edges[y],
-                np.ma.masked_invalid(matrix),
-                cmap=cmap,
-                norm=norm,
-                shading="flat",
-                edgecolors="white",
-                linewidth=0.7,
-            )
-            if col == 0:
-                meshes.append(mesh)
-            ax.set_xscale("log")
-            ax.set_yscale("log")
-            ax.set_xlabel(names[x])
-            ax.set_ylabel(names[y])
-            ax.set_title(
-                f"{chr(65 + row*3 + col)}   " + ("Median speed ratio" if row == 0 else "p95 error (ppm)"),
-                loc="left",
-                pad=12,
-            )
-            for cell in selected:
-                ix, iy = cell["ix"], cell["iy"]
-                count_label = f"{cell['n_configurations']}/{cell['n_frame_configurations']}"
-                label, color = (
-                    "No source\nin frame" if cell["n_frame_configurations"] == 0 else "n=" + count_label
-                ), MUTED
-                if cell["eligible"]:
-                    v, (lo, hi) = cell["estimate"], cell["ci68"]
-                    label = (
-                        f"{v:.2g}×\n[{lo:.2g}, {hi:.2g}]" if row == 0 else f"{1e6*v:.0f}\n[{1e6*lo:.0f}, {1e6*hi:.0f}]"
-                    ) + f"\n{count_label}"
-                    rgba = cmap(norm(v))
-                    brightness = np.dot(rgba[:3], [0.2126, 0.7152, 0.0722])
-                    color = "white" if brightness < 0.53 else INK
-                ax.text(
-                    np.sqrt(edges[x][ix : ix + 2].prod()),
-                    np.sqrt(edges[y][iy : iy + 2].prod()),
-                    label,
-                    ha="center",
-                    va="center",
-                    fontsize=7.6,
-                    color=color,
-                    linespacing=1.4,
-                )
-    for index, (bounds, ticks, y) in enumerate(
-        ((speed_bounds, speed_bounds, 0.508), (error_bounds, error_bounds[1:], 0.108))
-    ):
-        cbar = fig.colorbar(
-            meshes[index],
-            cax=fig.add_axes([0.065, y, 0.904, 0.014]),
-            orientation="horizontal",
-            spacing="uniform",
-            ticks=ticks,
-            extend="both" if index == 0 else "max",
-        )
-        cbar.ax.set_xticklabels([ratio_label(v) if index == 0 else f"{1e6*v:g}" for v in ticks])
-        cbar.set_label(
-            (
-                "VBM / microJAX time · <1 VBM faster · >1 microJAX faster"
-                if index == 0
-                else "p95 relative error in ppm (10⁻⁶) · 1,000 ppm = 0.1% target"
-            ),
-            labelpad=6,
-        )
-    fig.text(
-        0.065,
-        0.029,
-        "One measured source per configuration; its actual reference magnification determines the speed cell. All configuration combinations are covered.",
-        fontsize=9,
-        color=MUTED,
-    )
-    fig.text(
-        0.065,
-        0.009,
-        "Intervals are conditional bootstrap estimates, not worst-case bounds. Exact counts, standard errors and 95% CIs: regional_statistics.csv.",
-        fontsize=9,
-        color=MUTED,
-    )
+            ax.set_facecolor(EMPTY)
+            mesh = ax.pcolormesh(edges[x], edges[y], np.ma.masked_invalid(matrix),
+                                 cmap=cmap, norm=norm, shading="flat", edgecolors="white", linewidth=0.45)
+            ax.set(xscale="log", yscale="log", ylabel=names[y])
+            if row == 1:
+                ax.set_xlabel(names[x])
+            ax.xaxis.set_major_locator(LogLocator(base=10, numticks=4))
+            ax.yaxis.set_major_locator(LogLocator(base=10, numticks=4))
+            ax.xaxis.set_minor_formatter(NullFormatter())
+            ax.yaxis.set_minor_formatter(NullFormatter())
+            ax.set_title(chr(97 + row*3 + col), loc="left")
+        colorbar = fig.colorbar(mesh, ax=axes[row, :], pad=0.025, fraction=0.025, aspect=22)
+        if row == 0:
+            colorbar.set_ticks([1/16, 1/4, 1, 4, 16])
+            colorbar.ax.yaxis.set_major_formatter(FuncFormatter(ratio_label))
+            colorbar.set_label(r"Median $t_{\rm VBM}/t_{\rm microJAX}$")
+        else:
+            colorbar.set_ticks([1e-5, 1e-4, 1e-3])
+            colorbar.set_label("95th-percentile relative error")
     save(fig, directory / "cpu_parameter_maps_ld")
 
 
-def regional_intervals(edges, cells, directory):
-    fig, axes = plt.subplots(1, 2, figsize=(13.6, 12.2))
-    fig.subplots_adjust(left=0.18, right=0.92, top=0.83, bottom=0.13, wspace=0.36)
-    fig.text(0.055, 0.96, "How certain is each regional estimate?", fontsize=23, weight="bold")
-    fig.text(0.055, 0.924, "LD · a = 0.5 · 25 mass-ratio / source-radius regions", fontsize=13, color=MUTED)
-    fig.text(
-        0.055,
-        0.89,
-        "● estimate     ━ 68.27% CI     ─ 95% CI      ·      labels: configurations / positions",
-        fontsize=10,
-    )
-    labels = [f"q{i+1}  ·  ρ{j+1}" for j in range(5) for i in range(5)]
+def regional_intervals(cells, directory):
+    fig, axes = plt.subplots(1, 2, figsize=(8.4, 8.8), sharey=True, layout="constrained")
+    labels = [rf"$q_{{{i+1}}},\rho_{{{j+1}}}$" for j in range(5) for i in range(5)]
     for ax, metric, color in zip(axes, ("speed", "accuracy"), (ORANGE, BLUE)):
-        selected = [c for c in cells if c["metric"] == metric and c["x"] == "q" and c["y"] == "rho"]
-        for cell in selected:
-            row = cell["iy"] * 5 + cell["ix"]
-            if cell["iy"] % 2 == 0:
-                ax.axhspan(row - 0.5, row + 0.5, color="#EAF0F5", alpha=0.6, zorder=0)
-            interval(ax, cell, row, color, horizontal=True, scale=100 if metric == "accuracy" else 1)
-            label = str(cell["n_configurations"])
-            if metric == "accuracy":
-                label += f" / {cell['n_points']}"
-            if not cell["eligible"]:
-                label += " *"
-            ax.text(1.025, row, label, transform=ax.get_yaxis_transform(), va="center", fontsize=8, color=MUTED)
-        ax.set_ylim(24.7, -0.7)
-        ax.set_yticks(range(25), labels if metric == "speed" else [""] * 25)
+        for j in range(0, 5, 2):
+            ax.axhspan(j*5-0.5, j*5+4.5, color="#f2f2f2", zorder=0)
+        for cell in cells:
+            if cell["metric"] == metric and cell["x"] == "q" and cell["y"] == "rho":
+                interval(ax, cell, cell["iy"]*5+cell["ix"], color, horizontal=True)
+        ax.set(ylim=(24.7, -0.7), yticks=range(25), yticklabels=labels)
         log_axis(ax, "x")
-        ax.set_title("Median speed ratio" if metric == "speed" else "p95 relative error", loc="left", pad=16)
-        ax.set_xlabel("VBM / microJAX time" if metric == "speed" else "Relative error (%)")
+        ax.set_title("a   Relative speed" if metric == "speed" else "b   Relative error", loc="left")
         if metric == "speed":
-            ax.axvline(1, color=INK, lw=1, ls="--")
+            ax.axvline(1, color=MUTED, lw=0.9, ls="--")
             ax.xaxis.set_major_locator(FixedLocator([0.25, 0.5, 1, 2]))
             ax.xaxis.set_major_formatter(FuncFormatter(ratio_label))
+            ax.set_xlabel(r"Median $t_{\rm VBM}/t_{\rm microJAX}$")
         else:
-            ax.xaxis.set_major_locator(FixedLocator([0.004, 0.006, 0.008, 0.01, 0.015]))
-            ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:g}"))
-            ax.text(
-                0.98,
-                1.012,
-                "Target 0.1% is beyond this zoom",
-                transform=ax.transAxes,
-                ha="right",
-                color=RED,
-                fontsize=8,
-            )
-    fig.text(0.055, 0.083, "q edges: " + "  /  ".join(f"{v:.2g}" for v in edges["q"]), fontsize=9, color=MUTED)
-    fig.text(0.055, 0.061, "ρ edges: " + "  /  ".join(f"{v:.2g}" for v in edges["rho"]), fontsize=9, color=MUTED)
-    fig.text(
-        0.055,
-        0.035,
-        f"{BOOTSTRAPS:,} stratified configuration resamples. * Interval suppressed below {MIN_CONFIGS} configurations; no interpolation.",
-        fontsize=9,
-        color=MUTED,
-    )
-    fig.text(
-        0.055,
-        0.013,
-        "Intervals show configuration-resampling stability, conditional on the grid and source-selection design; they do not bound unmeasured source positions.",
-        fontsize=9,
-        color=MUTED,
-    )
+            lo, hi = ax.get_xlim()
+            ax.set_xlim(min(lo, 3.8e-5), max(hi, 1.03e-4))
+            ax.axvline(1e-4, color=MUTED, lw=0.9, ls="--")
+            ax.xaxis.set_major_locator(FixedLocator([4e-5, 6e-5, 1e-4]))
+            ax.set_xlabel(r"95th percentile of $|A/A_{\rm ref}-1|$")
     save(fig, directory / "cpu_regional_intervals_ld")
 
 
@@ -583,9 +359,9 @@ def main():
         "edges": {key: value.tolist() for key, value in edges.items()},
     }
     style()
-    overview(points, groups, metadata, edges, summary, args.output_dir)
-    parameter_maps(points, groups, metadata, edges, cells, args.output_dir)
-    regional_intervals(edges, cells, args.output_dir)
+    overview(points, groups, edges, summary, args.output_dir)
+    parameter_maps(edges, cells, args.output_dir)
+    regional_intervals(cells, args.output_dir)
     (args.output_dir / "plot_summary.json").write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
     (args.output_dir / "regional_statistics.json").write_text(json.dumps(cells, indent=2, allow_nan=False) + "\n")
     flat = []
