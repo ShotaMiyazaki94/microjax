@@ -8,7 +8,11 @@ inverse-ray integration. The logic is designed for binary and triple lenses.
 from functools import partial
 
 import jax.numpy as jnp
-from jax import jit
+from jax import jit, lax
+
+from microjax.multipole import mag_hexadecapole
+from microjax.point_source import _images_point_source
+from .geometry import binary_geometry
 
 Array = jnp.ndarray
 
@@ -119,3 +123,61 @@ def _planetary_caustic_test(w: Array, rho: float, c_p: float = 2.0, **params) ->
     w_pc = a - 1 / s
     delta_pc = 3 * jnp.sqrt(q) / s
     return (w_pc - w).real ** 2 + (w_pc - w).imag ** 2 > c_p * (rho**2 + delta_pc**2)
+
+
+def _binary_prefilter(
+    w_points: Array,
+    rho: float,
+    u1: float,
+    s: float,
+    q: float,
+    c_m: float = 1.0e-2,
+    c_f: float = 5.0,
+    gamma: float = 2.0e-2,
+) -> tuple[Array, Array, Array, Array]:
+    """Return the profile value and profile-independent trigger diagnostics."""
+
+    lens = binary_geometry(s, q)
+    w_points_shifted = w_points - lens.shifted
+
+    z, z_mask = _images_point_source(w_points_shifted, nlenses=2, a=lens.a, e1=lens.e1)
+    # One geometric expansion supplies both the requested coefficient and
+    # the coefficient-independent (u1=0) shortcut gate. The singleton image
+    # axis broadcasts only the final profile weights, including when u1=0.
+    magnification, correction = mag_hexadecapole(
+        z[..., None],
+        z_mask[..., None],
+        rho,
+        nlenses=2,
+        u1=jnp.stack((u1, jnp.zeros_like(u1))),
+        s=s,
+        q=q,
+        a=lens.a,
+        e1=lens.e1,
+    )
+    mu_multi = magnification[..., 0]
+    trigger_mu_multi = magnification[..., 1]
+    trigger_delta_mu_multi = correction[..., 1]
+    test1 = _caustics_proximity_test(
+        w_points_shifted,
+        z,
+        z_mask,
+        rho,
+        trigger_delta_mu_multi,
+        nlenses=2,
+        s=s,
+        q=q,
+        a=lens.a,
+        e1=lens.e1,
+        c_m=c_m,
+        c_f=c_f,
+        gamma=gamma,
+    )
+    accepted = lax.cond(
+        q < 0.01,
+        lambda _: (test1 & _planetary_caustic_test(w_points_shifted, rho, s=s, q=q, a=lens.a, e1=lens.e1)),
+        lambda _: test1,
+        operand=None,
+    )
+    trigger_scale = jnp.maximum(jnp.abs(trigger_mu_multi), 1.0)
+    return mu_multi, accepted, trigger_delta_mu_multi, trigger_scale

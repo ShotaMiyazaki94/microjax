@@ -5,8 +5,8 @@ from typing import NamedTuple
 import jax.numpy as jnp
 
 from microjax.lens_geometry import triple_lens_geometry
-from ..geometry.lens import binary_geometry
-from .coefficients import binary_quintic_coefficients
+from ..geometry import binary_geometry
+from ..coefficients import binary_quintic_coefficients
 
 
 class CpuLens(NamedTuple):

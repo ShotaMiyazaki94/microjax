@@ -13,16 +13,16 @@ pytestmark = pytest.mark.fast
 
 
 def test_public_result_preserves_best_effort_values(monkeypatch):
-    from microjax._magnification import lightcurve
+    from microjax._magnification.cpu import lightcurve
 
     expected = SimpleNamespace(
         magnification=jnp.asarray([4.0, 5.0, jnp.nan]),
         status=jnp.asarray([0, 1, 1], dtype=jnp.int32),
     )
-    monkeypatch.setattr(lightcurve, "_mag_binary_cpu_impl", lambda *args, **kwargs: expected)
+    monkeypatch.setattr(lightcurve, "mag_binary", lambda *args, **kwargs: expected)
     sources = jnp.asarray([0.1 + 0.2j, 0.2 + 0.3j, 0.3 + 0.4j])
-    mag = make_mag_binary(backend="cpu")
-    mag_with_info = make_mag_binary(backend="cpu", return_info=True)
+    mag = make_mag_binary()
+    mag_with_info = make_mag_binary(return_info=True)
     ordinary = mag(sources, 0.01, s=1.0, q=0.3)
     diagnostic = mag_with_info(sources, 0.01, s=1.0, q=0.3)
     np.testing.assert_array_equal(ordinary, expected.magnification)
@@ -119,7 +119,7 @@ def test_public_forward_jacobian_matches_independent_reference():
 
     x, y = -0.3421551581838465, 0.19397867617641237
     parameters = jnp.asarray([-x, 1.0, y, 0.028320791269324543, 0.8917065758514715, 0.0, 0.0048408299514288945])
-    lightcurve = make_binary_lightcurve(backend="cpu")
+    lightcurve = make_binary_lightcurve()
     # VBBinaryLensing Tol=RelTol=1e-10, centered steps
     # (2e-7, 2e-7, 1e-7, 3e-7, 5e-8), independent of the JAX graph.
     dx, dy, drho, ds, dq = [-6.64195328, 112.58030501, 30.67879960, 87.58013554, -446.69389094]

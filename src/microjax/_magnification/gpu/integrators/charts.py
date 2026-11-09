@@ -13,7 +13,7 @@ from ..geometry.topology import (
     define_radial_topology,
     track_limb_images,
 )
-from ..geometry.lens import BinaryGeometry
+from ...geometry import BinaryGeometry
 from ..roots.level_set import binary_level_set, triple_level_set
 from .common import Array
 

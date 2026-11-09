@@ -9,8 +9,8 @@ import jax.numpy as jnp
 from microjax.point_source import lens_eq, _images_point_source
 from microjax.poly_solver import poly_roots
 from microjax.lens_geometry import triple_lens_geometry
-from .coefficients import binary_quintic_coefficients
-from .lens import binary_geometry
+from ...coefficients import binary_quintic_coefficients
+from ...geometry import binary_geometry
 from typing import Tuple
 
 Array = jnp.ndarray

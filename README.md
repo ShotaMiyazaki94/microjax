@@ -44,6 +44,9 @@ plt.ylabel("Magnification")
 plt.show()
 ```
 
+CPU is the default. With GPU-enabled JAX, use `backend="gpu"` when creating
+the function; the event parameters and observation times stay the same.
+
 ![A binary microlensing light curve](docs_src/_static/binary_lightcurve.png)
 
 The [first tutorial](docs_src/usage.rst) explains the trajectory, lens

@@ -5,7 +5,7 @@ from __future__ import annotations
 import jax
 import jax.numpy as jnp
 
-from ..geometry.lens import binary_geometry
+from ..geometry import binary_geometry
 from .roots import batched_polished_real_companion_roots
 from .lens import binary_lens, lens_map, lens_shear
 from .lens import _polynomial_product_ascending as _fixed_polynomial_product_ascending

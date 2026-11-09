@@ -7,7 +7,7 @@ import numpy as np
 import jax.numpy as jnp
 import pytest
 
-from microjax._magnification.roots.angular import (
+from microjax._magnification.gpu.roots.angular import (
     ANGULAR_OK,
     ANGULAR_ROOT_FAILURE,
     _reciprocal_pair_rescue,
@@ -15,21 +15,21 @@ from microjax._magnification.roots.angular import (
     angular_measure_binary_roots,
     evaluate_fourier,
 )
-from microjax._magnification.geometry.mapping import distance_from_source
-from microjax._magnification.geometry.lens import binary_geometry
-from microjax._magnification.integrators import (
+from microjax._magnification.gpu.geometry.mapping import distance_from_source
+from microjax._magnification.geometry import binary_geometry
+from microjax._magnification.gpu.integrators import (
     mag_limb_dark_boundary,
     mag_radial_profile_boundary,
     mag_uniform_boundary,
 )
 from microjax import make_mag_binary
-from microjax._magnification.config import BinaryMagConfig
-from microjax._magnification.roots.level_set import (
+from microjax._magnification.gpu.config import BinaryMagConfig
+from microjax._magnification.gpu.roots.level_set import (
     binary_level_set,
     binary_level_set_fourier,
 )
-from microjax._magnification.geometry.limb import calc_source_limb
-from microjax._magnification.geometry.topology import (
+from microjax._magnification.gpu.geometry.limb import calc_source_limb
+from microjax._magnification.gpu.geometry.topology import (
     RADIAL_CAPACITY,
     RADIAL_RETRY_BREAKPOINT_CAPACITY,
     RADIAL_RETRY_INTERVAL_CAPACITY,
@@ -37,7 +37,7 @@ from microjax._magnification.geometry.topology import (
     RADIAL_TOPOLOGY,
     define_radial_topology,
 )
-from microjax._magnification.integrators.charts import _planetary_mixed_topology
+from microjax._magnification.gpu.integrators.charts import _planetary_mixed_topology
 
 _FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "magnification"
 
@@ -549,7 +549,7 @@ def test_binary_public_path_handles_difficult_resonant_caustic_point():
     # difficult point from the public comparison trajectory.
     point = -0.22880106808663814 - 0.2288010680866381j
     vbbl = 5.611936739107956
-    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mag_binary = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
     lightcurve = mag_binary(
         jnp.asarray([point]),
         0.03,
@@ -566,7 +566,7 @@ def test_binary_public_path_handles_difficult_resonant_caustic_point():
 def test_binary_public_path_avoids_false_planetary_radial_overflow():
     point = 0.0722579255149055 - 0.0024438627408989305j
     vbbl = 13.34459941133492
-    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mag_binary = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
     lightcurve = mag_binary(
         jnp.asarray([point]),
         0.0017685892259106202,
@@ -582,7 +582,7 @@ def test_binary_public_path_handles_vmapped_dynamic_ea_boundary_pair():
     point = 0.07009147785397735 - 0.0012258946844154843j
     vbbl = 15.377807025845549
 
-    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mag_binary = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
     evaluate = jax.jit(
         lambda value, radius, separation, mass_ratio: mag_binary(
             value[None],
@@ -606,7 +606,7 @@ def test_binary_public_path_handles_vmapped_dynamic_ea_boundary_pair():
 
 @pytest.mark.slow
 def test_binary_public_path_difficult_point_has_consistent_derivatives():
-    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mag_binary = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
     def public_magnification(real):
         return mag_binary(
             jnp.asarray([real - 0.2288010680866381j]),
@@ -662,7 +662,7 @@ def test_deep_global_sixteen_way_retry_closes_saved_tolerance_failures():
 def test_binary_public_path_handles_saved_stress_point():
     case = _load_fixture("binary_highlevel_stress_failures.json")["cases"][0]
     point = jnp.asarray(complex(case["source_x"], case["source_y"]))
-    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mag_binary = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
     single_pass = mag_binary(
         jnp.asarray([point]),
         case["rho"],
@@ -1091,7 +1091,7 @@ def test_gpu_fixed_work_value_matches_radial_reference():
         Nlimb=40,
         margin_r=0.5,
     )
-    mag_binary = make_mag_binary(config=config)
+    mag_binary = make_mag_binary(backend="gpu", config=config)
     boundary = mag_binary(w_points, rho, s=s, q=q)
 
 

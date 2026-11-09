@@ -9,7 +9,7 @@ import numpy as np
 from microjax.point_source import lens_eq
 from microjax.poly_solver import poly_roots
 from .lens import lens_map, lens_shear, source_polynomial
-from ..geometry.lens import binary_geometry
+from ..geometry import binary_geometry
 
 Array = jnp.ndarray
 _BINARY_ROOT_PERMUTATIONS = np.asarray(tuple(permutations(range(5))), dtype=np.int32)

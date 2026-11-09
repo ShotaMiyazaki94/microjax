@@ -1,7 +1,6 @@
 """Axisymmetric source-brightness profiles for boundary integration.
 
-Currently implements a linear limb-darkening law with a custom JVP so that
-gradients remain informative near the limb.
+Linear limb darkening with finite derivatives on inactive intervals.
 """
 
 import jax.numpy as jnp
@@ -13,8 +12,7 @@ Array = jnp.ndarray
 def linear_limb_intensity(d: Union[float, Array], u1: float = 0.0) -> Union[float, Array]:
     """Safe normalized linear limb intensity for exact inside intervals.
 
-    Unlike :func:`Is_limb_1st`, this function needs no surrogate edge JVP: the
-    boundary-root integrator differentiates the moving interval endpoints and
+    The boundary-root integrator differentiates the moving interval endpoints;
     its sine-squared coordinate has zero Jacobian at the limb.
     """
 
@@ -31,6 +29,3 @@ def linear_limb_intensity(d: Union[float, Array], u1: float = 0.0) -> Union[floa
     normalization = 3.0 / (jnp.pi * (3.0 - u1))
     intensity = normalization * (1.0 - u1 * (1.0 - mu))
     return jnp.where(d <= 1.0, intensity, 0.0)
-
-
-# @partial(jit, static_argnames=("u1"))

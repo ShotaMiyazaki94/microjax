@@ -141,7 +141,7 @@ def evaluate_profile(
     points: jax.Array,
     args: argparse.Namespace,
 ) -> ProfileResult:
-    mag_binary = make_mag_binary(config=BinaryMagConfig(n_limb=args.n_limb))
+    mag_binary = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=args.n_limb))
     timing_solver = VBMicrolensing.VBMicrolensing()
     timing_solver.RelTol = VBML_TIMING_TOL
     timing_solver.Tol = VBML_TIMING_TOL

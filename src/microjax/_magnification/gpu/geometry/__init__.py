@@ -11,7 +11,3 @@ source-centred radius for non-uniform brightness profiles.
 This layer may depend on point-source lens geometry, but never on quadrature
 rules or the high-level light-curve scheduler.
 """
-
-from .lens import BinaryGeometry, binary_geometry
-
-__all__ = ["BinaryGeometry", "binary_geometry"]

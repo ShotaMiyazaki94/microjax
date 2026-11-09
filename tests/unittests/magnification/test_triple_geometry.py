@@ -1,8 +1,8 @@
 import jax.numpy as jnp
 import numpy as np
 
-from microjax._magnification.lightcurve import _triple_prefilter
-from microjax._magnification.geometry.limb import calc_source_limb
+from microjax._magnification.gpu.lightcurve import _triple_prefilter
+from microjax._magnification.gpu.geometry.limb import calc_source_limb
 from microjax.lens_geometry import triple_lens_geometry
 from microjax.multipole import mag_hexadecapole
 from microjax.point_source import _images_point_source, lens_eq, mag_point_source

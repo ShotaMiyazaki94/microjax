@@ -7,7 +7,7 @@ from jax import lax
 
 from microjax.lens_geometry import triple_lens_geometry
 from ..geometry.limb import calc_source_limb
-from ..geometry.lens import binary_geometry
+from ...geometry import binary_geometry
 from ..geometry.mapping import distance_from_source
 from ..geometry.topology import (
     RADIAL_CAPACITY,
@@ -38,7 +38,7 @@ from .charts import (
     _planetary_mixed_topology,
     _triple_compact_mixed_topology,
 )
-from .cartesian_gpu import cartesian_limb_dark_from_trace_gpu
+from .cartesian import cartesian_limb_dark_from_trace
 from .common import (
     Array,
     BoundaryMagnificationResult,
@@ -181,7 +181,7 @@ def mag_radial_profile_boundary(
             w_center, rho, nested_limb_count, nlenses=2, **lens_params
         )
         if _planetary_cartesian_chart:
-            cartesian = cartesian_limb_dark_from_trace_gpu(
+            cartesian = cartesian_limb_dark_from_trace(
                 nested_image_limb,
                 nested_mask_limb,
                 jnp.asarray(w_center),

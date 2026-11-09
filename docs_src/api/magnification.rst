@@ -5,6 +5,7 @@ Choose an integrator when creating a light-curve function, then call
 ``lightcurve(parameters, times, u1=...)``. See :doc:`../usage` for
 a worked binary event and :doc:`../autodiff` for parameter derivatives.
 The position-based functions below support custom source trajectories.
+CPU is the default; use ``backend="gpu"`` to select the GPU implementation.
 
 Event light curves
 ------------------
@@ -54,8 +55,8 @@ elsewhere, use the position-based functions. For example:
 
 Here ``w`` is a one-dimensional complex array. The result has one
 magnification per position. The module-level ``mj.mag_binary`` and
-``mj.mag_triple`` use the default GPU settings; the factories let
-you choose settings once for repeated calls.
+``mj.mag_triple`` use the CPU integrator. The factories select either
+backend once, with the same physical arguments and array output.
 
 .. autofunction:: microjax.mag_binary
 
@@ -125,7 +126,7 @@ GPU configuration
 -----------------
 
 Pass a configuration object when creating a function, for example
-``make_binary_lightcurve(config=BinaryMagConfig(source_tile_size=256))``.
+``make_binary_lightcurve(backend="gpu", config=BinaryMagConfig(source_tile_size=256))``.
 The CPU integrator uses internal settings and does not accept ``config``.
 
 .. list-table::

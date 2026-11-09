@@ -2,12 +2,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from microjax._magnification.roots.angular import (
+from microjax._magnification.gpu.roots.angular import (
     ANGULAR_OK,
     angular_measure_triple_roots,
     evaluate_fourier,
 )
-from microjax._magnification.roots.level_set import (
+from microjax._magnification.gpu.roots.level_set import (
     triple_level_set,
     triple_level_set_fourier,
 )

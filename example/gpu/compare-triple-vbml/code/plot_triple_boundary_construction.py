@@ -10,11 +10,11 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 
-from microjax._magnification.geometry.limb import calc_source_limb
+from microjax._magnification.gpu.geometry.limb import calc_source_limb
 from microjax.lens_geometry import triple_lens_geometry
-from microjax._magnification.geometry.topology import define_radial_topology
-from microjax._magnification.roots.angular import angular_intervals_triple_roots
-from microjax._magnification.roots.level_set import triple_level_set
+from microjax._magnification.gpu.geometry.topology import define_radial_topology
+from microjax._magnification.gpu.roots.angular import angular_intervals_triple_roots
+from microjax._magnification.gpu.roots.level_set import triple_level_set
 from microjax.point_source import critical_and_caustic_curves
 
 

@@ -52,17 +52,18 @@ The :doc:`benchmarks` use this approach for magnifications and Jacobians.
 CPU and GPU
 -----------
 
-Select the implementation when creating the light-curve function:
+Select the implementation when creating the light-curve function. CPU is
+the default; both accept the same event parameters and observation times:
 
 .. code-block:: python
 
    import microjax as mj
 
-   lightcurve = mj.make_binary_lightcurve(backend="cpu")
+   cpu_lightcurve = mj.make_binary_lightcurve(backend="cpu")
+   gpu_lightcurve = mj.make_binary_lightcurve(backend="gpu")
 
-Use ``backend="gpu"`` for the GPU implementation; this is the
-default. The returned function takes event parameters and times. To tune
-GPU batching, pass a configuration when you create it:
+CPU integration uses its internal adaptive settings. To tune GPU batching,
+pass a configuration when you create the function:
 
 .. code-block:: python
 

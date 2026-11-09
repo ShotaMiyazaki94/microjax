@@ -64,7 +64,7 @@ def test_triple_forward_jacobian_matches_independent_reference():
     times = [reference["observation_time"]] + [
         case["observation_time"] for case in REFERENCES["critical_forward_jacobians"]
     ]
-    lightcurve = make_triple_lightcurve(backend="cpu")
+    lightcurve = make_triple_lightcurve()
     parameters = jnp.asarray(reference["parameters"])
 
     # VBM Tol=RelTol=1e-9, centered finite differences, independent of the

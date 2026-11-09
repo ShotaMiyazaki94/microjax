@@ -7,7 +7,7 @@ from ._magnification.api import (
     make_binary_lightcurve,
     make_triple_lightcurve,
 )
-from ._magnification.config import BinaryMagConfig, TripleMagConfig
+from ._magnification.gpu.config import BinaryMagConfig, TripleMagConfig
 from ._magnification.cpu.result import CpuMagnificationResult
 
 __all__ = [

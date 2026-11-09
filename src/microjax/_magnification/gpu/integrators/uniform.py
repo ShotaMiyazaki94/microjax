@@ -5,7 +5,7 @@ from typing import Union
 import jax.numpy as jnp
 
 from ..geometry.limb import calc_source_limb
-from ..geometry.lens import binary_geometry
+from ...geometry import binary_geometry
 from ..geometry.topology import (
     RADIAL_CAPACITY,
     RADIAL_INTERVAL_CAPACITY,

@@ -6,7 +6,7 @@ This release introduces a new API for binary- and triple-lens modeling.
 
 - Import `mag_binary` and `mag_triple` directly from `microjax` to calculate
   magnification at source positions. Use `make_mag_binary` or `make_mag_triple`
-  to choose `backend="cpu"` or `backend="gpu"` once; GPU is the default.
+  to choose `backend="cpu"` or `backend="gpu"` once; CPU is the default.
 - For event modeling, `make_binary_lightcurve` and `make_triple_lightcurve`
   return `lightcurve(parameters, times, u1=...)`. Binary parameters are
   `[t0, tE, u0, q, s, alpha, rho]`; triples append `[q3, r3, psi]`.
@@ -21,6 +21,8 @@ This release introduces a new API for binary- and triple-lens modeling.
   derivatives, plus CPU accuracy and speed maps against VBMicrolensing.
 - Removed the old dense-grid, retry, and contour implementations and their
   separate APIs. Numerical internals now live under `microjax._magnification`.
+  CPU and GPU implementations have sibling `cpu/` and `gpu/` packages, with
+  common geometry and multipole selection alongside the API.
 - Single-lens modeling has moved to
   [singlens](https://github.com/ShotaMiyazaki94/singlens).
 

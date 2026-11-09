@@ -5,13 +5,13 @@ import pytest
 from tests.utils.gpu import has_cuda
 from microjax import make_mag_binary
 
-import microjax._magnification.lightcurve as lightcurve_module
-from microjax._magnification.lightcurve import (
+import microjax._magnification.gpu.lightcurve as lightcurve_module
+from microjax._magnification.gpu.lightcurve import (
     _tiled_vmap_active_scalar,
     _select_full_points,
 )
-from microjax._magnification.config import BinaryMagConfig, DEFAULT_BINARY_CONFIG
-from microjax._magnification.integrators import (
+from microjax._magnification.gpu.config import BinaryMagConfig, DEFAULT_BINARY_CONFIG
+from microjax._magnification.gpu.integrators import (
     BoundaryMagnificationResult,
     mag_limb_dark_boundary,
     mag_uniform_boundary,
@@ -122,7 +122,7 @@ def test_small_q_public_path_matches_local_chart_value_and_forward_q():
     point = 0.9699918738276432 - 0.001572032916854858j
     rho, s = 1e-4, 1.6
     q = jnp.asarray(1e-4)
-    mag = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mag = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
 
     def public(mass_ratio):
         return mag(
@@ -204,7 +204,7 @@ def test_binary_scheduler_config_reaches_source_and_radial_batches(monkeypatch, 
 
     points = jnp.arange(5, dtype=jnp.float64).astype(jnp.complex128)
     config = BinaryMagConfig(n_limb=64, source_tile_size=3, radial_chunk_size=64)
-    result = lightcurve_module._mag_binary_single_pass_impl.__wrapped__(
+    result = lightcurve_module.mag_binary.__wrapped__(
         points,
         1e-2,
         s=1.0,
@@ -232,7 +232,7 @@ def test_far_field_uses_multipole_matches_internal():
     z, z_mask = _images_point_source(w_shift, nlenses=2, a=a, e1=e1)
     mu_multi, _ = mag_hexadecapole(z, z_mask, rho, nlenses=2, a=a, e1=e1, s=s, q=q)
 
-    mag = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mag = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
     mags = mag(
         w,
         rho,
@@ -256,7 +256,7 @@ def test_boundary_lightcurve_supports_linear_limb_darkening():
         Nlimb=500,
         angular_atol=1e-5,
     )
-    mag = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mag = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
     result = mag(
         jnp.asarray([point]),
         rho,
@@ -290,7 +290,7 @@ def test_binary_lightcurve_matches_vbml(s, q, u0, tE, rho, alpha):
     params_vb = [jnp.log(s), jnp.log(q), u0, alpha - jnp.pi, jnp.log(rho), jnp.log(tE), t0]
     mag_vb, _, _ = jnp.array(vbml.BinaryLightCurve(params_vb, t))
 
-    mag = make_mag_binary(config=BinaryMagConfig(n_limb=500))
+    mag = make_mag_binary(backend="gpu", config=BinaryMagConfig(n_limb=500))
     mags = mag(
         w,
         rho,

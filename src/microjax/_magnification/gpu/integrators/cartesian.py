@@ -17,7 +17,7 @@ import numpy as np
 
 from microjax.point_source import lens_eq
 from microjax.poly_solver import poly_roots
-from ..geometry.lens import binary_geometry
+from ...geometry import binary_geometry
 from ..geometry.topology import RADIAL_OK, RADIAL_TOPOLOGY, track_limb_images
 from .common import Array
 
@@ -199,7 +199,7 @@ def _negative_intervals(coefficients: Array):
     return lower, upper, active, invalid
 
 
-def cartesian_limb_dark_from_trace_gpu(
+def cartesian_limb_dark_from_trace(
     image_limb: Array,
     mask_limb: Array,
     w_center: Array,

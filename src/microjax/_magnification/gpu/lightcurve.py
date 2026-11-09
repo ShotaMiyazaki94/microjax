@@ -1,58 +1,18 @@
-"""Finite-source binary- and triple-lens light curves.
-
-Use :func:`microjax.mag_binary` and :func:`microjax.mag_triple` with a complex source trajectory.
-For source positions sufficiently far from caustics, microJAX uses a fast
-finite-source approximation. Where a full calculation is needed, it traces
-the lensed images of the circular source boundary and integrates the enclosed
-brightness.
-
-Both functions support a uniform source (``u1=0``) and linear limb darkening
-(``u1>0``). They are designed for JAX compilation, vectorization, and
-forward-mode automatic differentiation.
-
-The CPU implementation can return diagnostic status flags with each value.
-The GPU implementation returns ``NaN`` for detected calculation
-failures.
-"""
+"""GPU trajectory evaluation: compact sources and integrate image boundaries."""
 
 from functools import partial
 
 import jax.numpy as jnp
 from jax import jit, lax, vmap
 
-from .config import (
-    DEFAULT_BINARY_CONFIG,
-    DEFAULT_TRIPLE_CONFIG,
-    BinaryMagConfig,
-    TripleMagConfig,
-)
-from .geometry.lens import binary_geometry
-from microjax.lens_geometry import triple_lens_geometry
-from .selection import (
-    _caustics_proximity_test,
-    _planetary_caustic_test,
-)
-from .integrators import (
-    mag_limb_dark_boundary,
-    mag_uniform_boundary,
-    mag_uniform_triple_boundary,
-)
-from .roots.angular import (
-    ANGULAR_CAPACITY,
-    ANGULAR_DEGENERATE,
-    ANGULAR_ROOT_FAILURE,
-)
+from .config import DEFAULT_BINARY_CONFIG, DEFAULT_TRIPLE_CONFIG, BinaryMagConfig, TripleMagConfig
+from .integrators import mag_limb_dark_boundary, mag_uniform_boundary, mag_uniform_triple_boundary
 from .geometry.topology import RADIAL_CAPACITY, RADIAL_TOPOLOGY
+from .roots.angular import ANGULAR_CAPACITY, ANGULAR_DEGENERATE, ANGULAR_ROOT_FAILURE
+from ..selection import _binary_prefilter, _caustics_proximity_test
+from microjax.lens_geometry import triple_lens_geometry
 from microjax.multipole import mag_hexadecapole
 from microjax.point_source import _images_point_source
-from .cpu.lightcurve import (
-    mag_cpu_hybrid_lightcurve,
-)
-
-from .cpu.lens import binary_lens, triple_lens, source_polynomial
-from .cpu.support import polish_images, physical_image_mask
-from .cpu.result import CpuMagnificationResult, INVALID_ROOTS, NONFINITE
-from microjax.poly_solver import poly_roots
 
 # Consistent array alias used across modules
 Array = jnp.ndarray
@@ -108,99 +68,6 @@ def _tiled_vmap_active_scalar(func, data, n_active, tile_size):
     return values.reshape(-1)[:n_items]
 
 
-def _binary_prefilter(
-    w_points: Array,
-    rho: float,
-    u1: float,
-    s: float,
-    q: float,
-    c_m: float = 1.0e-2,
-    c_f: float = 5.0,
-    gamma: float = 2.0e-2,
-) -> tuple[Array, Array, Array, Array]:
-    """Return the profile value and profile-independent trigger diagnostics."""
-
-    lens = binary_geometry(s, q)
-    w_points_shifted = w_points - lens.shifted
-
-    z, z_mask = _images_point_source(w_points_shifted, nlenses=2, a=lens.a, e1=lens.e1)
-    # One geometric expansion supplies both the requested coefficient and
-    # the coefficient-independent (u1=0) shortcut gate. The singleton image
-    # axis broadcasts only the final profile weights, including when u1=0.
-    magnification, correction = mag_hexadecapole(
-        z[..., None],
-        z_mask[..., None],
-        rho,
-        nlenses=2,
-        u1=jnp.stack((u1, jnp.zeros_like(u1))),
-        s=s,
-        q=q,
-        a=lens.a,
-        e1=lens.e1,
-    )
-    mu_multi = magnification[..., 0]
-    trigger_mu_multi = magnification[..., 1]
-    trigger_delta_mu_multi = correction[..., 1]
-    test1 = _caustics_proximity_test(
-        w_points_shifted,
-        z,
-        z_mask,
-        rho,
-        trigger_delta_mu_multi,
-        nlenses=2,
-        s=s,
-        q=q,
-        a=lens.a,
-        e1=lens.e1,
-        c_m=c_m,
-        c_f=c_f,
-        gamma=gamma,
-    )
-    accepted = lax.cond(
-        q < 0.01,
-        lambda _: (test1 & _planetary_caustic_test(w_points_shifted, rho, s=s, q=q, a=lens.a, e1=lens.e1)),
-        lambda _: test1,
-        operand=None,
-    )
-    trigger_scale = jnp.maximum(jnp.abs(trigger_mu_multi), 1.0)
-    return mu_multi, accepted, trigger_delta_mu_multi, trigger_scale
-
-
-@jit
-def _mag_binary_cpu_impl(
-    w_points: Array,
-    rho: float,
-    *,
-    s: float,
-    q: float,
-    u1: float,
-):
-    """Fuse the CPU multipole prefilter and selected one-shot scheduler."""
-
-    # Full-solve triggering is deliberately profile-independent: uniform and
-    # limb-darkened sources use the same geometric multipole selector.  A
-    # formerly relaxed uniform-only gate admitted non-convergent
-    # hexadecapole series for source discs intersecting a close-binary
-    # caustic, while the identical LD geometry correctly entered full ICRS.
-    multipole, accepted, multipole_error, multipole_trigger_scale = _binary_prefilter(
-        w_points,
-        rho,
-        u1,
-        s,
-        q,
-    )
-    return mag_cpu_hybrid_lightcurve(
-        w_points,
-        multipole,
-        accepted,
-        multipole_error,
-        multipole_trigger_scale,
-        rho,
-        lens=binary_lens(s, q),
-        u1=u1,
-    )
-
-
 def _triple_prefilter(
     w_points: Array,
     rho: float,
@@ -242,71 +109,6 @@ def _triple_prefilter(
         **lens_params,
     )
     return mu_multi, accepted
-
-
-@jit
-def _mag_triple_cpu_impl(w_points, rho, *, s, q, q3, r3, psi, u1):
-    """Use CPU image roots, a profile-independent gate, and the shared integrator."""
-    w_points = jnp.asarray(w_points)
-    if w_points.shape[0] == 0:
-        return CpuMagnificationResult(jnp.zeros_like(w_points.real), jnp.zeros(w_points.shape, dtype=jnp.int32))
-    lens = triple_lens(s, q, q3, r3, psi)
-    geometry = triple_lens_geometry(s, q, q3, r3, psi)
-    distances = jnp.abs(lens.positions[:, None] - lens.positions[None, :])
-    valid_lens = (
-        jnp.all(jnp.isfinite(lens.positions))
-        & jnp.all(jnp.isfinite(lens.masses) & (lens.masses > 0))
-        & jnp.all((distances > 0) | jnp.eye(3, dtype=bool))
-        & (s > 0)
-        & (rho > 0)
-    )
-
-    def evaluate(_):
-        coefficients, image_shift = vmap(lambda w: source_polynomial(w, lens))(w_points)
-        images = poly_roots(coefficients) + image_shift[:, None]
-        images = vmap(lambda z, w: polish_images(z, w, lens))(images, w_points)
-        mask = vmap(lambda z, w: physical_image_mask(z, w, lens))(images, w_points)
-        # Multipole utilities use the internal midpoint frame and image-first axes.
-        z = (images - geometry.shifted).T
-        z_mask = mask.T
-        parameters = dict(a=geometry.a, e1=geometry.e1, e2=geometry.e2, r3=r3, psi=psi, r3_complex=geometry.r3_complex)
-        values, corrections = mag_hexadecapole(
-            z[..., None],
-            z_mask[..., None],
-            rho,
-            nlenses=3,
-            u1=jnp.stack((u1, jnp.zeros_like(u1))),
-            **parameters,
-        )
-        accepted = _caustics_proximity_test(
-            w_points - geometry.shifted,
-            z,
-            z_mask,
-            rho,
-            corrections[..., 1],
-            nlenses=3,
-            **parameters,
-        )
-        count = jnp.sum(mask, axis=-1)
-        accepted = accepted & (count >= 4) & (count % 2 == 0)
-        return mag_cpu_hybrid_lightcurve(
-            w_points,
-            values[..., 0],
-            accepted,
-            corrections[..., 1],
-            jnp.maximum(jnp.abs(values[..., 1]), 1.0),
-            rho,
-            lens=lens,
-            u1=u1,
-        )
-
-    def invalid(_):
-        return CpuMagnificationResult(
-            jnp.full(w_points.shape, jnp.nan, dtype=w_points.real.dtype),
-            jnp.full(w_points.shape, INVALID_ROOTS | NONFINITE, dtype=jnp.int32),
-        )
-
-    return lax.cond(valid_lens, evaluate, invalid, operand=None)
 
 
 def _select_full_points(w_points: Array, accepted: Array) -> tuple[Array, Array, Array]:
@@ -354,7 +156,7 @@ def _validated_magnification(result):
     jit,
     static_argnames=("u1", "config"),
 )
-def _mag_binary_single_pass_impl(
+def mag_binary(
     w_points: Array,
     rho: float,
     *,
@@ -471,7 +273,7 @@ def _mag_binary_single_pass_impl(
     jit,
     static_argnames=("u1", "config"),
 )
-def _mag_triple_single_pass_impl(
+def mag_triple(
     w_points: Array,
     rho: float,
     *,

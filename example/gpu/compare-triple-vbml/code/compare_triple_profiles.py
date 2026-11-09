@@ -167,7 +167,7 @@ def evaluate_profile(
     args: argparse.Namespace,
 ) -> ProfileResult:
     jax_positions = jnp.asarray(positions)
-    mag_triple = make_mag_triple(config=TripleMagConfig(n_limb=args.n_limb))
+    mag_triple = make_mag_triple(backend="gpu", config=TripleMagConfig(n_limb=args.n_limb))
 
     def evaluate_gpu():
         return mag_triple(

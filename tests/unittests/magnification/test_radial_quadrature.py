@@ -2,12 +2,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from microjax._magnification.geometry.topology import (
+from microjax._magnification.gpu.geometry.topology import (
     RADIAL_CAPACITY,
     RADIAL_OK,
     RADIAL_TOLERANCE,
 )
-from microjax._magnification.quadrature.radial import (
+from microjax._magnification.gpu.quadrature.radial import (
     RadialIntegrand,
     _refine_cell_uniform,
     adaptive_radial_integral,

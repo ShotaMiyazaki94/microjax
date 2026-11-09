@@ -3,14 +3,14 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from microjax._magnification.roots.angular import ANGULAR_OK
-from microjax._magnification.integrators import (
+from microjax._magnification.gpu.roots.angular import ANGULAR_OK
+from microjax._magnification.gpu.integrators import (
     mag_limb_dark_boundary,
     mag_radial_profile_boundary,
     mag_uniform_triple_boundary,
 )
-from microjax._magnification.integrators.triple import _compact_edge_intensity, _hard_value_soft_jvp
-from microjax._magnification.geometry.topology import _polish_sampled_turning_radii
+from microjax._magnification.gpu.integrators.triple import _compact_edge_intensity, _hard_value_soft_jvp
+from microjax._magnification.gpu.geometry.topology import _polish_sampled_turning_radii
 from microjax.point_source import mag_point_source
 
 PARAMS = {"s": 0.9, "q": 0.3, "q3": 0.2, "r3": 0.4, "psi": 0.7}
