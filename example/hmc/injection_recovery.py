@@ -57,7 +57,6 @@ DATA_SEED = 20261109
 NUM_OBSERVATIONS = 360
 RELATIVE_NOISE = 0.03
 MAX_TREE_DEPTH = 10
-POSTERIOR_CURVES = 64
 
 
 def physical_parameters(unit):
@@ -177,7 +176,6 @@ def save_model_curves(output, forward_model):
     times, flux, error = map(jnp.asarray, (times, flux, error))
     conditional_flux = jax.jit(lambda magnification: flux_terms(magnification, flux, error)[2:])
     rng = np.random.default_rng(config["sampler_seed"] + 1)
-    indices = rng.choice(len(parameters), size=min(POSTERIOR_CURVES, len(parameters)), replace=False)
     print(f"Drawing conditional source/blend fluxes for {len(parameters)} posterior samples.", flush=True)
     flux_draws = []
     for parameters_i in parameters:
@@ -187,11 +185,10 @@ def save_model_curves(output, forward_model):
     flux_draws = np.stack(flux_draws)
 
     injected = config["flux_truth"][0] * forward_model(jnp.asarray(config["truth"]), grid) + config["flux_truth"][1]
-    print(f"Evaluating {len(indices)} posterior curves at {grid.size} plotting times.", flush=True)
+    print(f"Evaluating {len(parameters)} posterior curves at {grid.size} plotting times.", flush=True)
     curves = []
-    for i in indices:
-        magnification = forward_model(jnp.asarray(parameters[i]), grid)
-        draw = flux_draws[i]
+    for parameters_i, draw in zip(parameters, flux_draws):
+        magnification = forward_model(jnp.asarray(parameters_i), grid)
         curves.append(np.asarray(magnification) * draw[0] + draw[1])
     curves = np.stack(curves)
     np.savez_compressed(
@@ -200,7 +197,6 @@ def save_model_curves(output, forward_model):
         model_flux=curves,
         injected_flux=np.asarray(injected),
         flux_draws=flux_draws,
-        sample_indices=indices,
     )
 
 

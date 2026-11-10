@@ -28,8 +28,8 @@ tree-depth limit. Effective sample sizes (ESS) range from 308 to 687.
 
    Full event and a closer view of the peak. Grey points are the 360
    observations; orange is the injected curve. Blue shows the median and
-   central 68% model interval from 64 posterior draws, including the uncertainty
-   in source and blend fluxes. Models are evaluated at 5,519 times, with
+   central 68% model interval from all 1,000 posterior draws, including
+   uncertainty in source and blend fluxes. Models are evaluated at 5,519 times, with
    spacing at most 0.0025 days around the peak.
 
 The lower panels use the **injected curve as the common reference**. Grey
@@ -189,7 +189,7 @@ inverse covariance :math:`B=\Lambda^{-1}+M^\mathsf{T}V^{-1}M` and mean
 :math:`B^{-1}M^\mathsf{T}V^{-1}f`. After NUTS, we draw the two fluxes jointly
 for each saved event sample. These nine-variable samples retain both the
 flux uncertainties and their correlations with the event parameters in
-the corner plot. The 64 model curves use a subset of the same samples.
+the corner plot. The model curves use all 1,000 of the same joint samples.
 
 The NumPyro model therefore samples only the seven event parameters:
 
@@ -232,10 +232,10 @@ Saved output
 angles remain in radians. These files are saved before the model curves
 are evaluated.
 
-``curves.npz`` stores a separate dense time grid, the injected curve, and 64
-posterior flux curves. Its ``flux_draws`` array has shape ``(1000, 2)``:
+``curves.npz`` stores a separate dense time grid, the injected curve, and all
+1,000 posterior flux curves. Its ``flux_draws`` array has shape ``(1000, 2)``:
 each row contains :math:`F_s` and :math:`F_b` for the corresponding saved
-event sample. ``sample_indices`` selects the 64 pairs used for the curves.
+event sample. Rows of ``model_flux`` follow the same sample order.
 The fluxes are conditioned on the observations. Extra plotting times add
 resolution to the figure and do not enter the likelihood.
 

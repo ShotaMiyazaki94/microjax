@@ -41,7 +41,7 @@ The script saves data, samples, diagnostics, model curves, and two figures:
 
 For each of the 1,000 event samples, source and blend fluxes are drawn jointly
 from their conditional Gaussian posterior. The corner plot includes all nine
-variables; the model interval uses 64 of the same joint samples.
+variables; the model interval uses all 1,000 of the same joint samples.
 The tutorial shows this 360-point, 3%-noise run: NUTS took 190 seconds
 including compilation and warm-up. The tutorial includes posterior summaries
 and sampler diagnostics.
